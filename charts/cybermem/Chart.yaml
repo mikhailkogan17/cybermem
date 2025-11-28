@@ -1,0 +1,23 @@
+apiVersion: v2
+name: cybermem
+description: OpenMemory + DevOps monitoring stack with per-client metrics
+type: application
+version: 0.1.0
+appVersion: "1.0.0"
+
+keywords:
+  - openmemory
+  - ai
+  - memory
+  - monitoring
+  - prometheus
+  - grafana
+
+maintainers:
+  - name: Mikhail Kogan
+    email: mikhail@example.com
+
+home: https://github.com/mikhailkogan/cybermem
+sources:
+  - https://github.com/CaviraOSS/OpenMemory
+  - https://github.com/mikhailkogan/cybermem

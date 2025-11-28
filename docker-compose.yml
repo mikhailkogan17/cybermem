@@ -1,0 +1,190 @@
+version: '3.8'
+
+# CyberMem - OpenMemory + DevOps monitoring stack
+# For local development only
+# Production deployment: use Helm chart (charts/cybermem/)
+
+services:
+  traefik:
+    image: traefik:v3.0
+    container_name: cybermem-traefik
+    command:
+      - --api.dashboard=true
+      - --api.insecure=true
+      - --providers.docker=true
+      - --providers.docker.exposedbydefault=false
+      - --entrypoints.web.address=:80
+      - --accesslog=true
+      - --accesslog.filepath=/var/log/traefik/access.log
+      - --accesslog.format=json
+    ports:
+      - "80:80"
+      - "8081:8080"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./monitoring/traefik/traefik.yml:/etc/traefik/traefik.yml:ro
+      - traefik-logs:/var/log/traefik
+    labels:
+      - traefik.enable=true
+    restart: unless-stopped
+
+  openmemory:
+    build:
+      context: ./external/openmemory/backend
+      dockerfile: Dockerfile
+    image: cybermem-openmemory:latest
+    container_name: cybermem-openmemory
+    environment:
+      # Core settings
+      OM_PORT: "8080"
+      OM_TIER: "hybrid"
+      OM_API_KEY: ${OM_API_KEY:-dev-secret-key}
+
+      # Embeddings (local dev uses Ollama)
+      OM_EMBEDDINGS: ${EMBEDDINGS_PROVIDER:-ollama}
+      OLLAMA_URL: ${OLLAMA_URL:-http://ollama:11434}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+
+      # Database (local dev uses SQLite)
+      OM_METADATA_BACKEND: ${DB_BACKEND:-sqlite}
+      OM_DB_PATH: ${DB_PATH:-/data/openmemory.sqlite}
+      OM_VECTOR_BACKEND: ${VECTOR_BACKEND:-sqlite}
+
+      # PostgreSQL (for production/testing)
+      OM_PG_HOST: ${PG_HOST:-postgres}
+      OM_PG_PORT: ${PG_PORT:-5432}
+      OM_PG_DB: ${PG_DB:-openmemory}
+      OM_PG_USER: ${PG_USER:-openmemory}
+      OM_PG_PASSWORD: ${PG_PASSWORD:-}
+
+      # Performance
+      OM_RATE_LIMIT_ENABLED: "true"
+      OM_RATE_LIMIT_MAX_REQUESTS: "100"
+    ports:
+      - "8080:8080"
+    volumes:
+      - openmemory-data:/data
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.openmemory.rule=Host(`openmemory.localhost`) || PathPrefix(`/api`)
+      - traefik.http.services.openmemory.loadbalancer.server.port=8080
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    restart: unless-stopped
+    depends_on:
+      - traefik
+
+  vector:
+    image: timberio/vector:0.34.0-alpine
+    container_name: cybermem-vector
+    ports:
+      - "9091:9091"
+    volumes:
+      - ./monitoring/vector/vector.toml:/etc/vector/vector.toml:ro
+      - traefik-logs:/var/log/traefik:ro
+    restart: unless-stopped
+    depends_on:
+      - traefik
+
+  postgres:
+    image: postgres:15-alpine
+    container_name: cybermem-postgres
+    environment:
+      POSTGRES_DB: ${PG_DB:-openmemory}
+      POSTGRES_USER: ${PG_USER:-openmemory}
+      POSTGRES_PASSWORD: ${PG_PASSWORD:-postgres}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${PG_USER:-openmemory}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    profiles:
+      - postgres
+
+  postgres-exporter:
+    image: prometheuscommunity/postgres-exporter:v0.15.0
+    container_name: cybermem-postgres-exporter
+    environment:
+      DATA_SOURCE_NAME: postgresql://${PG_USER:-openmemory}:${PG_PASSWORD:-postgres}@postgres:5432/${PG_DB:-openmemory}?sslmode=disable
+      PG_EXPORTER_EXTEND_QUERY_PATH: /queries.yml
+    ports:
+      - "9187:9187"
+    volumes:
+      - ./monitoring/postgres_exporter/queries.yml:/queries.yml:ro
+    restart: unless-stopped
+    depends_on:
+      - postgres
+    profiles:
+      - postgres
+
+  ollama:
+    image: ollama/ollama:latest
+    container_name: cybermem-ollama
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama-models:/root/.ollama
+    restart: unless-stopped
+    profiles:
+      - ollama
+
+  prometheus:
+    image: prom/prometheus:v2.48.0
+    container_name: cybermem-prometheus
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      - --storage.tsdb.retention.time=${PROM_RETENTION:-7d}
+      - --web.console.libraries=/usr/share/prometheus/console_libraries
+      - --web.console.templates=/usr/share/prometheus/consoles
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+    restart: unless-stopped
+    depends_on:
+      - vector
+
+  grafana:
+    image: grafana/grafana:10.2.2
+    container_name: cybermem-grafana
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_PASSWORD:-admin}
+      GF_USERS_ALLOW_SIGN_UP: "false"
+    ports:
+      - "3000:3000"
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./monitoring/grafana/dashboards:/etc/grafana/provisioning/dashboards:ro
+    restart: unless-stopped
+    depends_on:
+      - prometheus
+
+volumes:
+  openmemory-data:
+    name: cybermem-openmemory-data
+  postgres-data:
+    name: cybermem-postgres-data
+  ollama-models:
+    name: cybermem-ollama-models
+  traefik-logs:
+    name: cybermem-traefik-logs
+  prometheus-data:
+    name: cybermem-prometheus-data
+  grafana-data:
+    name: cybermem-grafana-data
+
+networks:
+  default:
+    name: cybermem-network

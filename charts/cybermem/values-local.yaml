@@ -1,0 +1,40 @@
+# Local development overrides
+# Usage: helm install cybermem charts/cybermem -f charts/cybermem/values-local.yaml
+
+openmemory:
+  replicas: 1
+  config:
+    apiKey: "dev-secret-key"
+    embeddings:
+      provider: "ollama"
+      openaiApiKey: ""
+      ollamaUrl: "http://ollama:11434"
+    database:
+      backend: "sqlite"
+
+# Enable Ollama for local development
+ollama:
+  enabled: true
+  resources:
+    limits:
+      memory: 4Gi
+
+# Disable PostgreSQL for local (use SQLite)
+postgres:
+  enabled: false
+
+postgresExporter:
+  enabled: false
+
+# Monitoring with short retention
+prometheus:
+  retention: "7d"
+  resources:
+    limits:
+      memory: 512Mi
+
+grafana:
+  adminPassword: "admin"
+  resources:
+    limits:
+      memory: 256Mi

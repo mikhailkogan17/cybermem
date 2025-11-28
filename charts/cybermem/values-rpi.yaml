@@ -1,0 +1,52 @@
+# Raspberry Pi overrides
+# Optimized for low memory (1GB total)
+# Usage: helm install cybermem charts/cybermem -f charts/cybermem/values-rpi.yaml
+
+openmemory:
+  replicas: 1
+  config:
+    apiKey: "rpi-secret-key"
+    embeddings:
+      provider: "ollama"
+      openaiApiKey: ""
+      ollamaUrl: "http://ollama:11434"
+    database:
+      backend: "sqlite"
+
+  resources:
+    limits:
+      memory: 256Mi
+    requests:
+      memory: 128Mi
+      cpu: 100m
+
+# Ollama with limited resources
+ollama:
+  enabled: true
+  resources:
+    limits:
+      memory: 512Mi
+
+# Disable PostgreSQL (SQLite only)
+postgres:
+  enabled: false
+
+postgresExporter:
+  enabled: false
+
+# Monitoring with strict limits
+prometheus:
+  retention: "3d"
+  resources:
+    limits:
+      memory: 128Mi
+  persistence:
+    size: 2Gi
+
+grafana:
+  adminPassword: "admin"
+  resources:
+    limits:
+      memory: 128Mi
+  persistence:
+    size: 1Gi

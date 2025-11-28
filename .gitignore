@@ -1,0 +1,63 @@
+# Environment files with secrets
+.env
+.env.local
+.env.*.local
+
+# Docker volumes
+data/
+*.sqlite
+*.sqlite-shm
+*.sqlite-wal
+
+# Logs
+*.log
+logs/
+monitoring/traefik/*.log
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+venv/
+.venv/
+*.egg-info/
+
+# Node
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Kubernetes
+*.kubeconfig
+kubeconfig
+
+# Terraform
+*.tfstate
+*.tfstate.backup
+.terraform/
+.terraform.lock.hcl
+
+# Secrets
+secrets/
+*.key
+*.pem
+*.crt
+
+# Helm
+charts/*/charts/
+charts/*/Chart.lock
+
+# Generated files
+generated/

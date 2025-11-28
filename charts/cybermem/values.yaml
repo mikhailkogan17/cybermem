@@ -1,0 +1,143 @@
+# Default values for cybermem
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+
+# OpenMemory configuration
+openmemory:
+  image:
+    repository: cybermem-openmemory
+    tag: latest
+    pullPolicy: IfNotPresent
+
+  replicas: 1
+
+  config:
+    apiKey: "dev-secret-key"
+    tier: "hybrid"
+    embeddings:
+      provider: "ollama"
+      openaiApiKey: ""
+      ollamaUrl: "http://ollama:11434"
+
+    database:
+      backend: "sqlite"
+      sqlitePath: "/data/openmemory.sqlite"
+      postgres:
+        host: "postgres"
+        port: 5432
+        database: "openmemory"
+        user: "openmemory"
+        password: ""
+
+    rateLimit:
+      enabled: true
+      maxRequests: 100
+
+# Embeddings providers
+ollama:
+  enabled: true
+  image:
+    repository: ollama/ollama
+    tag: latest
+
+  resources:
+    limits:
+      memory: 4Gi
+
+  persistence:
+    enabled: true
+    size: 10Gi
+
+postgres:
+  enabled: false
+  image:
+    repository: postgres
+    tag: 15-alpine
+
+  config:
+    database: "openmemory"
+    user: "openmemory"
+    password: ""
+
+  resources:
+    limits:
+      memory: 512Mi
+
+  persistence:
+    enabled: true
+    size: 5Gi
+
+postgresExporter:
+  enabled: false
+  image:
+    repository: prometheuscommunity/postgres-exporter
+    tag: v0.15.0
+
+# Monitoring stack
+traefik:
+  enabled: true
+  image:
+    repository: traefik
+    tag: v3.0
+
+  dashboard:
+    enabled: true
+
+vector:
+  enabled: true
+  image:
+    repository: timberio/vector
+    tag: 0.34.0-alpine
+
+prometheus:
+  enabled: true
+  image:
+    repository: prom/prometheus
+    tag: v2.48.0
+
+  retention: "7d"
+
+  resources:
+    limits:
+      memory: 512Mi
+
+  persistence:
+    enabled: true
+    size: 5Gi
+
+grafana:
+  enabled: true
+  image:
+    repository: grafana/grafana
+    tag: 10.2.2
+
+  adminUser: "admin"
+  adminPassword: "admin"
+
+  resources:
+    limits:
+      memory: 256Mi
+
+  persistence:
+    enabled: true
+    size: 2Gi
+
+# Ingress configuration
+ingress:
+  enabled: false
+  className: traefik
+  annotations: {}
+  hosts:
+    - host: cybermem.localhost
+      paths:
+        - path: /
+          pathType: Prefix
+  tls: []
+
+# Resource limits (defaults)
+resources:
+  limits:
+    memory: 512Mi
+  requests:
+    memory: 256Mi
+    cpu: 100m

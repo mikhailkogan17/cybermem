@@ -1,0 +1,57 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  annotations:
+    kompose.cmd: kompose convert -f docker-compose.yml -o charts/cybermem/templates/ --volumes hostPath
+    kompose.version: 1.37.0 (HEAD)
+    traefik.enable: "true"
+  labels:
+    io.kompose.service: traefik
+  name: traefik
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      io.kompose.service: traefik
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      annotations:
+        kompose.cmd: kompose convert -f docker-compose.yml -o charts/cybermem/templates/ --volumes hostPath
+        kompose.version: 1.37.0 (HEAD)
+        traefik.enable: "true"
+      labels:
+        io.kompose.service: traefik
+    spec:
+      containers:
+        - args:
+            - --api.dashboard=true
+            - --api.insecure=true
+            - --providers.docker=true
+            - --providers.docker.exposedbydefault=false
+            - --entrypoints.web.address=:80
+            - --accesslog=true
+            - --accesslog.filepath=/var/log/traefik/access.log
+            - --accesslog.format=json
+          image: traefik:v3.0
+          name: cybermem-traefik
+          ports:
+            - containerPort: 80
+              protocol: TCP
+            - containerPort: 8080
+              protocol: TCP
+          volumeMounts:
+            - mountPath: /etc/traefik/traefik.yml
+              name: traefik-hostpath1
+              readOnly: true
+            - mountPath: /var/log/traefik
+              name: traefik-logs
+      restartPolicy: Always
+      volumes:
+        - hostPath:
+            path: /Users/mikhailkogan/cybermem/monitoring/traefik/traefik.yml
+          name: traefik-hostpath1
+        - hostPath:
+            path: /Users/mikhailkogan/cybermem
+          name: traefik-logs
