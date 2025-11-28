@@ -61,3 +61,6 @@ charts/*/Chart.lock
 
 # Generated files
 generated/
+
+# Private learning data
+.claude/
