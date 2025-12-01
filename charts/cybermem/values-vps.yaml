@@ -49,13 +49,13 @@ prometheus:
   persistence:
     size: 10Gi
 
-grafana:
-  adminPassword: "CHANGE_ME_USE_SEALED_SECRETS"
+dashboard:
   resources:
     limits:
       memory: 256Mi
-  persistence:
-    size: 5Gi
+    requests:
+      memory: 128Mi
+      cpu: 50m
 
 # Ingress for production
 ingress:

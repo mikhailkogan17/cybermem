@@ -1,7 +1,7 @@
 [sources.traefik_logs]
 type = "file"
 include = ["/var/log/traefik/access.log"]
-read_from = "end"
+read_from = "beginning"
 
 [transforms.parse_logs]
 type = "remap"

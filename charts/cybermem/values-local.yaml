@@ -33,8 +33,7 @@ prometheus:
     limits:
       memory: 512Mi
 
-grafana:
-  adminPassword: "admin"
+dashboard:
   resources:
     limits:
       memory: 256Mi

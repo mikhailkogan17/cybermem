@@ -105,22 +105,23 @@ prometheus:
     enabled: true
     size: 5Gi
 
-grafana:
+dashboard:
   enabled: true
   image:
-    repository: grafana/grafana
-    tag: 10.2.2
+    repository: cybermem-dashboard
+    tag: latest
+    pullPolicy: IfNotPresent
 
-  adminUser: "admin"
-  adminPassword: "admin"
+  service:
+    type: ClusterIP
+    port: 3000
 
   resources:
     limits:
       memory: 256Mi
-
-  persistence:
-    enabled: true
-    size: 2Gi
+    requests:
+      memory: 128Mi
+      cpu: 50m
 
 # Ingress configuration
 ingress:

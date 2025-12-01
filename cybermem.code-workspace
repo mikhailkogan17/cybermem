@@ -1,0 +1,283 @@
+{
+  "folders": [
+    {
+      "name": "CyberMem",
+      "path": "."
+    },
+    {
+      "name": "OpenMemory (submodule)",
+      "path": "external/openmemory"
+    }
+  ],
+  "settings": {
+    // ===== Editor & Files =====
+    "editor.formatOnSave": true,
+    "editor.codeActionsOnSave": {
+      "source.organizeImports": "explicit",
+      "source.fixAll": "explicit"
+    },
+    "editor.rulers": [100],
+    "files.autoSave": "afterDelay",
+    "files.autoSaveDelay": 1000,
+    "files.trimTrailingWhitespace": true,
+    "files.insertFinalNewline": true,
+    "files.associations": {
+      "Dockerfile*": "dockerfile",
+      "*.yaml": "yaml",
+      "*.yml": "yaml"
+    },
+
+    // ===== Python (Ruff) =====
+    "python.defaultInterpreterPath": "${workspaceFolder}/external/openmemory/backend/.venv/bin/python",
+    "[python]": {
+      "editor.defaultFormatter": "charliermarsh.ruff",
+      "editor.formatOnSave": true,
+      "editor.codeActionsOnSave": {
+        "source.organizeImports": "explicit",
+        "source.fixAll": "explicit"
+      }
+    },
+
+    // ===== YAML =====
+    "yaml.validate": true,
+    "yaml.format.enable": true,
+    "yaml.schemas": {
+      "https://json.schemastore.org/docker-compose.json": "docker-compose*.yml",
+      "https://json.schemastore.org/helmfile.json": "helmfile.yaml"
+    },
+    "[yaml]": {
+      "editor.defaultFormatter": "redhat.vscode-yaml",
+      "editor.autoIndent": "advanced"
+    },
+
+    // ===== JSON =====
+    "[json]": {
+      "editor.defaultFormatter": "esbenp.prettier-vscode"
+    },
+    "[jsonc]": {
+      "editor.defaultFormatter": "esbenp.prettier-vscode"
+    },
+
+    // ===== Shell/Bash =====
+    "shellcheck.enable": true,
+    "[shellscript]": {
+      "editor.defaultFormatter": "foxundermoon.shell-format",
+      "editor.tabSize": 2
+    },
+
+    // ===== Markdown =====
+    "markdown.preview.fontSize": 14,
+    "[markdown]": {
+      "editor.defaultFormatter": "yzhang.markdown-all-in-one",
+      "editor.wordWrap": "on",
+      "files.trimTrailingWhitespace": false
+    },
+
+    // ===== Kubernetes =====
+    "vs-kubernetes": {
+      "vs-kubernetes.helm-path": "/opt/homebrew/bin/helm",
+      "vs-kubernetes.kubectl-path": "/opt/homebrew/bin/kubectl",
+      "disable-linters": ["resource-limits"]
+    },
+
+    // ===== Git =====
+    "git.confirmSync": false,
+    "git.autofetch": true,
+
+    // ===== Search & Files =====
+    "files.exclude": {
+      "**/.DS_Store": true,
+      "**/__pycache__": true,
+      "**/*.pyc": true,
+      "**/.venv": true,
+      "**/node_modules": true
+    },
+    "search.exclude": {
+      "**/node_modules": true,
+      "**/.venv": true,
+      "**/external/openmemory": false,
+      "**/.git": true
+    },
+    "cSpell.ignoreRegExpList": [
+      "cybermem",
+      "openmemory",
+      "kompose",
+      "venv",
+      "tamasfe",
+      "traefik",
+      "grafana",
+      "esbenp",
+      "timonwong",
+      "accesslog",
+      "ollama",
+      ".*check",
+      "pgcrypto",
+      "debugpy",
+      "helmfile",
+      "pycache",
+      "ansible",
+      "autofetch",
+      "prometheus.*",
+      "isready",
+      "exposedbydefault",
+      "image: .*",
+      "\".*.\","
+    ]
+  },
+  "extensions": {
+    "recommendations": [
+      // Core DevOps
+      "ms-kubernetes-tools.vscode-kubernetes-tools",
+      "ms-azuretools.vscode-docker",
+
+      // Languages & Config
+      "redhat.vscode-yaml",
+      "esbenp.prettier-vscode",
+      "tamasfe.even-better-toml",
+
+      // Python
+      "ms-python.python",
+      "charliermarsh.ruff",
+
+      // Shell
+      "timonwong.shellcheck",
+      "foxundermoon.shell-format",
+
+      // Markdown
+      "yzhang.markdown-all-in-one",
+      "bierner.markdown-mermaid",
+
+      // Git
+      "eamodio.gitlens",
+
+      // Terraform (future)
+      "hashicorp.terraform",
+
+      // Utilities
+      "editorconfig.editorconfig",
+      "streetsidesoftware.code-spell-checker",
+
+      // Metrics & Monitoring
+      "prometheus-io.promql"
+    ]
+  },
+  "launch": {
+    "version": "0.2.0",
+    "configurations": [
+      {
+        "name": "Python: Current File",
+        "type": "debugpy",
+        "request": "launch",
+        "program": "${file}",
+        "console": "integratedTerminal",
+        "cwd": "${fileDirname}"
+      },
+      {
+        "name": "Docker: Attach to OpenMemory",
+        "type": "debugpy",
+        "request": "attach",
+        "connect": {
+          "host": "localhost",
+          "port": 5678
+        },
+        "pathMappings": [
+          {
+            "localRoot": "${workspaceFolder}/external/openmemory/backend",
+            "remoteRoot": "/app"
+          }
+        ]
+      }
+    ]
+  },
+  "tasks": {
+    "version": "2.0.0",
+    "tasks": [
+      {
+        "label": "Deploy: Local",
+        "type": "shell",
+        "command": "./deploy.sh --target local",
+        "group": {
+          "kind": "build",
+          "isDefault": true
+        },
+        "presentation": {
+          "reveal": "always",
+          "panel": "new"
+        }
+      },
+      {
+        "label": "Deploy: Local Down",
+        "type": "shell",
+        "command": "./deploy.sh --target local --action down"
+      },
+      {
+        "label": "Deploy: VPS",
+        "type": "shell",
+        "command": "./deploy.sh --target vps"
+      },
+      {
+        "label": "Logs: OpenMemory",
+        "type": "shell",
+        "command": "docker-compose logs -f openmemory",
+        "presentation": {
+          "reveal": "always",
+          "panel": "new"
+        }
+      },
+      {
+        "label": "Logs: Vector",
+        "type": "shell",
+        "command": "docker-compose logs -f vector"
+      },
+      {
+        "label": "Logs: All Services",
+        "type": "shell",
+        "command": "docker-compose logs -f",
+        "presentation": {
+          "reveal": "always",
+          "panel": "new"
+        }
+      },
+      {
+        "label": "K8s: Install Helm Chart",
+        "type": "shell",
+        "command": "helm upgrade --install cybermem charts/cybermem -f charts/cybermem/values-local.yaml -n cybermem --create-namespace"
+      },
+      {
+        "label": "K8s: Uninstall Helm Chart",
+        "type": "shell",
+        "command": "helm uninstall cybermem -n cybermem"
+      },
+      {
+        "label": "K8s: Port Forward Grafana",
+        "type": "shell",
+        "command": "kubectl port-forward -n cybermem svc/grafana 3000:3000",
+        "isBackground": true,
+        "presentation": {
+          "reveal": "always",
+          "panel": "new"
+        }
+      },
+      {
+        "label": "Test: Metrics Pipeline",
+        "type": "shell",
+        "command": "curl -X POST http://localhost:8080/api/store -H 'Authorization: Bearer client_123.secret' -H 'Content-Type: application/json' -d '{\"content\": \"test\", \"userId\": \"client_123\"}' && sleep 2 && curl http://localhost:9091/metrics | grep openmemory"
+      },
+      {
+        "label": "Validate: docker-compose.yml",
+        "type": "shell",
+        "command": "docker-compose config"
+      },
+      {
+        "label": "Validate: Helm Chart",
+        "type": "shell",
+        "command": "helm lint charts/cybermem"
+      },
+      {
+        "label": "Regenerate: K8s Manifests",
+        "type": "shell",
+        "command": "kompose convert -f docker-compose.yml -o charts/cybermem/templates/"
+      }
+    ]
+  }
+}

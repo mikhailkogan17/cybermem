@@ -1,0 +1,83 @@
+sources:
+  traefik_logs:
+    type: file
+    include:
+      - /var/log/traefik/access.log
+    read_from: beginning
+
+transforms:
+  parse_logs:
+    type: remap
+    inputs:
+      - traefik_logs
+    source: |
+      . = parse_json!(.message)
+
+  extract_metrics:
+    type: remap
+    inputs:
+      - parse_logs
+    source: |
+      auth_header = .request_Authorization
+      client_id = "anonymous"
+
+      if !is_null(auth_header) {
+        parts = split!(auth_header, ".")
+        if length(parts) > 0 {
+            token_start = replace!(parts[0], "Bearer ", "")
+            if length(token_start) > 0 {
+                client_id = token_start
+            }
+        }
+      }
+
+      endpoint = .RequestPath
+      method = .RequestMethod
+      status = .DownstreamStatus
+      duration_seconds = to_float!(.Duration) / 1000000000.0
+
+      .tags = {
+        "client": client_id,
+        "method": method,
+        "endpoint": endpoint,
+        "status": to_string!(status)
+      }
+      .duration = duration_seconds
+      .count = 1
+
+  generate_metrics:
+    type: log_to_metric
+    inputs:
+      - extract_metrics
+    metrics:
+      - type: counter
+        field: count
+        name: requests_total
+        namespace: openmemory
+        tags:
+          client: "{{ tags.client }}"
+          method: "{{ tags.method }}"
+          endpoint: "{{ tags.endpoint }}"
+          status: "{{ tags.status }}"
+
+      - type: histogram
+        field: duration
+        name: request_duration_seconds
+        namespace: openmemory
+        tags:
+          client: "{{ tags.client }}"
+          endpoint: "{{ tags.endpoint }}"
+
+sinks:
+  prometheus:
+    type: prometheus_exporter
+    inputs:
+      - generate_metrics
+    address: 0.0.0.0:9091
+
+  console:
+    type: console
+    inputs:
+      - extract_metrics
+    encoding:
+      codec: json

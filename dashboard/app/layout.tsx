@@ -12,7 +12,7 @@ const _exo2 = Exo_2({
 })
 
 export const metadata: Metadata = {
-  title: "CyberMem - Memory Analytics Dashboard",
+  title: "CyberMem — Dashboard",
   description: "Real-time monitoring and audit trail for memory analytics",
   generator: "v0.app",
   icons: {

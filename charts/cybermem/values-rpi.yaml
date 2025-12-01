@@ -43,10 +43,10 @@ prometheus:
   persistence:
     size: 2Gi
 
-grafana:
-  adminPassword: "admin"
+dashboard:
   resources:
     limits:
       memory: 128Mi
-  persistence:
-    size: 1Gi
+    requests:
+      memory: 64Mi
+      cpu: 25m

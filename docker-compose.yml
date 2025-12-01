@@ -37,7 +37,7 @@ services:
     environment:
       # Core settings
       OM_PORT: "8080"
-      OM_TIER: "hybrid"
+      OM_TIER: "deep"
       OM_API_KEY: ${OM_API_KEY:-dev-secret-key}
 
       # Embeddings (local dev uses Ollama)
@@ -60,13 +60,12 @@ services:
       # Performance
       OM_RATE_LIMIT_ENABLED: "true"
       OM_RATE_LIMIT_MAX_REQUESTS: "100"
-    ports:
-      - "8080:8080"
+    # No direct port exposure - all traffic through Traefik
     volumes:
       - openmemory-data:/data
     labels:
       - traefik.enable=true
-      - traefik.http.routers.openmemory.rule=Host(`openmemory.localhost`) || PathPrefix(`/api`)
+      - traefik.http.routers.openmemory.rule=PathPrefix(`/memory`) || PathPrefix(`/health`)
       - traefik.http.services.openmemory.loadbalancer.server.port=8080
     healthcheck:
       test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8080/health"]
@@ -84,7 +83,7 @@ services:
     ports:
       - "9091:9091"
     volumes:
-      - ./monitoring/vector/vector.toml:/etc/vector/vector.toml:ro
+      - ./monitoring/vector/vector.yaml:/etc/vector/vector.yaml:ro
       - traefik-logs:/var/log/traefik:ro
     restart: unless-stopped
     depends_on:
@@ -155,18 +154,16 @@ services:
     depends_on:
       - vector
 
-  grafana:
-    image: grafana/grafana:10.2.2
-    container_name: cybermem-grafana
+  dashboard:
+    build:
+      context: ./dashboard
+      dockerfile: Dockerfile
+    image: cybermem-dashboard:latest
+    container_name: cybermem-dashboard
     environment:
-      GF_SECURITY_ADMIN_USER: ${GRAFANA_USER:-admin}
-      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_PASSWORD:-admin}
-      GF_USERS_ALLOW_SIGN_UP: "false"
+      PROMETHEUS_URL: ${PROMETHEUS_URL:-http://prometheus:9090}
     ports:
-      - "3000:3000"
-    volumes:
-      - grafana-data:/var/lib/grafana
-      - ./monitoring/grafana/dashboards:/etc/grafana/provisioning/dashboards:ro
+      - "3001:3000"
     restart: unless-stopped
     depends_on:
       - prometheus
@@ -182,8 +179,6 @@ volumes:
     name: cybermem-traefik-logs
   prometheus-data:
     name: cybermem-prometheus-data
-  grafana-data:
-    name: cybermem-grafana-data
 
 networks:
   default:

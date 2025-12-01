@@ -1,6 +1,6 @@
 "use client"
 
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -9,84 +9,123 @@ import ReactECharts from "echarts-for-react"
 import { useState, useEffect } from "react"
 import { ChevronLeft, ChevronRight, Search } from "lucide-react"
 
-// Sample data
-const generateTimeSeriesData = () => {
+// Human-readable client names
+const CLIENT_NAMES = ["Cursor", "Visual Studio Code", "Claude Desktop", "GitHub Copilot", "Windsurf"]
+
+const generateRequestsTimeSeries = (points = 15) => {
   const now = Date.now()
-  return Array.from({ length: 15 }, (_, i) => ({
-    time: new Date(now - (14 - i) * 60000).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" }),
-    "dev-secret-key": Math.random() * 8 + 2,
-    "client-alpha": Math.random() * 6 + 1,
-    "client-beta": Math.random() * 4 + 0.5,
-    "client-gamma": Math.random() * 3 + 0.5,
-    "prod-key-01": Math.random() * 5 + 1,
+  const interval = 60000
+  return Array.from({ length: points }, (_, i) => {
+    const time = new Date(now - (points - 1 - i) * interval)
+    return {
+      time: time.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" }),
+      Cursor: Math.random() * 8 + 2,
+      "Visual Studio Code": Math.random() * 6 + 1,
+      "Claude Desktop": Math.random() * 4 + 0.5,
+      "GitHub Copilot": Math.random() * 3 + 0.5,
+      Windsurf: Math.random() * 5 + 1,
+    }
+  })
+}
+
+const generateSuccessRateTimeSeries = (points = 15) => {
+  const now = Date.now()
+  const interval = 60000
+  return Array.from({ length: points }, (_, i) => {
+    const time = new Date(now - (points - 1 - i) * interval)
+    return {
+      time: time.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" }),
+      Cursor: Math.random() * 0.08 + 0.02,
+      "Visual Studio Code": Math.random() * 0.3 + 0.1,
+      "Claude Desktop": Math.random() * 0.5 + 0.3,
+      "GitHub Copilot": Math.random() * 0.2 + 0.15,
+      Windsurf: Math.random() * 0.4 + 0.2,
+    }
+  })
+}
+
+const generateReadsByClient = () => {
+  return CLIENT_NAMES.map((client) => ({
+    client,
+    reads: Math.floor(Math.random() * 300) + 100,
   }))
 }
 
-const clientTotals = [
-  { client: "dev-secret-key", requests: 125 },
-  { client: "client-alpha", requests: 87 },
-  { client: "client-beta", requests: 45 },
-  { client: "client-gamma", requests: 38 },
-  { client: "prod-key-01", requests: 47 },
-]
+const generateWritesByClient = () => {
+  return CLIENT_NAMES.map((client) => ({
+    client,
+    writes: Math.floor(Math.random() * 200) + 50,
+  }))
+}
 
-const percentileData = Array.from({ length: 15 }, (_, i) => ({
-  time: new Date(Date.now() - (14 - i) * 60000).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" }),
-  p50: Math.random() * 0.08 + 0.02,
-  p95: Math.random() * 0.3 + 0.1,
-  p99: Math.random() * 0.5 + 0.3,
-}))
+const OPERATIONS = ["Read", "Write", "Update", "Delete"]
+const STATUSES = ["Success", "Warning", "Error", "Canceled"]
 
-const endpointData = [
-  { endpoint: "/memory/add", requests: 145 },
-  { endpoint: "/memory/query", requests: 112 },
-  { endpoint: "/memory/update", requests: 45 },
-  { endpoint: "/memory/delete", requests: 23 },
-  { endpoint: "/memory/search", requests: 17 },
-]
+const generateAuditLog = () => {
+  return Array.from({ length: 50 }, (_, i) => {
+    const client = CLIENT_NAMES[Math.floor(Math.random() * CLIENT_NAMES.length)]
+    const operation = OPERATIONS[Math.floor(Math.random() * OPERATIONS.length)]
+    const statusType = Math.random()
+    let status = "Success"
+    let description = ""
 
-const fullAuditLog = [
-  { client: "dev-secret-key", endpoint: "/memory/add", method: "POST", status: 200, requests: 125 },
-  { client: "client-alpha", endpoint: "/memory/query", method: "POST", status: 200, requests: 87 },
-  { client: "client-beta", endpoint: "/memory/add", method: "POST", status: 403, requests: 45 },
-  { client: "client-gamma", endpoint: "/memory/update", method: "PUT", status: 200, requests: 38 },
-  { client: "prod-key-01", endpoint: "/memory/delete", method: "DELETE", status: 500, requests: 47 },
-  { client: "dev-secret-key", endpoint: "/memory/query", method: "POST", status: 200, requests: 68 },
-  { client: "client-alpha", endpoint: "/memory/search", method: "GET", status: 200, requests: 34 },
-  { client: "client-beta", endpoint: "/memory/update", method: "PUT", status: 403, requests: 12 },
-  { client: "prod-key-01", endpoint: "/memory/add", method: "POST", status: 200, requests: 89 },
-  { client: "client-gamma", endpoint: "/memory/query", method: "POST", status: 200, requests: 56 },
-  { client: "dev-secret-key", endpoint: "/memory/search", method: "GET", status: 200, requests: 23 },
-  { client: "client-alpha", endpoint: "/memory/delete", method: "DELETE", status: 403, requests: 8 },
-  { client: "client-beta", endpoint: "/memory/query", method: "POST", status: 200, requests: 91 },
-  { client: "prod-key-01", endpoint: "/memory/update", method: "PUT", status: 500, requests: 15 },
-  { client: "client-gamma", endpoint: "/memory/add", method: "POST", status: 200, requests: 72 },
-]
+    if (statusType > 0.95) {
+      status = "Error"
+      description = ["Connection timeout", "Invalid query", "Database locked", "Permission denied"][
+        Math.floor(Math.random() * 4)
+      ]
+    } else if (statusType > 0.9) {
+      status = "Warning"
+      description = ["Slow query", "Large result set", "Cache miss"][Math.floor(Math.random() * 3)]
+    } else if (statusType > 0.88) {
+      status = "Canceled"
+      description = "Request canceled by client"
+    }
 
-type SortField = "client" | "endpoint" | "method" | "status" | "requests"
+    return {
+      id: i,
+      date: new Date(Date.now() - Math.random() * 86400000 * 7),
+      client,
+      operation,
+      status,
+      description,
+    }
+  })
+}
+
+type SortField = "date" | "client" | "operation" | "status"
 type SortDirection = "asc" | "desc"
 
 export default function CyberMemDashboard() {
   const [stats, setStats] = useState({
-    totalRequests: 342,
-    successRate: 94.2,
-    avgResponseTime: 0.045,
-    activeClients: 5,
+    memoryRecords: 15847,
+    totalClients: 5,
+    clientGrowth: 2,
+    topWriter: { name: "Cursor", count: 1247 },
+    topReader: { name: "Visual Studio Code", count: 2156 },
+    lastWriter: { name: "Claude Desktop", timestamp: new Date(Date.now() - 120000) },
+    lastReader: { name: "GitHub Copilot", timestamp: new Date(Date.now() - 45000) },
+    successRate: 96.4,
+    totalRequests: 12847,
   })
 
-  // Sparkline data for stat cards
   const [sparklineData, setSparklineData] = useState({
-    totalRequests: Array.from({ length: 20 }, () => Math.random() * 100 + 300),
-    successRate: Array.from({ length: 20 }, () => Math.random() * 10 + 90),
-    avgResponseTime: Array.from({ length: 20 }, () => Math.random() * 0.1 + 0.02),
-    activeClients: Array.from({ length: 20 }, () => Math.floor(Math.random() * 3) + 4),
+    memoryRecords: Array.from({ length: 20 }, () => Math.random() * 2000 + 14000),
+    totalClients: Array.from({ length: 20 }, () => Math.floor(Math.random() * 2) + 4),
+    successRate: Array.from({ length: 20 }, () => Math.random() * 3 + 94),
+    totalRequests: Array.from({ length: 20 }, () => Math.random() * 2000 + 11000),
   })
 
-  const [timeSeriesData, setTimeSeriesData] = useState(generateTimeSeriesData())
+  const [readsByClient, setReadsByClient] = useState(generateReadsByClient())
+  const [writesByClient, setWritesByClient] = useState(generateWritesByClient())
+  const [requestsTimeSeries, setRequestsTimeSeries] = useState(generateRequestsTimeSeries())
+  const [successRateTimeSeries, setSuccessRateTimeSeries] = useState(generateSuccessRateTimeSeries())
+  const [fullAuditLog, setFullAuditLog] = useState(generateAuditLog())
+
   const [lastUpdate, setLastUpdate] = useState(0)
   const [searchTerm, setSearchTerm] = useState("")
   const [currentPage, setCurrentPage] = useState(1)
-  const [sortField, setSortField] = useState<SortField>("requests")
+  const [sortField, setSortField] = useState<SortField>("date")
   const [sortDirection, setSortDirection] = useState<SortDirection>("desc")
   const itemsPerPage = 10
 
@@ -94,19 +133,40 @@ export default function CyberMemDashboard() {
   useEffect(() => {
     const interval = setInterval(() => {
       const newStats = {
-        totalRequests: Math.floor(Math.random() * 100) + 300,
-        successRate: Math.random() * 10 + 90,
-        avgResponseTime: Math.random() * 0.1 + 0.02,
-        activeClients: Math.floor(Math.random() * 3) + 4,
+        memoryRecords: Math.floor(Math.random() * 2000) + 14000,
+        totalClients: Math.floor(Math.random() * 2) + 4,
+        clientGrowth: Math.floor(Math.random() * 3),
+        topWriter: {
+          name: CLIENT_NAMES[Math.floor(Math.random() * CLIENT_NAMES.length)],
+          count: Math.floor(Math.random() * 500) + 1000,
+        },
+        topReader: {
+          name: CLIENT_NAMES[Math.floor(Math.random() * CLIENT_NAMES.length)],
+          count: Math.floor(Math.random() * 1000) + 1500,
+        },
+        lastWriter: {
+          name: CLIENT_NAMES[Math.floor(Math.random() * CLIENT_NAMES.length)],
+          timestamp: new Date(Date.now() - Math.random() * 300000),
+        },
+        lastReader: {
+          name: CLIENT_NAMES[Math.floor(Math.random() * CLIENT_NAMES.length)],
+          timestamp: new Date(Date.now() - Math.random() * 300000),
+        },
+        successRate: Math.random() * 3 + 94,
+        totalRequests: Math.floor(Math.random() * 2000) + 11000,
       }
       setStats(newStats)
       setSparklineData((prev) => ({
-        totalRequests: [...prev.totalRequests.slice(1), newStats.totalRequests],
+        memoryRecords: [...prev.memoryRecords.slice(1), newStats.memoryRecords],
+        totalClients: [...prev.totalClients.slice(1), newStats.totalClients],
         successRate: [...prev.successRate.slice(1), newStats.successRate],
-        avgResponseTime: [...prev.avgResponseTime.slice(1), newStats.avgResponseTime],
-        activeClients: [...prev.activeClients.slice(1), newStats.activeClients],
+        totalRequests: [...prev.totalRequests.slice(1), newStats.totalRequests],
       }))
-      setTimeSeriesData(generateTimeSeriesData())
+      setReadsByClient(generateReadsByClient())
+      setWritesByClient(generateWritesByClient())
+      setRequestsTimeSeries(generateRequestsTimeSeries())
+      setSuccessRateTimeSeries(generateSuccessRateTimeSeries())
+      setFullAuditLog(generateAuditLog())
       setLastUpdate(0)
     }, 5000)
 
@@ -125,24 +185,28 @@ export default function CyberMemDashboard() {
   const filteredLog = fullAuditLog.filter(
     (log) =>
       log.client.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      log.endpoint.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      log.method.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      log.status.toString().includes(searchTerm),
+      log.operation.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      log.status.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      log.description.toLowerCase().includes(searchTerm.toLowerCase()),
   )
 
   const sortedLog = [...filteredLog].sort((a, b) => {
+    const modifier = sortDirection === "asc" ? 1 : -1
+
+    if (sortField === "date") {
+      return (a.date.getTime() - b.date.getTime()) * modifier
+    }
+
     const aValue = a[sortField]
     const bValue = b[sortField]
-    const modifier = sortDirection === "asc" ? 1 : -1
 
     if (typeof aValue === "string" && typeof bValue === "string") {
       return aValue.localeCompare(bValue) * modifier
     }
-    return ((aValue as number) - (bValue as number)) * modifier
+    return 0
   })
 
   const paginatedLog = sortedLog.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage)
-
   const totalPages = Math.ceil(sortedLog.length / itemsPerPage)
 
   const handleSort = (field: SortField) => {
@@ -150,45 +214,74 @@ export default function CyberMemDashboard() {
       setSortDirection(sortDirection === "asc" ? "desc" : "asc")
     } else {
       setSortField(field)
-      setSortDirection("desc")
+      setSortDirection(field === "date" ? "desc" : "asc")
     }
     setCurrentPage(1)
   }
 
-  const getStatusBadge = (status: number) => {
-    if (status >= 200 && status < 300) {
+  const getStatusBadge = (status: string, description?: string) => {
+    if (status === "Success") {
       return (
-        <Badge className="bg-emerald-500 text-white font-bold px-3 py-1 text-sm flex items-center gap-1">
-          {status}
+        <Badge className="bg-emerald-500/30 backdrop-blur-md border border-emerald-400/20 text-emerald-100 font-bold px-3 py-1 text-sm shadow-lg">
+          Success
         </Badge>
       )
     }
-    if (status >= 400 && status < 500) {
+    if (status === "Warning") {
       return (
-        <Badge className="bg-amber-500 text-white font-bold px-3 py-1 text-sm flex items-center gap-1">
-          {status}
+        <Badge className="bg-amber-500/30 backdrop-blur-md border border-amber-400/20 text-amber-100 font-bold px-3 py-1 text-sm shadow-lg">
+          Warning{description ? `: ${description}` : ""}
+        </Badge>
+      )
+    }
+    if (status === "Error") {
+      return (
+        <Badge className="bg-red-500/30 backdrop-blur-md border border-red-400/20 text-red-100 font-bold px-3 py-1 text-sm shadow-lg">
+          Error{description ? `: ${description}` : ""}
         </Badge>
       )
     }
     return (
-      <Badge className="bg-red-500 text-white font-bold px-3 py-1 text-sm flex items-center gap-1">
-        {status}
+      <Badge className="bg-gray-500/30 backdrop-blur-md border border-gray-400/20 text-gray-100 font-bold px-3 py-1 text-sm shadow-lg">
+        Canceled
       </Badge>
     )
   }
 
-  const getMethodBadge = (method: string) => {
-    const colors: Record<string, string> = {
-      POST: "bg-blue-600 text-white",
-      GET: "bg-teal-600 text-white",
-      PUT: "bg-purple-600 text-white",
-      DELETE: "bg-rose-600 text-white",
+  const getOperationBadge = (operation: string) => {
+    const colorMap = {
+      Read: "bg-blue-500/30 backdrop-blur-md border border-blue-400/20 text-blue-100",
+      Write: "bg-purple-500/30 backdrop-blur-md border border-purple-400/20 text-purple-100",
+      Update: "bg-orange-500/30 backdrop-blur-md border border-orange-400/20 text-orange-100",
+      Delete: "bg-rose-500/30 backdrop-blur-md border border-rose-400/20 text-rose-100",
     }
     return (
-      <Badge className={`${colors[method] || "bg-gray-600 text-white"} font-bold px-3 py-1 text-sm`}>
-        {method}
+      <Badge className={`${colorMap[operation as keyof typeof colorMap]} font-bold px-3 py-1 text-sm shadow-lg`}>
+        {operation}
       </Badge>
     )
+  }
+
+  const formatTimestamp = (timestamp: Date) => {
+    const now = Date.now()
+    const diff = now - timestamp.getTime()
+    const seconds = Math.floor(diff / 1000)
+    const minutes = Math.floor(seconds / 60)
+    const hours = Math.floor(minutes / 60)
+
+    if (seconds < 60) return `${seconds}s ago`
+    if (minutes < 60) return `${minutes}m ago`
+    if (hours < 24) return `${hours}h ago`
+    return timestamp.toLocaleDateString()
+  }
+
+  const formatDate = (date: Date) => {
+    return date.toLocaleString("en-US", {
+      month: "short",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    })
   }
 
   return (
@@ -196,7 +289,10 @@ export default function CyberMemDashboard() {
       {/* Header */}
       <div className="mb-8 flex items-center justify-between">
         <div>
-          <h1 className="text-5xl font-semibold text-white tracking-wider" style={{ fontFamily: "'Exo 2', sans-serif" }}>
+          <h1
+            className="text-5xl font-semibold text-white tracking-wider"
+            style={{ fontFamily: "'Exo 2', sans-serif" }}
+          >
             CyberMem
           </h1>
         </div>
@@ -212,12 +308,12 @@ export default function CyberMemDashboard() {
         </div>
       </div>
 
-      {/* Stats Row */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 mb-8">
+        {/* Memory Records */}
         <Card className="bg-white/15 backdrop-blur-2xl border-white/20 text-white shadow-xl overflow-hidden">
           <CardContent className="pt-4 pb-0 relative">
-            <div className="text-lg font-medium text-white/90 mb-2">Total Requests</div>
-            <div className="text-6xl font-bold text-white mb-2">{stats.totalRequests.toLocaleString()}</div>
+            <div className="text-lg font-medium text-white/90 mb-2">Memory Records</div>
+            <div className="text-6xl font-bold text-white mb-2">{stats.memoryRecords.toLocaleString()}</div>
             <div className="absolute bottom-0 left-0 right-0 h-16 -mx-6 -mb-6">
               <ReactECharts
                 option={{
@@ -228,7 +324,7 @@ export default function CyberMemDashboard() {
                   series: [
                     {
                       type: "line",
-                      data: sparklineData.totalRequests,
+                      data: sparklineData.memoryRecords,
                       smooth: true,
                       showSymbol: false,
                       lineStyle: { width: 0 },
@@ -243,6 +339,40 @@ export default function CyberMemDashboard() {
           </CardContent>
         </Card>
 
+        {/* Total Clients */}
+        <Card className="bg-white/15 backdrop-blur-2xl border-white/20 shadow-xl overflow-hidden">
+          <CardContent className="pt-4 pb-0 relative">
+            <div className="text-lg font-medium text-white/90 mb-2">Total Clients</div>
+            <div className="text-6xl font-bold text-white mb-2">
+              {stats.totalClients}{" "}
+              <span className="text-2xl text-white/90 font-semibold">+{stats.clientGrowth} this month</span>
+            </div>
+            <div className="absolute bottom-0 left-0 right-0 h-16 -mx-6 -mb-6">
+              <ReactECharts
+                option={{
+                  backgroundColor: "transparent",
+                  grid: { left: 0, right: 0, top: 0, bottom: 0 },
+                  xAxis: { type: "category", show: false },
+                  yAxis: { type: "value", show: false },
+                  series: [
+                    {
+                      type: "line",
+                      data: sparklineData.totalClients,
+                      smooth: true,
+                      showSymbol: false,
+                      lineStyle: { width: 0 },
+                      areaStyle: { color: "rgba(255, 255, 255, 0.35)" },
+                    },
+                  ],
+                }}
+                style={{ height: "64px" }}
+                opts={{ renderer: "svg" }}
+              />
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Success Rate */}
         <Card className="bg-white/15 backdrop-blur-2xl border-white/20 shadow-xl overflow-hidden">
           <CardContent className="pt-4 pb-0 relative">
             <div className="text-lg font-medium text-white/90 mb-2">Success Rate</div>
@@ -272,10 +402,11 @@ export default function CyberMemDashboard() {
           </CardContent>
         </Card>
 
-        <Card className="bg-white/15 backdrop-blur-2xl border-white/20 shadow-xl overflow-hidden">
+        {/* Total Requests */}
+        <Card className="bg-white/15 backdrop-blur-2xl border-white/20 text-white shadow-xl overflow-hidden">
           <CardContent className="pt-4 pb-0 relative">
-            <div className="text-lg font-medium text-white/90 mb-2">Avg Response Time</div>
-            <div className="text-6xl font-bold text-white mb-2">{stats.avgResponseTime.toFixed(3)}s</div>
+            <div className="text-lg font-medium text-white/90 mb-2">Total Requests</div>
+            <div className="text-6xl font-bold text-white mb-2">{stats.totalRequests.toLocaleString()}</div>
             <div className="absolute bottom-0 left-0 right-0 h-16 -mx-6 -mb-6">
               <ReactECharts
                 option={{
@@ -286,7 +417,7 @@ export default function CyberMemDashboard() {
                   series: [
                     {
                       type: "line",
-                      data: sparklineData.avgResponseTime,
+                      data: sparklineData.totalRequests,
                       smooth: true,
                       showSymbol: false,
                       lineStyle: { width: 0 },
@@ -301,44 +432,52 @@ export default function CyberMemDashboard() {
           </CardContent>
         </Card>
 
+        {/* Most Writing Client */}
         <Card className="bg-white/15 backdrop-blur-2xl border-white/20 text-white shadow-xl overflow-hidden">
           <CardContent className="pt-4 pb-0 relative">
-            <div className="text-lg font-medium text-white/90 mb-2">Active Clients</div>
-            <div className="text-6xl font-bold text-white mb-2">{stats.activeClients}</div>
-            <div className="absolute bottom-0 left-0 right-0 h-16 -mx-6 -mb-6">
-              <ReactECharts
-                option={{
-                  backgroundColor: "transparent",
-                  grid: { left: 0, right: 0, top: 0, bottom: 0 },
-                  xAxis: { type: "category", show: false },
-                  yAxis: { type: "value", show: false },
-                  series: [
-                    {
-                      type: "line",
-                      data: sparklineData.activeClients,
-                      smooth: true,
-                      showSymbol: false,
-                      lineStyle: { width: 0 },
-                      areaStyle: { color: "rgba(255, 255, 255, 0.35)" },
-                    },
-                  ],
-                }}
-                style={{ height: "64px" }}
-                opts={{ renderer: "svg" }}
-              />
+            <div className="text-lg font-medium text-white/90 mb-2">Most Writing Client</div>
+            <div className="text-4xl font-bold text-white mb-1 truncate">{stats.topWriter.name}</div>
+            <div className="text-xl text-white/80 mb-4 whitespace-nowrap">
+              {stats.topWriter.count.toLocaleString()} writes
             </div>
+          </CardContent>
+        </Card>
+
+        {/* Most Reading Client */}
+        <Card className="bg-white/15 backdrop-blur-2xl border-white/20 text-white shadow-xl overflow-hidden">
+          <CardContent className="pt-4 pb-0 relative">
+            <div className="text-lg font-medium text-white/90 mb-2">Most Reading Client</div>
+            <div className="text-4xl font-bold text-white mb-1 truncate">{stats.topReader.name}</div>
+            <div className="text-xl text-white/80 mb-4 whitespace-nowrap">
+              {stats.topReader.count.toLocaleString()} reads
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Last Writer */}
+        <Card className="bg-white/15 backdrop-blur-2xl border-white/20 text-white shadow-xl overflow-hidden">
+          <CardContent className="pt-4 pb-0 relative">
+            <div className="text-lg font-medium text-white/90 mb-2">Last Writer</div>
+            <div className="text-4xl font-bold text-white mb-1 truncate">{stats.lastWriter.name}</div>
+            <div className="text-xl text-white/80 mb-4">{formatTimestamp(stats.lastWriter.timestamp)}</div>
+          </CardContent>
+        </Card>
+
+        {/* Last Reader */}
+        <Card className="bg-white/15 backdrop-blur-2xl border-white/20 text-white shadow-xl overflow-hidden">
+          <CardContent className="pt-4 pb-0 relative">
+            <div className="text-lg font-medium text-white/90 mb-2">Last Reader</div>
+            <div className="text-4xl font-bold text-white mb-1 truncate">{stats.lastReader.name}</div>
+            <div className="text-xl text-white/80 mb-4">{formatTimestamp(stats.lastReader.timestamp)}</div>
           </CardContent>
         </Card>
       </div>
 
-      {/* Top Charts Section */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-        {/* Request Rate by Client */}
+        {/* Requests Rate - Top Left */}
         <Card className="bg-white/10 backdrop-blur-3xl border-white/20 shadow-xl">
-          <CardHeader>
-            <CardTitle className="text-lg text-white">Request Rate by Client</CardTitle>
-          </CardHeader>
-          <CardContent>
+          <CardContent className="pt-6">
+            <h3 className="text-lg text-white font-semibold mb-4">Requests Rate</h3>
             <ReactECharts
               option={{
                 backgroundColor: "transparent",
@@ -349,7 +488,7 @@ export default function CyberMemDashboard() {
                   textStyle: { color: "#fff" },
                 },
                 legend: {
-                  data: ["dev-secret-key", "client-alpha", "client-beta", "client-gamma", "prod-key-01"],
+                  data: CLIENT_NAMES,
                   textStyle: { color: "#fff" },
                   bottom: 0,
                 },
@@ -363,7 +502,7 @@ export default function CyberMemDashboard() {
                 xAxis: {
                   type: "category",
                   boundaryGap: false,
-                  data: timeSeriesData.map((d) => d.time),
+                  data: requestsTimeSeries.map((d) => d.time),
                   axisLine: { lineStyle: { color: "rgba(255, 255, 255, 0.2)" } },
                   axisLabel: { color: "#fff" },
                 },
@@ -375,42 +514,42 @@ export default function CyberMemDashboard() {
                 },
                 series: [
                   {
-                    name: "dev-secret-key",
+                    name: "Cursor",
                     type: "line",
                     smooth: true,
-                    data: timeSeriesData.map((d) => d["dev-secret-key"]),
+                    data: requestsTimeSeries.map((d) => d.Cursor),
                     itemStyle: { color: "#14b8a6" },
                     lineStyle: { width: 2 },
                   },
                   {
-                    name: "client-alpha",
+                    name: "Visual Studio Code",
                     type: "line",
                     smooth: true,
-                    data: timeSeriesData.map((d) => d["client-alpha"]),
+                    data: requestsTimeSeries.map((d) => d["Visual Studio Code"]),
                     itemStyle: { color: "#06b6d4" },
                     lineStyle: { width: 2 },
                   },
                   {
-                    name: "client-beta",
+                    name: "Claude Desktop",
                     type: "line",
                     smooth: true,
-                    data: timeSeriesData.map((d) => d["client-beta"]),
+                    data: requestsTimeSeries.map((d) => d["Claude Desktop"]),
                     itemStyle: { color: "#8b5cf6" },
                     lineStyle: { width: 2 },
                   },
                   {
-                    name: "client-gamma",
+                    name: "GitHub Copilot",
                     type: "line",
                     smooth: true,
-                    data: timeSeriesData.map((d) => d["client-gamma"]),
+                    data: requestsTimeSeries.map((d) => d["GitHub Copilot"]),
                     itemStyle: { color: "#10b981" },
                     lineStyle: { width: 2 },
                   },
                   {
-                    name: "prod-key-01",
+                    name: "Windsurf",
                     type: "line",
                     smooth: true,
-                    data: timeSeriesData.map((d) => d["prod-key-01"]),
+                    data: requestsTimeSeries.map((d) => d.Windsurf),
                     itemStyle: { color: "#f59e0b" },
                     lineStyle: { width: 2 },
                   },
@@ -421,12 +560,10 @@ export default function CyberMemDashboard() {
           </CardContent>
         </Card>
 
-        {/* Total Requests by Client */}
+        {/* Reads - Top Right */}
         <Card className="bg-white/10 backdrop-blur-3xl border-white/20 shadow-xl">
-          <CardHeader>
-            <CardTitle className="text-lg text-white">Total Requests by Client</CardTitle>
-          </CardHeader>
-          <CardContent>
+          <CardContent className="pt-6">
+            <h3 className="text-lg text-white font-semibold mb-4">Reads</h3>
             <ReactECharts
               option={{
                 backgroundColor: "transparent",
@@ -452,14 +589,14 @@ export default function CyberMemDashboard() {
                 },
                 yAxis: {
                   type: "category",
-                  data: clientTotals.map((d) => d.client),
+                  data: readsByClient.map((d) => d.client),
                   axisLine: { lineStyle: { color: "rgba(255, 255, 255, 0.2)" } },
                   axisLabel: { color: "#fff" },
                 },
                 series: [
                   {
                     type: "bar",
-                    data: clientTotals.map((d) => d.requests),
+                    data: readsByClient.map((d) => d.reads),
                     itemStyle: { color: "#14b8a6" },
                     barWidth: "60%",
                   },
@@ -469,16 +606,11 @@ export default function CyberMemDashboard() {
             />
           </CardContent>
         </Card>
-      </div>
 
-      {/* Bottom Charts Section */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-        {/* Response Time Percentiles */}
+        {/* Success Rate - Bottom Left */}
         <Card className="bg-white/10 backdrop-blur-3xl border-white/20 shadow-xl">
-          <CardHeader>
-            <CardTitle className="text-lg text-white">Response Time by Client (Percentiles)</CardTitle>
-          </CardHeader>
-          <CardContent>
+          <CardContent className="pt-6">
+            <h3 className="text-lg text-white font-semibold mb-4">Success Rate</h3>
             <ReactECharts
               option={{
                 backgroundColor: "transparent",
@@ -489,7 +621,7 @@ export default function CyberMemDashboard() {
                   textStyle: { color: "#fff" },
                 },
                 legend: {
-                  data: ["p50", "p95", "p99"],
+                  data: CLIENT_NAMES,
                   textStyle: { color: "#fff" },
                   bottom: 0,
                 },
@@ -503,7 +635,7 @@ export default function CyberMemDashboard() {
                 xAxis: {
                   type: "category",
                   boundaryGap: false,
-                  data: percentileData.map((d) => d.time),
+                  data: successRateTimeSeries.map((d) => d.time),
                   axisLine: { lineStyle: { color: "rgba(255, 255, 255, 0.2)" } },
                   axisLabel: { color: "#fff" },
                 },
@@ -515,27 +647,43 @@ export default function CyberMemDashboard() {
                 },
                 series: [
                   {
-                    name: "p50",
+                    name: "Cursor",
                     type: "line",
                     smooth: true,
-                    data: percentileData.map((d) => d.p50),
+                    data: successRateTimeSeries.map((d) => d.Cursor),
                     itemStyle: { color: "#06b6d4" },
                     lineStyle: { width: 2 },
                   },
                   {
-                    name: "p95",
+                    name: "Visual Studio Code",
                     type: "line",
                     smooth: true,
-                    data: percentileData.map((d) => d.p95),
+                    data: successRateTimeSeries.map((d) => d["Visual Studio Code"]),
                     itemStyle: { color: "#14b8a6" },
                     lineStyle: { width: 2 },
                   },
                   {
-                    name: "p99",
+                    name: "Claude Desktop",
                     type: "line",
                     smooth: true,
-                    data: percentileData.map((d) => d.p99),
+                    data: successRateTimeSeries.map((d) => d["Claude Desktop"]),
                     itemStyle: { color: "#10b981" },
+                    lineStyle: { width: 2 },
+                  },
+                  {
+                    name: "GitHub Copilot",
+                    type: "line",
+                    smooth: true,
+                    data: successRateTimeSeries.map((d) => d["GitHub Copilot"]),
+                    itemStyle: { color: "#8b5cf6" },
+                    lineStyle: { width: 2 },
+                  },
+                  {
+                    name: "Windsurf",
+                    type: "line",
+                    smooth: true,
+                    data: successRateTimeSeries.map((d) => d.Windsurf),
+                    itemStyle: { color: "#f59e0b" },
                     lineStyle: { width: 2 },
                   },
                 ],
@@ -545,12 +693,10 @@ export default function CyberMemDashboard() {
           </CardContent>
         </Card>
 
-        {/* Requests by Endpoint */}
+        {/* Writes - Bottom Right */}
         <Card className="bg-white/10 backdrop-blur-3xl border-white/20 shadow-xl">
-          <CardHeader>
-            <CardTitle className="text-lg text-white">Requests by Endpoint</CardTitle>
-          </CardHeader>
-          <CardContent>
+          <CardContent className="pt-6">
+            <h3 className="text-lg text-white font-semibold mb-4">Writes</h3>
             <ReactECharts
               option={{
                 backgroundColor: "transparent",
@@ -562,7 +708,7 @@ export default function CyberMemDashboard() {
                   axisPointer: { type: "shadow" },
                 },
                 grid: {
-                  left: "20%",
+                  left: "15%",
                   right: "4%",
                   bottom: "3%",
                   top: "3%",
@@ -576,14 +722,14 @@ export default function CyberMemDashboard() {
                 },
                 yAxis: {
                   type: "category",
-                  data: endpointData.map((d) => d.endpoint),
+                  data: writesByClient.map((d) => d.client),
                   axisLine: { lineStyle: { color: "rgba(255, 255, 255, 0.2)" } },
                   axisLabel: { color: "#fff" },
                 },
                 series: [
                   {
                     type: "bar",
-                    data: endpointData.map((d) => d.requests),
+                    data: writesByClient.map((d) => d.writes),
                     itemStyle: { color: "#14b8a6" },
                     barWidth: "60%",
                   },
@@ -595,11 +741,10 @@ export default function CyberMemDashboard() {
         </Card>
       </div>
 
-      {/* Audit Log Table */}
       <Card className="bg-white/10 backdrop-blur-3xl border-white/20 shadow-xl">
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <CardTitle className="text-2xl text-white">Access Log</CardTitle>
+        <CardContent className="pt-6">
+          <div className="flex items-center justify-between mb-6">
+            <h2 className="text-2xl font-semibold text-white">Access Log</h2>
             <div className="relative w-64">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-white/60 h-4 w-4" />
               <Input
@@ -613,64 +758,59 @@ export default function CyberMemDashboard() {
               />
             </div>
           </div>
-        </CardHeader>
-        <CardContent>
+
           <div className="rounded-lg border border-white/20 overflow-hidden bg-white/10 backdrop-blur-md">
             <Table>
               <TableHeader>
-                <TableRow className="bg-white/85 backdrop-blur-sm hover:bg-white/95 border-white/20">
+                <TableRow className="bg-white/60 backdrop-blur-sm hover:bg-white/70 border-white/20">
                   <TableHead
-                    className="text-gray-900 font-semibold cursor-pointer hover:text-black transition-colors w-[200px]"
+                    className="text-gray-900 font-semibold cursor-pointer hover:text-black transition-colors w-[140px]"
+                    onClick={() => handleSort("date")}
+                  >
+                    Date {sortField === "date" && (sortDirection === "asc" ? "↑" : "↓")}
+                  </TableHead>
+                  <TableHead
+                    className="text-gray-900 font-semibold cursor-pointer hover:text-black transition-colors pl-8"
                     onClick={() => handleSort("client")}
                   >
                     Client {sortField === "client" && (sortDirection === "asc" ? "↑" : "↓")}
                   </TableHead>
                   <TableHead
-                    className="text-gray-900 font-semibold cursor-pointer hover:text-black transition-colors w-[180px]"
-                    onClick={() => handleSort("endpoint")}
+                    className="text-gray-900 font-semibold cursor-pointer hover:text-black transition-colors w-[140px]"
+                    onClick={() => handleSort("operation")}
                   >
-                    Endpoint {sortField === "endpoint" && (sortDirection === "asc" ? "↑" : "↓")}
+                    Operation {sortField === "operation" && (sortDirection === "asc" ? "↑" : "↓")}
                   </TableHead>
                   <TableHead
-                    className="text-gray-900 font-semibold cursor-pointer hover:text-black transition-colors w-[80px]"
-                    onClick={() => handleSort("method")}
-                  >
-                    Method {sortField === "method" && (sortDirection === "asc" ? "↑" : "↓")}
-                  </TableHead>
-                  <TableHead
-                    className="text-gray-900 font-semibold cursor-pointer hover:text-black transition-colors w-[80px]"
+                    className="text-gray-900 font-semibold cursor-pointer hover:text-black transition-colors w-[280px] text-right"
                     onClick={() => handleSort("status")}
                   >
                     Status {sortField === "status" && (sortDirection === "asc" ? "↑" : "↓")}
-                  </TableHead>
-                  <TableHead
-                    className="text-gray-900 font-semibold cursor-pointer hover:text-black transition-colors w-[100px] text-right"
-                    onClick={() => handleSort("requests")}
-                  >
-                    Requests {sortField === "requests" && (sortDirection === "asc" ? "↑" : "↓")}
                   </TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {paginatedLog.map((log, index) => (
                   <TableRow
-                    key={index}
+                    key={log.id}
                     className={`border-white/20 hover:bg-white/20 transition-colors cursor-pointer ${
                       index % 2 === 0 ? "bg-white/3" : "bg-white/10"
                     }`}
                   >
-                    <TableCell className="font-mono text-base text-white/95 font-medium">{log.client}</TableCell>
-                    <TableCell className="font-mono text-base text-white/95">{log.endpoint}</TableCell>
-                    <TableCell>{getMethodBadge(log.method)}</TableCell>
-                    <TableCell>{getStatusBadge(log.status)}</TableCell>
-                    <TableCell className="text-right font-bold text-base text-white/95">{log.requests}</TableCell>
+                    <TableCell className="font-mono text-sm text-white/95 w-[140px]">{formatDate(log.date)}</TableCell>
+                    <TableCell className="font-mono text-base text-white/95 font-medium pl-8">{log.client}</TableCell>
+                    <TableCell className="text-white/90 text-base w-[140px]">
+                      {getOperationBadge(log.operation)}
+                    </TableCell>
+                    <TableCell className="w-[280px] text-right">
+                      {getStatusBadge(log.status, log.description)}
+                    </TableCell>
                   </TableRow>
                 ))}
               </TableBody>
             </Table>
           </div>
 
-          {/* Pagination */}
           <div className="flex items-center justify-between mt-4">
             <p className="text-sm text-white/80">
               Showing {(currentPage - 1) * itemsPerPage + 1} to {Math.min(currentPage * itemsPerPage, sortedLog.length)}{" "}
