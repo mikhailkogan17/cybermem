@@ -85,6 +85,7 @@ services:
     volumes:
       - ./monitoring/vector/vector.yaml:/etc/vector/vector.yaml:ro
       - traefik-logs:/var/log/traefik:ro
+      - vector-data:/var/lib/vector
     restart: unless-stopped
     depends_on:
       - traefik
@@ -146,7 +147,7 @@ services:
       - --web.console.libraries=/usr/share/prometheus/console_libraries
       - --web.console.templates=/usr/share/prometheus/consoles
     ports:
-      - "9090:9090"
+      - "9092:9090"
     volumes:
       - ./monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
       - prometheus-data:/prometheus
@@ -161,7 +162,7 @@ services:
     image: cybermem-dashboard:latest
     container_name: cybermem-dashboard
     environment:
-      PROMETHEUS_URL: ${PROMETHEUS_URL:-http://prometheus:9090}
+      NEXT_PUBLIC_PROMETHEUS_URL: http://prometheus:9090
     ports:
       - "3001:3000"
     restart: unless-stopped
@@ -171,14 +172,22 @@ services:
 volumes:
   openmemory-data:
     name: cybermem-openmemory-data
+    driver: local
   postgres-data:
     name: cybermem-postgres-data
+    driver: local
   ollama-models:
     name: cybermem-ollama-models
+    driver: local
   traefik-logs:
     name: cybermem-traefik-logs
+    driver: local
   prometheus-data:
     name: cybermem-prometheus-data
+    driver: local
+  vector-data:
+    name: cybermem-vector-data
+    driver: local
 
 networks:
   default:

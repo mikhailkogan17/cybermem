@@ -19,14 +19,34 @@ transforms:
       - parse_logs
     source: |
       auth_header = .request_Authorization
-      client_id = "anonymous"
+      client_name = "Anonymous"
 
+      # Extract client from Authorization header and map to human-readable names
       if !is_null(auth_header) {
         parts = split!(auth_header, ".")
         if length(parts) > 0 {
             token_start = replace!(parts[0], "Bearer ", "")
-            if length(token_start) > 0 {
-                client_id = token_start
+
+            # Map client tokens to human-readable names
+            if contains(token_start, "claude") || contains(token_start, "anthropic") {
+                client_name = "Claude Desktop"
+            } else if contains(token_start, "cursor") {
+                client_name = "Cursor"
+            } else if contains(token_start, "vscode") || contains(token_start, "code") {
+                client_name = "Visual Studio Code"
+            } else if contains(token_start, "copilot") || contains(token_start, "github") {
+                client_name = "GitHub Copilot"
+            } else if contains(token_start, "windsurf") {
+                client_name = "Windsurf"
+            } else if contains(token_start, "cline") {
+                client_name = "Cline"
+            } else if contains(token_start, "continue") {
+                client_name = "Continue"
+            } else if contains(token_start, "zed") {
+                client_name = "Zed"
+            } else if length(token_start) > 0 {
+                # For dev/testing, use the token itself
+                client_name = token_start
             }
         }
       }
@@ -37,7 +57,7 @@ transforms:
       duration_seconds = to_float!(.Duration) / 1000000000.0
 
       .tags = {
-        "client": client_id,
+        "client": client_name,
         "method": method,
         "endpoint": endpoint,
         "status": to_string!(status)

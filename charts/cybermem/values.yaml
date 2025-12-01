@@ -33,6 +33,10 @@ openmemory:
       enabled: true
       maxRequests: 100
 
+  persistence:
+    enabled: true
+    size: 5Gi
+
 # Embeddings providers
 ollama:
   enabled: true
@@ -83,11 +87,19 @@ traefik:
   dashboard:
     enabled: true
 
+  persistence:
+    enabled: true
+    size: 1Gi
+
 vector:
   enabled: true
   image:
     repository: timberio/vector
     tag: 0.34.0-alpine
+
+  persistence:
+    enabled: true
+    size: 1Gi
 
 prometheus:
   enabled: true

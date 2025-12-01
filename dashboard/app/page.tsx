@@ -129,47 +129,93 @@ export default function CyberMemDashboard() {
   const [sortDirection, setSortDirection] = useState<SortDirection>("desc")
   const itemsPerPage = 10
 
-  // Auto-refresh every 5 seconds
-  useEffect(() => {
-    const interval = setInterval(() => {
-      const newStats = {
-        memoryRecords: Math.floor(Math.random() * 2000) + 14000,
-        totalClients: Math.floor(Math.random() * 2) + 4,
-        clientGrowth: Math.floor(Math.random() * 3),
-        topWriter: {
-          name: CLIENT_NAMES[Math.floor(Math.random() * CLIENT_NAMES.length)],
-          count: Math.floor(Math.random() * 500) + 1000,
-        },
-        topReader: {
-          name: CLIENT_NAMES[Math.floor(Math.random() * CLIENT_NAMES.length)],
-          count: Math.floor(Math.random() * 1000) + 1500,
-        },
-        lastWriter: {
-          name: CLIENT_NAMES[Math.floor(Math.random() * CLIENT_NAMES.length)],
-          timestamp: new Date(Date.now() - Math.random() * 300000),
-        },
-        lastReader: {
-          name: CLIENT_NAMES[Math.floor(Math.random() * CLIENT_NAMES.length)],
-          timestamp: new Date(Date.now() - Math.random() * 300000),
-        },
-        successRate: Math.random() * 3 + 94,
-        totalRequests: Math.floor(Math.random() * 2000) + 11000,
-      }
-      setStats(newStats)
-      setSparklineData((prev) => ({
-        memoryRecords: [...prev.memoryRecords.slice(1), newStats.memoryRecords],
-        totalClients: [...prev.totalClients.slice(1), newStats.totalClients],
-        successRate: [...prev.successRate.slice(1), newStats.successRate],
-        totalRequests: [...prev.totalRequests.slice(1), newStats.totalRequests],
-      }))
-      setReadsByClient(generateReadsByClient())
-      setWritesByClient(generateWritesByClient())
-      setRequestsTimeSeries(generateRequestsTimeSeries())
-      setSuccessRateTimeSeries(generateSuccessRateTimeSeries())
-      setFullAuditLog(generateAuditLog())
-      setLastUpdate(0)
-    }, 5000)
+  // Fetch real data from API
+  const fetchMetrics = async () => {
+    try {
+      const [metricsResponse, logsResponse] = await Promise.all([
+        fetch('/api/metrics'),
+        fetch('/api/logs')
+      ])
 
+      if (!metricsResponse.ok) throw new Error('Failed to fetch metrics')
+      const data = await metricsResponse.json()
+
+      setStats({
+        memoryRecords: data.stats.memoryRecords,
+        totalClients: data.stats.totalClients,
+        clientGrowth: 2, // TODO: calculate from historical data
+        topWriter: data.stats.topWriter,
+        topReader: data.stats.topReader,
+        lastWriter: { name: 'N/A', timestamp: new Date() }, // TODO: get from logs
+        lastReader: { name: 'N/A', timestamp: new Date() }, // TODO: get from logs
+        successRate: data.stats.successRate,
+        totalRequests: data.stats.totalRequests,
+      })
+
+      setSparklineData((prev) => ({
+        memoryRecords: [...prev.memoryRecords.slice(1), data.stats.memoryRecords],
+        totalClients: [...prev.totalClients.slice(1), data.stats.totalClients],
+        successRate: [...prev.successRate.slice(1), data.stats.successRate],
+        totalRequests: [...prev.totalRequests.slice(1), data.stats.totalRequests],
+      }))
+
+      // Convert client stats to arrays for charts
+      const readsArray = Object.entries(data.clientStats.reads).map(([client, reads]) => ({
+        client,
+        reads: reads as number
+      }))
+      const writesArray = Object.entries(data.clientStats.writes).map(([client, writes]) => ({
+        client,
+        writes: writes as number
+      }))
+
+      setReadsByClient(readsArray)
+      setWritesByClient(writesArray)
+      setRequestsTimeSeries(data.timeSeries.requests)
+      setSuccessRateTimeSeries(data.timeSeries.responseTime)
+
+      // Update logs from API
+      if (logsResponse.ok) {
+        const logsData = await logsResponse.json()
+        const mappedLogs = logsData.logs.map((log: any, index: number) => {
+          const operation = log.method === 'POST' ? 'Write' : log.method === 'GET' ? 'Read' : log.method === 'DELETE' ? 'Delete' : 'Update'
+          const statusCode = parseInt(log.status)
+          let status = 'Success'
+          let description = ''
+
+          if (statusCode >= 500) {
+            status = 'Error'
+            description = 'Server error'
+          } else if (statusCode >= 400) {
+            status = 'Error'
+            description = statusCode === 401 ? 'Unauthorized' : statusCode === 403 ? 'Forbidden' : 'Client error'
+          } else if (statusCode >= 300) {
+            status = 'Warning'
+            description = 'Redirect'
+          }
+
+          return {
+            id: index,
+            date: new Date(log.timestamp),
+            client: log.client,
+            operation,
+            status,
+            description
+          }
+        })
+        setFullAuditLog(mappedLogs)
+      }
+
+      setLastUpdate(0)
+    } catch (error) {
+      console.error('Failed to fetch metrics:', error)
+    }
+  }
+
+  // Initial fetch and auto-refresh every 5 seconds
+  useEffect(() => {
+    fetchMetrics()
+    const interval = setInterval(fetchMetrics, 5000)
     return () => clearInterval(interval)
   }, [])
 
