@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import ReactECharts from "echarts-for-react"
 import { useState, useEffect } from "react"
-import { ChevronLeft, ChevronRight, Search, CheckCircle2, XCircle, AlertTriangle } from "lucide-react"
+import { ChevronLeft, ChevronRight, Search } from "lucide-react"
 
 // Sample data
 const generateTimeSeriesData = () => {
