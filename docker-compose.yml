@@ -12,16 +12,12 @@ services:
       - --providers.docker=true
       - --providers.docker.exposedbydefault=false
       - --entrypoints.web.address=:80
-      - --accesslog=true
-      - --accesslog.filepath=/var/log/traefik/access.log
-      - --accesslog.format=json
     ports:
       - "80:80"
       - "8081:8080"
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - ./monitoring/traefik/traefik.yml:/etc/traefik/traefik.yml:ro
-      - traefik-logs:/var/log/traefik
     labels:
       - traefik.enable=true
     restart: unless-stopped
@@ -83,18 +79,23 @@ services:
     depends_on:
       - traefik
 
-  vector:
-    image: timberio/vector:0.34.0-alpine
-    container_name: cybermem-vector
+  db-exporter:
+    build:
+      context: ./monitoring/db_exporter
+      dockerfile: Dockerfile
+    image: cybermem-db-exporter:latest
+    container_name: cybermem-db-exporter
+    environment:
+      DB_PATH: /data/openmemory.sqlite
+      SCRAPE_INTERVAL: "15"
+      EXPORTER_PORT: "8000"
     ports:
-      - "9091:9091"
+      - "8000:8000"
     volumes:
-      - ./monitoring/vector/vector.yaml:/etc/vector/vector.yaml:ro
-      - traefik-logs:/var/log/traefik:ro
-      - vector-data:/var/lib/vector
+      - openmemory-data:/data:ro
     restart: unless-stopped
     depends_on:
-      - traefik
+      - openmemory
 
   postgres:
     image: postgres:15-alpine
@@ -159,7 +160,7 @@ services:
       - prometheus-data:/prometheus
     restart: unless-stopped
     depends_on:
-      - vector
+      - db-exporter
 
   dashboard:
     build:
@@ -186,14 +187,8 @@ volumes:
   ollama-models:
     name: cybermem-ollama-models
     driver: local
-  traefik-logs:
-    name: cybermem-traefik-logs
-    driver: local
   prometheus-data:
     name: cybermem-prometheus-data
-    driver: local
-  vector-data:
-    name: cybermem-vector-data
     driver: local
 
 networks:

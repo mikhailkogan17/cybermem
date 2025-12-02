@@ -371,8 +371,8 @@ export default function CyberMemDashboard() {
           >
             CyberMem
           </h1>
-          <div className="flex items-center gap-2">
-            {["15m", "1h", "6h", "12h", "24h"].map((p) => (
+          <div className="flex items-center gap-2 pt-3">
+            {["15m", "1h", "6h", "12h", "1d", "1w", "1M", "1y"].map((p) => (
               <Button
                 key={p}
                 onClick={() => setPeriod(p)}

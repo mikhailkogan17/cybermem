@@ -30,12 +30,13 @@ async function queryRange(promql: string, start: number, end: number, step: stri
 }
 
 export async function getTotalRequests(): Promise<number> {
-  const result = await query('sum(openmemory_requests_total)')
+  const result = await query('openmemory_requests_aggregate_total')
   return result.data.result[0]?.value ? parseFloat(result.data.result[0].value[1]) : 0
 }
 
 export async function getRequestsByClient(): Promise<Record<string, number>> {
-  const result = await query('sum by (client) (openmemory_requests_total)')
+  // Use total memories per client as proxy for requests
+  const result = await query('openmemory_memories_total')
   const byClient: Record<string, number> = {}
   result.data.result.forEach((item) => {
     const clientId = item.metric.client || 'unknown'
@@ -45,41 +46,32 @@ export async function getRequestsByClient(): Promise<Record<string, number>> {
 }
 
 export async function getRequestsByMethod(): Promise<{ reads: Record<string, number>, writes: Record<string, number> }> {
-  const result = await query('sum by (client, method) (openmemory_requests_total)')
-  const reads: Record<string, number> = {}
+  // Writes = memories added in last 24h, Reads = N/A (no data)
+  const writesResult = await query('openmemory_memories_recent_24h')
   const writes: Record<string, number> = {}
+  const reads: Record<string, number> = {}
 
-  result.data.result.forEach((item) => {
+  writesResult.data.result.forEach((item) => {
     const clientId = item.metric.client || 'unknown'
-    const method = item.metric.method || 'unknown'
-    const count = item.value ? parseFloat(item.value[1]) : 0
-
-    if (method === 'POST') {
-      writes[clientId] = (writes[clientId] || 0) + count
-    } else if (method === 'GET') {
-      reads[clientId] = (reads[clientId] || 0) + count
-    }
+    writes[clientId] = item.value ? parseFloat(item.value[1]) : 0
   })
 
+  // No read data available - return empty
   return { reads, writes }
 }
 
 export async function getSuccessRate(): Promise<number> {
-  const totalResult = await query('sum(openmemory_requests_total)')
-  const successResult = await query('sum(openmemory_requests_total{status=~"2.."})')
-
-  const total = totalResult.data.result[0]?.value ? parseFloat(totalResult.data.result[0].value[1]) : 0
-  const success = successResult.data.result[0]?.value ? parseFloat(successResult.data.result[0].value[1]) : 0
-
-  return total > 0 ? (success / total) * 100 : 100
+  const result = await query('openmemory_success_rate_aggregate')
+  return result.data.result[0]?.value ? parseFloat(result.data.result[0].value[1]) : 100
 }
 
 export async function getRequestsTimeSeries(duration: string = '1h'): Promise<Array<{ time: number, [client: string]: number | string }>> {
   const now = Math.floor(Date.now() / 1000)
   const start = now - parseDuration(duration)
 
+  // Show memories by client over time (like OpenMemory's Memory Query Load but by client not sector)
   const result = await queryRange(
-    'sum by (client) (rate(openmemory_requests_total[5m]))',
+    'openmemory_memories_total',
     start,
     now,
     '1m'
@@ -94,7 +86,7 @@ export async function getRequestsTimeSeries(duration: string = '1h'): Promise<Ar
       if (!timeMap.has(timestamp)) {
         timeMap.set(timestamp, {})
       }
-      timeMap.get(timestamp)![clientId] = parseFloat(value) * 60 // convert to req/min
+      timeMap.get(timestamp)![clientId] = parseFloat(value)
     })
   })
 
@@ -203,14 +195,13 @@ export async function getSuccessRateTimeSeries(duration: string = '1h'): Promise
 }
 
 export async function getMemoryRecordsCount(): Promise<number> {
-  // This would require PostgreSQL exporter metrics
-  // For now, approximate from requests
-  const result = await query('sum(openmemory_requests_total{method="POST"})')
+  // Get total memories across all clients
+  const result = await query('sum(openmemory_memories_total)')
   return result.data.result[0]?.value ? parseFloat(result.data.result[0].value[1]) : 0
 }
 
 export async function getClientCount(): Promise<number> {
-  const result = await query('count(count by (client) (openmemory_requests_total))')
+  const result = await query('count(count by (client) (openmemory_memories_total))')
   return result.data.result[0]?.value ? parseFloat(result.data.result[0].value[1]) : 0
 }
 
@@ -235,7 +226,7 @@ export async function getMemoryRecordsSparkline(duration: string = '15m'): Promi
   const start = now - parseDuration(duration)
 
   const result = await queryRange(
-    'sum(openmemory_requests_total{method="POST"})',
+    'sum(openmemory_memories_total)',
     start,
     now,
     '30s'
@@ -252,7 +243,7 @@ export async function getTotalRequestsSparkline(duration: string = '15m'): Promi
   const start = now - parseDuration(duration)
 
   const result = await queryRange(
-    'sum(openmemory_requests_total)',
+    'openmemory_requests_aggregate_total',
     start,
     now,
     '30s'
@@ -269,7 +260,7 @@ export async function getTotalClientsSparkline(duration: string = '15m'): Promis
   const start = now - parseDuration(duration)
 
   const result = await queryRange(
-    'count(count by (client) (openmemory_requests_total))',
+    'count(count by (client) (openmemory_memories_total))',
     start,
     now,
     '30s'
@@ -286,7 +277,7 @@ export async function getSuccessRateSparkline(duration: string = '15m'): Promise
   const start = now - parseDuration(duration)
 
   const result = await queryRange(
-    'sum(openmemory_requests_total{status=~"2.."}) / sum(openmemory_requests_total) * 100',
+    'openmemory_success_rate_aggregate',
     start,
     now,
     '30s'
@@ -299,32 +290,17 @@ export async function getSuccessRateSparkline(duration: string = '15m'): Promise
 }
 
 export async function getSuccessRateByClient(): Promise<Record<string, number>> {
-  const [totalResult, successResult] = await Promise.all([
-    query('sum by (client) (openmemory_requests_total)'),
-    query('sum by (client) (openmemory_requests_total{status=~"2.."})')
-  ])
+  // No per-client success rate - show average feedback score instead
+  const result = await query('openmemory_avg_score')
+  const scores: Record<string, number> = {}
 
-  const totals: Record<string, number> = {}
-  const successes: Record<string, number> = {}
-  const rates: Record<string, number> = {}
-
-  totalResult.data.result.forEach((item) => {
+  result.data.result.forEach((item) => {
     const clientId = item.metric.client || 'unknown'
-    totals[clientId] = item.value ? parseFloat(item.value[1]) : 0
+    // Convert 0-1 score to percentage for display
+    scores[clientId] = item.value ? parseFloat(item.value[1]) * 100 : 0
   })
 
-  successResult.data.result.forEach((item) => {
-    const clientId = item.metric.client || 'unknown'
-    successes[clientId] = item.value ? parseFloat(item.value[1]) : 0
-  })
-
-  Object.keys(totals).forEach((client) => {
-    const total = totals[client] || 0
-    const success = successes[client] || 0
-    rates[client] = total > 0 ? (success / total) * 100 : 0
-  })
-
-  return rates
+  return scores
 }
 
 export async function getSuccessRateTimeSeriesByClient(duration: string = '1h'): Promise<Array<{ time: number, [client: string]: number | string }>> {
