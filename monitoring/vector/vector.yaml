@@ -3,7 +3,7 @@ sources:
     type: file
     include:
       - /var/log/traefik/access.log
-    read_from: beginning
+    read_from: end
 
 transforms:
   parse_logs:
@@ -94,6 +94,9 @@ sinks:
     inputs:
       - generate_metrics
     address: 0.0.0.0:9091
+    default_namespace: openmemory
+    flush_period_secs: 5
+    suppress_timestamp: true
 
   console:
     type: console

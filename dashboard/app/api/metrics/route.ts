@@ -6,15 +6,26 @@ import {
   getSuccessRate,
   getRequestsTimeSeries,
   getResponseTimeTimeSeries,
+  getSuccessRateTimeSeries,
+  getRequestsTimeSeriesByMethod,
   getMemoryRecordsCount,
-  getClientCount
+  getClientCount,
+  getMemoryRecordsSparkline,
+  getTotalRequestsSparkline,
+  getTotalClientsSparkline,
+  getSuccessRateSparkline,
+  getSuccessRateByClient,
+  getSuccessRateTimeSeriesByClient
 } from '@/lib/prometheus'
 
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
+    const { searchParams } = new URL(request.url)
+    const period = searchParams.get('period') || '15m'
+
     const [
       totalRequests,
       requestsByClient,
@@ -22,17 +33,33 @@ export async function GET() {
       successRate,
       requestsTimeSeries,
       responseTimeTimeSeries,
+      successRateTimeSeries,
+      writesTimeSeries,
       memoryRecords,
-      clientCount
+      clientCount,
+      memoryRecordsSparkline,
+      totalRequestsSparkline,
+      totalClientsSparkline,
+      successRateSparkline,
+      successRateByClient,
+      successRateTimeSeriesByClient
     ] = await Promise.all([
       getTotalRequests(),
       getRequestsByClient(),
       getRequestsByMethod(),
       getSuccessRate(),
-      getRequestsTimeSeries('15m'),
-      getResponseTimeTimeSeries('15m'),
+      getRequestsTimeSeries(period),
+      getResponseTimeTimeSeries(period),
+      getSuccessRateTimeSeries(period),
+      getRequestsTimeSeriesByMethod('POST', period),
       getMemoryRecordsCount(),
-      getClientCount()
+      getClientCount(),
+      getMemoryRecordsSparkline(period),
+      getTotalRequestsSparkline(period),
+      getTotalClientsSparkline(period),
+      getSuccessRateSparkline(period),
+      getSuccessRateByClient(),
+      getSuccessRateTimeSeriesByClient(period)
     ])
 
     // Sort clients by total requests
@@ -45,8 +72,18 @@ export async function GET() {
       }))
       .sort((a, b) => b.total - a.total)
 
-    const topWriter = clientStats.reduce((max, curr) => curr.writes > max.writes ? curr : max, clientStats[0] || { client: 'N/A', writes: 0 })
-    const topReader = clientStats.reduce((max, curr) => curr.reads > max.reads ? curr : max, clientStats[0] || { client: 'N/A', reads: 0 })
+    // Find top writer and reader, default to N/A if no data
+    let topWriter = { client: 'N/A', writes: 0 }
+    let topReader = { client: 'N/A', reads: 0 }
+
+    if (clientStats.length > 0) {
+      const maxWriter = clientStats.reduce((max, curr) => curr.writes > max.writes ? curr : max)
+      const maxReader = clientStats.reduce((max, curr) => curr.reads > max.reads ? curr : max)
+
+      // Only use actual client name if count > 0
+      topWriter = maxWriter.writes > 0 ? maxWriter : { client: 'N/A', writes: 0 }
+      topReader = maxReader.reads > 0 ? maxReader : { client: 'N/A', reads: 0 }
+    }
 
     return NextResponse.json({
       stats: {
@@ -59,11 +96,21 @@ export async function GET() {
       },
       timeSeries: {
         requests: requestsTimeSeries,
-        responseTime: responseTimeTimeSeries
+        responseTime: responseTimeTimeSeries,
+        successRate: successRateTimeSeries,
+        successRateByClient: successRateTimeSeriesByClient,
+        writes: writesTimeSeries
       },
       clientStats: {
         reads: requestsByMethod.reads,
-        writes: requestsByMethod.writes
+        writes: requestsByMethod.writes,
+        successRate: successRateByClient
+      },
+      sparklines: {
+        memoryRecords: memoryRecordsSparkline,
+        totalRequests: totalRequestsSparkline,
+        totalClients: totalClientsSparkline,
+        successRate: successRateSparkline
       }
     })
   } catch (error) {

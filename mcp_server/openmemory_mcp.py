@@ -17,7 +17,20 @@ from mcp import types
 
 # OpenMemory configuration
 OPENMEMORY_URL = os.getenv("OPENMEMORY_URL", "http://localhost/memory")
-OPENMEMORY_API_KEY = os.getenv("OPENMEMORY_API_KEY", "dev-secret-key")
+CYBERMEM_API_KEY = os.getenv("CYBERMEM_API_KEY", "dev-secret-key")
+
+# Parse client.secret format to extract client_id
+def parse_api_key(api_key: str) -> tuple[str, str]:
+    """
+    Parse API key in format 'client.secret' and return (client_id, secret).
+    If format is invalid, returns ('anonymous', original_key).
+    """
+    if "." in api_key:
+        parts = api_key.split(".", 1)
+        return (parts[0], parts[1])
+    return ("anonymous", api_key)
+
+CLIENT_ID, CLIENT_SECRET = parse_api_key(CYBERMEM_API_KEY)
 
 # Create MCP server instance
 server = Server("openmemory")
@@ -78,6 +91,48 @@ async def handle_list_tools() -> list[types.Tool]:
                     }
                 }
             }
+        ),
+        types.Tool(
+            name="delete_memory",
+            description="Delete a specific memory by its ID. Use this to remove outdated or incorrect information.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "memory_id": {
+                        "type": "string",
+                        "description": "The UUID of the memory to delete"
+                    }
+                },
+                "required": ["memory_id"]
+            }
+        ),
+        types.Tool(
+            name="update_memory",
+            description="Update an existing memory's content, tags, or metadata.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "memory_id": {
+                        "type": "string",
+                        "description": "The UUID of the memory to update"
+                    },
+                    "content": {
+                        "type": "string",
+                        "description": "New content for the memory (optional)"
+                    },
+                    "tags": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                        "description": "New tags for the memory (optional)"
+                    },
+                    "metadata": {
+                        "type": "object",
+                        "description": "New metadata for the memory (optional)",
+                        "additionalProperties": True
+                    }
+                },
+                "required": ["memory_id"]
+            }
         )
     ]
 
@@ -90,7 +145,7 @@ async def handle_call_tool(
     """Handle tool execution requests."""
 
     headers = {
-        "Authorization": f"Bearer {OPENMEMORY_API_KEY}",
+        "Authorization": f"Bearer {CYBERMEM_API_KEY}",
         "Content-Type": "application/json"
     }
 
@@ -186,6 +241,47 @@ async def handle_call_tool(
                     text=f"📋 Recent memories ({len(matches)}):\n\n" + "\n".join(formatted_list)
                 )]
 
+            elif name == "delete_memory":
+                # Delete memory by ID
+                memory_id = arguments.get("memory_id")
+
+                response = await client.delete(
+                    f"{OPENMEMORY_URL}/{memory_id}",
+                    headers=headers
+                )
+                response.raise_for_status()
+                result = response.json()
+
+                return [types.TextContent(
+                    type="text",
+                    text=f"🗑️ Memory deleted successfully!\n\nID: {memory_id}\nStatus: {result.get('ok', 'deleted')}"
+                )]
+
+            elif name == "update_memory":
+                # Update memory by ID
+                memory_id = arguments.get("memory_id")
+                content = arguments.get("content")
+                tags = arguments.get("tags")
+                metadata = arguments.get("metadata")
+
+                payload = {}
+                if content: payload["content"] = content
+                if tags: payload["tags"] = tags
+                if metadata: payload["metadata"] = metadata
+
+                response = await client.patch(
+                    f"{OPENMEMORY_URL}/{memory_id}",
+                    json=payload,
+                    headers=headers
+                )
+                response.raise_for_status()
+                result = response.json()
+
+                return [types.TextContent(
+                    type="text",
+                    text=f"✏️ Memory updated successfully!\n\nID: {result.get('id', memory_id)}"
+                )]
+
             else:
                 raise ValueError(f"Unknown tool: {name}")
 
@@ -203,6 +299,9 @@ async def handle_call_tool(
 
 async def main():
     """Run the MCP server."""
+    import sys
+    print(f"🔐 CyberMem MCP Server starting with client_id: {CLIENT_ID}", file=sys.stderr)
+
     async with stdio_server() as (read_stream, write_stream):
         await server.run(
             read_stream,

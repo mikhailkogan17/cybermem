@@ -1,214 +1,240 @@
 "use client"
 
-import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { Card, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import ReactECharts from "echarts-for-react"
-import { useState, useEffect } from "react"
 import { ChevronLeft, ChevronRight, Search } from "lucide-react"
+import { useEffect, useState } from "react"
 
-// Human-readable client names
-const CLIENT_NAMES = ["Cursor", "Visual Studio Code", "Claude Desktop", "GitHub Copilot", "Windsurf"]
+const FALLBACK_CLIENTS = ["Cursor", "Visual Studio Code", "Claude Desktop", "GitHub Copilot", "Windsurf"]
+const COLOR_PALETTE = ["#14b8a6", "#06b6d4", "#8b5cf6", "#10b981", "#f59e0b", "#ef4444", "#a855f7", "#22c55e"]
 
-const generateRequestsTimeSeries = (points = 15) => {
-  const now = Date.now()
-  const interval = 60000
-  return Array.from({ length: points }, (_, i) => {
-    const time = new Date(now - (points - 1 - i) * interval)
-    return {
-      time: time.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" }),
-      Cursor: Math.random() * 8 + 2,
-      "Visual Studio Code": Math.random() * 6 + 1,
-      "Claude Desktop": Math.random() * 4 + 0.5,
-      "GitHub Copilot": Math.random() * 3 + 0.5,
-      Windsurf: Math.random() * 5 + 1,
-    }
-  })
+// Client ID to human-readable name mapping
+const CLIENT_DISPLAY_NAMES: Record<string, string> = {
+  'claude-code': 'Claude Code',
+  'claude-desktop': 'Claude Desktop',
+  'cursor': 'Cursor',
+  'vscode': 'VS Code',
+  'production': 'Production',
+  'staging': 'Staging',
+  'dev': 'Development',
+  'anonymous': 'Anonymous',
+  'Anonymous': 'Anonymous',
 }
 
-const generateSuccessRateTimeSeries = (points = 15) => {
-  const now = Date.now()
-  const interval = 60000
-  return Array.from({ length: points }, (_, i) => {
-    const time = new Date(now - (points - 1 - i) * interval)
-    return {
-      time: time.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" }),
-      Cursor: Math.random() * 0.08 + 0.02,
-      "Visual Studio Code": Math.random() * 0.3 + 0.1,
-      "Claude Desktop": Math.random() * 0.5 + 0.3,
-      "GitHub Copilot": Math.random() * 0.2 + 0.15,
-      Windsurf: Math.random() * 0.4 + 0.2,
-    }
-  })
-}
-
-const generateReadsByClient = () => {
-  return CLIENT_NAMES.map((client) => ({
-    client,
-    reads: Math.floor(Math.random() * 300) + 100,
-  }))
-}
-
-const generateWritesByClient = () => {
-  return CLIENT_NAMES.map((client) => ({
-    client,
-    writes: Math.floor(Math.random() * 200) + 50,
-  }))
-}
-
-const OPERATIONS = ["Read", "Write", "Update", "Delete"]
-const STATUSES = ["Success", "Warning", "Error", "Canceled"]
-
-const generateAuditLog = () => {
-  return Array.from({ length: 50 }, (_, i) => {
-    const client = CLIENT_NAMES[Math.floor(Math.random() * CLIENT_NAMES.length)]
-    const operation = OPERATIONS[Math.floor(Math.random() * OPERATIONS.length)]
-    const statusType = Math.random()
-    let status = "Success"
-    let description = ""
-
-    if (statusType > 0.95) {
-      status = "Error"
-      description = ["Connection timeout", "Invalid query", "Database locked", "Permission denied"][
-        Math.floor(Math.random() * 4)
-      ]
-    } else if (statusType > 0.9) {
-      status = "Warning"
-      description = ["Slow query", "Large result set", "Cache miss"][Math.floor(Math.random() * 3)]
-    } else if (statusType > 0.88) {
-      status = "Canceled"
-      description = "Request canceled by client"
-    }
-
-    return {
-      id: i,
-      date: new Date(Date.now() - Math.random() * 86400000 * 7),
-      client,
-      operation,
-      status,
-      description,
-    }
-  })
+// Helper function to get display name for a client
+const getClientDisplayName = (clientId: string): string => {
+  return CLIENT_DISPLAY_NAMES[clientId] || clientId
 }
 
 type SortField = "date" | "client" | "operation" | "status"
 type SortDirection = "asc" | "desc"
 
 export default function CyberMemDashboard() {
+  const [loading, setLoading] = useState(true)
+  const [clientNames, setClientNames] = useState<string[]>(FALLBACK_CLIENTS)
   const [stats, setStats] = useState({
-    memoryRecords: 15847,
-    totalClients: 5,
-    clientGrowth: 2,
-    topWriter: { name: "Cursor", count: 1247 },
-    topReader: { name: "Visual Studio Code", count: 2156 },
-    lastWriter: { name: "Claude Desktop", timestamp: new Date(Date.now() - 120000) },
-    lastReader: { name: "GitHub Copilot", timestamp: new Date(Date.now() - 45000) },
-    successRate: 96.4,
-    totalRequests: 12847,
+    memoryRecords: 0,
+    totalClients: 0,
+    clientGrowth: 0,
+    topWriter: { name: "N/A", count: 0 },
+    topReader: { name: "N/A", count: 0 },
+    lastWriter: { name: "N/A", timestamp: new Date() },
+    lastReader: { name: "N/A", timestamp: new Date() },
+    successRate: 0,
+    totalRequests: 0,
   })
 
   const [sparklineData, setSparklineData] = useState({
-    memoryRecords: Array.from({ length: 20 }, () => Math.random() * 2000 + 14000),
-    totalClients: Array.from({ length: 20 }, () => Math.floor(Math.random() * 2) + 4),
-    successRate: Array.from({ length: 20 }, () => Math.random() * 3 + 94),
-    totalRequests: Array.from({ length: 20 }, () => Math.random() * 2000 + 11000),
+    memoryRecords: Array.from({ length: 20 }, () => 0),
+    totalClients: Array.from({ length: 20 }, () => 0),
+    successRate: Array.from({ length: 20 }, () => 0),
+    totalRequests: Array.from({ length: 20 }, () => 0),
   })
 
-  const [readsByClient, setReadsByClient] = useState(generateReadsByClient())
-  const [writesByClient, setWritesByClient] = useState(generateWritesByClient())
-  const [requestsTimeSeries, setRequestsTimeSeries] = useState(generateRequestsTimeSeries())
-  const [successRateTimeSeries, setSuccessRateTimeSeries] = useState(generateSuccessRateTimeSeries())
-  const [fullAuditLog, setFullAuditLog] = useState(generateAuditLog())
+  const [readsByClient, setReadsByClient] = useState<Array<{ client: string; reads: number }>>([])
+  const [writesByClient, setWritesByClient] = useState<Array<{ client: string; writes: number }>>([])
+  const [requestsByClient, setRequestsByClient] = useState<Array<{ client: string; total: number }>>([])
+  const [successRateByClient, setSuccessRateByClient] = useState<Array<{ client: string; rate: number }>>([])
+  const [requestsTimeSeries, setRequestsTimeSeries] = useState<Array<any>>([])
+  const [responseTimeSeries, setResponseTimeSeries] = useState<Array<any>>([])
+  const [successRateTimeSeries, setSuccessRateTimeSeries] = useState<Array<any>>([])
+  const [successRateTimeSeriesByClient, setSuccessRateTimeSeriesByClient] = useState<Array<any>>([])
+  const [fullAuditLog, setFullAuditLog] = useState<Array<any>>([])
 
   const [lastUpdate, setLastUpdate] = useState(0)
   const [searchTerm, setSearchTerm] = useState("")
   const [currentPage, setCurrentPage] = useState(1)
   const [sortField, setSortField] = useState<SortField>("date")
   const [sortDirection, setSortDirection] = useState<SortDirection>("desc")
+  const [period, setPeriod] = useState<string>("15m")
   const itemsPerPage = 10
 
-  // Fetch real data from API
   const fetchMetrics = async () => {
     try {
       const [metricsResponse, logsResponse] = await Promise.all([
-        fetch('/api/metrics'),
-        fetch('/api/logs')
+        fetch(`/api/metrics?period=${period}`),
+        fetch(`/api/logs?period=${period}`)
       ])
 
-      if (!metricsResponse.ok) throw new Error('Failed to fetch metrics')
+      if (!metricsResponse.ok) throw new Error("Failed to fetch metrics")
       const data = await metricsResponse.json()
 
-      setStats({
-        memoryRecords: data.stats.memoryRecords,
-        totalClients: data.stats.totalClients,
-        clientGrowth: 2, // TODO: calculate from historical data
-        topWriter: data.stats.topWriter,
-        topReader: data.stats.topReader,
-        lastWriter: { name: 'N/A', timestamp: new Date() }, // TODO: get from logs
-        lastReader: { name: 'N/A', timestamp: new Date() }, // TODO: get from logs
-        successRate: data.stats.successRate,
-        totalRequests: data.stats.totalRequests,
-      })
-
-      setSparklineData((prev) => ({
-        memoryRecords: [...prev.memoryRecords.slice(1), data.stats.memoryRecords],
-        totalClients: [...prev.totalClients.slice(1), data.stats.totalClients],
-        successRate: [...prev.successRate.slice(1), data.stats.successRate],
-        totalRequests: [...prev.totalRequests.slice(1), data.stats.totalRequests],
+      const readsArray = Object.entries(data.clientStats.reads || {}).map(([client, reads]) => ({
+        client,
+        reads: reads as number,
+      }))
+      const writesArray = Object.entries(data.clientStats.writes || {}).map(([client, writes]) => ({
+        client,
+        writes: writes as number,
       }))
 
-      // Convert client stats to arrays for charts
-      const readsArray = Object.entries(data.clientStats.reads).map(([client, reads]) => ({
-        client,
-        reads: reads as number
-      }))
-      const writesArray = Object.entries(data.clientStats.writes).map(([client, writes]) => ({
-        client,
-        writes: writes as number
+      // Calculate requests by client (total = reads + writes)
+      const requestsMap = new Map<string, number>()
+      readsArray.forEach((r) => requestsMap.set(r.client, (requestsMap.get(r.client) || 0) + r.reads))
+      writesArray.forEach((w) => requestsMap.set(w.client, (requestsMap.get(w.client) || 0) + w.writes))
+      const requestsByClientArray = Array.from(requestsMap.entries())
+        .map(([client, total]) => ({ client, total }))
+        .sort((a, b) => b.total - a.total)
+
+      // Calculate success rate by client (from data.clientStats if available)
+      const successRateArray = data.clientStats.successRate
+        ? Object.entries(data.clientStats.successRate).map(([client, rate]) => ({
+            client,
+            rate: rate as number,
+          }))
+        : []
+
+      const derivedClients = Array.from(
+        new Set([
+          ...readsArray.map((r) => r.client),
+          ...writesArray.map((w) => w.client),
+          ...(data.timeSeries.requests?.[0]
+            ? Object.keys(data.timeSeries.requests[0]).filter((key) => key !== "time")
+            : []),
+        ]),
+      )
+
+      setClientNames(derivedClients.length ? derivedClients : FALLBACK_CLIENTS)
+
+      setStats((prev) => ({
+        memoryRecords: data.stats.memoryRecords ?? 0,
+        totalClients: data.stats.totalClients ?? 0,
+        clientGrowth: data.stats.clientGrowth ?? 0,
+        topWriter: data.stats.topWriter ?? { name: "N/A", count: 0 },
+        topReader: data.stats.topReader ?? { name: "N/A", count: 0 },
+        lastWriter: prev.lastWriter,
+        lastReader: prev.lastReader,
+        successRate: data.stats.successRate ?? 0,
+        totalRequests: data.stats.totalRequests ?? 0,
       }))
 
       setReadsByClient(readsArray)
       setWritesByClient(writesArray)
-      setRequestsTimeSeries(data.timeSeries.requests)
-      setSuccessRateTimeSeries(data.timeSeries.responseTime)
+      setRequestsByClient(requestsByClientArray)
+      setSuccessRateByClient(successRateArray)
+      setRequestsTimeSeries(data.timeSeries.requests || [])
+      setResponseTimeSeries(data.timeSeries.responseTime || [])
+      setSuccessRateTimeSeries(data.timeSeries.successRate || [])
+      setSuccessRateTimeSeriesByClient(data.timeSeries.successRateByClient || [])
 
-      // Update logs from API
+      const totalRequestsSparkline =
+        data.timeSeries.requests?.map((point: any) =>
+          Object.entries(point)
+            .filter(([key]) => key !== "time")
+            .reduce((acc, [, val]) => acc + Number(val || 0), 0)
+        ) || []
+
+      const writesSparkline =
+        data.timeSeries.writes?.map((point: any) =>
+          Object.entries(point)
+            .filter(([key]) => key !== "time")
+            .reduce((acc, [, val]) => acc + Number(val || 0), 0)
+        ) || []
+
+      const successRateSparkline = (data.timeSeries.successRate || []).map((p: any) => p.value ?? 0)
+      const totalClientsSparkline =
+        data.timeSeries.requests?.map((point: any) => {
+          const clients = Object.keys(point).filter((k) => k !== "time")
+          return clients.length
+        }) || []
+
+      // Update sparklines; if API provided explicit sparklines, prefer them
+      if (data.sparklines) {
+        setSparklineData({
+          memoryRecords: data.sparklines.memoryRecords || writesSparkline || Array.from({ length: 20 }, () => 0),
+          totalClients: data.sparklines.totalClients || totalClientsSparkline || Array.from({ length: 20 }, () => 0),
+          successRate: data.sparklines.successRate || successRateSparkline || Array.from({ length: 20 }, () => 100),
+          totalRequests: data.sparklines.totalRequests || totalRequestsSparkline || Array.from({ length: 20 }, () => 0),
+        })
+      } else {
+        setSparklineData((prev) => ({
+          memoryRecords: writesSparkline.length ? writesSparkline : prev.memoryRecords,
+          totalClients: totalClientsSparkline.length ? totalClientsSparkline : prev.totalClients,
+          successRate: successRateSparkline.length ? successRateSparkline : prev.successRate,
+          totalRequests: totalRequestsSparkline.length ? totalRequestsSparkline : prev.totalRequests,
+        }))
+      }
+
+      if (totalClientsSparkline.length >= 2) {
+        const first = totalClientsSparkline[0]
+        const last = totalClientsSparkline[totalClientsSparkline.length - 1]
+        setStats((prev) => ({
+          ...prev,
+          clientGrowth: Math.max(0, last - first),
+        }))
+      }
+
       if (logsResponse.ok) {
         const logsData = await logsResponse.json()
-        const mappedLogs = logsData.logs.map((log: any, index: number) => {
-          const operation = log.method === 'POST' ? 'Write' : log.method === 'GET' ? 'Read' : log.method === 'DELETE' ? 'Delete' : 'Update'
+        const mappedLogs = (logsData.logs || []).map((log: any, index: number) => {
+          const operation =
+            log.method === "POST" ? "Write" : log.method === "GET" ? "Read" : log.method === "DELETE" ? "Delete" : "Update"
           const statusCode = parseInt(log.status)
-          let status = 'Success'
-          let description = ''
+          let status = "Success"
+          let description = ""
 
           if (statusCode >= 500) {
-            status = 'Error'
-            description = 'Server error'
+            status = "Error"
+            description = "Server error"
           } else if (statusCode >= 400) {
-            status = 'Error'
-            description = statusCode === 401 ? 'Unauthorized' : statusCode === 403 ? 'Forbidden' : 'Client error'
+            status = "Error"
+            description = statusCode === 401 ? "Unauthorized" : statusCode === 403 ? "Forbidden" : "Client error"
           } else if (statusCode >= 300) {
-            status = 'Warning'
-            description = 'Redirect'
+            status = "Warning"
+            description = "Redirect"
           }
 
           return {
             id: index,
             date: new Date(log.timestamp),
-            client: log.client,
+            client: log.client || "Unknown",
             operation,
             status,
-            description
+            description,
           }
         })
-        setFullAuditLog(mappedLogs)
+
+        const sortedLogs = [...mappedLogs].sort((a, b) => b.date.getTime() - a.date.getTime())
+        const lastWriterLog = sortedLogs.find((log) => log.operation === "Write")
+        const lastReaderLog = sortedLogs.find((log) => log.operation === "Read")
+
+        setFullAuditLog(sortedLogs)
+        setStats((prev) => ({
+          ...prev,
+          lastWriter: lastWriterLog ? { name: lastWriterLog.client, timestamp: lastWriterLog.date } : prev.lastWriter,
+          lastReader: lastReaderLog ? { name: lastReaderLog.client, timestamp: lastReaderLog.date } : prev.lastReader,
+        }))
       }
 
       setLastUpdate(0)
+      setLoading(false)
     } catch (error) {
-      console.error('Failed to fetch metrics:', error)
+      console.error("Failed to fetch metrics:", error)
+      setLoading(false)
     }
   }
 
@@ -217,7 +243,7 @@ export default function CyberMemDashboard() {
     fetchMetrics()
     const interval = setInterval(fetchMetrics, 5000)
     return () => clearInterval(interval)
-  }, [])
+  }, [period])
 
   // Update last update timer
   useEffect(() => {
@@ -321,6 +347,10 @@ export default function CyberMemDashboard() {
     return timestamp.toLocaleDateString()
   }
 
+  const formatTimeForChart = (timestamp: number) => {
+    return new Date(timestamp * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+  }
+
   const formatDate = (date: Date) => {
     return date.toLocaleString("en-US", {
       month: "short",
@@ -334,13 +364,26 @@ export default function CyberMemDashboard() {
     <div className="min-h-screen text-white p-6">
       {/* Header */}
       <div className="mb-8 flex items-center justify-between">
-        <div>
+        <div className="flex items-center gap-6">
           <h1
             className="text-5xl font-semibold text-white tracking-wider"
             style={{ fontFamily: "'Exo 2', sans-serif" }}
           >
             CyberMem
           </h1>
+          <div className="flex items-center gap-2">
+            {["15m", "1h", "6h", "12h", "24h"].map((p) => (
+              <Button
+                key={p}
+                onClick={() => setPeriod(p)}
+                variant={period === p ? "default" : "outline"}
+                size="sm"
+                className={period === p ? "bg-white/20 text-white border-white/30" : "bg-white/5 text-white/70 border-white/20 hover:bg-white/10 hover:text-white"}
+              >
+                {p}
+              </Button>
+            ))}
+          </div>
         </div>
         <div className="flex flex-col items-end gap-1">
           <div className="flex items-center gap-2 bg-white/90 px-3 py-1.5 rounded-full backdrop-blur-sm">
@@ -357,123 +400,227 @@ export default function CyberMemDashboard() {
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 mb-8">
         {/* Memory Records */}
         <Card className="bg-white/15 backdrop-blur-2xl border-white/20 text-white shadow-xl overflow-hidden">
-          <CardContent className="pt-4 pb-0 relative">
-            <div className="text-lg font-medium text-white/90 mb-2">Memory Records</div>
-            <div className="text-6xl font-bold text-white mb-2">{stats.memoryRecords.toLocaleString()}</div>
-            <div className="absolute bottom-0 left-0 right-0 h-16 -mx-6 -mb-6">
+          <CardContent className="p-0 relative h-40">
+            {/* Sparkline background */}
+            <div className="absolute -top-8 -bottom-8 left-0 right-0 pointer-events-none">
               <ReactECharts
                 option={{
+                  animation: false,
                   backgroundColor: "transparent",
-                  grid: { left: 0, right: 0, top: 0, bottom: 0 },
-                  xAxis: { type: "category", show: false },
-                  yAxis: { type: "value", show: false },
+                  silent: true,
+                  grid: {
+                    left: 0,
+                    right: 0,
+                    top: 0,
+                    bottom: 0,
+                    containLabel: false,
+                    show: false,
+                    borderWidth: 0
+                  },
+                  xAxis: {
+                    type: "category",
+                    show: false,
+                    boundaryGap: false
+                  },
+                  yAxis: {
+                    type: "value",
+                    show: false,
+                    min: 0,
+                    scale: false,
+                    boundaryGap: [0, 0]
+                  },
                   series: [
                     {
                       type: "line",
                       data: sparklineData.memoryRecords,
                       smooth: true,
                       showSymbol: false,
+                      animation: false,
                       lineStyle: { width: 0 },
-                      areaStyle: { color: "rgba(255, 255, 255, 0.35)" },
+                      areaStyle: { color: "rgba(255, 255, 255, 0.20)", origin: "start" },
+                      sampling: "lttb",
                     },
                   ],
                 }}
-                style={{ height: "64px" }}
-                opts={{ renderer: "svg" }}
+                style={{ height: "100%", width: "100%" }}
+                opts={{ renderer: "canvas" }}
               />
+            </div>
+            {/* Content with padding */}
+            <div className="relative z-10 p-6">
+              <div className="text-lg font-medium text-white/90 mb-2">Memory Records</div>
+              <div className="text-6xl font-bold text-white">{stats.memoryRecords.toLocaleString()}</div>
             </div>
           </CardContent>
         </Card>
 
         {/* Total Clients */}
         <Card className="bg-white/15 backdrop-blur-2xl border-white/20 shadow-xl overflow-hidden">
-          <CardContent className="pt-4 pb-0 relative">
-            <div className="text-lg font-medium text-white/90 mb-2">Total Clients</div>
-            <div className="text-6xl font-bold text-white mb-2">
-              {stats.totalClients}{" "}
-              <span className="text-2xl text-white/90 font-semibold">+{stats.clientGrowth} this month</span>
-            </div>
-            <div className="absolute bottom-0 left-0 right-0 h-16 -mx-6 -mb-6">
+          <CardContent className="p-0 relative h-40">
+            {/* Sparkline background */}
+            <div className="absolute -top-8 -bottom-8 left-0 right-0 pointer-events-none">
               <ReactECharts
                 option={{
+                  animation: false,
                   backgroundColor: "transparent",
-                  grid: { left: 0, right: 0, top: 0, bottom: 0 },
-                  xAxis: { type: "category", show: false },
-                  yAxis: { type: "value", show: false },
+                  silent: true,
+                  grid: {
+                    left: 0,
+                    right: 0,
+                    top: 0,
+                    bottom: 0,
+                    containLabel: false,
+                    show: false,
+                    borderWidth: 0
+                  },
+                  xAxis: {
+                    type: "category",
+                    show: false,
+                    boundaryGap: false
+                  },
+                  yAxis: {
+                    type: "value",
+                    show: false,
+                    min: 0,
+                    scale: false,
+                    boundaryGap: [0, 0]
+                  },
                   series: [
                     {
                       type: "line",
                       data: sparklineData.totalClients,
                       smooth: true,
                       showSymbol: false,
+                      animation: false,
                       lineStyle: { width: 0 },
-                      areaStyle: { color: "rgba(255, 255, 255, 0.35)" },
+                      areaStyle: { color: "rgba(255, 255, 255, 0.20)", origin: "start" },
+                      sampling: "lttb",
                     },
                   ],
                 }}
-                style={{ height: "64px" }}
-                opts={{ renderer: "svg" }}
+                style={{ height: "100%", width: "100%" }}
+                opts={{ renderer: "canvas" }}
               />
+            </div>
+            {/* Content with padding */}
+            <div className="relative z-10 p-6">
+              <div className="text-lg font-medium text-white/90 mb-2">Total Clients</div>
+              <div className="text-5xl font-bold text-white">
+                {stats.totalClients}{" "}
+                <span className="text-xl text-white/90 font-semibold">+{stats.clientGrowth} this month</span>
+              </div>
             </div>
           </CardContent>
         </Card>
 
         {/* Success Rate */}
         <Card className="bg-white/15 backdrop-blur-2xl border-white/20 shadow-xl overflow-hidden">
-          <CardContent className="pt-4 pb-0 relative">
-            <div className="text-lg font-medium text-white/90 mb-2">Success Rate</div>
-            <div className="text-6xl font-bold text-white mb-2">{stats.successRate.toFixed(1)}%</div>
-            <div className="absolute bottom-0 left-0 right-0 h-16 -mx-6 -mb-6">
+          <CardContent className="p-0 relative h-40">
+            {/* Sparkline background */}
+            <div className="absolute -top-8 -bottom-8 left-0 right-0 pointer-events-none">
               <ReactECharts
                 option={{
+                  animation: false,
                   backgroundColor: "transparent",
-                  grid: { left: 0, right: 0, top: 0, bottom: 0 },
-                  xAxis: { type: "category", show: false },
-                  yAxis: { type: "value", show: false },
+                  silent: true,
+                  grid: {
+                    left: 0,
+                    right: 0,
+                    top: 0,
+                    bottom: 0,
+                    containLabel: false,
+                    show: false,
+                    borderWidth: 0
+                  },
+                  xAxis: {
+                    type: "category",
+                    show: false,
+                    boundaryGap: false
+                  },
+                  yAxis: {
+                    type: "value",
+                    show: false,
+                    min: 0,
+                    scale: false,
+                    boundaryGap: [0, 0]
+                  },
                   series: [
                     {
                       type: "line",
                       data: sparklineData.successRate,
                       smooth: true,
                       showSymbol: false,
+                      animation: false,
                       lineStyle: { width: 0 },
-                      areaStyle: { color: "rgba(255, 255, 255, 0.35)" },
+                      areaStyle: { color: "rgba(255, 255, 255, 0.20)", origin: "start" },
+                      sampling: "lttb",
                     },
                   ],
                 }}
-                style={{ height: "64px" }}
-                opts={{ renderer: "svg" }}
+                style={{ height: "100%", width: "100%" }}
+                opts={{ renderer: "canvas" }}
               />
+            </div>
+            {/* Content with padding */}
+            <div className="relative z-10 p-6">
+              <div className="text-lg font-medium text-white/90 mb-2">Success Rate</div>
+              <div className="text-6xl font-bold text-white">{stats.successRate.toFixed(1)}%</div>
             </div>
           </CardContent>
         </Card>
 
         {/* Total Requests */}
         <Card className="bg-white/15 backdrop-blur-2xl border-white/20 text-white shadow-xl overflow-hidden">
-          <CardContent className="pt-4 pb-0 relative">
-            <div className="text-lg font-medium text-white/90 mb-2">Total Requests</div>
-            <div className="text-6xl font-bold text-white mb-2">{stats.totalRequests.toLocaleString()}</div>
-            <div className="absolute bottom-0 left-0 right-0 h-16 -mx-6 -mb-6">
+          <CardContent className="p-0 relative h-40">
+            {/* Sparkline background */}
+            <div className="absolute -top-8 -bottom-8 left-0 right-0 pointer-events-none">
               <ReactECharts
                 option={{
+                  animation: false,
                   backgroundColor: "transparent",
-                  grid: { left: 0, right: 0, top: 0, bottom: 0 },
-                  xAxis: { type: "category", show: false },
-                  yAxis: { type: "value", show: false },
+                  silent: true,
+                  grid: {
+                    left: 0,
+                    right: 0,
+                    top: 0,
+                    bottom: 0,
+                    containLabel: false,
+                    show: false,
+                    borderWidth: 0
+                  },
+                  xAxis: {
+                    type: "category",
+                    show: false,
+                    boundaryGap: false
+                  },
+                  yAxis: {
+                    type: "value",
+                    show: false,
+                    min: 0,
+                    scale: false,
+                    boundaryGap: [0, 0]
+                  },
                   series: [
                     {
                       type: "line",
                       data: sparklineData.totalRequests,
                       smooth: true,
                       showSymbol: false,
+                      animation: false,
                       lineStyle: { width: 0 },
-                      areaStyle: { color: "rgba(255, 255, 255, 0.35)" },
+                      areaStyle: { color: "rgba(255, 255, 255, 0.20)", origin: "start" },
+                      sampling: "lttb",
                     },
                   ],
                 }}
-                style={{ height: "64px" }}
-                opts={{ renderer: "svg" }}
+                style={{ height: "100%", width: "100%" }}
+                opts={{ renderer: "canvas" }}
               />
+            </div>
+            {/* Content with padding */}
+            <div className="relative z-10 p-6">
+              <div className="text-lg font-medium text-white/90 mb-2">Total Requests</div>
+              <div className="text-6xl font-bold text-white">{stats.totalRequests.toLocaleString()}</div>
             </div>
           </CardContent>
         </Card>
@@ -482,7 +629,7 @@ export default function CyberMemDashboard() {
         <Card className="bg-white/15 backdrop-blur-2xl border-white/20 text-white shadow-xl overflow-hidden">
           <CardContent className="pt-4 pb-0 relative">
             <div className="text-lg font-medium text-white/90 mb-2">Most Writing Client</div>
-            <div className="text-4xl font-bold text-white mb-1 truncate">{stats.topWriter.name}</div>
+            <div className="text-4xl font-bold text-white mb-1 truncate">{getClientDisplayName(stats.topWriter.name)}</div>
             <div className="text-xl text-white/80 mb-4 whitespace-nowrap">
               {stats.topWriter.count.toLocaleString()} writes
             </div>
@@ -493,9 +640,11 @@ export default function CyberMemDashboard() {
         <Card className="bg-white/15 backdrop-blur-2xl border-white/20 text-white shadow-xl overflow-hidden">
           <CardContent className="pt-4 pb-0 relative">
             <div className="text-lg font-medium text-white/90 mb-2">Most Reading Client</div>
-            <div className="text-4xl font-bold text-white mb-1 truncate">{stats.topReader.name}</div>
+            <div className="text-4xl font-bold text-white mb-1 truncate">
+              {stats.topReader.count > 0 ? getClientDisplayName(stats.topReader.name) : "N/A"}
+            </div>
             <div className="text-xl text-white/80 mb-4 whitespace-nowrap">
-              {stats.topReader.count.toLocaleString()} reads
+              {stats.topReader.count > 0 ? `${stats.topReader.count.toLocaleString()} reads` : ""}
             </div>
           </CardContent>
         </Card>
@@ -504,8 +653,10 @@ export default function CyberMemDashboard() {
         <Card className="bg-white/15 backdrop-blur-2xl border-white/20 text-white shadow-xl overflow-hidden">
           <CardContent className="pt-4 pb-0 relative">
             <div className="text-lg font-medium text-white/90 mb-2">Last Writer</div>
-            <div className="text-4xl font-bold text-white mb-1 truncate">{stats.lastWriter.name}</div>
-            <div className="text-xl text-white/80 mb-4">{formatTimestamp(stats.lastWriter.timestamp)}</div>
+            <div className="text-4xl font-bold text-white mb-1 truncate">{getClientDisplayName(stats.lastWriter.name)}</div>
+            {stats.lastWriter.name !== "N/A" && (
+              <div className="text-xl text-white/80 mb-4">{formatTimestamp(stats.lastWriter.timestamp)}</div>
+            )}
           </CardContent>
         </Card>
 
@@ -513,96 +664,71 @@ export default function CyberMemDashboard() {
         <Card className="bg-white/15 backdrop-blur-2xl border-white/20 text-white shadow-xl overflow-hidden">
           <CardContent className="pt-4 pb-0 relative">
             <div className="text-lg font-medium text-white/90 mb-2">Last Reader</div>
-            <div className="text-4xl font-bold text-white mb-1 truncate">{stats.lastReader.name}</div>
-            <div className="text-xl text-white/80 mb-4">{formatTimestamp(stats.lastReader.timestamp)}</div>
+            <div className="text-4xl font-bold text-white mb-1 truncate">{getClientDisplayName(stats.lastReader.name)}</div>
+            {stats.lastReader.name !== "N/A" && (
+              <div className="text-xl text-white/80 mb-4">{formatTimestamp(stats.lastReader.timestamp)}</div>
+            )}
           </CardContent>
         </Card>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-        {/* Requests Rate - Top Left */}
+        {/* Requests by Client - Top Left */}
         <Card className="bg-white/10 backdrop-blur-3xl border-white/20 shadow-xl">
           <CardContent className="pt-6">
-            <h3 className="text-lg text-white font-semibold mb-4">Requests Rate</h3>
-            <ReactECharts
-              option={{
-                backgroundColor: "transparent",
-                tooltip: {
-                  trigger: "axis",
-                  backgroundColor: "rgba(0, 0, 0, 0.8)",
-                  borderColor: "#333",
-                  textStyle: { color: "#fff" },
-                },
-                legend: {
-                  data: CLIENT_NAMES,
-                  textStyle: { color: "#fff" },
-                  bottom: 0,
-                },
-                grid: {
-                  left: "3%",
-                  right: "4%",
-                  bottom: "15%",
-                  top: "5%",
-                  containLabel: true,
-                },
-                xAxis: {
-                  type: "category",
-                  boundaryGap: false,
-                  data: requestsTimeSeries.map((d) => d.time),
-                  axisLine: { lineStyle: { color: "rgba(255, 255, 255, 0.2)" } },
-                  axisLabel: { color: "#fff" },
-                },
-                yAxis: {
-                  type: "value",
-                  axisLine: { lineStyle: { color: "rgba(255, 255, 255, 0.2)" } },
-                  axisLabel: { color: "#fff", formatter: "{value} req/s" },
-                  splitLine: { lineStyle: { color: "rgba(255, 255, 255, 0.1)" } },
-                },
-                series: [
-                  {
-                    name: "Cursor",
-                    type: "line",
-                    smooth: true,
-                    data: requestsTimeSeries.map((d) => d.Cursor),
-                    itemStyle: { color: "#14b8a6" },
-                    lineStyle: { width: 2 },
+            <h3 className="text-lg text-white font-semibold mb-4">Requests by Client</h3>
+            {requestsTimeSeries.length === 0 ? (
+              <div className="flex items-center justify-center h-64 text-white/60 text-lg">
+                No data available yet...
+              </div>
+            ) : (
+              <ReactECharts
+                option={{
+                  backgroundColor: "transparent",
+                  tooltip: {
+                    trigger: "axis",
+                    backgroundColor: "rgba(0, 0, 0, 0.8)",
+                    borderColor: "#333",
+                    textStyle: { color: "#fff" },
                   },
-                  {
-                    name: "Visual Studio Code",
-                    type: "line",
-                    smooth: true,
-                    data: requestsTimeSeries.map((d) => d["Visual Studio Code"]),
-                    itemStyle: { color: "#06b6d4" },
-                    lineStyle: { width: 2 },
+                  grid: {
+                    left: "3%",
+                    right: "4%",
+                    bottom: "15%",
+                    top: "3%",
+                    containLabel: true,
                   },
-                  {
-                    name: "Claude Desktop",
-                    type: "line",
-                    smooth: true,
-                    data: requestsTimeSeries.map((d) => d["Claude Desktop"]),
-                    itemStyle: { color: "#8b5cf6" },
-                    lineStyle: { width: 2 },
+                  xAxis: {
+                    type: "category",
+                    data: requestsTimeSeries.map((d) => formatTimeForChart(d.time as number)),
+                    axisLine: { lineStyle: { color: "rgba(255, 255, 255, 0.2)" } },
+                    axisLabel: { color: "#fff", rotate: 45 },
+                    boundaryGap: false,
                   },
-                  {
-                    name: "GitHub Copilot",
-                    type: "line",
-                    smooth: true,
-                    data: requestsTimeSeries.map((d) => d["GitHub Copilot"]),
-                    itemStyle: { color: "#10b981" },
-                    lineStyle: { width: 2 },
+                  yAxis: {
+                    type: "value",
+                    axisLine: { lineStyle: { color: "rgba(255, 255, 255, 0.2)" } },
+                    axisLabel: { color: "#fff" },
+                    splitLine: { lineStyle: { color: "rgba(255, 255, 255, 0.1)" } },
                   },
-                  {
-                    name: "Windsurf",
-                    type: "line",
-                    smooth: true,
-                    data: requestsTimeSeries.map((d) => d.Windsurf),
-                    itemStyle: { color: "#f59e0b" },
-                    lineStyle: { width: 2 },
+                  legend: {
+                    data: clientNames.map(getClientDisplayName),
+                    textStyle: { color: "#fff", fontSize: 11 },
+                    bottom: 0,
+                    type: "plain",
                   },
-                ],
-              }}
-              style={{ height: "256px" }}
-            />
+                  series: clientNames.map((client, index) => ({
+                    name: getClientDisplayName(client),
+                    type: "line",
+                    data: requestsTimeSeries.map((d) => d[client] || 0),
+                    smooth: true,
+                    lineStyle: { width: 2 },
+                    itemStyle: { color: COLOR_PALETTE[index % COLOR_PALETTE.length] },
+                  })),
+                }}
+                style={{ height: "256px" }}
+              />
+            )}
           </CardContent>
         </Card>
 
@@ -610,132 +736,119 @@ export default function CyberMemDashboard() {
         <Card className="bg-white/10 backdrop-blur-3xl border-white/20 shadow-xl">
           <CardContent className="pt-6">
             <h3 className="text-lg text-white font-semibold mb-4">Reads</h3>
-            <ReactECharts
-              option={{
-                backgroundColor: "transparent",
-                tooltip: {
-                  trigger: "axis",
-                  backgroundColor: "rgba(0, 0, 0, 0.8)",
-                  borderColor: "#333",
-                  textStyle: { color: "#fff" },
-                  axisPointer: { type: "shadow" },
-                },
-                grid: {
-                  left: "15%",
-                  right: "4%",
-                  bottom: "3%",
-                  top: "3%",
-                  containLabel: false,
-                },
-                xAxis: {
-                  type: "value",
-                  axisLine: { lineStyle: { color: "rgba(255, 255, 255, 0.2)" } },
-                  axisLabel: { color: "#fff" },
-                  splitLine: { lineStyle: { color: "rgba(255, 255, 255, 0.1)" } },
-                },
-                yAxis: {
-                  type: "category",
-                  data: readsByClient.map((d) => d.client),
-                  axisLine: { lineStyle: { color: "rgba(255, 255, 255, 0.2)" } },
-                  axisLabel: { color: "#fff" },
-                },
-                series: [
-                  {
-                    type: "bar",
-                    data: readsByClient.map((d) => d.reads),
-                    itemStyle: { color: "#14b8a6" },
-                    barWidth: "60%",
+            {readsByClient.length === 0 ? (
+              <div className="flex items-center justify-center h-64 text-white/60 text-lg">
+                No data available yet...
+              </div>
+            ) : (
+              <ReactECharts
+                option={{
+                  backgroundColor: "transparent",
+                  tooltip: {
+                    trigger: "axis",
+                    backgroundColor: "rgba(0, 0, 0, 0.8)",
+                    borderColor: "#333",
+                    textStyle: { color: "#fff" },
+                    axisPointer: { type: "shadow" },
                   },
-                ],
-              }}
-              style={{ height: "256px" }}
-            />
+                  grid: {
+                    left: "15%",
+                    right: "4%",
+                    bottom: "3%",
+                    top: "3%",
+                    containLabel: false,
+                  },
+                  xAxis: {
+                    type: "value",
+                    axisLine: { lineStyle: { color: "rgba(255, 255, 255, 0.2)" } },
+                    axisLabel: { color: "#fff" },
+                    splitLine: { lineStyle: { color: "rgba(255, 255, 255, 0.1)" } },
+                  },
+                  yAxis: {
+                    type: "category",
+                    data: readsByClient.map((d) => d.client),
+                    axisLine: { lineStyle: { color: "rgba(255, 255, 255, 0.2)" } },
+                    axisLabel: { color: "#fff" },
+                  },
+                  series: [
+                    {
+                      type: "bar",
+                      data: readsByClient.map((d) => d.reads),
+                      itemStyle: { color: "#14b8a6" },
+                      barWidth: "60%",
+                    },
+                  ],
+                }}
+                style={{ height: "256px" }}
+              />
+            )}
           </CardContent>
         </Card>
 
-        {/* Success Rate - Bottom Left */}
+        {/* Success Rate by Client - Bottom Left */}
         <Card className="bg-white/10 backdrop-blur-3xl border-white/20 shadow-xl">
           <CardContent className="pt-6">
-            <h3 className="text-lg text-white font-semibold mb-4">Success Rate</h3>
-            <ReactECharts
-              option={{
-                backgroundColor: "transparent",
-                tooltip: {
-                  trigger: "axis",
-                  backgroundColor: "rgba(0, 0, 0, 0.8)",
-                  borderColor: "#333",
-                  textStyle: { color: "#fff" },
-                },
-                legend: {
-                  data: CLIENT_NAMES,
-                  textStyle: { color: "#fff" },
-                  bottom: 0,
-                },
-                grid: {
-                  left: "3%",
-                  right: "4%",
-                  bottom: "15%",
-                  top: "5%",
-                  containLabel: true,
-                },
-                xAxis: {
-                  type: "category",
-                  boundaryGap: false,
-                  data: successRateTimeSeries.map((d) => d.time),
-                  axisLine: { lineStyle: { color: "rgba(255, 255, 255, 0.2)" } },
-                  axisLabel: { color: "#fff" },
-                },
-                yAxis: {
-                  type: "value",
-                  axisLine: { lineStyle: { color: "rgba(255, 255, 255, 0.2)" } },
-                  axisLabel: { color: "#fff", formatter: "{value}s" },
-                  splitLine: { lineStyle: { color: "rgba(255, 255, 255, 0.1)" } },
-                },
-                series: [
-                  {
-                    name: "Cursor",
-                    type: "line",
-                    smooth: true,
-                    data: successRateTimeSeries.map((d) => d.Cursor),
-                    itemStyle: { color: "#06b6d4" },
-                    lineStyle: { width: 2 },
+            <h3 className="text-lg text-white font-semibold mb-4">Success Rate by Client</h3>
+            {successRateTimeSeriesByClient.length === 0 ? (
+              <div className="flex items-center justify-center h-64 text-white/60 text-lg">
+                No data available yet...
+              </div>
+            ) : (
+              <ReactECharts
+                option={{
+                  backgroundColor: "transparent",
+                  tooltip: {
+                    trigger: "axis",
+                    backgroundColor: "rgba(0, 0, 0, 0.8)",
+                    borderColor: "#333",
+                    textStyle: { color: "#fff" },
+                    formatter: (params: any) => {
+                      let result = `${params[0].axisValue}<br/>`
+                      params.forEach((param: any) => {
+                        result += `${param.marker} ${param.seriesName}: ${param.value.toFixed(1)}%<br/>`
+                      })
+                      return result
+                    },
                   },
-                  {
-                    name: "Visual Studio Code",
-                    type: "line",
-                    smooth: true,
-                    data: successRateTimeSeries.map((d) => d["Visual Studio Code"]),
-                    itemStyle: { color: "#14b8a6" },
-                    lineStyle: { width: 2 },
+                  grid: {
+                    left: "3%",
+                    right: "4%",
+                    bottom: "15%",
+                    top: "3%",
+                    containLabel: true,
                   },
-                  {
-                    name: "Claude Desktop",
-                    type: "line",
-                    smooth: true,
-                    data: successRateTimeSeries.map((d) => d["Claude Desktop"]),
-                    itemStyle: { color: "#10b981" },
-                    lineStyle: { width: 2 },
+                  xAxis: {
+                    type: "category",
+                    data: successRateTimeSeriesByClient.map((d) => formatTimeForChart(d.time as number)),
+                    axisLine: { lineStyle: { color: "rgba(255, 255, 255, 0.2)" } },
+                    axisLabel: { color: "#fff", rotate: 45 },
+                    boundaryGap: false,
                   },
-                  {
-                    name: "GitHub Copilot",
-                    type: "line",
-                    smooth: true,
-                    data: successRateTimeSeries.map((d) => d["GitHub Copilot"]),
-                    itemStyle: { color: "#8b5cf6" },
-                    lineStyle: { width: 2 },
+                  yAxis: {
+                    type: "value",
+                    max: 100,
+                    axisLine: { lineStyle: { color: "rgba(255, 255, 255, 0.2)" } },
+                    axisLabel: { color: "#fff", formatter: "{value}%" },
+                    splitLine: { lineStyle: { color: "rgba(255, 255, 255, 0.1)" } },
                   },
-                  {
-                    name: "Windsurf",
-                    type: "line",
-                    smooth: true,
-                    data: successRateTimeSeries.map((d) => d.Windsurf),
-                    itemStyle: { color: "#f59e0b" },
-                    lineStyle: { width: 2 },
+                  legend: {
+                    data: clientNames.map(getClientDisplayName),
+                    textStyle: { color: "#fff", fontSize: 11 },
+                    bottom: 0,
+                    type: "plain",
                   },
-                ],
-              }}
-              style={{ height: "256px" }}
-            />
+                  series: clientNames.map((client, index) => ({
+                    name: getClientDisplayName(client),
+                    type: "line",
+                    data: successRateTimeSeriesByClient.map((d) => d[client] || 0),
+                    smooth: true,
+                    lineStyle: { width: 2 },
+                    itemStyle: { color: COLOR_PALETTE[index % COLOR_PALETTE.length] },
+                  })),
+                }}
+                style={{ height: "256px" }}
+              />
+            )}
           </CardContent>
         </Card>
 
@@ -743,46 +856,52 @@ export default function CyberMemDashboard() {
         <Card className="bg-white/10 backdrop-blur-3xl border-white/20 shadow-xl">
           <CardContent className="pt-6">
             <h3 className="text-lg text-white font-semibold mb-4">Writes</h3>
-            <ReactECharts
-              option={{
-                backgroundColor: "transparent",
-                tooltip: {
-                  trigger: "axis",
-                  backgroundColor: "rgba(0, 0, 0, 0.8)",
-                  borderColor: "#333",
-                  textStyle: { color: "#fff" },
-                  axisPointer: { type: "shadow" },
-                },
-                grid: {
-                  left: "15%",
-                  right: "4%",
-                  bottom: "3%",
-                  top: "3%",
-                  containLabel: false,
-                },
-                xAxis: {
-                  type: "value",
-                  axisLine: { lineStyle: { color: "rgba(255, 255, 255, 0.2)" } },
-                  axisLabel: { color: "#fff" },
-                  splitLine: { lineStyle: { color: "rgba(255, 255, 255, 0.1)" } },
-                },
-                yAxis: {
-                  type: "category",
-                  data: writesByClient.map((d) => d.client),
-                  axisLine: { lineStyle: { color: "rgba(255, 255, 255, 0.2)" } },
-                  axisLabel: { color: "#fff" },
-                },
-                series: [
-                  {
-                    type: "bar",
-                    data: writesByClient.map((d) => d.writes),
-                    itemStyle: { color: "#14b8a6" },
-                    barWidth: "60%",
+            {writesByClient.length === 0 ? (
+              <div className="flex items-center justify-center h-64 text-white/60 text-lg">
+                No data available yet...
+              </div>
+            ) : (
+              <ReactECharts
+                option={{
+                  backgroundColor: "transparent",
+                  tooltip: {
+                    trigger: "axis",
+                    backgroundColor: "rgba(0, 0, 0, 0.8)",
+                    borderColor: "#333",
+                    textStyle: { color: "#fff" },
+                    axisPointer: { type: "shadow" },
                   },
-                ],
-              }}
-              style={{ height: "256px" }}
-            />
+                  grid: {
+                    left: "15%",
+                    right: "4%",
+                    bottom: "3%",
+                    top: "3%",
+                    containLabel: false,
+                  },
+                  xAxis: {
+                    type: "value",
+                    axisLine: { lineStyle: { color: "rgba(255, 255, 255, 0.2)" } },
+                    axisLabel: { color: "#fff" },
+                    splitLine: { lineStyle: { color: "rgba(255, 255, 255, 0.1)" } },
+                  },
+                  yAxis: {
+                    type: "category",
+                    data: writesByClient.map((d) => d.client),
+                    axisLine: { lineStyle: { color: "rgba(255, 255, 255, 0.2)" } },
+                    axisLabel: { color: "#fff" },
+                  },
+                  series: [
+                    {
+                      type: "bar",
+                      data: writesByClient.map((d) => d.writes),
+                      itemStyle: { color: "#14b8a6" },
+                      barWidth: "60%",
+                    },
+                  ],
+                }}
+                style={{ height: "256px" }}
+              />
+            )}
           </CardContent>
         </Card>
       </div>
@@ -805,10 +924,16 @@ export default function CyberMemDashboard() {
             </div>
           </div>
 
-          <div className="rounded-lg border border-white/20 overflow-hidden bg-white/10 backdrop-blur-md">
-            <Table>
-              <TableHeader>
-                <TableRow className="bg-white/60 backdrop-blur-sm hover:bg-white/70 border-white/20">
+          {fullAuditLog.length === 0 ? (
+            <div className="flex items-center justify-center h-64 text-white/60 text-lg">
+              No data available yet...
+            </div>
+          ) : (
+            <>
+              <div className="rounded-lg border border-white/20 overflow-hidden bg-white/10 backdrop-blur-md">
+                <Table>
+                  <TableHeader>
+                    <TableRow className="bg-white/60 backdrop-blur-sm hover:bg-white/70 border-white/20">
                   <TableHead
                     className="text-gray-900 font-semibold cursor-pointer hover:text-black transition-colors w-[140px]"
                     onClick={() => handleSort("date")}
@@ -844,7 +969,7 @@ export default function CyberMemDashboard() {
                     }`}
                   >
                     <TableCell className="font-mono text-sm text-white/95 w-[140px]">{formatDate(log.date)}</TableCell>
-                    <TableCell className="font-mono text-base text-white/95 font-medium pl-8">{log.client}</TableCell>
+                    <TableCell className="font-mono text-base text-white/95 font-medium pl-8">{getClientDisplayName(log.client)}</TableCell>
                     <TableCell className="text-white/90 text-base w-[140px]">
                       {getOperationBadge(log.operation)}
                     </TableCell>
@@ -857,32 +982,34 @@ export default function CyberMemDashboard() {
             </Table>
           </div>
 
-          <div className="flex items-center justify-between mt-4">
-            <p className="text-sm text-white/80">
-              Showing {(currentPage - 1) * itemsPerPage + 1} to {Math.min(currentPage * itemsPerPage, sortedLog.length)}{" "}
-              of {sortedLog.length} entries
-            </p>
-            <div className="flex gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-                disabled={currentPage === 1}
-                className="bg-white/15 border-white/20 text-white hover:bg-white/20"
-              >
-                <ChevronLeft className="h-4 w-4" />
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-                disabled={currentPage === totalPages}
-                className="bg-white/15 border-white/20 text-white hover:bg-white/20"
-              >
-                <ChevronRight className="h-4 w-4" />
-              </Button>
-            </div>
-          </div>
+              <div className="flex items-center justify-between mt-4">
+                <p className="text-sm text-white/80">
+                  Showing {(currentPage - 1) * itemsPerPage + 1} to {Math.min(currentPage * itemsPerPage, sortedLog.length)}{" "}
+                  of {sortedLog.length} entries
+                </p>
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                    disabled={currentPage === 1}
+                    className="bg-white/15 border-white/20 text-white hover:bg-white/20"
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                    disabled={currentPage === totalPages}
+                    className="bg-white/15 border-white/20 text-white hover:bg-white/20"
+                  >
+                    <ChevronRight className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+            </>
+          )}
         </CardContent>
       </Card>
     </div>

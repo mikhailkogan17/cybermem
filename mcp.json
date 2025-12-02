@@ -1,0 +1,15 @@
+{
+  "mcpServers": {
+    "cybermem": {
+      "command": "/Users/mikhailkogan/cybermem/mcp_server/.venv/bin/python",
+      "args": ["/Users/mikhailkogan/cybermem/mcp_server/openmemory_mcp.py"],
+      "env": {
+        "CYBERMEM_API_KEY": "claude-code.dev-secret-key"
+      }
+    },
+    "puppeteer": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-puppeteer"]
+    }
+  }
+}
