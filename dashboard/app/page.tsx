@@ -55,7 +55,6 @@ export default function CyberMemDashboard() {
     totalRequests: Array.from({ length: 20 }, () => 0),
   })
 
-  const [readsByClient, setReadsByClient] = useState<Array<{ client: string; reads: number }>>([])
   const [writesByClient, setWritesByClient] = useState<Array<{ client: string; writes: number }>>([])
   const [requestsByClient, setRequestsByClient] = useState<Array<{ client: string; total: number }>>([])
   const [successRateByClient, setSuccessRateByClient] = useState<Array<{ client: string; rate: number }>>([])
@@ -132,7 +131,6 @@ export default function CyberMemDashboard() {
         totalRequests: data.stats.totalRequests ?? 0,
       }))
 
-      setReadsByClient(readsArray)
       setWritesByClient(writesArray)
       setRequestsByClient(requestsByClientArray)
       setSuccessRateByClient(successRateArray)
@@ -649,27 +647,6 @@ export default function CyberMemDashboard() {
           </CardContent>
         </Card>
 
-        {/* Last Writer */}
-        <Card className="bg-white/15 backdrop-blur-2xl border-white/20 text-white shadow-xl overflow-hidden">
-          <CardContent className="pt-4 pb-0 relative">
-            <div className="text-lg font-medium text-white/90 mb-2">Last Writer</div>
-            <div className="text-4xl font-bold text-white mb-1 truncate">{getClientDisplayName(stats.lastWriter.name)}</div>
-            {stats.lastWriter.name !== "N/A" && (
-              <div className="text-xl text-white/80 mb-4">{formatTimestamp(stats.lastWriter.timestamp)}</div>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Last Reader */}
-        <Card className="bg-white/15 backdrop-blur-2xl border-white/20 text-white shadow-xl overflow-hidden">
-          <CardContent className="pt-4 pb-0 relative">
-            <div className="text-lg font-medium text-white/90 mb-2">Last Reader</div>
-            <div className="text-4xl font-bold text-white mb-1 truncate">{getClientDisplayName(stats.lastReader.name)}</div>
-            {stats.lastReader.name !== "N/A" && (
-              <div className="text-xl text-white/80 mb-4">{formatTimestamp(stats.lastReader.timestamp)}</div>
-            )}
-          </CardContent>
-        </Card>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
@@ -732,11 +709,11 @@ export default function CyberMemDashboard() {
           </CardContent>
         </Card>
 
-        {/* Reads - Top Right */}
+        {/* Added Memory by Client (24h) */}
         <Card className="bg-white/10 backdrop-blur-3xl border-white/20 shadow-xl">
           <CardContent className="pt-6">
-            <h3 className="text-lg text-white font-semibold mb-4">Reads</h3>
-            {readsByClient.length === 0 ? (
+            <h3 className="text-lg text-white font-semibold mb-4">Added Memory (24h)</h3>
+            {writesByClient.length === 0 ? (
               <div className="flex items-center justify-center h-64 text-white/60 text-lg">
                 No data available yet...
               </div>
@@ -766,14 +743,14 @@ export default function CyberMemDashboard() {
                   },
                   yAxis: {
                     type: "category",
-                    data: readsByClient.map((d) => d.client),
+                    data: writesByClient.map((d) => getClientDisplayName(d.client)),
                     axisLine: { lineStyle: { color: "rgba(255, 255, 255, 0.2)" } },
                     axisLabel: { color: "#fff" },
                   },
                   series: [
                     {
                       type: "bar",
-                      data: readsByClient.map((d) => d.reads),
+                      data: writesByClient.map((d) => d.writes),
                       itemStyle: { color: "#14b8a6" },
                       barWidth: "60%",
                     },
