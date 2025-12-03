@@ -56,6 +56,7 @@ export default function CyberMemDashboard() {
   })
 
   const [writesByClient, setWritesByClient] = useState<Array<{ client: string; writes: number }>>([])
+  const [readsByClient, setReadsByClient] = useState<Array<{ client: string; reads: number }>>([])
   const [requestsByClient, setRequestsByClient] = useState<Array<{ client: string; total: number }>>([])
   const [successRateByClient, setSuccessRateByClient] = useState<Array<{ client: string; rate: number }>>([])
   const [requestsTimeSeries, setRequestsTimeSeries] = useState<Array<any>>([])
@@ -125,12 +126,13 @@ export default function CyberMemDashboard() {
         clientGrowth: data.stats.clientGrowth ?? 0,
         topWriter: data.stats.topWriter ?? { name: "N/A", count: 0 },
         topReader: data.stats.topReader ?? { name: "N/A", count: 0 },
-        lastWriter: prev.lastWriter,
-        lastReader: prev.lastReader,
+        lastWriter: data.stats.lastWriter ?? { name: "N/A", timestamp: 0 },
+        lastReader: data.stats.lastReader ?? { name: "N/A", timestamp: 0 },
         successRate: data.stats.successRate ?? 0,
         totalRequests: data.stats.totalRequests ?? 0,
       }))
 
+      setReadsByClient(readsArray)
       setWritesByClient(writesArray)
       setRequestsByClient(requestsByClientArray)
       setSuccessRateByClient(successRateArray)
@@ -647,6 +649,32 @@ export default function CyberMemDashboard() {
           </CardContent>
         </Card>
 
+        {/* Last Writer */}
+        <Card className="bg-white/15 backdrop-blur-2xl border-white/20 text-white shadow-xl overflow-hidden">
+          <CardContent className="pt-4 pb-0 relative">
+            <div className="text-lg font-medium text-white/90 mb-2">Last Writer</div>
+            <div className="text-4xl font-bold text-white mb-1 truncate">
+              {stats.lastWriter.name !== "N/A" ? getClientDisplayName(stats.lastWriter.name) : "N/A"}
+            </div>
+            <div className="text-xl text-white/80 mb-4 whitespace-nowrap">
+              {stats.lastWriter.timestamp > 0 ? new Date(stats.lastWriter.timestamp).toLocaleTimeString() : "No activity"}
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Last Reader */}
+        <Card className="bg-white/15 backdrop-blur-2xl border-white/20 text-white shadow-xl overflow-hidden">
+          <CardContent className="pt-4 pb-0 relative">
+            <div className="text-lg font-medium text-white/90 mb-2">Last Reader</div>
+            <div className="text-4xl font-bold text-white mb-1 truncate">
+              {stats.lastReader.name !== "N/A" ? getClientDisplayName(stats.lastReader.name) : "N/A"}
+            </div>
+            <div className="text-xl text-white/80 mb-4 whitespace-nowrap">
+              {stats.lastReader.timestamp > 0 ? new Date(stats.lastReader.timestamp).toLocaleTimeString() : "No activity"}
+            </div>
+          </CardContent>
+        </Card>
+
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
@@ -709,10 +737,63 @@ export default function CyberMemDashboard() {
           </CardContent>
         </Card>
 
-        {/* Added Memory by Client (24h) */}
+        {/* Reads by Client */}
         <Card className="bg-white/10 backdrop-blur-3xl border-white/20 shadow-xl">
           <CardContent className="pt-6">
-            <h3 className="text-lg text-white font-semibold mb-4">Added Memory (24h)</h3>
+            <h3 className="text-lg text-white font-semibold mb-4">Reads by Client</h3>
+            {readsByClient.length === 0 ? (
+              <div className="flex items-center justify-center h-64 text-white/60 text-lg">
+                No read activity yet...
+              </div>
+            ) : (
+              <ReactECharts
+                option={{
+                  backgroundColor: "transparent",
+                  tooltip: {
+                    trigger: "axis",
+                    backgroundColor: "rgba(0, 0, 0, 0.8)",
+                    borderColor: "#333",
+                    textStyle: { color: "#fff" },
+                    axisPointer: { type: "shadow" },
+                  },
+                  grid: {
+                    left: "15%",
+                    right: "4%",
+                    bottom: "3%",
+                    top: "3%",
+                    containLabel: false,
+                  },
+                  xAxis: {
+                    type: "value",
+                    axisLine: { lineStyle: { color: "rgba(255, 255, 255, 0.2)" } },
+                    axisLabel: { color: "#fff" },
+                    splitLine: { lineStyle: { color: "rgba(255, 255, 255, 0.1)" } },
+                  },
+                  yAxis: {
+                    type: "category",
+                    data: readsByClient.map((d) => getClientDisplayName(d.client)),
+                    axisLine: { lineStyle: { color: "rgba(255, 255, 255, 0.2)" } },
+                    axisLabel: { color: "#fff" },
+                  },
+                  series: [
+                    {
+                      type: "bar",
+                      data: readsByClient.map((d) => d.reads),
+                      itemStyle: { color: "#3b82f6" },
+                      barWidth: "60%",
+                    },
+                  ],
+                }}
+                style={{ height: "256px" }}
+              />
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Writes by Client (24h) */}
+        <Card className="bg-white/10 backdrop-blur-3xl border-white/20 shadow-xl">
+          <CardContent className="pt-6">
+            <h3 className="text-lg text-white font-semibold mb-4">Writes by Client</h3>
             {writesByClient.length === 0 ? (
               <div className="flex items-center justify-center h-64 text-white/60 text-lg">
                 No data available yet...
