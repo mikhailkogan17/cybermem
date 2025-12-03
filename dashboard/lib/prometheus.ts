@@ -211,7 +211,7 @@ export async function getClientCount(): Promise<number> {
 }
 
 function parseDuration(duration: string): number {
-  const match = duration.match(/^(\d+)([smhd])$/)
+  const match = duration.match(/^(\d+)([smhdwMY])$/)
   if (!match) return 3600
 
   const [, amount, unit] = match
@@ -219,7 +219,10 @@ function parseDuration(duration: string): number {
     s: 1,
     m: 60,
     h: 3600,
-    d: 86400
+    d: 86400,
+    w: 604800,      // 7 days
+    M: 2592000,     // 30 days (approximation)
+    Y: 31536000     // 365 days
   }
 
   return parseInt(amount) * (multipliers[unit] || 3600)
@@ -295,17 +298,36 @@ export async function getSuccessRateSparkline(duration: string = '15m'): Promise
 }
 
 export async function getSuccessRateByClient(): Promise<Record<string, number>> {
-  // No per-client success rate - show average feedback score instead
-  const result = await query('openmemory_avg_score')
-  const scores: Record<string, number> = {}
+  // Calculate success rate from request status codes
+  // Success = status 2xx or 3xx, Failure = status 4xx or 5xx
+  const [totalResult, successResult] = await Promise.all([
+    query('sum by (client) (openmemory_requests_total)'),
+    query('sum by (client) (openmemory_requests_total{status=~"2..|3.."})')
+  ])
 
-  result.data.result.forEach((item) => {
+  const rates: Record<string, number> = {}
+
+  // First, initialize all clients with 0% (in case they have no successful requests)
+  totalResult.data.result.forEach((item) => {
     const clientId = item.metric.client || 'unknown'
-    // Convert 0-1 score to percentage for display
-    scores[clientId] = item.value ? parseFloat(item.value[1]) * 100 : 0
+    rates[clientId] = 0
   })
 
-  return scores
+  // Then calculate success rate for clients with successful requests
+  successResult.data.result.forEach((item) => {
+    const clientId = item.metric.client || 'unknown'
+    const successCount = item.value ? parseFloat(item.value[1]) : 0
+
+    // Find total count for this client
+    const totalItem = totalResult.data.result.find(t => (t.metric.client || 'unknown') === clientId)
+    const totalCount = totalItem?.value ? parseFloat(totalItem.value[1]) : 0
+
+    if (totalCount > 0) {
+      rates[clientId] = (successCount / totalCount) * 100
+    }
+  })
+
+  return rates
 }
 
 export async function getSuccessRateTimeSeriesByClient(duration: string = '1h'): Promise<Array<{ time: number, [client: string]: number | string }>> {

@@ -909,59 +909,6 @@ export default function CyberMemDashboard() {
             )}
           </CardContent>
         </Card>
-
-        {/* Writes - Bottom Right */}
-        <Card className="bg-white/10 backdrop-blur-3xl border-white/20 shadow-xl">
-          <CardContent className="pt-6">
-            <h3 className="text-lg text-white font-semibold mb-4">Writes</h3>
-            {writesByClient.length === 0 ? (
-              <div className="flex items-center justify-center h-64 text-white/60 text-lg">
-                No data available yet...
-              </div>
-            ) : (
-              <ReactECharts
-                option={{
-                  backgroundColor: "transparent",
-                  tooltip: {
-                    trigger: "axis",
-                    backgroundColor: "rgba(0, 0, 0, 0.8)",
-                    borderColor: "#333",
-                    textStyle: { color: "#fff" },
-                    axisPointer: { type: "shadow" },
-                  },
-                  grid: {
-                    left: "15%",
-                    right: "4%",
-                    bottom: "3%",
-                    top: "3%",
-                    containLabel: false,
-                  },
-                  xAxis: {
-                    type: "value",
-                    axisLine: { lineStyle: { color: "rgba(255, 255, 255, 0.2)" } },
-                    axisLabel: { color: "#fff" },
-                    splitLine: { lineStyle: { color: "rgba(255, 255, 255, 0.1)" } },
-                  },
-                  yAxis: {
-                    type: "category",
-                    data: writesByClient.map((d) => d.client),
-                    axisLine: { lineStyle: { color: "rgba(255, 255, 255, 0.2)" } },
-                    axisLabel: { color: "#fff" },
-                  },
-                  series: [
-                    {
-                      type: "bar",
-                      data: writesByClient.map((d) => d.writes),
-                      itemStyle: { color: "#14b8a6" },
-                      barWidth: "60%",
-                    },
-                  ],
-                }}
-                style={{ height: "256px" }}
-              />
-            )}
-          </CardContent>
-        </Card>
       </div>
 
       <Card className="bg-white/10 backdrop-blur-3xl border-white/20 shadow-xl">
