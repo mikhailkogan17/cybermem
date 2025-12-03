@@ -134,6 +134,23 @@ async def handle_call_tool(
 ) -> list[types.TextContent]:
     """Handle tool execution requests."""
 
+    # Try to get client info from request context
+    import sys
+    try:
+        ctx = server.request_context
+        # Log to file for debugging
+        with open("/tmp/mcp_debug.log", "a") as f:
+            f.write(f"\n=== Tool call: {name} ===\n")
+            f.write(f"Request context type: {type(ctx)}\n")
+            f.write(f"Request context dir: {[x for x in dir(ctx) if not x.startswith('_')]}\n")
+            if hasattr(ctx, 'session'):
+                f.write(f"Session: {ctx.session}\n")
+            if hasattr(ctx, 'meta'):
+                f.write(f"Meta: {ctx.meta}\n")
+    except Exception as e:
+        with open("/tmp/mcp_debug.log", "a") as f:
+            f.write(f"Error accessing context: {e}\n")
+
     headers = {
         "Authorization": f"Bearer {CYBERMEM_API_KEY}",
         "Content-Type": "application/json"
