@@ -30,13 +30,13 @@ async function queryRange(promql: string, start: number, end: number, step: stri
 }
 
 export async function getTotalRequests(): Promise<number> {
-  const result = await query('openmemory_requests_aggregate_total')
+  const result = await query('sum(openmemory_requests_total)')
   return result.data.result[0]?.value ? parseFloat(result.data.result[0].value[1]) : 0
 }
 
 export async function getRequestsByClient(): Promise<Record<string, number>> {
-  // Use total memories per client as proxy for requests
-  const result = await query('openmemory_memories_total')
+  // Use actual request counts from log-exporter
+  const result = await query('sum by (client) (openmemory_requests_total)')
   const byClient: Record<string, number> = {}
   result.data.result.forEach((item) => {
     const clientId = item.metric.client || 'unknown'
@@ -46,17 +46,22 @@ export async function getRequestsByClient(): Promise<Record<string, number>> {
 }
 
 export async function getRequestsByMethod(): Promise<{ reads: Record<string, number>, writes: Record<string, number> }> {
-  // Writes = memories added in last 24h, Reads = N/A (no data)
-  const writesResult = await query('openmemory_memories_recent_24h')
+  // Reads = GET requests, Writes = POST/PUT/DELETE requests
+  const readsResult = await query('sum by (client) (openmemory_requests_total{method="GET"})')
+  const writesResult = await query('sum by (client) (openmemory_requests_total{method=~"POST|PUT|DELETE"})')
   const writes: Record<string, number> = {}
   const reads: Record<string, number> = {}
+
+  readsResult.data.result.forEach((item) => {
+    const clientId = item.metric.client || 'unknown'
+    reads[clientId] = item.value ? parseFloat(item.value[1]) : 0
+  })
 
   writesResult.data.result.forEach((item) => {
     const clientId = item.metric.client || 'unknown'
     writes[clientId] = item.value ? parseFloat(item.value[1]) : 0
   })
 
-  // No read data available - return empty
   return { reads, writes }
 }
 
@@ -370,4 +375,56 @@ export async function getSuccessRateTimeSeriesByClient(duration: string = '1h'):
     })
 
   return timeSeries
+}
+
+export async function getTopWriter(): Promise<{ name: string, count: number }> {
+  // Get client with most write requests (POST/PUT/DELETE)
+  const result = await query('topk(1, sum by (client) (openmemory_requests_total{method=~"POST|PUT|DELETE"}))')
+  if (result.data.result.length === 0) {
+    return { name: 'N/A', count: 0 }
+  }
+  const item = result.data.result[0]
+  return {
+    name: item.metric.client || 'unknown',
+    count: item.value ? parseFloat(item.value[1]) : 0
+  }
+}
+
+export async function getTopReader(): Promise<{ name: string, count: number }> {
+  // Get client with most read requests (GET)
+  const result = await query('topk(1, sum by (client) (openmemory_requests_total{method="GET"}))')
+  if (result.data.result.length === 0) {
+    return { name: 'N/A', count: 0 }
+  }
+  const item = result.data.result[0]
+  return {
+    name: item.metric.client || 'unknown',
+    count: item.value ? parseFloat(item.value[1]) : 0
+  }
+}
+
+export async function getLastWriter(): Promise<{ name: string, timestamp: number }> {
+  // Use latest timestamp from counter (Prometheus doesn't track timestamps, use workaround)
+  const result = await query('topk(1, sum by (client) (openmemory_requests_total{method=~"POST|PUT|DELETE"}))')
+  if (result.data.result.length === 0) {
+    return { name: 'N/A', timestamp: 0 }
+  }
+  const item = result.data.result[0]
+  return {
+    name: item.metric.client || 'unknown',
+    timestamp: item.value ? item.value[0] * 1000 : 0 // Convert to ms
+  }
+}
+
+export async function getLastReader(): Promise<{ name: string, timestamp: number }> {
+  // Use latest timestamp from counter
+  const result = await query('topk(1, sum by (client) (openmemory_requests_total{method="GET"}))')
+  if (result.data.result.length === 0) {
+    return { name: 'N/A', timestamp: 0 }
+  }
+  const item = result.data.result[0]
+  return {
+    name: item.metric.client || 'unknown',
+    timestamp: item.value ? item.value[0] * 1000 : 0 // Convert to ms
+  }
 }

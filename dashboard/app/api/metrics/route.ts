@@ -15,7 +15,11 @@ import {
   getTotalClientsSparkline,
   getSuccessRateSparkline,
   getSuccessRateByClient,
-  getSuccessRateTimeSeriesByClient
+  getSuccessRateTimeSeriesByClient,
+  getTopWriter,
+  getTopReader,
+  getLastWriter,
+  getLastReader
 } from '@/lib/prometheus'
 
 export const dynamic = 'force-dynamic'
@@ -42,7 +46,11 @@ export async function GET(request: Request) {
       totalClientsSparkline,
       successRateSparkline,
       successRateByClient,
-      successRateTimeSeriesByClient
+      successRateTimeSeriesByClient,
+      topWriter,
+      topReader,
+      lastWriter,
+      lastReader
     ] = await Promise.all([
       getTotalRequests(),
       getRequestsByClient(),
@@ -59,7 +67,11 @@ export async function GET(request: Request) {
       getTotalClientsSparkline(period),
       getSuccessRateSparkline(period),
       getSuccessRateByClient(),
-      getSuccessRateTimeSeriesByClient(period)
+      getSuccessRateTimeSeriesByClient(period),
+      getTopWriter(),
+      getTopReader(),
+      getLastWriter(),
+      getLastReader()
     ])
 
     // Sort clients by total requests
@@ -72,27 +84,16 @@ export async function GET(request: Request) {
       }))
       .sort((a, b) => b.total - a.total)
 
-    // Find top writer and reader, default to N/A if no data
-    let topWriter = { client: 'N/A', writes: 0 }
-    let topReader = { client: 'N/A', reads: 0 }
-
-    if (clientStats.length > 0) {
-      const maxWriter = clientStats.reduce((max, curr) => curr.writes > max.writes ? curr : max)
-      const maxReader = clientStats.reduce((max, curr) => curr.reads > max.reads ? curr : max)
-
-      // Only use actual client name if count > 0
-      topWriter = maxWriter.writes > 0 ? maxWriter : { client: 'N/A', writes: 0 }
-      topReader = maxReader.reads > 0 ? maxReader : { client: 'N/A', reads: 0 }
-    }
-
     return NextResponse.json({
       stats: {
         memoryRecords,
         totalClients: clientCount,
         successRate,
         totalRequests,
-        topWriter: { name: topWriter.client, count: topWriter.writes },
-        topReader: { name: topReader.client, count: topReader.reads }
+        topWriter,
+        topReader,
+        lastWriter,
+        lastReader
       },
       timeSeries: {
         requests: requestsTimeSeries,

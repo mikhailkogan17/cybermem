@@ -18,6 +18,7 @@ services:
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - ./monitoring/traefik/traefik.yml:/etc/traefik/traefik.yml:ro
+      - traefik-logs:/var/log/traefik
     labels:
       - traefik.enable=true
     restart: unless-stopped
@@ -96,6 +97,24 @@ services:
     restart: unless-stopped
     depends_on:
       - openmemory
+
+  log-exporter:
+    build:
+      context: ./monitoring/log_exporter
+      dockerfile: Dockerfile
+    image: cybermem-log-exporter:latest
+    container_name: cybermem-log-exporter
+    environment:
+      LOG_FILE: /var/log/traefik/access.log
+      SCRAPE_INTERVAL: "5"
+      EXPORTER_PORT: "8001"
+    ports:
+      - "8001:8001"
+    volumes:
+      - traefik-logs:/var/log/traefik:ro
+    restart: unless-stopped
+    depends_on:
+      - traefik
 
   postgres:
     image: postgres:15-alpine
@@ -189,6 +208,9 @@ volumes:
     driver: local
   prometheus-data:
     name: cybermem-prometheus-data
+    driver: local
+  traefik-logs:
+    name: cybermem-traefik-logs
     driver: local
 
 networks:
