@@ -62,9 +62,9 @@ export async function GET(request: Request) {
       deletesTimeSeries,
       errorsTimeSeries
     ] = await Promise.all([
-      getTotalRequests(),
-      getRequestsByClient(),
-      getRequestsByMethod(),
+      getTotalRequests(period),
+      getRequestsByClient(period),
+      getRequestsByMethod(period),
       getSuccessRate(),
       getRequestsTimeSeries(period),
       getResponseTimeTimeSeries(period),
