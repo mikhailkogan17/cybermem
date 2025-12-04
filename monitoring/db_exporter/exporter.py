@@ -9,8 +9,11 @@ Replaces the complex Vector + Traefik access logs pipeline with simple DB querie
 import os
 import time
 import sqlite3
-from prometheus_client import start_http_server, Gauge, Info
+import json
+from prometheus_client import Gauge, Info, generate_latest, CONTENT_TYPE_LATEST
+from flask import Flask, Response, request, jsonify
 import logging
+import threading
 
 # Configuration
 DB_PATH = os.getenv("DB_PATH", "/data/openmemory.sqlite")
@@ -46,10 +49,16 @@ memories_recent_1h = Gauge(
     ['client']
 )
 
-requests_total = Gauge(
+requests_by_operation = Gauge(
     'openmemory_requests_total',
-    'Total requests by type (from stats table)',
-    ['client', 'method']
+    'Total requests by client and operation (from cybermem_stats table)',
+    ['client_name', 'operation']
+)
+
+errors_by_operation = Gauge(
+    'openmemory_errors_total',
+    'Total errors by client and operation (from cybermem_stats table)',
+    ['client_name', 'operation']
 )
 
 sectors_count = Gauge(
@@ -137,7 +146,22 @@ def collect_metrics():
 
         logger.debug(f"Collected 1h memories for {cursor.rowcount} clients")
 
-        # Metric 4: Aggregate request stats from OpenMemory's stats table
+        # Metric 4: Per-client request stats from cybermem_stats table
+        cursor.execute('''
+            SELECT client_name, operation, count, errors
+            FROM cybermem_stats
+        ''')
+        for row in cursor.fetchall():
+            client_name = row['client_name'] or 'unknown'
+            operation = row['operation']
+            count = row['count']
+            errors = row['errors']
+            requests_by_operation.labels(client_name=client_name, operation=operation).set(count)
+            errors_by_operation.labels(client_name=client_name, operation=operation).set(errors)
+
+        logger.debug(f"Collected request stats for {cursor.rowcount} client/operation pairs")
+
+        # Metric 5: Aggregate request stats from OpenMemory's stats table
         # Note: stats table has no client_id, so these are aggregate only
         hour_ago_ms = int((time.time() - 3600) * 1000)
 
@@ -201,27 +225,88 @@ def collect_metrics():
         logger.error(f"Error collecting metrics: {e}", exc_info=True)
 
 
+def get_logs_from_db(start_ms: int, limit: int = 100):
+    """Get access logs from database"""
+    try:
+        db = get_db_connection()
+        cursor = db.cursor()
+
+        cursor.execute('''
+            SELECT timestamp, client_name, client_version, method, endpoint, operation, status, is_error
+            FROM cybermem_access_log
+            WHERE timestamp >= ?
+            ORDER BY timestamp DESC
+            LIMIT ?
+        ''', [start_ms, limit])
+
+        logs = []
+        for row in cursor.fetchall():
+            logs.append({
+                'timestamp': row['timestamp'],
+                'client_name': row['client_name'],
+                'client_version': row['client_version'],
+                'method': row['method'],
+                'endpoint': row['endpoint'],
+                'operation': row['operation'],
+                'status': row['status'],
+                'is_error': bool(row['is_error'])
+            })
+
+        db.close()
+        return logs
+    except Exception as e:
+        logger.error(f"Error fetching logs: {e}", exc_info=True)
+        return []
+
+
+# Create Flask app
+app = Flask(__name__)
+
+@app.route('/metrics')
+def metrics():
+    """Prometheus metrics endpoint"""
+    return Response(generate_latest(), mimetype=CONTENT_TYPE_LATEST)
+
+@app.route('/api/logs')
+def api_logs():
+    """Access logs API endpoint"""
+    try:
+        start_ms = int(request.args.get('start', 0))
+        limit = int(request.args.get('limit', 100))
+
+        logs = get_logs_from_db(start_ms, limit)
+        return jsonify({'logs': logs})
+    except Exception as e:
+        logger.error(f"Error in /api/logs: {e}", exc_info=True)
+        return jsonify({'error': str(e)}), 500
+
+def metrics_collection_loop():
+    """Background thread for collecting metrics"""
+    logger.info("Starting metrics collection loop")
+    while True:
+        try:
+            collect_metrics()
+            time.sleep(SCRAPE_INTERVAL)
+        except Exception as e:
+            logger.error(f"Error in metrics collection: {e}", exc_info=True)
+            time.sleep(SCRAPE_INTERVAL)
+
 def main():
     """Start the exporter and metrics collection loop."""
     logger.info(f"Starting CyberMem Database Exporter on port {EXPORTER_PORT}")
     logger.info(f"Database path: {DB_PATH}")
     logger.info(f"Scrape interval: {SCRAPE_INTERVAL}s")
 
-    # Start Prometheus HTTP server
-    start_http_server(EXPORTER_PORT)
-    logger.info(f"Prometheus metrics endpoint: http://0.0.0.0:{EXPORTER_PORT}/metrics")
+    # Start metrics collection in background thread
+    metrics_thread = threading.Thread(target=metrics_collection_loop, daemon=True)
+    metrics_thread.start()
 
-    # Metrics collection loop
-    while True:
-        try:
-            collect_metrics()
-            time.sleep(SCRAPE_INTERVAL)
-        except KeyboardInterrupt:
-            logger.info("Shutting down exporter...")
-            break
-        except Exception as e:
-            logger.error(f"Unexpected error in main loop: {e}", exc_info=True)
-            time.sleep(SCRAPE_INTERVAL)
+    # Start Flask HTTP server
+    logger.info(f"Starting HTTP server on http://0.0.0.0:{EXPORTER_PORT}")
+    logger.info(f"  Metrics: http://0.0.0.0:{EXPORTER_PORT}/metrics")
+    logger.info(f"  Logs API: http://0.0.0.0:{EXPORTER_PORT}/api/logs")
+
+    app.run(host='0.0.0.0', port=EXPORTER_PORT, threaded=True)
 
 
 if __name__ == '__main__':

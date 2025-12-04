@@ -2,41 +2,127 @@
 """
 Traefik Access Log Exporter for Prometheus
 Parses Traefik JSON access logs and exports per-request metrics
+Writes aggregates to cybermem_stats table for persistence
 """
 
 import json
 import time
 import os
-from prometheus_client import Counter, start_http_server
+import sqlite3
 from pathlib import Path
 
 # Configuration
 LOG_FILE = os.environ.get('LOG_FILE', '/var/log/traefik/access.log')
 EXPORTER_PORT = int(os.environ.get('EXPORTER_PORT', '8001'))
 SCRAPE_INTERVAL = int(os.environ.get('SCRAPE_INTERVAL', '5'))
+DB_PATH = os.environ.get('DB_PATH', '/data/openmemory.sqlite')
 
-# Prometheus metrics
-requests_total = Counter(
-    'openmemory_requests_total',
-    'Total HTTP requests to OpenMemory',
-    ['client', 'method', 'endpoint', 'status']
-)
+# No Prometheus metrics here - we write to DB instead
+# db_exporter will read from cybermem_stats and export as Gauge
 
-def extract_client_from_auth(auth_header):
-    """Extract client_id from Authorization header (Bearer client_id.secret or Bearer token)"""
-    if not auth_header:
-        return 'anonymous'
+def init_db():
+    """Initialize cybermem_stats and cybermem_access_log tables in OpenMemory database"""
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
 
-    # Format: "Bearer client_id.secret" or "Bearer token"
+    # Create aggregate stats table
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS cybermem_stats (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            client_name TEXT NOT NULL,
+            operation TEXT NOT NULL,
+            count INTEGER DEFAULT 0,
+            errors INTEGER DEFAULT 0,
+            last_updated INTEGER NOT NULL,
+            UNIQUE(client_name, operation)
+        )
+    ''')
+
+    cursor.execute('''
+        CREATE INDEX IF NOT EXISTS idx_cybermem_stats_client_op
+        ON cybermem_stats(client_name, operation)
+    ''')
+
+    # Create access log table for detailed request history
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS cybermem_access_log (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            timestamp INTEGER NOT NULL,
+            client_name TEXT NOT NULL,
+            client_version TEXT,
+            method TEXT NOT NULL,
+            endpoint TEXT NOT NULL,
+            operation TEXT NOT NULL,
+            status TEXT NOT NULL,
+            is_error INTEGER DEFAULT 0
+        )
+    ''')
+
+    cursor.execute('''
+        CREATE INDEX IF NOT EXISTS idx_cybermem_access_log_timestamp
+        ON cybermem_access_log(timestamp DESC)
+    ''')
+
+    cursor.execute('''
+        CREATE INDEX IF NOT EXISTS idx_cybermem_access_log_client
+        ON cybermem_access_log(client_name, timestamp DESC)
+    ''')
+
+    conn.commit()
+    conn.close()
+    print(f"[DB] Initialized cybermem tables in {DB_PATH}")
+
+def increment_stat(client_name: str, operation: str, is_error: bool = False):
+    """Increment counter in cybermem_stats table"""
     try:
-        token = auth_header.replace('Bearer ', '').strip()
-        # If token has a dot, extract client_id (everything before the first dot)
-        # Otherwise, use the token itself as client_id
-        if '.' in token:
-            return token.split('.')[0]
-        return token
-    except Exception:
-        return 'unknown'
+        conn = sqlite3.connect(DB_PATH)
+        cursor = conn.cursor()
+
+        ts = int(time.time() * 1000)
+
+        # Upsert: increment if exists, insert if not
+        if is_error:
+            cursor.execute('''
+                INSERT INTO cybermem_stats (client_name, operation, count, errors, last_updated)
+                VALUES (?, ?, 1, 1, ?)
+                ON CONFLICT(client_name, operation)
+                DO UPDATE SET
+                    count = count + 1,
+                    errors = errors + 1,
+                    last_updated = ?
+            ''', [client_name, operation, ts, ts])
+        else:
+            cursor.execute('''
+                INSERT INTO cybermem_stats (client_name, operation, count, errors, last_updated)
+                VALUES (?, ?, 1, 0, ?)
+                ON CONFLICT(client_name, operation)
+                DO UPDATE SET
+                    count = count + 1,
+                    last_updated = ?
+            ''', [client_name, operation, ts, ts])
+
+        conn.commit()
+        conn.close()
+    except Exception as e:
+        print(f"[DB] Error updating stats: {e}")
+
+def log_access(client_name: str, client_version: str, method: str, endpoint: str, operation: str, status: str, is_error: bool):
+    """Log individual request to access_log table"""
+    try:
+        conn = sqlite3.connect(DB_PATH)
+        cursor = conn.cursor()
+
+        ts = int(time.time() * 1000)
+
+        cursor.execute('''
+            INSERT INTO cybermem_access_log (timestamp, client_name, client_version, method, endpoint, operation, status, is_error)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        ''', [ts, client_name, client_version, method, endpoint, operation, status, 1 if is_error else 0])
+
+        conn.commit()
+        conn.close()
+    except Exception as e:
+        print(f"[DB] Error logging access: {e}")
 
 def tail_log_file(filepath, poll_interval=1):
     """Tail a log file, yielding new lines as they appear"""
@@ -72,27 +158,41 @@ def parse_and_export():
             path = data.get('RequestPath', '/unknown')
             status = str(data.get('DownstreamStatus', 0))
 
-            # Extract client from Authorization header (Traefik uses flattened format)
-            auth_header = data.get('request_Authorization', '')
-            client = extract_client_from_auth(auth_header)
+            # Extract MCP client info from custom headers
+            client_name = data.get('request_X-Client-Name', 'unknown')
+            client_version = data.get('request_X-Client-Version', 'unknown')
 
-            # Normalize endpoint (remove query params and IDs)
+            # Remove query params first
             endpoint = path.split('?')[0]
 
-            # Normalize endpoint to remove IDs (e.g., /memory/123 -> /memory/:id)
-            if endpoint.startswith('/memory/') and len(endpoint) > 8:
+            # Determine operation type from endpoint BEFORE normalization
+            if endpoint == '/memory/add':
+                operation = 'create'
+            elif endpoint == '/memory/query':
+                operation = 'read'
+            elif endpoint.startswith('/memory/') and method == 'PATCH':
+                operation = 'update'
+            elif endpoint.startswith('/memory/') and method == 'DELETE':
+                operation = 'delete'
+            else:
+                operation = 'other'
+
+            # NOW normalize endpoint to remove IDs (e.g., /memory/123 -> /memory/:id)
+            if endpoint.startswith('/memory/') and len(endpoint) > 8 and operation in ['update', 'delete']:
                 endpoint = '/memory/:id'
 
             # Only track requests to OpenMemory API (skip health checks, etc.)
             if endpoint.startswith('/memory') or endpoint.startswith('/health'):
-                requests_total.labels(
-                    client=client,
-                    method=method,
-                    endpoint=endpoint,
-                    status=status
-                ).inc()
+                # Check if it's an error (4xx or 5xx)
+                is_error = status.startswith('4') or status.startswith('5')
 
-                print(f"[{time.strftime('%H:%M:%S')}] {client} {method} {endpoint} -> {status}")
+                # Write aggregate stats
+                increment_stat(client_name, operation, is_error)
+
+                # Log individual request to access_log
+                log_access(client_name, client_version, method, endpoint, operation, status, is_error)
+
+                print(f"[{time.strftime('%H:%M:%S')}] {client_name}/{client_version} {method} {endpoint} ({operation}) -> {status}")
 
         except json.JSONDecodeError:
             # Skip invalid JSON lines
@@ -102,9 +202,12 @@ def parse_and_export():
             continue
 
 if __name__ == '__main__':
-    # Start Prometheus HTTP server
-    start_http_server(EXPORTER_PORT)
-    print(f"Metrics available at http://localhost:{EXPORTER_PORT}/metrics")
+    # Initialize database table
+    init_db()
+
+    # Note: No Prometheus HTTP server here
+    # Metrics are written to DB and exported by db_exporter
+    print(f"Writing metrics to database: {DB_PATH}")
 
     # Start parsing logs
     parse_and_export()

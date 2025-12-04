@@ -108,13 +108,14 @@ services:
       LOG_FILE: /var/log/traefik/access.log
       SCRAPE_INTERVAL: "5"
       EXPORTER_PORT: "8001"
-    ports:
-      - "8001:8001"
+      DB_PATH: /data/openmemory.sqlite
     volumes:
       - traefik-logs:/var/log/traefik:ro
+      - openmemory-data:/data
     restart: unless-stopped
     depends_on:
       - traefik
+      - openmemory
 
   postgres:
     image: postgres:15-alpine

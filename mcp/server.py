@@ -1,9 +1,8 @@
 #!/usr/bin/env python3
 """
-OpenMemory MCP Server
+CyberMem MCP Server
 
-MCP server that exposes OpenMemory (CyberMem) functionality to Claude Code.
-Allows Claude to store and retrieve memories using the CyberMem memory system.
+MCP server that exposes shared memory functionality to several LLM.
 """
 
 import os
@@ -15,16 +14,12 @@ from mcp.server import NotificationOptions, Server
 from mcp.server.stdio import stdio_server
 from mcp import types
 
-# OpenMemory configuration
-OPENMEMORY_URL = os.getenv("OPENMEMORY_URL", "http://localhost/memory")
+# CyberMem configuration (OpenMemory backend)
+OPENMEMORY_URL = os.getenv("OPENMEMORY_URL", "http://localhost.proxyman.io/memory")
 CYBERMEM_API_KEY = os.getenv("CYBERMEM_API_KEY", "dev-secret-key")
 
-# Client identifier for per-client tracking in metrics
-CLIENT_ID = "claude-code"
-
 # Create MCP server instance
-server = Server("openmemory")
-
+server = Server("cybermem")
 
 @server.list_tools()
 async def handle_list_tools() -> list[types.Tool]:
@@ -134,26 +129,26 @@ async def handle_call_tool(
 ) -> list[types.TextContent]:
     """Handle tool execution requests."""
 
-    # Try to get client info from request context
-    import sys
+    # Get client info from MCP context
+    client_name, client_version = "unknown", "unknown"
     try:
         ctx = server.request_context
-        # Log to file for debugging
-        with open("/tmp/mcp_debug.log", "a") as f:
-            f.write(f"\n=== Tool call: {name} ===\n")
-            f.write(f"Request context type: {type(ctx)}\n")
-            f.write(f"Request context dir: {[x for x in dir(ctx) if not x.startswith('_')]}\n")
-            if hasattr(ctx, 'session'):
-                f.write(f"Session: {ctx.session}\n")
-            if hasattr(ctx, 'meta'):
-                f.write(f"Meta: {ctx.meta}\n")
-    except Exception as e:
-        with open("/tmp/mcp_debug.log", "a") as f:
-            f.write(f"Error accessing context: {e}\n")
+        if hasattr(ctx, 'session'):
+            session = ctx.session
+            if hasattr(session, '_client_params'):
+                client_params = session._client_params
+                if client_params and hasattr(client_params, 'clientInfo'):
+                    client_info = client_params.clientInfo
+                    client_name = client_info.name or "unknown"
+                    client_version = client_info.version or "unknown"
+    except Exception:
+        pass
 
     headers = {
         "Authorization": f"Bearer {CYBERMEM_API_KEY}",
-        "Content-Type": "application/json"
+        "Content-Type": "application/json",
+        "X-Client-Name": client_name,
+        "X-Client-Version": client_version
     }
 
     async with httpx.AsyncClient(timeout=30.0) as client:
@@ -165,7 +160,7 @@ async def handle_call_tool(
 
                 response = await client.post(
                     f"{OPENMEMORY_URL}/add",
-                    json={"content": content, "metadata": metadata, "user_id": CLIENT_ID},
+                    json={"content": content, "metadata": metadata},
                     headers=headers
                 )
                 response.raise_for_status()
@@ -183,7 +178,7 @@ async def handle_call_tool(
 
                 response = await client.post(
                     f"{OPENMEMORY_URL}/query",
-                    json={"query": query, "k": limit, "user_id": CLIENT_ID},
+                    json={"query": query, "k": limit},
                     headers=headers
                 )
                 response.raise_for_status()
@@ -220,7 +215,7 @@ async def handle_call_tool(
                 # so we'll do a broad query with generic term
                 response = await client.post(
                     f"{OPENMEMORY_URL}/query",
-                    json={"query": "memory context", "k": limit, "user_id": CLIENT_ID},
+                    json={"query": "memory context", "k": limit},
                     headers=headers
                 )
                 response.raise_for_status()
@@ -316,14 +311,13 @@ async def handle_call_tool(
 async def main():
     """Run the MCP server."""
     import sys
-    print(f"🔐 CyberMem MCP Server starting with client_id: {CLIENT_ID}", file=sys.stderr)
 
     async with stdio_server() as (read_stream, write_stream):
         await server.run(
             read_stream,
             write_stream,
             InitializationOptions(
-                server_name="openmemory",
+                server_name="cybermem",
                 server_version="0.1.0",
                 capabilities=server.get_capabilities(
                     notification_options=NotificationOptions(),

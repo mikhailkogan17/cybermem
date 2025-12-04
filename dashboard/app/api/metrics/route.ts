@@ -19,7 +19,12 @@ import {
   getTopWriter,
   getTopReader,
   getLastWriter,
-  getLastReader
+  getLastReader,
+  getCreatesByClient,
+  getReadsByClient,
+  getUpdatesByClient,
+  getDeletesByClient,
+  getErrorsByClient
 } from '@/lib/prometheus'
 
 export const dynamic = 'force-dynamic'
@@ -50,7 +55,12 @@ export async function GET(request: Request) {
       topWriter,
       topReader,
       lastWriter,
-      lastReader
+      lastReader,
+      createsTimeSeries,
+      readsTimeSeries,
+      updatesTimeSeries,
+      deletesTimeSeries,
+      errorsTimeSeries
     ] = await Promise.all([
       getTotalRequests(),
       getRequestsByClient(),
@@ -71,7 +81,12 @@ export async function GET(request: Request) {
       getTopWriter(),
       getTopReader(),
       getLastWriter(),
-      getLastReader()
+      getLastReader(),
+      getCreatesByClient(period),
+      getReadsByClient(period),
+      getUpdatesByClient(period),
+      getDeletesByClient(period),
+      getErrorsByClient(period)
     ])
 
     // Sort clients by total requests
@@ -100,7 +115,12 @@ export async function GET(request: Request) {
         responseTime: responseTimeTimeSeries,
         successRate: successRateTimeSeries,
         successRateByClient: successRateTimeSeriesByClient,
-        writes: writesTimeSeries
+        writes: writesTimeSeries,
+        creates: createsTimeSeries,
+        reads: readsTimeSeries,
+        updates: updatesTimeSeries,
+        deletes: deletesTimeSeries,
+        errors: errorsTimeSeries
       },
       clientStats: {
         reads: requestsByMethod.reads,

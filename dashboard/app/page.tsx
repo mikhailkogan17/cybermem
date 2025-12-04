@@ -12,6 +12,31 @@ import { useEffect, useState } from "react"
 const FALLBACK_CLIENTS = ["Cursor", "Visual Studio Code", "Claude Desktop", "GitHub Copilot", "Windsurf"]
 const COLOR_PALETTE = ["#14b8a6", "#06b6d4", "#8b5cf6", "#10b981", "#f59e0b", "#ef4444", "#a855f7", "#22c55e"]
 
+// Client name to color mapping
+const CLIENT_COLORS: Record<string, string> = {
+  'openai': '#FFFFFF',           // white
+  'claude': '#FF7A00',           // orange
+  'cursor': '#2D2D2D',           // dark gray
+  'vscode': '#007ACC',           // VS Code blue
+  'claude-code': '#FF7A00',      // orange
+  'claude-desktop': '#FF7A00',   // orange
+  'claude desktop': '#FF7A00',   // orange (with space)
+  'github-copilot': '#000000',   // black
+  'windsurf': '#00D4FF',         // cyan
+  'anonymous': '#666666',        // gray
+}
+
+// Helper function to get color for client
+const getClientColor = (clientName: string, clientNames: string[]): string => {
+  const normalized = clientName.toLowerCase()
+  for (const [key, color] of Object.entries(CLIENT_COLORS)) {
+    if (normalized.includes(key)) return color
+  }
+  // Fallback to palette
+  const index = clientNames.indexOf(clientName)
+  return COLOR_PALETTE[index % COLOR_PALETTE.length]
+}
+
 // Client ID to human-readable name mapping
 const CLIENT_DISPLAY_NAMES: Record<string, string> = {
   'claude-code': 'Claude Code',
@@ -65,6 +90,12 @@ export default function CyberMemDashboard() {
   const [successRateTimeSeriesByClient, setSuccessRateTimeSeriesByClient] = useState<Array<any>>([])
   const [fullAuditLog, setFullAuditLog] = useState<Array<any>>([])
 
+  const [createsTimeSeries, setCreatesTimeSeries] = useState<Array<any>>([])
+  const [readsTimeSeries, setReadsTimeSeries] = useState<Array<any>>([])
+  const [updatesTimeSeries, setUpdatesTimeSeries] = useState<Array<any>>([])
+  const [deletesTimeSeries, setDeletesTimeSeries] = useState<Array<any>>([])
+  const [errorsTimeSeries, setErrorsTimeSeries] = useState<Array<any>>([])
+
   const [lastUpdate, setLastUpdate] = useState(0)
   const [searchTerm, setSearchTerm] = useState("")
   const [currentPage, setCurrentPage] = useState(1)
@@ -82,6 +113,7 @@ export default function CyberMemDashboard() {
 
       if (!metricsResponse.ok) throw new Error("Failed to fetch metrics")
       const data = await metricsResponse.json()
+      console.info("[CyberMem] metrics fetched", { period, stats: data?.stats, clientStats: data?.clientStats })
 
       const readsArray = Object.entries(data.clientStats.reads || {}).map(([client, reads]) => ({
         client,
@@ -140,6 +172,11 @@ export default function CyberMemDashboard() {
       setResponseTimeSeries(data.timeSeries.responseTime || [])
       setSuccessRateTimeSeries(data.timeSeries.successRate || [])
       setSuccessRateTimeSeriesByClient(data.timeSeries.successRateByClient || [])
+      setCreatesTimeSeries(data.timeSeries.creates || [])
+      setReadsTimeSeries(data.timeSeries.reads || [])
+      setUpdatesTimeSeries(data.timeSeries.updates || [])
+      setDeletesTimeSeries(data.timeSeries.deletes || [])
+      setErrorsTimeSeries(data.timeSeries.errors || [])
 
       const totalRequestsSparkline =
         data.timeSeries.requests?.map((point: any) =>
@@ -190,9 +227,23 @@ export default function CyberMemDashboard() {
 
       if (logsResponse.ok) {
         const logsData = await logsResponse.json()
+        console.info("[CyberMem] logs fetched", { period, count: logsData?.logs?.length || 0 })
+        const resolveOperation = (log: any) => {
+          const normalizedOp = (log.operation || "").toString().toLowerCase()
+          if (normalizedOp === "read") return "Read"
+          if (normalizedOp === "write" || normalizedOp === "create") return "Write"
+          if (normalizedOp === "update") return "Update"
+          if (normalizedOp === "delete") return "Delete"
+
+          const method = (log.method || "").toString().toUpperCase()
+          if (method === "GET") return "Read"
+          if (method === "DELETE") return "Delete"
+          if (method === "PATCH" || method === "PUT") return "Update"
+          return "Write"
+        }
+
         const mappedLogs = (logsData.logs || []).map((log: any, index: number) => {
-          const operation =
-            log.method === "POST" ? "Write" : log.method === "GET" ? "Read" : log.method === "DELETE" ? "Delete" : "Update"
+          const operation = resolveOperation(log)
           const statusCode = parseInt(log.status)
           let status = "Success"
           let description = ""
@@ -625,10 +676,10 @@ export default function CyberMemDashboard() {
           </CardContent>
         </Card>
 
-        {/* Most Writing Client */}
+        {/* Top Writer */}
         <Card className="bg-white/15 backdrop-blur-2xl border-white/20 text-white shadow-xl overflow-hidden">
           <CardContent className="pt-4 pb-0 relative">
-            <div className="text-lg font-medium text-white/90 mb-2">Most Writing Client</div>
+            <div className="text-lg font-medium text-white/90 mb-2">Top Writer</div>
             <div className="text-4xl font-bold text-white mb-1 truncate">{getClientDisplayName(stats.topWriter.name)}</div>
             <div className="text-xl text-white/80 mb-4 whitespace-nowrap">
               {stats.topWriter.count.toLocaleString()} writes
@@ -636,10 +687,10 @@ export default function CyberMemDashboard() {
           </CardContent>
         </Card>
 
-        {/* Most Reading Client */}
+        {/* Top Reader */}
         <Card className="bg-white/15 backdrop-blur-2xl border-white/20 text-white shadow-xl overflow-hidden">
           <CardContent className="pt-4 pb-0 relative">
-            <div className="text-lg font-medium text-white/90 mb-2">Most Reading Client</div>
+            <div className="text-lg font-medium text-white/90 mb-2">Top Reader</div>
             <div className="text-4xl font-bold text-white mb-1 truncate">
               {stats.topReader.count > 0 ? getClientDisplayName(stats.topReader.name) : "N/A"}
             </div>
@@ -678,11 +729,11 @@ export default function CyberMemDashboard() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-        {/* Requests by Client - Top Left */}
+        {/* Creates by Client */}
         <Card className="bg-white/10 backdrop-blur-3xl border-white/20 shadow-xl">
           <CardContent className="pt-6">
-            <h3 className="text-lg text-white font-semibold mb-4">Requests by Client</h3>
-            {requestsTimeSeries.length === 0 ? (
+            <h3 className="text-lg text-white font-semibold mb-4">Creates by Client</h3>
+            {createsTimeSeries.length === 0 ? (
               <div className="flex items-center justify-center h-64 text-white/60 text-lg">
                 No data available yet...
               </div>
@@ -705,7 +756,7 @@ export default function CyberMemDashboard() {
                   },
                   xAxis: {
                     type: "category",
-                    data: requestsTimeSeries.map((d) => formatTimeForChart(d.time as number)),
+                    data: createsTimeSeries.map((d) => formatTimeForChart(d.time as number)),
                     axisLine: { lineStyle: { color: "rgba(255, 255, 255, 0.2)" } },
                     axisLabel: { color: "#fff", rotate: 45 },
                     boundaryGap: false,
@@ -722,13 +773,13 @@ export default function CyberMemDashboard() {
                     bottom: 0,
                     type: "plain",
                   },
-                  series: clientNames.map((client, index) => ({
+                  series: clientNames.map((client) => ({
                     name: getClientDisplayName(client),
                     type: "line",
-                    data: requestsTimeSeries.map((d) => d[client] || 0),
+                    data: createsTimeSeries.map((d) => d[client] || 0),
                     smooth: true,
                     lineStyle: { width: 2 },
-                    itemStyle: { color: COLOR_PALETTE[index % COLOR_PALETTE.length] },
+                    itemStyle: { color: getClientColor(client, clientNames) },
                   })),
                 }}
                 style={{ height: "256px" }}
@@ -741,60 +792,7 @@ export default function CyberMemDashboard() {
         <Card className="bg-white/10 backdrop-blur-3xl border-white/20 shadow-xl">
           <CardContent className="pt-6">
             <h3 className="text-lg text-white font-semibold mb-4">Reads by Client</h3>
-            {readsByClient.length === 0 ? (
-              <div className="flex items-center justify-center h-64 text-white/60 text-lg">
-                No read activity yet...
-              </div>
-            ) : (
-              <ReactECharts
-                option={{
-                  backgroundColor: "transparent",
-                  tooltip: {
-                    trigger: "axis",
-                    backgroundColor: "rgba(0, 0, 0, 0.8)",
-                    borderColor: "#333",
-                    textStyle: { color: "#fff" },
-                    axisPointer: { type: "shadow" },
-                  },
-                  grid: {
-                    left: "15%",
-                    right: "4%",
-                    bottom: "3%",
-                    top: "3%",
-                    containLabel: false,
-                  },
-                  xAxis: {
-                    type: "value",
-                    axisLine: { lineStyle: { color: "rgba(255, 255, 255, 0.2)" } },
-                    axisLabel: { color: "#fff" },
-                    splitLine: { lineStyle: { color: "rgba(255, 255, 255, 0.1)" } },
-                  },
-                  yAxis: {
-                    type: "category",
-                    data: readsByClient.map((d) => getClientDisplayName(d.client)),
-                    axisLine: { lineStyle: { color: "rgba(255, 255, 255, 0.2)" } },
-                    axisLabel: { color: "#fff" },
-                  },
-                  series: [
-                    {
-                      type: "bar",
-                      data: readsByClient.map((d) => d.reads),
-                      itemStyle: { color: "#3b82f6" },
-                      barWidth: "60%",
-                    },
-                  ],
-                }}
-                style={{ height: "256px" }}
-              />
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Writes by Client (24h) */}
-        <Card className="bg-white/10 backdrop-blur-3xl border-white/20 shadow-xl">
-          <CardContent className="pt-6">
-            <h3 className="text-lg text-white font-semibold mb-4">Writes by Client</h3>
-            {writesByClient.length === 0 ? (
+            {readsTimeSeries.length === 0 ? (
               <div className="flex items-center justify-center h-64 text-white/60 text-lg">
                 No data available yet...
               </div>
@@ -807,35 +805,41 @@ export default function CyberMemDashboard() {
                     backgroundColor: "rgba(0, 0, 0, 0.8)",
                     borderColor: "#333",
                     textStyle: { color: "#fff" },
-                    axisPointer: { type: "shadow" },
                   },
                   grid: {
-                    left: "15%",
+                    left: "3%",
                     right: "4%",
-                    bottom: "3%",
+                    bottom: "15%",
                     top: "3%",
-                    containLabel: false,
+                    containLabel: true,
                   },
                   xAxis: {
+                    type: "category",
+                    data: readsTimeSeries.map((d) => formatTimeForChart(d.time as number)),
+                    axisLine: { lineStyle: { color: "rgba(255, 255, 255, 0.2)" } },
+                    axisLabel: { color: "#fff", rotate: 45 },
+                    boundaryGap: false,
+                  },
+                  yAxis: {
                     type: "value",
                     axisLine: { lineStyle: { color: "rgba(255, 255, 255, 0.2)" } },
                     axisLabel: { color: "#fff" },
                     splitLine: { lineStyle: { color: "rgba(255, 255, 255, 0.1)" } },
                   },
-                  yAxis: {
-                    type: "category",
-                    data: writesByClient.map((d) => getClientDisplayName(d.client)),
-                    axisLine: { lineStyle: { color: "rgba(255, 255, 255, 0.2)" } },
-                    axisLabel: { color: "#fff" },
+                  legend: {
+                    data: clientNames.map(getClientDisplayName),
+                    textStyle: { color: "#fff", fontSize: 11 },
+                    bottom: 0,
+                    type: "plain",
                   },
-                  series: [
-                    {
-                      type: "bar",
-                      data: writesByClient.map((d) => d.writes),
-                      itemStyle: { color: "#14b8a6" },
-                      barWidth: "60%",
-                    },
-                  ],
+                  series: clientNames.map((client) => ({
+                    name: getClientDisplayName(client),
+                    type: "line",
+                    data: readsTimeSeries.map((d) => d[client] || 0),
+                    smooth: true,
+                    lineStyle: { width: 2 },
+                    itemStyle: { color: getClientColor(client, clientNames) },
+                  })),
                 }}
                 style={{ height: "256px" }}
               />
@@ -843,7 +847,125 @@ export default function CyberMemDashboard() {
           </CardContent>
         </Card>
 
-        {/* Success Rate by Client - Bottom Left */}
+        {/* Updates by Client */}
+        <Card className="bg-white/10 backdrop-blur-3xl border-white/20 shadow-xl">
+          <CardContent className="pt-6">
+            <h3 className="text-lg text-white font-semibold mb-4">Updates by Client</h3>
+            {updatesTimeSeries.length === 0 ? (
+              <div className="flex items-center justify-center h-64 text-white/60 text-lg">
+                No data available yet...
+              </div>
+            ) : (
+              <ReactECharts
+                option={{
+                  backgroundColor: "transparent",
+                  tooltip: {
+                    trigger: "axis",
+                    backgroundColor: "rgba(0, 0, 0, 0.8)",
+                    borderColor: "#333",
+                    textStyle: { color: "#fff" },
+                  },
+                  grid: {
+                    left: "3%",
+                    right: "4%",
+                    bottom: "15%",
+                    top: "3%",
+                    containLabel: true,
+                  },
+                  xAxis: {
+                    type: "category",
+                    data: updatesTimeSeries.map((d) => formatTimeForChart(d.time as number)),
+                    axisLine: { lineStyle: { color: "rgba(255, 255, 255, 0.2)" } },
+                    axisLabel: { color: "#fff", rotate: 45 },
+                    boundaryGap: false,
+                  },
+                  yAxis: {
+                    type: "value",
+                    axisLine: { lineStyle: { color: "rgba(255, 255, 255, 0.2)" } },
+                    axisLabel: { color: "#fff" },
+                    splitLine: { lineStyle: { color: "rgba(255, 255, 255, 0.1)" } },
+                  },
+                  legend: {
+                    data: clientNames.map(getClientDisplayName),
+                    textStyle: { color: "#fff", fontSize: 11 },
+                    bottom: 0,
+                    type: "plain",
+                  },
+                  series: clientNames.map((client) => ({
+                    name: getClientDisplayName(client),
+                    type: "line",
+                    data: updatesTimeSeries.map((d) => d[client] || 0),
+                    smooth: true,
+                    lineStyle: { width: 2 },
+                    itemStyle: { color: getClientColor(client, clientNames) },
+                  })),
+                }}
+                style={{ height: "256px" }}
+              />
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Deletes by Client */}
+        <Card className="bg-white/10 backdrop-blur-3xl border-white/20 shadow-xl">
+          <CardContent className="pt-6">
+            <h3 className="text-lg text-white font-semibold mb-4">Deletes by Client</h3>
+            {deletesTimeSeries.length === 0 ? (
+              <div className="flex items-center justify-center h-64 text-white/60 text-lg">
+                No data available yet...
+              </div>
+            ) : (
+              <ReactECharts
+                option={{
+                  backgroundColor: "transparent",
+                  tooltip: {
+                    trigger: "axis",
+                    backgroundColor: "rgba(0, 0, 0, 0.8)",
+                    borderColor: "#333",
+                    textStyle: { color: "#fff" },
+                  },
+                  grid: {
+                    left: "3%",
+                    right: "4%",
+                    bottom: "15%",
+                    top: "3%",
+                    containLabel: true,
+                  },
+                  xAxis: {
+                    type: "category",
+                    data: deletesTimeSeries.map((d) => formatTimeForChart(d.time as number)),
+                    axisLine: { lineStyle: { color: "rgba(255, 255, 255, 0.2)" } },
+                    axisLabel: { color: "#fff", rotate: 45 },
+                    boundaryGap: false,
+                  },
+                  yAxis: {
+                    type: "value",
+                    axisLine: { lineStyle: { color: "rgba(255, 255, 255, 0.2)" } },
+                    axisLabel: { color: "#fff" },
+                    splitLine: { lineStyle: { color: "rgba(255, 255, 255, 0.1)" } },
+                  },
+                  legend: {
+                    data: clientNames.map(getClientDisplayName),
+                    textStyle: { color: "#fff", fontSize: 11 },
+                    bottom: 0,
+                    type: "plain",
+                  },
+                  series: clientNames.map((client) => ({
+                    name: getClientDisplayName(client),
+                    type: "line",
+                    data: deletesTimeSeries.map((d) => d[client] || 0),
+                    smooth: true,
+                    lineStyle: { width: 2 },
+                    itemStyle: { color: getClientColor(client, clientNames) },
+                  })),
+                }}
+                style={{ height: "256px" }}
+              />
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Success Rate by Client */}
         <Card className="bg-white/10 backdrop-blur-3xl border-white/20 shadow-xl">
           <CardContent className="pt-6">
             <h3 className="text-lg text-white font-semibold mb-4">Success Rate by Client</h3>
@@ -895,13 +1017,72 @@ export default function CyberMemDashboard() {
                     bottom: 0,
                     type: "plain",
                   },
-                  series: clientNames.map((client, index) => ({
+                  series: clientNames.map((client) => ({
                     name: getClientDisplayName(client),
                     type: "line",
                     data: successRateTimeSeriesByClient.map((d) => d[client] || 0),
                     smooth: true,
                     lineStyle: { width: 2 },
-                    itemStyle: { color: COLOR_PALETTE[index % COLOR_PALETTE.length] },
+                    itemStyle: { color: getClientColor(client, clientNames) },
+                  })),
+                }}
+                style={{ height: "256px" }}
+              />
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Errors by Client */}
+        <Card className="bg-white/10 backdrop-blur-3xl border-white/20 shadow-xl">
+          <CardContent className="pt-6">
+            <h3 className="text-lg text-white font-semibold mb-4">Errors by Client</h3>
+            {errorsTimeSeries.length === 0 ? (
+              <div className="flex items-center justify-center h-64 text-white/60 text-lg">
+                No data available yet...
+              </div>
+            ) : (
+              <ReactECharts
+                option={{
+                  backgroundColor: "transparent",
+                  tooltip: {
+                    trigger: "axis",
+                    backgroundColor: "rgba(0, 0, 0, 0.8)",
+                    borderColor: "#333",
+                    textStyle: { color: "#fff" },
+                  },
+                  grid: {
+                    left: "3%",
+                    right: "4%",
+                    bottom: "15%",
+                    top: "3%",
+                    containLabel: true,
+                  },
+                  xAxis: {
+                    type: "category",
+                    data: errorsTimeSeries.map((d) => formatTimeForChart(d.time as number)),
+                    axisLine: { lineStyle: { color: "rgba(255, 255, 255, 0.2)" } },
+                    axisLabel: { color: "#fff", rotate: 45 },
+                    boundaryGap: false,
+                  },
+                  yAxis: {
+                    type: "value",
+                    axisLine: { lineStyle: { color: "rgba(255, 255, 255, 0.2)" } },
+                    axisLabel: { color: "#fff" },
+                    splitLine: { lineStyle: { color: "rgba(255, 255, 255, 0.1)" } },
+                  },
+                  legend: {
+                    data: clientNames.map(getClientDisplayName),
+                    textStyle: { color: "#fff", fontSize: 11 },
+                    bottom: 0,
+                    type: "plain",
+                  },
+                  series: clientNames.map((client) => ({
+                    name: getClientDisplayName(client),
+                    type: "line",
+                    data: errorsTimeSeries.map((d) => d[client] || 0),
+                    smooth: true,
+                    lineStyle: { width: 2 },
+                    itemStyle: { color: getClientColor(client, clientNames) },
                   })),
                 }}
                 style={{ height: "256px" }}

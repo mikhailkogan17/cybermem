@@ -122,6 +122,13 @@
       "exposedbydefault",
       "image: .*",
       "\".*.\","
+    ],
+    "cSpell.words": [
+      "modelcontextprotocol",
+      "smhdw",
+      "Sparkline",
+      "sparklines",
+      "topk"
     ]
   },
   "extensions": {

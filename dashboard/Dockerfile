@@ -3,18 +3,23 @@ FROM node:20-alpine AS builder
 
 WORKDIR /app
 
+# Use corepack to get the pnpm version from the lockfile and speed up installs via cache
+RUN corepack enable
+
 # Copy package files
 COPY package*.json ./
 COPY pnpm-lock.yaml* ./
 
-# Install dependencies
-RUN npm install -g pnpm && pnpm install --no-frozen-lockfile
+# Install dependencies (cache pnpm store). Lock is not frozen in repo, so allow updates.
+RUN --mount=type=cache,target=/root/.pnpm-store pnpm install --no-frozen-lockfile
 
 # Copy source code
 COPY . .
 
-# Build the application
-RUN pnpm build
+# Build the application (reuse pnpm store + Next.js cache)
+RUN --mount=type=cache,target=/root/.pnpm-store \
+    --mount=type=cache,target=/app/.next/cache \
+    pnpm build
 
 # Production stage
 FROM node:20-alpine AS runner

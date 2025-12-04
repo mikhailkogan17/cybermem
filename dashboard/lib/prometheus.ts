@@ -1,4 +1,5 @@
-const PROMETHEUS_URL = process.env.NEXT_PUBLIC_PROMETHEUS_URL || 'http://localhost:9092'
+// Prefer explicit PROMETHEUS_URL, fall back to NEXT_PUBLIC, then local Prometheus default port
+const PROMETHEUS_URL = process.env.PROMETHEUS_URL || process.env.NEXT_PUBLIC_PROMETHEUS_URL || 'http://localhost:9090'
 
 export interface PrometheusQueryResult {
   status: string
@@ -36,29 +37,29 @@ export async function getTotalRequests(): Promise<number> {
 
 export async function getRequestsByClient(): Promise<Record<string, number>> {
   // Use actual request counts from log-exporter
-  const result = await query('sum by (client) (openmemory_requests_total)')
+  const result = await query('sum by (client_name) (openmemory_requests_total)')
   const byClient: Record<string, number> = {}
   result.data.result.forEach((item) => {
-    const clientId = item.metric.client || 'unknown'
+    const clientId = item.metric.client_name || 'unknown'
     byClient[clientId] = item.value ? parseFloat(item.value[1]) : 0
   })
   return byClient
 }
 
 export async function getRequestsByMethod(): Promise<{ reads: Record<string, number>, writes: Record<string, number> }> {
-  // Reads = GET requests, Writes = POST/PUT/DELETE requests
-  const readsResult = await query('sum by (client) (openmemory_requests_total{method="GET"})')
-  const writesResult = await query('sum by (client) (openmemory_requests_total{method=~"POST|PUT|DELETE"})')
+  // Reads = operation="read", Writes = operation="create"/"update"/"delete"
+  const readsResult = await query('sum by (client_name) (openmemory_requests_total{operation="read"})')
+  const writesResult = await query('sum by (client_name) (openmemory_requests_total{operation=~"create|update|delete"})')
   const writes: Record<string, number> = {}
   const reads: Record<string, number> = {}
 
   readsResult.data.result.forEach((item) => {
-    const clientId = item.metric.client || 'unknown'
+    const clientId = item.metric.client_name || 'unknown'
     reads[clientId] = item.value ? parseFloat(item.value[1]) : 0
   })
 
   writesResult.data.result.forEach((item) => {
-    const clientId = item.metric.client || 'unknown'
+    const clientId = item.metric.client_name || 'unknown'
     writes[clientId] = item.value ? parseFloat(item.value[1]) : 0
   })
 
@@ -73,74 +74,34 @@ export async function getSuccessRate(): Promise<number> {
 export async function getRequestsTimeSeries(duration: string = '1h'): Promise<Array<{ time: number, [client: string]: number | string }>> {
   const now = Math.floor(Date.now() / 1000)
   const start = now - parseDuration(duration)
+  const step = chooseStep(duration)
+  const window = toPromDuration(duration)
 
-  // Show memories by client over time (like OpenMemory's Memory Query Load but by client not sector)
+  // Sliding increase over the selected window
   const result = await queryRange(
-    'openmemory_memories_total',
+    `sum by (client_name) (increase(openmemory_requests_total[${window}]))`,
     start,
     now,
-    '1m'
+    step
   )
 
-  const timeSeries: Array<{ time: number, [client: string]: number }> = []
-  const timeMap = new Map<number, Record<string, number>>()
-
-  result.data.result.forEach((series) => {
-    const clientId = series.metric.client || 'unknown'
-    series.values?.forEach(([timestamp, value]) => {
-      if (!timeMap.has(timestamp)) {
-        timeMap.set(timestamp, {})
-      }
-      timeMap.get(timestamp)![clientId] = parseFloat(value)
-    })
-  })
-
-  Array.from(timeMap.entries())
-    .sort((a, b) => a[0] - b[0])
-    .forEach(([timestamp, clients]) => {
-      timeSeries.push({
-        time: timestamp,
-        ...clients
-      })
-    })
-
-  return timeSeries
+  return formatRangeSeriesByClient(result)
 }
 
 export async function getRequestsTimeSeriesByMethod(method: string, duration: string = '1h'): Promise<Array<{ time: number, [client: string]: number | string }>> {
   const now = Math.floor(Date.now() / 1000)
   const start = now - parseDuration(duration)
+  const step = chooseStep(duration)
+  const window = toPromDuration(duration)
 
   const result = await queryRange(
-    `sum by (client) (rate(openmemory_requests_total{method="${method}"}[5m]))`,
+    `sum by (client_name) (increase(openmemory_requests_total{method="${method}"}[${window}]))`,
     start,
     now,
-    '1m'
+    step
   )
 
-  const timeSeries: Array<{ time: number, [client: string]: number }> = []
-  const timeMap = new Map<number, Record<string, number>>()
-
-  result.data.result.forEach((series) => {
-    const clientId = series.metric.client || 'unknown'
-    series.values?.forEach(([timestamp, value]) => {
-      if (!timeMap.has(timestamp)) {
-        timeMap.set(timestamp, {})
-      }
-      timeMap.get(timestamp)![clientId] = parseFloat(value) * 60 // convert to req/min
-    })
-  })
-
-  Array.from(timeMap.entries())
-    .sort((a, b) => a[0] - b[0])
-    .forEach(([timestamp, clients]) => {
-      timeSeries.push({
-        time: timestamp,
-        ...clients
-      })
-    })
-
-  return timeSeries
+  return formatRangeSeriesByClient(result)
 }
 
 export async function getResponseTimeTimeSeries(duration: string = '1h'): Promise<Array<{ time: number, [client: string]: number | string }>> {
@@ -148,7 +109,7 @@ export async function getResponseTimeTimeSeries(duration: string = '1h'): Promis
   const start = now - parseDuration(duration)
 
   const result = await queryRange(
-    'sum by (client) (rate(openmemory_request_duration_seconds_sum[5m])) / sum by (client) (rate(openmemory_request_duration_seconds_count[5m]))',
+    'sum by (client_name) (rate(openmemory_request_duration_seconds_sum[5m])) / sum by (client_name) (rate(openmemory_request_duration_seconds_count[5m]))',
     start,
     now,
     '1m'
@@ -158,7 +119,7 @@ export async function getResponseTimeTimeSeries(duration: string = '1h'): Promis
   const timeMap = new Map<number, Record<string, number>>()
 
   result.data.result.forEach((series) => {
-    const clientId = series.metric.client || 'unknown'
+    const clientId = series.metric.client_name || 'unknown'
     series.values?.forEach(([timestamp, value]) => {
       if (!timeMap.has(timestamp)) {
         timeMap.set(timestamp, {})
@@ -206,12 +167,12 @@ export async function getMemoryRecordsCount(): Promise<number> {
 }
 
 export async function getClientCount(): Promise<number> {
-  const result = await query('count(count by (client) (openmemory_memories_total))')
+  const result = await query('count(count by (client_name) (openmemory_memories_total))')
   return result.data.result[0]?.value ? parseFloat(result.data.result[0].value[1]) : 0
 }
 
 function parseDuration(duration: string): number {
-  const match = duration.match(/^(\d+)([smhdwMY])$/)
+  const match = duration.match(/^(\d+)([smhdwMYy])$/)
   if (!match) return 3600
 
   const [, amount, unit] = match
@@ -222,10 +183,32 @@ function parseDuration(duration: string): number {
     d: 86400,
     w: 604800,      // 7 days
     M: 2592000,     // 30 days (approximation)
-    Y: 31536000     // 365 days
+    Y: 31536000,    // 365 days
+    y: 31536000
   }
 
   return parseInt(amount) * (multipliers[unit] || 3600)
+}
+
+function chooseStep(duration: string): string {
+  const seconds = parseDuration(duration)
+  if (seconds <= 1800) return '30s'
+  if (seconds <= 4 * 3600) return '1m'
+  if (seconds <= 12 * 3600) return '2m'
+  if (seconds <= 24 * 3600) return '5m'
+  if (seconds <= 7 * 86400) return '15m'
+  return '30m'
+}
+
+// PromQL doesn't support M/Y, map them to days so query_range stays valid
+function toPromDuration(duration: string): string {
+  const match = duration.match(/^(\d+)([smhdwMyY])$/)
+  if (!match) return duration
+  const amount = parseInt(match[1])
+  const unit = match[2]
+  if (unit === 'M') return `${amount * 30}d`
+  if (unit === 'Y' || unit === 'y') return `${amount * 365}d`
+  return `${amount}${unit}`
 }
 
 // Sparkline data - cumulative counts over time
@@ -268,7 +251,7 @@ export async function getTotalClientsSparkline(duration: string = '15m'): Promis
   const start = now - parseDuration(duration)
 
   const result = await queryRange(
-    'count(count by (client) (openmemory_memories_total))',
+    'count(count by (client_name) (openmemory_memories_total))',
     start,
     now,
     '30s'
@@ -299,27 +282,27 @@ export async function getSuccessRateSparkline(duration: string = '15m'): Promise
 
 export async function getSuccessRateByClient(): Promise<Record<string, number>> {
   // Calculate success rate from request status codes
-  // Success = status 2xx or 3xx, Failure = status 4xx or 5xx
+  // Success = not 4xx or 5xx, Failure = status 4xx or 5xx
   const [totalResult, successResult] = await Promise.all([
-    query('sum by (client) (openmemory_requests_total)'),
-    query('sum by (client) (openmemory_requests_total{status=~"2..|3.."})')
+    query('sum by (client_name) (openmemory_requests_total)'),
+    query('sum by (client_name) (openmemory_requests_total{status=~"2..|3.."})')
   ])
 
   const rates: Record<string, number> = {}
 
   // First, initialize all clients with 0% (in case they have no successful requests)
   totalResult.data.result.forEach((item) => {
-    const clientId = item.metric.client || 'unknown'
+    const clientId = item.metric.client_name || 'unknown'
     rates[clientId] = 0
   })
 
   // Then calculate success rate for clients with successful requests
   successResult.data.result.forEach((item) => {
-    const clientId = item.metric.client || 'unknown'
+    const clientId = item.metric.client_name || 'unknown'
     const successCount = item.value ? parseFloat(item.value[1]) : 0
 
     // Find total count for this client
-    const totalItem = totalResult.data.result.find(t => (t.metric.client || 'unknown') === clientId)
+    const totalItem = totalResult.data.result.find(t => (t.metric.client_name || 'unknown') === clientId)
     const totalCount = totalItem?.value ? parseFloat(totalItem.value[1]) : 0
 
     if (totalCount > 0) {
@@ -334,54 +317,74 @@ export async function getSuccessRateTimeSeriesByClient(duration: string = '1h'):
   const now = Math.floor(Date.now() / 1000)
   const start = now - parseDuration(duration)
 
-  const [totalResult, successResult] = await Promise.all([
+  // Formula: (requests - errors) / requests * 100
+  // Use raw counters instead of rate() to avoid 0% when no new requests
+  const step = chooseStep(duration)
+  const [allClients, totalResult, errorResult] = await Promise.all([
+    getAllActiveClients(duration),
     queryRange(
-      'sum by (client) (rate(openmemory_requests_total[5m]))',
+      'sum by (client_name) (openmemory_requests_total)',
       start,
       now,
-      '1m'
+      step
     ),
     queryRange(
-      'sum by (client) (rate(openmemory_requests_total{status=~"2.."}[5m]))',
+      'sum by (client_name) (openmemory_errors_total)',
       start,
       now,
-      '1m'
+      step
     )
   ])
 
-  const timeMap = new Map<number, Record<string, { total: number, success: number }>>()
+  const timeMap = new Map<number, Record<string, { total: number, errors: number }>>()
+  const allTimestamps = new Set<number>()
 
   // Collect totals
   totalResult.data.result.forEach((series) => {
-    const clientId = series.metric.client || 'unknown'
+    const clientId = series.metric.client_name || 'unknown'
+
     series.values?.forEach(([timestamp, value]) => {
+      allTimestamps.add(timestamp)
       if (!timeMap.has(timestamp)) {
         timeMap.set(timestamp, {})
       }
       const clients = timeMap.get(timestamp)!
       if (!clients[clientId]) {
-        clients[clientId] = { total: 0, success: 0 }
+        clients[clientId] = { total: 0, errors: 0 }
       }
       clients[clientId].total = parseFloat(value)
     })
   })
 
-  // Collect successes
-  successResult.data.result.forEach((series) => {
-    const clientId = series.metric.client || 'unknown'
+  // Collect errors
+  errorResult.data.result.forEach((series) => {
+    const clientId = series.metric.client_name || 'unknown'
+
     series.values?.forEach(([timestamp, value]) => {
+      allTimestamps.add(timestamp)
       if (!timeMap.has(timestamp)) {
         timeMap.set(timestamp, {})
       }
       const clients = timeMap.get(timestamp)!
       if (!clients[clientId]) {
-        clients[clientId] = { total: 0, success: 0 }
+        clients[clientId] = { total: 0, errors: 0 }
       }
-      clients[clientId].success = parseFloat(value)
+      clients[clientId].errors = parseFloat(value)
     })
   })
 
-  // Calculate success rate percentages
+  // Fill in missing clients with 100% success rate (no errors)
+  allTimestamps.forEach((timestamp) => {
+    if (!timeMap.has(timestamp)) timeMap.set(timestamp, {})
+    const timestampData = timeMap.get(timestamp)!
+    allClients.forEach((client) => {
+      if (!(client in timestampData)) {
+        timestampData[client] = { total: 0, errors: 0 }
+      }
+    })
+  })
+
+  // Calculate success rate percentages: (total - errors) / total * 100
   const timeSeries: Array<{ time: number, [client: string]: number }> = []
   Array.from(timeMap.entries())
     .sort((a, b) => a[0] - b[0])
@@ -390,8 +393,8 @@ export async function getSuccessRateTimeSeriesByClient(duration: string = '1h'):
         time: timestamp
       }
       Object.keys(clients).forEach((client) => {
-        const { total, success } = clients[client]
-        dataPoint[client] = total > 0 ? (success / total) * 100 : 0
+        const { total, errors } = clients[client]
+        dataPoint[client] = total > 0 ? ((total - errors) / total) * 100 : 100
       })
       timeSeries.push(dataPoint)
     })
@@ -400,53 +403,211 @@ export async function getSuccessRateTimeSeriesByClient(duration: string = '1h'):
 }
 
 export async function getTopWriter(): Promise<{ name: string, count: number }> {
-  // Get client with most write requests (POST/PUT/DELETE)
-  const result = await query('topk(1, sum by (client) (openmemory_requests_total{method=~"POST|PUT|DELETE"}))')
+  // Get client with most write requests (create/update/delete operations)
+  const result = await query('topk(1, sum by (client_name) (openmemory_requests_total{operation=~"create|update|delete"}))')
   if (result.data.result.length === 0) {
     return { name: 'N/A', count: 0 }
   }
   const item = result.data.result[0]
   return {
-    name: item.metric.client || 'unknown',
+    name: item.metric.client_name || 'unknown',
     count: item.value ? parseFloat(item.value[1]) : 0
   }
 }
 
 export async function getTopReader(): Promise<{ name: string, count: number }> {
-  // Get client with most read requests (GET)
-  const result = await query('topk(1, sum by (client) (openmemory_requests_total{method="GET"}))')
+  // Get client with most read requests
+  const result = await query('topk(1, sum by (client_name) (openmemory_requests_total{operation="read"}))')
   if (result.data.result.length === 0) {
     return { name: 'N/A', count: 0 }
   }
   const item = result.data.result[0]
   return {
-    name: item.metric.client || 'unknown',
+    name: item.metric.client_name || 'unknown',
     count: item.value ? parseFloat(item.value[1]) : 0
   }
 }
 
 export async function getLastWriter(): Promise<{ name: string, timestamp: number }> {
-  // Use latest timestamp from counter (Prometheus doesn't track timestamps, use workaround)
-  const result = await query('topk(1, sum by (client) (openmemory_requests_total{method=~"POST|PUT|DELETE"}))')
-  if (result.data.result.length === 0) {
-    return { name: 'N/A', timestamp: 0 }
+  try {
+    const result = await query('topk(1, sum by (client_name) (openmemory_requests_total{operation=~"create|update|delete"}))')
+    if (result.data.result.length > 0 && result.data.result[0].value) {
+      const count = parseFloat(result.data.result[0].value[1])
+      if (count > 0) {
+        return {
+          name: result.data.result[0].metric.client_name || 'N/A',
+          timestamp: Date.now()
+        }
+      }
+    }
+  } catch (e) {
+    console.error('getLastWriter error:', e)
   }
-  const item = result.data.result[0]
-  return {
-    name: item.metric.client || 'unknown',
-    timestamp: item.value ? item.value[0] * 1000 : 0 // Convert to ms
-  }
+  return { name: 'N/A', timestamp: 0 }
 }
 
 export async function getLastReader(): Promise<{ name: string, timestamp: number }> {
-  // Use latest timestamp from counter
-  const result = await query('topk(1, sum by (client) (openmemory_requests_total{method="GET"}))')
-  if (result.data.result.length === 0) {
-    return { name: 'N/A', timestamp: 0 }
+  try {
+    const result = await query('topk(1, sum by (client_name) (openmemory_requests_total{operation="read"}))')
+    if (result.data.result.length > 0 && result.data.result[0].value) {
+      const count = parseFloat(result.data.result[0].value[1])
+      if (count > 0) {
+        return {
+          name: result.data.result[0].metric.client_name || 'N/A',
+          timestamp: Date.now()
+        }
+      }
+    }
+  } catch (e) {
+    console.error('getLastReader error:', e)
   }
-  const item = result.data.result[0]
-  return {
-    name: item.metric.client || 'unknown',
-    timestamp: item.value ? item.value[0] * 1000 : 0 // Convert to ms
+  return { name: 'N/A', timestamp: 0 }
+}
+
+// Get all active clients in a period
+async function getAllActiveClients(duration: string = '1h'): Promise<string[]> {
+  const now = Math.floor(Date.now() / 1000)
+  const start = now - parseDuration(duration)
+
+  const result = await queryRange(
+    'count by (client_name) (openmemory_requests_total)',
+    start,
+    now,
+    '1m'
+  )
+
+  const clients = new Set<string>()
+  result.data.result.forEach((series) => {
+    const clientName = series.metric.client_name || 'unknown'
+    clients.add(clientName)
+  })
+
+  return Array.from(clients)
+}
+
+// Format range query results (already aggregated) into series by client
+function formatRangeSeriesByClient(result: PrometheusQueryResult, allClients?: string[], labelKey: string = 'client_name'): Array<{ time: number, [client: string]: number }> {
+  const timeMap = new Map<number, Record<string, number>>()
+  const allTimestamps = new Set<number>()
+
+  result.data.result.forEach((series) => {
+    const clientName = series.metric[labelKey] || 'unknown'
+    const values = series.values || []
+    values.forEach(([timestamp, value]) => {
+      allTimestamps.add(timestamp)
+      if (!timeMap.has(timestamp)) timeMap.set(timestamp, {})
+      timeMap.get(timestamp)![clientName] = parseFloat(value)
+    })
+  })
+
+  // Fill in zeros for all clients at all timestamps
+  if (allClients && allClients.length > 0) {
+    allTimestamps.forEach((timestamp) => {
+      if (!timeMap.has(timestamp)) timeMap.set(timestamp, {})
+      const timestampData = timeMap.get(timestamp)!
+      allClients.forEach((client) => {
+        if (!(client in timestampData)) {
+          timestampData[client] = 0
+        }
+      })
+    })
   }
+
+  return Array.from(timeMap.entries())
+    .sort((a, b) => a[0] - b[0])
+    .map(([timestamp, clients]) => ({
+      time: timestamp,
+      ...clients
+    }))
+}
+
+// CRUD operation time series
+export async function getCreatesByClient(duration: string = '1h'): Promise<Array<{ time: number, [client: string]: number }>> {
+  const now = Math.floor(Date.now() / 1000)
+  const start = now - parseDuration(duration)
+  const step = chooseStep(duration)
+
+  const [allClients, result] = await Promise.all([
+    getAllActiveClients(duration),
+    queryRange(
+      'sum by (client_name) (openmemory_requests_total{operation="create"})',
+      start,
+      now,
+      step
+    )
+  ])
+
+  return formatRangeSeriesByClient(result, allClients)
+}
+
+export async function getReadsByClient(duration: string = '1h'): Promise<Array<{ time: number, [client: string]: number }>> {
+  const now = Math.floor(Date.now() / 1000)
+  const start = now - parseDuration(duration)
+  const step = chooseStep(duration)
+
+  const [allClients, result] = await Promise.all([
+    getAllActiveClients(duration),
+    queryRange(
+      'sum by (client_name) (openmemory_requests_total{operation="read"})',
+      start,
+      now,
+      step
+    )
+  ])
+
+  return formatRangeSeriesByClient(result, allClients)
+}
+
+export async function getUpdatesByClient(duration: string = '1h'): Promise<Array<{ time: number, [client: string]: number }>> {
+  const now = Math.floor(Date.now() / 1000)
+  const start = now - parseDuration(duration)
+  const step = chooseStep(duration)
+
+  const [allClients, result] = await Promise.all([
+    getAllActiveClients(duration),
+    queryRange(
+      'sum by (client_name) (openmemory_requests_total{operation="update"})',
+      start,
+      now,
+      step
+    )
+  ])
+
+  return formatRangeSeriesByClient(result, allClients)
+}
+
+export async function getDeletesByClient(duration: string = '1h'): Promise<Array<{ time: number, [client: string]: number }>> {
+  const now = Math.floor(Date.now() / 1000)
+  const start = now - parseDuration(duration)
+  const step = chooseStep(duration)
+
+  const [allClients, result] = await Promise.all([
+    getAllActiveClients(duration),
+    queryRange(
+      'sum by (client_name) (openmemory_requests_total{operation="delete"})',
+      start,
+      now,
+      step
+    )
+  ])
+
+  return formatRangeSeriesByClient(result, allClients)
+}
+
+export async function getErrorsByClient(duration: string = '1h'): Promise<Array<{ time: number, [client: string]: number }>> {
+  const now = Math.floor(Date.now() / 1000)
+  const start = now - parseDuration(duration)
+  const step = chooseStep(duration)
+
+  const [allClients, result] = await Promise.all([
+    getAllActiveClients(duration),
+    queryRange(
+      'sum by (client_name) (openmemory_errors_total)',
+      start,
+      now,
+      step
+    )
+  ])
+
+  return formatRangeSeriesByClient(result, allClients)
 }

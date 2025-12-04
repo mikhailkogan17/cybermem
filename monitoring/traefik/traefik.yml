@@ -12,6 +12,8 @@ accessLog:
         Authorization: keep
         Content-Type: keep
         User-Agent: keep
+        X-Client-Name: keep
+        X-Client-Version: keep
 
 api:
   dashboard: true
