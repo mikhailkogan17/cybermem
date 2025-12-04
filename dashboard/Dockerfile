@@ -1,6 +1,5 @@
-# Build stage
-FROM node:20-alpine AS builder
-
+# Base stage for both dev and prod
+FROM node:20-alpine AS base
 WORKDIR /app
 
 # Use corepack to get the pnpm version from the lockfile and speed up installs via cache
@@ -16,14 +15,19 @@ RUN --mount=type=cache,target=/root/.pnpm-store pnpm install --no-frozen-lockfil
 # Copy source code
 COPY . .
 
-# Build the application (reuse pnpm store + Next.js cache)
+# Development stage - skips build, runs dev server
+FROM base AS dev
+ENV NODE_ENV=development
+CMD ["pnpm", "dev"]
+
+# Builder stage - runs build (slow)
+FROM base AS builder
 RUN --mount=type=cache,target=/root/.pnpm-store \
     --mount=type=cache,target=/app/.next/cache \
     pnpm build
 
 # Production stage
 FROM node:20-alpine AS runner
-
 WORKDIR /app
 
 ENV NODE_ENV=production

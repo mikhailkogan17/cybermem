@@ -6,8 +6,16 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import ReactECharts from "echarts-for-react"
+import * as echarts from "echarts"
 import { ChevronLeft, ChevronRight, Search } from "lucide-react"
 import { useEffect, useState } from "react"
+
+const hexToRgba = (hex: string, alpha: number) => {
+  const r = parseInt(hex.slice(1, 3), 16)
+  const g = parseInt(hex.slice(3, 5), 16)
+  const b = parseInt(hex.slice(5, 7), 16)
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`
+}
 
 const FALLBACK_CLIENTS = ["Cursor", "Visual Studio Code", "Claude Desktop", "GitHub Copilot", "Windsurf"]
 const COLOR_PALETTE = ["#14b8a6", "#06b6d4", "#8b5cf6", "#10b981", "#f59e0b", "#ef4444", "#a855f7", "#22c55e"]
@@ -67,8 +75,8 @@ export default function CyberMemDashboard() {
     clientGrowth: 0,
     topWriter: { name: "N/A", count: 0 },
     topReader: { name: "N/A", count: 0 },
-    lastWriter: { name: "N/A", timestamp: new Date() },
-    lastReader: { name: "N/A", timestamp: new Date() },
+    lastWriter: { name: "N/A", timestamp: 0 },
+    lastReader: { name: "N/A", timestamp: 0 },
     successRate: 0,
     totalRequests: 0,
   })
@@ -423,7 +431,7 @@ export default function CyberMemDashboard() {
             CyberMem
           </h1>
           <div className="flex items-center gap-2 pt-3">
-            {["15m", "1h", "6h", "12h", "1d", "1w", "1M", "1y"].map((p) => (
+            {["15m", "1h", "6h", "12h", "1d"].map((p) => (
               <Button
                 key={p}
                 onClick={() => setPeriod(p)}
@@ -558,7 +566,6 @@ export default function CyberMemDashboard() {
               <div className="text-lg font-medium text-white/90 mb-2">Total Clients</div>
               <div className="text-5xl font-bold text-white">
                 {stats.totalClients}{" "}
-                <span className="text-xl text-white/90 font-semibold">+{stats.clientGrowth} this month</span>
               </div>
             </div>
           </CardContent>
@@ -773,14 +780,26 @@ export default function CyberMemDashboard() {
                     bottom: 0,
                     type: "plain",
                   },
-                  series: clientNames.map((client) => ({
-                    name: getClientDisplayName(client),
-                    type: "line",
-                    data: createsTimeSeries.map((d) => d[client] || 0),
-                    smooth: true,
-                    lineStyle: { width: 2 },
-                    itemStyle: { color: getClientColor(client, clientNames) },
-                  })),
+                  series: clientNames.map((client) => {
+                    const color = getClientColor(client, clientNames)
+                    return {
+                      name: getClientDisplayName(client),
+                      type: "line",
+                      data: createsTimeSeries.map((d) => d[client] || 0),
+                      smooth: true,
+                      showSymbol: false,
+                      lineStyle: { width: 2 },
+                      itemStyle: { color },
+                      emphasis: { focus: "series" },
+                      areaStyle: {
+                        color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+                          { offset: 0, color: hexToRgba(color, 0.1) },
+                          { offset: 1, color: hexToRgba(color, 0) }
+                        ]),
+                        opacity: 1
+                      }
+                    }
+                  }),
                 }}
                 style={{ height: "256px" }}
               />
@@ -832,14 +851,26 @@ export default function CyberMemDashboard() {
                     bottom: 0,
                     type: "plain",
                   },
-                  series: clientNames.map((client) => ({
-                    name: getClientDisplayName(client),
-                    type: "line",
-                    data: readsTimeSeries.map((d) => d[client] || 0),
-                    smooth: true,
-                    lineStyle: { width: 2 },
-                    itemStyle: { color: getClientColor(client, clientNames) },
-                  })),
+                  series: clientNames.map((client) => {
+                    const color = getClientColor(client, clientNames)
+                    return {
+                      name: getClientDisplayName(client),
+                      type: "line",
+                      data: readsTimeSeries.map((d) => d[client] || 0),
+                      smooth: true,
+                      showSymbol: false,
+                      lineStyle: { width: 2 },
+                      itemStyle: { color },
+                      emphasis: { focus: "series" },
+                      areaStyle: {
+                        color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+                          { offset: 0, color: hexToRgba(color, 0.1) },
+                          { offset: 1, color: hexToRgba(color, 0) }
+                        ]),
+                        opacity: 1
+                      }
+                    }
+                  }),
                 }}
                 style={{ height: "256px" }}
               />
@@ -891,14 +922,26 @@ export default function CyberMemDashboard() {
                     bottom: 0,
                     type: "plain",
                   },
-                  series: clientNames.map((client) => ({
-                    name: getClientDisplayName(client),
-                    type: "line",
-                    data: updatesTimeSeries.map((d) => d[client] || 0),
-                    smooth: true,
-                    lineStyle: { width: 2 },
-                    itemStyle: { color: getClientColor(client, clientNames) },
-                  })),
+                  series: clientNames.map((client) => {
+                    const color = getClientColor(client, clientNames)
+                    return {
+                      name: getClientDisplayName(client),
+                      type: "line",
+                      data: updatesTimeSeries.map((d) => d[client] || 0),
+                      smooth: true,
+                      showSymbol: false,
+                      lineStyle: { width: 2 },
+                      itemStyle: { color },
+                      emphasis: { focus: "series" },
+                      areaStyle: {
+                        color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+                          { offset: 0, color: hexToRgba(color, 0.1) },
+                          { offset: 1, color: hexToRgba(color, 0) }
+                        ]),
+                        opacity: 1
+                      }
+                    }
+                  }),
                 }}
                 style={{ height: "256px" }}
               />
@@ -950,14 +993,26 @@ export default function CyberMemDashboard() {
                     bottom: 0,
                     type: "plain",
                   },
-                  series: clientNames.map((client) => ({
-                    name: getClientDisplayName(client),
-                    type: "line",
-                    data: deletesTimeSeries.map((d) => d[client] || 0),
-                    smooth: true,
-                    lineStyle: { width: 2 },
-                    itemStyle: { color: getClientColor(client, clientNames) },
-                  })),
+                  series: clientNames.map((client) => {
+                    const color = getClientColor(client, clientNames)
+                    return {
+                      name: getClientDisplayName(client),
+                      type: "line",
+                      data: deletesTimeSeries.map((d) => d[client] || 0),
+                      smooth: true,
+                      showSymbol: false,
+                      lineStyle: { width: 2 },
+                      itemStyle: { color },
+                      emphasis: { focus: "series" },
+                      areaStyle: {
+                        color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+                          { offset: 0, color: hexToRgba(color, 0.1) },
+                          { offset: 1, color: hexToRgba(color, 0) }
+                        ]),
+                        opacity: 1
+                      }
+                    }
+                  }),
                 }}
                 style={{ height: "256px" }}
               />
@@ -1076,14 +1131,26 @@ export default function CyberMemDashboard() {
                     bottom: 0,
                     type: "plain",
                   },
-                  series: clientNames.map((client) => ({
-                    name: getClientDisplayName(client),
-                    type: "line",
-                    data: errorsTimeSeries.map((d) => d[client] || 0),
-                    smooth: true,
-                    lineStyle: { width: 2 },
-                    itemStyle: { color: getClientColor(client, clientNames) },
-                  })),
+                  series: clientNames.map((client) => {
+                    const color = getClientColor(client, clientNames)
+                    return {
+                      name: getClientDisplayName(client),
+                      type: "line",
+                      data: errorsTimeSeries.map((d) => d[client] || 0),
+                      smooth: true,
+                      showSymbol: false,
+                      lineStyle: { width: 2 },
+                      itemStyle: { color },
+                      emphasis: { focus: "series" },
+                      areaStyle: {
+                        color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+                          { offset: 0, color: hexToRgba(color, 0.2) },
+                          { offset: 1, color: hexToRgba(color, 0) }
+                        ]),
+                        opacity: 1
+                      }
+                    }
+                  }),
                 }}
                 style={{ height: "256px" }}
               />

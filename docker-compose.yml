@@ -186,13 +186,19 @@ services:
     build:
       context: ./dashboard
       dockerfile: Dockerfile
-    image: cybermem-dashboard:latest
+      target: dev
+    image: cybermem-dashboard:dev
     container_name: cybermem-dashboard
     environment:
       NEXT_PUBLIC_PROMETHEUS_URL: http://prometheus:9090
       PROMETHEUS_URL: http://prometheus:9090
+      WATCHPACK_POLLING: "true" # Better hot reload in Docker
     ports:
       - "3000:3000"
+    volumes:
+      - ./dashboard:/app
+      - /app/node_modules
+      - /app/.next
     restart: unless-stopped
     depends_on:
       - prometheus

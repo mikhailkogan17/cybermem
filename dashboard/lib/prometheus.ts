@@ -315,7 +315,7 @@ export async function getTotalRequestsSparkline(duration: string = '15m'): Promi
   const start = now - parseDuration(duration)
 
   const result = await queryRange(
-    'increase(openmemory_requests_aggregate_total[30s])',
+    'sum(openmemory_requests_total)',
     start,
     now,
     '30s'
@@ -495,28 +495,36 @@ export async function getSuccessRateTimeSeriesByClient(duration: string = '1h'):
 }
 
 export async function getTopWriter(duration: string = '15m'): Promise<{ name: string, count: number }> {
-  // Get client with most write requests (create/update/delete operations)
+  // Get client with most write requests (cumulative/absolute)
   const result = await query('topk(1, sum by (client_name) (openmemory_requests_total{operation=~"create|update|delete"}))')
+  
   if (result.data.result.length === 0) {
     return { name: 'N/A', count: 0 }
   }
+  
   const item = result.data.result[0]
+  const count = item.value ? parseFloat(item.value[1]) : 0
+  
   return {
     name: item.metric.client_name || 'unknown',
-    count: item.value ? parseFloat(item.value[1]) : 0
+    count
   }
 }
 
 export async function getTopReader(duration: string = '15m'): Promise<{ name: string, count: number }> {
-  // Get client with most read requests
+  // Get client with most read requests (cumulative/absolute)
   const result = await query('topk(1, sum by (client_name) (openmemory_requests_total{operation="read"}))')
+  
   if (result.data.result.length === 0) {
     return { name: 'N/A', count: 0 }
   }
+  
   const item = result.data.result[0]
+  const count = item.value ? parseFloat(item.value[1]) : 0
+
   return {
     name: item.metric.client_name || 'unknown',
-    count: item.value ? parseFloat(item.value[1]) : 0
+    count
   }
 }
 
