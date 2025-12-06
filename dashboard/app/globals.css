@@ -1,9 +1,23 @@
 body {
-  background: radial-gradient(circle at 80% 80%, #0b585a 0%, transparent 75%),
-    radial-gradient(circle at 50% 50%, #2c554f 0%, transparent 75%),
-    radial-gradient(circle at 20% 20%, #063f37 0%, transparent 75%), #1a1a1a;
+  background:
+    /* TL — Deep Midnight Teal (Primary Base) */
+    radial-gradient(at 0% 0%, hsla(166, 68%, 6%, 0.711) 0px, transparent 70%),
+
+    /* TR — Deep Burgundy/Crimson (Tertiary Accent) */
+    radial-gradient(at 80% 20%, hsla(349, 24%, 14%, 0.298) 0px, transparent 50%),
+
+    /* BL — Cyan-Turquoise (Tertiary Accent) */
+    radial-gradient(at 10% 90%, hsla(21, 46%, 7%, 0.443) 0px, transparent 50%),
+
+    /* BR — Dark Cyber Teal (Primary Depth) */
+    radial-gradient(at 100% 100%, hsl(189, 62%, 4%) 0px, transparent 60%);
+
+  /* Deep Emerald/Teal Base */
+  background-color: hsl(180, 19%, 7%);
+  background-size: 100% 100%;
   background-attachment: fixed;
 }
+
 @import "tailwindcss";
 @import "tw-animate-css";
 
