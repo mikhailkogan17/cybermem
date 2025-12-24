@@ -1,5 +1,5 @@
-// Prefer explicit PROMETHEUS_URL, fall back to NEXT_PUBLIC, then local Prometheus default port
-const PROMETHEUS_URL = process.env.PROMETHEUS_URL || process.env.NEXT_PUBLIC_PROMETHEUS_URL || 'http://localhost:9090'
+// Prefer explicit PROMETHEUS_URL, fall back to NEXT_PUBLIC, then local Prometheus default port (mapped to 9092 in docker-compose)
+const PROMETHEUS_URL = process.env.PROMETHEUS_URL || process.env.NEXT_PUBLIC_PROMETHEUS_URL || 'http://localhost:9092'
 
 export interface PrometheusQueryResult {
   status: string
@@ -495,16 +495,17 @@ export async function getSuccessRateTimeSeriesByClient(duration: string = '1h'):
 }
 
 export async function getTopWriter(duration: string = '15m'): Promise<{ name: string, count: number }> {
-  // Get client with most write requests (cumulative/absolute)
-  const result = await query('topk(1, sum by (client_name) (openmemory_requests_total{operation=~"create|update|delete"}))')
-  
+  // Get client with most write requests in the specified duration
+  const promDuration = toPromDuration(duration)
+  const result = await query(`topk(1, sum by (client_name) (increase(openmemory_requests_total{operation=~"create|update|delete"}[${promDuration}])))`)
+
   if (result.data.result.length === 0) {
     return { name: 'N/A', count: 0 }
   }
-  
+
   const item = result.data.result[0]
-  const count = item.value ? parseFloat(item.value[1]) : 0
-  
+  const count = item.value ? Math.round(parseFloat(item.value[1])) : 0
+
   return {
     name: item.metric.client_name || 'unknown',
     count
@@ -512,15 +513,16 @@ export async function getTopWriter(duration: string = '15m'): Promise<{ name: st
 }
 
 export async function getTopReader(duration: string = '15m'): Promise<{ name: string, count: number }> {
-  // Get client with most read requests (cumulative/absolute)
-  const result = await query('topk(1, sum by (client_name) (openmemory_requests_total{operation="read"}))')
-  
+  // Get client with most read requests in the specified duration
+  const promDuration = toPromDuration(duration)
+  const result = await query(`topk(1, sum by (client_name) (increase(openmemory_requests_total{operation="read"}[${promDuration}])))`)
+
   if (result.data.result.length === 0) {
     return { name: 'N/A', count: 0 }
   }
-  
+
   const item = result.data.result[0]
-  const count = item.value ? parseFloat(item.value[1]) : 0
+  const count = item.value ? Math.round(parseFloat(item.value[1])) : 0
 
   return {
     name: item.metric.client_name || 'unknown',
@@ -530,7 +532,8 @@ export async function getTopReader(duration: string = '15m'): Promise<{ name: st
 
 export async function getLastWriter(): Promise<{ name: string, timestamp: number }> {
   try {
-    const result = await query('topk(1, sum by (client_name) (openmemory_requests_total{operation=~"create|update|delete"}))')
+    // Look for writers in the last 5 minutes to identify "current/last" activity
+    const result = await query('topk(1, sum by (client_name) (increase(openmemory_requests_total{operation=~"create|update|delete"}[5m])))')
     if (result.data.result.length > 0 && result.data.result[0].value) {
       const count = parseFloat(result.data.result[0].value[1])
       if (count > 0) {
@@ -548,7 +551,8 @@ export async function getLastWriter(): Promise<{ name: string, timestamp: number
 
 export async function getLastReader(): Promise<{ name: string, timestamp: number }> {
   try {
-    const result = await query('topk(1, sum by (client_name) (openmemory_requests_total{operation="read"}))')
+    // Look for readers in the last 5 minutes to identify "current/last" activity
+    const result = await query('topk(1, sum by (client_name) (increase(openmemory_requests_total{operation="read"}[5m])))')
     if (result.data.result.length > 0 && result.data.result[0].value) {
       const count = parseFloat(result.data.result[0].value[1])
       if (count > 0) {
