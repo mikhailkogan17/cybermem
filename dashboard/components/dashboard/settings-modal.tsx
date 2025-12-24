@@ -3,12 +3,32 @@
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Key, Save, Server, Settings, X } from "lucide-react"
+import { Eye, EyeOff, Key, RefreshCw, Save, Server, Settings, Shield, X } from "lucide-react"
 import { useState } from "react"
 
 export default function SettingsModal({ onClose }: { onClose: () => void }) {
-  const [apiKey, setApiKey] = useState("sk-cybermem-master-key-...")
+  const [apiKey, setApiKey] = useState("sk-cybermem-master-key-8f7a2b9c")
   const [endpoint, setEndpoint] = useState("http://localhost:8080")
+  const [adminPassword, setAdminPassword] = useState(localStorage.getItem("adminPassword") || "admin")
+
+  const [showApiKey, setShowApiKey] = useState(false)
+  const [showAdminPassword, setShowAdminPassword] = useState(false)
+  const [saved, setSaved] = useState(false)
+
+  const generateApiKey = () => {
+    const chars = 'abcdefghijklmnopqrstuvwxyz0123456789'
+    const randomPart = Array.from({ length: 16 }, () => chars[Math.floor(Math.random() * chars.length)]).join('')
+    const newKey = `sk-cybermem-${randomPart}`
+    setApiKey(newKey)
+    setShowApiKey(true) // Automatically show the new key
+  }
+
+  const handleSave = () => {
+    // Save admin password to localStorage
+    localStorage.setItem("adminPassword", adminPassword)
+    setSaved(true)
+    setTimeout(() => setSaved(false), 2000)
+  }
 
   return (
     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
@@ -23,7 +43,6 @@ export default function SettingsModal({ onClose }: { onClose: () => void }) {
           `
         }}
       >
-        {/* Header */}
         {/* Header */}
         <div className="flex items-center justify-between px-6 pt-6 pb-2">
           <div className="flex items-center gap-3">
@@ -44,6 +63,38 @@ export default function SettingsModal({ onClose }: { onClose: () => void }) {
 
         {/* Content */}
         <div className="p-6 space-y-6">
+          {/* Security */}
+          <section>
+            <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2 text-shadow-sm">
+              <Shield className="w-5 h-5 text-white drop-shadow-[0_0_8px_rgba(255,255,255,0.5)]" />
+              Security
+            </h3>
+            <div className="bg-white/5 border border-white/10 rounded-lg p-5 space-y-4 shadow-[inset_0_0_20px_rgba(255,255,255,0.02)] backdrop-blur-sm">
+              <div className="space-y-2">
+                <Label htmlFor="admin-password" className="text-neutral-200">Admin Password</Label>
+                <div className="flex gap-2">
+                  <div className="relative flex-1">
+                    <Input
+                      id="admin-password"
+                      value={adminPassword}
+                      onChange={(e) => setAdminPassword(e.target.value)}
+                      className="bg-black/40 border-white/10 text-white focus:border-emerald-500/50 focus:ring-emerald-500/20 placeholder:text-neutral-600 shadow-inner pr-10"
+                      type={showAdminPassword ? "text" : "password"}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowAdminPassword(!showAdminPassword)}
+                      className="absolute right-2 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-white transition-colors"
+                    >
+                      {showAdminPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </button>
+                  </div>
+                </div>
+                <p className="text-xs text-neutral-500">Used to access the dashboard</p>
+              </div>
+            </div>
+          </section>
+
           {/* API Configuration */}
           <section>
             <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2 text-shadow-sm">
@@ -54,14 +105,27 @@ export default function SettingsModal({ onClose }: { onClose: () => void }) {
               <div className="space-y-2">
                 <Label htmlFor="api-key" className="text-neutral-200">Master API Key</Label>
                 <div className="flex gap-2">
-                  <Input
-                    id="api-key"
-                    value={apiKey}
-                    onChange={(e) => setApiKey(e.target.value)}
-                    className="bg-black/40 border-white/10 text-white focus:border-emerald-500/50 focus:ring-emerald-500/20 placeholder:text-neutral-600 shadow-inner"
-                    type="password"
-                  />
-                  <Button className="bg-white/5 hover:bg-white/10 border border-white/10 text-white transition-colors hover:shadow-[0_0_10px_rgba(255,255,255,0.1)]">
+                  <div className="relative flex-1">
+                    <Input
+                      id="api-key"
+                      value={apiKey}
+                      onChange={(e) => setApiKey(e.target.value)}
+                      className="bg-black/40 border-white/10 text-white focus:border-emerald-500/50 focus:ring-emerald-500/20 placeholder:text-neutral-600 shadow-inner pr-10"
+                      type={showApiKey ? "text" : "password"}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowApiKey(!showApiKey)}
+                      className="absolute right-2 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-white transition-colors"
+                    >
+                      {showApiKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </button>
+                  </div>
+                  <Button
+                    onClick={generateApiKey}
+                    className="bg-white/5 hover:bg-white/10 border border-white/10 text-white transition-colors hover:shadow-[0_0_10px_rgba(255,255,255,0.1)] gap-2"
+                  >
+                    <RefreshCw className="w-4 h-4" />
                     Regenerate
                   </Button>
                 </div>
@@ -112,9 +176,16 @@ export default function SettingsModal({ onClose }: { onClose: () => void }) {
           >
             Cancel
           </Button>
-          <Button className="bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500/20 text-emerald-400 font-medium transition-colors gap-2">
+          <Button
+            onClick={handleSave}
+            className={`border font-medium transition-colors gap-2 ${
+              saved
+                ? "bg-emerald-500/30 border-emerald-500/30 text-emerald-300"
+                : "bg-emerald-500/20 hover:bg-emerald-500/30 border-emerald-500/20 text-emerald-400"
+            }`}
+          >
             <Save className="w-4 h-4" />
-            Save Changes
+            {saved ? "Saved!" : "Save Changes"}
           </Button>
         </div>
       </div>

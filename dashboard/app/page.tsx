@@ -3,6 +3,7 @@
 import AuditLogTable from "@/components/dashboard/audit-log-table"
 import ChartsSection from "@/components/dashboard/charts-section"
 import DashboardHeader from "@/components/dashboard/header"
+import LoginModal from "@/components/dashboard/login-modal"
 import MCPConfigModal from "@/components/dashboard/mcp-config-modal"
 import MetricsGrid from "@/components/dashboard/metrics-grid"
 import SettingsModal from "@/components/dashboard/settings-modal"
@@ -59,6 +60,20 @@ export default function Dashboard() {
   const [period, setPeriod] = useState("24h")
   const [showMCPConfig, setShowMCPConfig] = useState(false)
   const [showSettings, setShowSettings] = useState(false)
+  const [isAuthenticated, setIsAuthenticated] = useState(false)
+
+  // Check authentication on mount
+  useEffect(() => {
+    const auth = sessionStorage.getItem("authenticated")
+    if (auth === "true") {
+      setIsAuthenticated(true)
+    }
+  }, [])
+
+  const handleLogin = (password: string) => {
+    sessionStorage.setItem("authenticated", "true")
+    setIsAuthenticated(true)
+  }
 
   // State
   const [stats, setStats] = useState({
@@ -236,6 +251,11 @@ export default function Dashboard() {
   const paginatedLog = sortedLog.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage)
   const totalPages = Math.ceil(sortedLog.length / itemsPerPage)
   const loading = false
+
+  // Show login modal if not authenticated
+  if (!isAuthenticated) {
+    return <LoginModal onLogin={handleLogin} />
+  }
 
   return (
     <div className="min-h-screen text-foreground">
