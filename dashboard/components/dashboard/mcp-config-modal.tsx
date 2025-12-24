@@ -12,7 +12,8 @@ const clients = [
   { id: "warp", name: "Warp", icon: "/icons/warp.png" },
   { id: "claude-code", name: "Claude Code", icon: "/icons/claude-code.png" },
   { id: "chatgpt", name: "ChatGPT", icon: "/icons/chatgpt.png" },
-  { id: "codex", name: "Other / Codex", icon: "/icons/codex.png" },
+  { id: "codex", name: "Codex", icon: "/icons/codex.png" },
+  { id: "other", name: "Other", icon: null },
 ]
 
 export default function MCPConfigModal({ onClose }: { onClose: () => void }) {
@@ -23,12 +24,22 @@ export default function MCPConfigModal({ onClose }: { onClose: () => void }) {
   const mcpConfig = {
     mcpServers: {
       cybermem: {
-        url: "http://localhost:8000/sse",
-        headers: {
-            "X-API-Key": apiKey
+        command: "/Users/mikhailkogan/cybermem/mcp/.venv/bin/python",
+        args: [
+          "/Users/mikhailkogan/cybermem/mcp/server.py"
+        ],
+        env: {
+          "CYBERMEM_API_KEY": "dev-secret-key"
         }
       }
     }
+  }
+
+  const getConfigContent = () => {
+    if (selectedClient === "codex") {
+      return `# CyberMem Configuration\n[mcp]\nserver_url = "http://localhost:8000/sse"\napi_key = "${apiKey}"`
+    }
+    return JSON.stringify(mcpConfig, null, 2)
   }
 
   const copyToClipboard = (text: string, id: string) => {
@@ -111,6 +122,17 @@ export default function MCPConfigModal({ onClose }: { onClose: () => void }) {
              </div>
           </div>
         )
+      case "codex":
+        return (
+          <div className="space-y-4 text-sm text-neutral-300">
+            <p>Use this TOML configuration for Codex.</p>
+            <ul className="list-disc list-inside space-y-2 ml-2 text-neutral-400">
+              <li>Endpoint Type: <span className="text-white font-medium">SSE</span></li>
+              <li>URL: <code className="text-emerald-400">http://localhost:8000/sse</code></li>
+              <li>Copy the TOML block below</li>
+            </ul>
+          </div>
+        )
       default:
         return (
           <div className="space-y-4 text-sm text-neutral-300">
@@ -124,6 +146,8 @@ export default function MCPConfigModal({ onClose }: { onClose: () => void }) {
         )
     }
   }
+
+  const configContent = getConfigContent()
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
@@ -178,11 +202,11 @@ export default function MCPConfigModal({ onClose }: { onClose: () => void }) {
                       }
                     `}
                   >
-                    <div className="mb-2 transition-transform duration-300 group-hover:scale-105">
+                    <div className="mb-2 transition-transform duration-300 group-hover:scale-110">
                        {client.icon ? (
                          <img src={client.icon} alt={client.name} className="w-8 h-8 object-contain drop-shadow-lg" />
                        ) : (
-                         <div className="w-8 h-8 flex items-center justify-center text-white/50 bg-white/5 rounded-full border border-white/10">
+                         <div className="w-8 h-8 flex items-center justify-center text-white/50 bg-white/5 rounded-full border border-white/10 transition-transform duration-300">
                            <span className="text-sm font-bold">?</span>
                          </div>
                        )}
@@ -201,7 +225,7 @@ export default function MCPConfigModal({ onClose }: { onClose: () => void }) {
                 <div className="flex items-center gap-2">
                     <Info className="h-4 w-4 text-white drop-shadow-[0_0_5px_rgba(255,255,255,0.3)]" />
                     <h3 className="text-sm font-medium text-white">
-                        {selectedClient === "other" ? "Configuration JSON" : "Integration Instructions"}
+                        {selectedClient === "codex" ? "Configuration" : (selectedClient === "other" ? "Configuration JSON" : "Integration Instructions")}
                     </h3>
                 </div>
              </div>
@@ -215,33 +239,29 @@ export default function MCPConfigModal({ onClose }: { onClose: () => void }) {
 
                 {renderInstructions()}
 
-                {/* Code Block */}
                 {selectedClient !== "claude-code" && (
-                    <div className="relative group">
+                  <div className="relative group">
                     <div className="relative p-5 rounded-lg bg-[#0F161C] border border-white/10 font-mono text-xs md:text-sm text-white overflow-x-auto shadow-[0_0_20px_rgba(0,0,0,0.3)] inset-shadow">
-                        <div className="absolute top-0 right-0 px-2 py-1 bg-emerald-500/10 border-b border-l border-emerald-500/20 rounded-bl-lg text-[10px] font-mono text-emerald-400 uppercase tracking-wider backdrop-blur-sm">
-                          {selectedClient === "codex" ? "TOML" : "JSON"}
-                        </div>
-                        <pre className="text-shadow-sm pt-4">
+                      <pre className="text-shadow-sm">
                         {selectedClient === "codex" ? (
-                            `# CyberMem Configuration\n[mcp]\nserver_url = "http://localhost:8000/sse"\napi_key = "${apiKey}"`
+                          configContent
                         ) : (
-                            <code dangerouslySetInnerHTML={{ __html: highlightJSON(mcpConfig) }} />
+                          <code dangerouslySetInnerHTML={{ __html: highlightJSON(mcpConfig) }} />
                         )}
-                        </pre>
+                      </pre>
                     </div>
                     <div className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <Button
+                      <Button
                         size="sm"
                         variant="ghost"
                         className="h-8 px-3 text-white hover:text-white hover:bg-white/10 bg-black/40 backdrop-blur border border-white/5 shadow-[0_0_10px_rgba(255,255,255,0.05)]"
-                        onClick={() => copyToClipboard(selectedClient === "codex" ? `# CyberMem Configuration\n[mcp]\nserver_url = "http://localhost:8000/sse"\napi_key = "${apiKey}"` : JSON.stringify(mcpConfig, null, 2), "config")}
-                        >
+                        onClick={() => copyToClipboard(configContent, "config")}
+                      >
                         {copiedId === "config" ? <Check className="h-3.5 w-3.5 text-emerald-400 mr-1.5 drop-shadow-[0_0_5px_rgba(52,211,153,0.5)]" /> : <Copy className="h-3.5 w-3.5 mr-1.5 text-white drop-shadow-[0_0_5px_rgba(255,255,255,0.3)]" />}
                         {copiedId === "config" ? <span className="text-emerald-400 text-shadow-sm">Copied</span> : <span className="text-white text-shadow-sm">Copy</span>}
-                        </Button>
+                      </Button>
                     </div>
-                    </div>
+                  </div>
                 )}
 
                 <div className="flex items-start gap-3 p-3 rounded-lg bg-emerald-500/5 border border-emerald-500/10 text-emerald-200/70 text-xs">

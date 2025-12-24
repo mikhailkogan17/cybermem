@@ -5,21 +5,23 @@ CyberMem MCP Server
 MCP server that exposes shared memory functionality to several LLM.
 """
 
-import os
 import asyncio
-import httpx
+import os
 from typing import Any
-from mcp.server.models import InitializationOptions
-from mcp.server import NotificationOptions, Server
-from mcp.server.stdio import stdio_server
+
+import httpx
 from mcp import types
+from mcp.server import NotificationOptions, Server
+from mcp.server.models import InitializationOptions
+from mcp.server.stdio import stdio_server
 
 # CyberMem configuration (OpenMemory backend)
-OPENMEMORY_URL = os.getenv("OPENMEMORY_URL", "http://localhost.proxyman.io/memory")
+OPENMEMORY_URL = os.getenv("OPENMEMORY_URL", "http://localhost:80")
 CYBERMEM_API_KEY = os.getenv("CYBERMEM_API_KEY", "dev-secret-key")
 
 # Create MCP server instance
 server = Server("cybermem")
+
 
 @server.list_tools()
 async def handle_list_tools() -> list[types.Tool]:
@@ -33,16 +35,16 @@ async def handle_list_tools() -> list[types.Tool]:
                 "properties": {
                     "content": {
                         "type": "string",
-                        "description": "The information to remember (text content)"
+                        "description": "The information to remember (text content)",
                     },
                     "metadata": {
                         "type": "object",
                         "description": "Optional metadata (tags, category, importance, etc.)",
-                        "additionalProperties": True
-                    }
+                        "additionalProperties": True,
+                    },
                 },
-                "required": ["content"]
-            }
+                "required": ["content"],
+            },
         ),
         types.Tool(
             name="search_memory",
@@ -52,16 +54,16 @@ async def handle_list_tools() -> list[types.Tool]:
                 "properties": {
                     "query": {
                         "type": "string",
-                        "description": "What to search for (semantic search query)"
+                        "description": "What to search for (semantic search query)",
                     },
                     "limit": {
                         "type": "number",
                         "description": "Maximum number of results (default: 5)",
-                        "default": 5
-                    }
+                        "default": 5,
+                    },
                 },
-                "required": ["query"]
-            }
+                "required": ["query"],
+            },
         ),
         types.Tool(
             name="list_memories",
@@ -72,10 +74,10 @@ async def handle_list_tools() -> list[types.Tool]:
                     "limit": {
                         "type": "number",
                         "description": "Maximum number of memories to retrieve (default: 10)",
-                        "default": 10
+                        "default": 10,
                     }
-                }
-            }
+                },
+            },
         ),
         types.Tool(
             name="delete_memory",
@@ -85,11 +87,11 @@ async def handle_list_tools() -> list[types.Tool]:
                 "properties": {
                     "memory_id": {
                         "type": "string",
-                        "description": "The UUID of the memory to delete"
+                        "description": "The UUID of the memory to delete",
                     }
                 },
-                "required": ["memory_id"]
-            }
+                "required": ["memory_id"],
+            },
         ),
         types.Tool(
             name="update_memory",
@@ -99,33 +101,32 @@ async def handle_list_tools() -> list[types.Tool]:
                 "properties": {
                     "memory_id": {
                         "type": "string",
-                        "description": "The UUID of the memory to update"
+                        "description": "The UUID of the memory to update",
                     },
                     "content": {
                         "type": "string",
-                        "description": "New content for the memory (optional)"
+                        "description": "New content for the memory (optional)",
                     },
                     "tags": {
                         "type": "array",
                         "items": {"type": "string"},
-                        "description": "New tags for the memory (optional)"
+                        "description": "New tags for the memory (optional)",
                     },
                     "metadata": {
                         "type": "object",
                         "description": "New metadata for the memory (optional)",
-                        "additionalProperties": True
-                    }
+                        "additionalProperties": True,
+                    },
                 },
-                "required": ["memory_id"]
-            }
-        )
+                "required": ["memory_id"],
+            },
+        ),
     ]
 
 
 @server.call_tool()
 async def handle_call_tool(
-    name: str,
-    arguments: dict[str, Any]
+    name: str, arguments: dict[str, Any]
 ) -> list[types.TextContent]:
     """Handle tool execution requests."""
 
@@ -133,11 +134,11 @@ async def handle_call_tool(
     client_name, client_version = "unknown", "unknown"
     try:
         ctx = server.request_context
-        if hasattr(ctx, 'session'):
+        if hasattr(ctx, "session"):
             session = ctx.session
-            if hasattr(session, '_client_params'):
+            if hasattr(session, "_client_params"):
                 client_params = session._client_params
-                if client_params and hasattr(client_params, 'clientInfo'):
+                if client_params and hasattr(client_params, "clientInfo"):
                     client_info = client_params.clientInfo
                     client_name = client_info.name or "unknown"
                     client_version = client_info.version or "unknown"
@@ -148,7 +149,7 @@ async def handle_call_tool(
         "Authorization": f"Bearer {CYBERMEM_API_KEY}",
         "Content-Type": "application/json",
         "X-Client-Name": client_name,
-        "X-Client-Version": client_version
+        "X-Client-Version": client_version,
     }
 
     async with httpx.AsyncClient(timeout=30.0) as client:
@@ -159,17 +160,19 @@ async def handle_call_tool(
                 metadata = arguments.get("metadata", {})
 
                 response = await client.post(
-                    f"{OPENMEMORY_URL}/add",
+                    f"{OPENMEMORY_URL}/memory/add",
                     json={"content": content, "metadata": metadata},
-                    headers=headers
+                    headers=headers,
                 )
                 response.raise_for_status()
                 result = response.json()
 
-                return [types.TextContent(
-                    type="text",
-                    text=f"✅ Memory stored successfully!\n\nID: {result.get('id')}\nChunks: {result.get('chunks')}\nSectors: {', '.join(result.get('sectors', []))}"
-                )]
+                return [
+                    types.TextContent(
+                        type="text",
+                        text=f"✅ Memory stored successfully!\n\nID: {result.get('id')}\nChunks: {result.get('chunks')}\nSectors: {', '.join(result.get('sectors', []))}",
+                    )
+                ]
 
             elif name == "search_memory":
                 # Search memories in OpenMemory
@@ -177,19 +180,21 @@ async def handle_call_tool(
                 limit = arguments.get("limit", 5)
 
                 response = await client.post(
-                    f"{OPENMEMORY_URL}/query",
+                    f"{OPENMEMORY_URL}/memory/query",
                     json={"query": query, "k": limit},
-                    headers=headers
+                    headers=headers,
                 )
                 response.raise_for_status()
                 data = response.json()
                 matches = data.get("matches", [])
 
                 if not matches:
-                    return [types.TextContent(
-                        type="text",
-                        text="🔍 No memories found matching your query."
-                    )]
+                    return [
+                        types.TextContent(
+                            type="text",
+                            text="🔍 No memories found matching your query.",
+                        )
+                    ]
 
                 # Format search results
                 formatted_results = []
@@ -202,10 +207,13 @@ async def handle_call_tool(
                         f"**Result {i}** (score: {score:.2f}, sector: {sector})\n{content}\n"
                     )
 
-                return [types.TextContent(
-                    type="text",
-                    text=f"🔍 Found {len(matches)} memories:\n\n" + "\n".join(formatted_results)
-                )]
+                return [
+                    types.TextContent(
+                        type="text",
+                        text=f"🔍 Found {len(matches)} memories:\n\n"
+                        + "\n".join(formatted_results),
+                    )
+                ]
 
             elif name == "list_memories":
                 # List recent memories
@@ -214,19 +222,20 @@ async def handle_call_tool(
                 # Note: OpenMemory doesn't have a /list endpoint yet,
                 # so we'll do a broad query with generic term
                 response = await client.post(
-                    f"{OPENMEMORY_URL}/query",
+                    f"{OPENMEMORY_URL}/memory/query",
                     json={"query": "memory context", "k": limit},
-                    headers=headers
+                    headers=headers,
                 )
                 response.raise_for_status()
                 data = response.json()
                 matches = data.get("matches", [])
 
                 if not matches:
-                    return [types.TextContent(
-                        type="text",
-                        text="📋 No memories stored yet."
-                    )]
+                    return [
+                        types.TextContent(
+                            type="text", text="📋 No memories stored yet."
+                        )
+                    ]
 
                 # Format list
                 formatted_list = []
@@ -238,10 +247,13 @@ async def handle_call_tool(
                         content = content[:97] + "..."
                     formatted_list.append(f"{i}. [{sector}] {content}")
 
-                return [types.TextContent(
-                    type="text",
-                    text=f"📋 Recent memories ({len(matches)}):\n\n" + "\n".join(formatted_list)
-                )]
+                return [
+                    types.TextContent(
+                        type="text",
+                        text=f"📋 Recent memories ({len(matches)}):\n\n"
+                        + "\n".join(formatted_list),
+                    )
+                ]
 
             elif name == "delete_memory":
                 # Delete memory by ID
@@ -249,12 +261,11 @@ async def handle_call_tool(
 
                 try:
                     response = await client.delete(
-                        f"{OPENMEMORY_URL}/{memory_id}",
-                        headers=headers
+                        f"{OPENMEMORY_URL}/memory/{memory_id}", headers=headers
                     )
                     response.raise_for_status()
                     result = response.json()
-                    status = result.get('ok', 'deleted')
+                    status = result.get("ok", "deleted")
                 except httpx.HTTPStatusError as e:
                     # Workaround: OpenMemory returns 500 on successful delete (bug in OpenMemory)
                     # We'll treat it as success since the memory is actually deleted
@@ -263,10 +274,12 @@ async def handle_call_tool(
                     else:
                         raise
 
-                return [types.TextContent(
-                    type="text",
-                    text=f"🗑️ Memory deleted successfully!\n\nID: {memory_id}\nStatus: {status}"
-                )]
+                return [
+                    types.TextContent(
+                        type="text",
+                        text=f"🗑️ Memory deleted successfully!\n\nID: {memory_id}\nStatus: {status}",
+                    )
+                ]
 
             elif name == "update_memory":
                 # Update memory by ID
@@ -276,41 +289,44 @@ async def handle_call_tool(
                 metadata = arguments.get("metadata")
 
                 payload = {}
-                if content: payload["content"] = content
-                if tags: payload["tags"] = tags
-                if metadata: payload["metadata"] = metadata
+                if content:
+                    payload["content"] = content
+                if tags:
+                    payload["tags"] = tags
+                if metadata:
+                    payload["metadata"] = metadata
 
                 response = await client.patch(
-                    f"{OPENMEMORY_URL}/{memory_id}",
+                    f"{OPENMEMORY_URL}/memory/{memory_id}",
                     json=payload,
-                    headers=headers
+                    headers=headers,
                 )
                 response.raise_for_status()
                 result = response.json()
 
-                return [types.TextContent(
-                    type="text",
-                    text=f"✏️ Memory updated successfully!\n\nID: {result.get('id', memory_id)}"
-                )]
+                return [
+                    types.TextContent(
+                        type="text",
+                        text=f"✏️ Memory updated successfully!\n\nID: {result.get('id', memory_id)}",
+                    )
+                ]
 
             else:
                 raise ValueError(f"Unknown tool: {name}")
 
         except httpx.HTTPStatusError as e:
-            return [types.TextContent(
-                type="text",
-                text=f"❌ API Error: {e.response.status_code}\n{e.response.text}"
-            )]
+            return [
+                types.TextContent(
+                    type="text",
+                    text=f"❌ API Error: {e.response.status_code}\n{e.response.text}",
+                )
+            ]
         except Exception as e:
-            return [types.TextContent(
-                type="text",
-                text=f"❌ Error: {str(e)}"
-            )]
+            return [types.TextContent(type="text", text=f"❌ Error: {str(e)}")]
 
 
 async def main():
     """Run the MCP server."""
-    import sys
 
     async with stdio_server() as (read_stream, write_stream):
         await server.run(
@@ -321,9 +337,9 @@ async def main():
                 server_version="0.1.0",
                 capabilities=server.get_capabilities(
                     notification_options=NotificationOptions(),
-                    experimental_capabilities={}
-                )
-            )
+                    experimental_capabilities={},
+                ),
+            ),
         )
 
 

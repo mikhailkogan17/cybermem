@@ -26,6 +26,9 @@ export default function DashboardHeader({
   const [isScrolled, setIsScrolled] = useState(false)
 
   useEffect(() => {
+    // Check initial scroll position on mount
+    setIsScrolled(window.scrollY > 10)
+    
     const handleScroll = () => {
       setIsScrolled(window.scrollY > 10)
     }

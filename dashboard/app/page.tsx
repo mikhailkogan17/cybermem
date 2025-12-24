@@ -95,7 +95,7 @@ export default function Dashboard() {
 
 
             // Fetch Logs
-            const logsRes = await fetch(`/api/logs?period=${period}`)
+            const logsRes = await fetch(`/api/audit-logs?period=${period}`)
             let latestWriter = { name: "N/A", timestamp: 0 }
             let latestReader = { name: "N/A", timestamp: 0 }
 

@@ -55,7 +55,9 @@ services:
       # Performance
       OM_RATE_LIMIT_ENABLED: "true"
       OM_RATE_LIMIT_MAX_REQUESTS: "100"
-    # No direct port exposure - all traffic through Traefik
+    # Directly expose port 8080 for debugging/direct access
+    ports:
+      - "8080:8080"
     volumes:
       - openmemory-data:/data
     labels:
@@ -192,7 +194,7 @@ services:
     environment:
       NEXT_PUBLIC_PROMETHEUS_URL: http://prometheus:9090
       PROMETHEUS_URL: http://prometheus:9090
-      WATCHPACK_POLLING: "true" # Better hot reload in Docker
+      # WATCHPACK_POLLING: "true" # Enable if hot reload blocks (high CPU usage)
     ports:
       - "3000:3000"
     volumes:

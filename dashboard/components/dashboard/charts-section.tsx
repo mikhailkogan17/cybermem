@@ -45,10 +45,10 @@ export default function ChartsSection({ period }: { period: string }) {
 
 
             setCharts([
-              { title: "Creates by Client", service: "All Clients", data: formatSeries(data.timeSeries.creates), clientNames: allClients },
-              { title: "Reads by Client", service: "All Clients", data: formatSeries(data.timeSeries.reads), clientNames: allClients },
-              { title: "Updates by Client", service: "All Clients", data: formatSeries(data.timeSeries.updates), clientNames: allClients },
-              { title: "Deletes by Client", service: "All Clients", data: formatSeries(data.timeSeries.deletes), clientNames: allClients }
+              { title: "", service: "Creates by Client", data: formatSeries(data.timeSeries.creates), clientNames: allClients },
+              { title: "", service: "Reads by Client", data: formatSeries(data.timeSeries.reads), clientNames: allClients },
+              { title: "", service: "Updates by Client", data: formatSeries(data.timeSeries.updates), clientNames: allClients },
+              { title: "", service: "Deletes by Client", data: formatSeries(data.timeSeries.deletes), clientNames: allClients }
             ])
           }
         }

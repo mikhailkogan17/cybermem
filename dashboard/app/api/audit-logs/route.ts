@@ -11,33 +11,50 @@ const DESCRIPTIONS = {
   "Error": ["Unauthorized access", "Internal server error", "Timeout exceeded", "Validation failed"]
 }
 
-function generateLogs(count: number) {
-  const logs = []
-  const now = Date.now()
-
-  for (let i = 0; i < count; i++) {
-    const client = CLIENTS[Math.floor(Math.random() * CLIENTS.length)]
-    const operation = OPERATIONS[Math.floor(Math.random() * OPERATIONS.length)]
-    const status = STATUSES[Math.floor(Math.random() * STATUSES.length)]
-    const descriptionList = DESCRIPTIONS[status as keyof typeof DESCRIPTIONS]
-    const description = descriptionList[Math.floor(Math.random() * descriptionList.length)]
-
-    // Random time within last 24 hours
-    const timestamp = now - Math.floor(Math.random() * 24 * 60 * 60 * 1000)
-
-    logs.push({
-      timestamp,
-      client,
-      operation,
-      status: status === "Success" ? "200" : status === "Warning" ? "300" : "500", // Mapping to status codes as expected by frontend
-      method: operation === "Read" ? "GET" : operation === "Delete" ? "DELETE" : "POST"
-    })
-  }
-
-  return logs.sort((a, b) => b.timestamp - a.timestamp)
-}
-
 export async function GET(request: Request) {
-  const logs = generateLogs(50)
-  return NextResponse.json({ logs })
+  try {
+    // Fetch logs from db-exporter service
+    // timeout 2s to not hang
+    const controller = new AbortController()
+    const timeoutId = setTimeout(() => controller.abort(), 2000)
+
+    const res = await fetch('http://db-exporter:8000/api/logs?limit=100', {
+      signal: controller.signal,
+      cache: 'no-store'
+    })
+    clearTimeout(timeoutId)
+
+    if (!res.ok) {
+        throw new Error(`Failed to fetch logs: ${res.statusText}`)
+    }
+
+    const data = await res.json()
+    const rawLogs = data.logs || []
+
+    const logs = rawLogs.map((log: any) => {
+        const statusCode = parseInt(log.status) || 0
+        let status = "Success"
+        if (statusCode >= 500 || statusCode >= 400) status = "Error"
+        else if (statusCode >= 300) status = "Warning"
+
+        // Capitalize operation
+        const operation = log.operation.charAt(0).toUpperCase() + log.operation.slice(1)
+
+        return {
+            timestamp: log.timestamp,
+            client: log.client_name || "Unknown",
+            operation: operation,
+            status: status,
+            method: log.method,
+            description: log.endpoint,
+            rawStatus: log.status
+        }
+    })
+
+    return NextResponse.json({ logs })
+  } catch (error) {
+    console.error("Error fetching audit logs:", error)
+    // Return empty list on error to avoid breaking UI with 500
+    return NextResponse.json({ logs: [] })
+  }
 }
