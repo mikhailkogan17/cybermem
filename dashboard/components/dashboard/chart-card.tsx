@@ -103,44 +103,47 @@ export default function ChartCard({ service }: ChartCardProps) {
 
   return (
     <Card className="bg-white/5 border-white/10 backdrop-blur-md relative overflow-visible">
+      <button
+        className="absolute top-0 right-0 z-20 h-8 px-3 rounded-tl-none rounded-tr-xl rounded-bl-2xl rounded-br-none bg-white/5 border-b border-l border-white/10 hover:border-emerald-500/50 text-white text-xs font-medium flex items-center gap-2 transition-all hover:bg-white/10 group"
+        onClick={() => document.getElementById(`dropdown-${service}`)?.classList.toggle('hidden')}
+      >
+        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
+          />
+        </svg>
+        {periods.find((p) => p.value === period)?.label}
+        <ChevronDown className="w-3 h-3" />
+      </button>
+
+      {/* Dropdown Menu - Positioned relative to the button or card */}
+      <div id={`dropdown-${service}`} className="hidden absolute top-8 right-0 w-40 bg-[#0B1116]/95 border border-white/10 rounded-lg shadow-xl z-30 backdrop-blur-xl overflow-hidden">
+        {periods.map((p) => (
+          <button
+            key={p.value}
+            onClick={() => {
+              setPeriod(p.value);
+              document.getElementById(`dropdown-${service}`)?.classList.add('hidden');
+            }}
+            className={`w-full text-left px-3 py-2 text-xs transition-colors ${
+              period === p.value
+                ? "bg-emerald-500/20 text-emerald-400 font-medium"
+                : "text-neutral-300 hover:bg-white/5 hover:text-white"
+            }`}
+          >
+            {p.label}
+          </button>
+        ))}
+      </div>
+
       <CardHeader className="relative">
         <div className="flex items-center justify-between">
           <div>
             <CardTitle className="text-sm font-medium text-slate-400">Time Series</CardTitle>
             <div className="text-2xl font-bold text-white">{service}</div>
-          </div>
-        </div>
-
-        {/* Period Selector - Badge Style - Absolute positioned in top-right */}
-        <div className="absolute top-0 right-0 group">
-          <button className="h-8 px-3 rounded-tl-none rounded-tr-lg rounded-bl-2xl rounded-br-none bg-white/5 border-b border-l border-white/10 hover:border-emerald-500/50 text-white text-xs font-medium flex items-center gap-2 transition-all hover:bg-white/10">
-            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
-              />
-            </svg>
-            {periods.find((p) => p.value === period)?.label}
-            <ChevronDown className="w-3 h-3" />
-          </button>
-
-          {/* Dropdown Menu */}
-          <div className="absolute right-0 mt-2 w-40 bg-[#0B1116]/95 border border-white/10 rounded-lg shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-10 backdrop-blur-xl overflow-hidden">
-            {periods.map((p) => (
-              <button
-                key={p.value}
-                onClick={() => setPeriod(p.value)}
-                className={`w-full text-left px-3 py-2 text-xs transition-colors ${
-                  period === p.value
-                    ? "bg-emerald-500/20 text-emerald-400 font-medium"
-                    : "text-neutral-300 hover:bg-white/5 hover:text-white"
-                }`}
-              >
-                {p.label}
-              </button>
-            ))}
           </div>
         </div>
       </CardHeader>
