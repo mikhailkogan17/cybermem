@@ -89,6 +89,8 @@ export default function Dashboard() {
             const logsRes = await fetch(`/api/audit-logs`)
             let latestWriter = { name: "N/A", timestamp: 0 }
             let latestReader = { name: "N/A", timestamp: 0 }
+            let calculatedTopWriter = { name: "N/A", count: 0 }
+            let calculatedTopReader = { name: "N/A", count: 0 }
 
             if (logsRes.ok) {
                 const logsData = await logsRes.json()
@@ -129,7 +131,7 @@ export default function Dashboard() {
                 const sortedByDate = [...mappedLogs].sort((a, b) => b.timestamp - a.timestamp)
 
                 // Find latest writer
-                const wLog = sortedByDate.find(l => ["Write", "Update", "Delete"].includes(l.operation))
+                const wLog = sortedByDate.find(l => ["Write", "Update", "Delete", "Create"].includes(l.operation))
                 if (wLog) {
                     latestWriter = { name: wLog.client, timestamp: wLog.timestamp }
                 }
@@ -140,6 +142,28 @@ export default function Dashboard() {
                     latestReader = { name: rLog.client, timestamp: rLog.timestamp }
                 }
 
+                // Calculate Top Writer & Reader from logs (Client-side implementation to ensure consistency)
+                const writerCounts: Record<string, number> = {}
+                const readerCounts: Record<string, number> = {}
+
+                mappedLogs.forEach((log: any) => {
+                  if (["Write", "Update", "Delete", "Create"].includes(log.operation)) {
+                    writerCounts[log.client] = (writerCounts[log.client] || 0) + 1
+                  } else if (log.operation === "Read") {
+                    readerCounts[log.client] = (readerCounts[log.client] || 0) + 1
+                  }
+                })
+
+                const getTop = (counts: Record<string, number>) => {
+                  const entries = Object.entries(counts)
+                  if (entries.length === 0) return { name: "N/A", count: 0 }
+                  entries.sort((a, b) => b[1] - a[1])
+                  return { name: entries[0][0], count: entries[0][1] }
+                }
+
+                calculatedTopWriter = getTop(writerCounts)
+                calculatedTopReader = getTop(readerCounts)
+
                 setFullAuditLog(mappedLogs)
             }
 
@@ -148,8 +172,8 @@ export default function Dashboard() {
                 totalClients: data.stats.totalClients ?? 0,
                 successRate: data.stats.successRate ?? 0,
                 totalRequests: data.stats.totalRequests ?? 0,
-                topWriter: data.stats.topWriter ?? { name: "N/A", count: 0 },
-                topReader: data.stats.topReader ?? { name: "N/A", count: 0 },
+                topWriter: logsRes.ok ? calculatedTopWriter : (data.stats.topWriter ?? { name: "N/A", count: 0 }),
+                topReader: logsRes.ok ? calculatedTopReader : (data.stats.topReader ?? { name: "N/A", count: 0 }),
                 lastWriter: latestWriter,
                 lastReader: latestReader,
             })
