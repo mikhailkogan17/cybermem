@@ -10,7 +10,6 @@ import SettingsModal from "@/components/dashboard/settings-modal"
 import { useEffect, useState } from "react"
 
 // Types
-// Types
 interface TrendState {
   change: string
   trend: "up" | "down" | "neutral"
@@ -36,28 +35,7 @@ const calculateTrend = (data: number[]) => {
   }
 }
 
-// Helper to check if timestamp is within period
-const isTimeWithinPeriod = (timestamp: number, period: string) => {
-  if (!timestamp) return false
-
-  const now = Date.now()
-  const time = timestamp * 1000 // timestamp is likely in seconds based on API
-  let duration = 0
-
-  switch (period) {
-    case "1h": duration = 60 * 60 * 1000; break;
-    case "24h": duration = 24 * 60 * 60 * 1000; break;
-    case "7d": duration = 7 * 24 * 60 * 60 * 1000; break;
-    case "30d": duration = 30 * 24 * 60 * 60 * 1000; break;
-    case "90d": duration = 90 * 24 * 60 * 60 * 1000; break;
-    default: return true // show all if unknown
-  }
-
-  return (now - time) <= duration
-}
-
 export default function Dashboard() {
-  const [period, setPeriod] = useState("24h")
   const [showMCPConfig, setShowMCPConfig] = useState(false)
   const [showSettings, setShowSettings] = useState(false)
   const [isAuthenticated, setIsAuthenticated] = useState(false)
@@ -102,15 +80,13 @@ export default function Dashboard() {
   useEffect(() => {
     async function fetchData() {
       try {
-        const res = await fetch(`/api/metrics?period=${period}`)
+        // Fetch all-time metrics (no period filter)
+        const res = await fetch(`/api/metrics`)
         if (res.ok) {
             const data = await res.json()
 
-            // Filter Last Writer/Reader by period if needed
-
-
-            // Fetch Logs
-            const logsRes = await fetch(`/api/audit-logs?period=${period}`)
+            // Fetch all logs for latest writer/reader
+            const logsRes = await fetch(`/api/audit-logs`)
             let latestWriter = { name: "N/A", timestamp: 0 }
             let latestReader = { name: "N/A", timestamp: 0 }
 
@@ -178,7 +154,8 @@ export default function Dashboard() {
                 lastReader: latestReader,
             })
 
-            // Calculate trends from sparklines if available
+            // We don't show trends anymore, so this code is not needed
+            // But keeping it for backwards compatibility
             if (data.sparklines?.memoryRecords) {
                 const trend = calculateTrend(data.sparklines.memoryRecords)
                 setTrends(prev => ({ ...prev, memory: trend }))
@@ -193,7 +170,6 @@ export default function Dashboard() {
                 const first = data.sparklines.successRate[0] || 0
                 const last = data.sparklines.successRate[data.sparklines.successRate.length - 1] || 0
                 const diff = last - first
-                // Special handling for success rate formatting
                 setTrends(prev => ({
                     ...prev,
                     success: {
@@ -217,7 +193,7 @@ export default function Dashboard() {
     fetchData()
     const interval = setInterval(fetchData, 5000)
     return () => clearInterval(interval)
-  }, [period])
+  }, [])
 
   // Audit Log State & Logic
   const [fullAuditLog, setFullAuditLog] = useState<Array<any>>([])
@@ -260,15 +236,13 @@ export default function Dashboard() {
   return (
     <div className="min-h-screen text-foreground">
       <DashboardHeader
-        period={period}
-        onPeriodChange={setPeriod}
         onShowMCPConfig={() => setShowMCPConfig(true)}
         onShowSettings={() => setShowSettings(true)}
       />
 
       <main className="px-6 py-8 max-w-7xl mx-auto space-y-8">
         <MetricsGrid stats={stats} trends={trends} />
-        <ChartsSection period={period} />
+        <ChartsSection period="" />
         <AuditLogTable
             logs={(paginatedLog || []).map(log => ({
                 id: log.id,
