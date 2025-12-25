@@ -110,20 +110,20 @@ export default function MCPConfigModal({ onClose }: { onClose: () => void }) {
           <div className="space-y-4 text-sm text-neutral-300">
              <p>Add the server directly via the command line.</p>
              <div className="relative group">
-                <div className="relative p-5 rounded-lg bg-[#0F161C] border border-white/10 font-mono text-xs md:text-sm text-white overflow-x-auto shadow-[0_0_20px_rgba(0,0,0,0.3)] inset-shadow">
+                <div className="relative pl-5 py-5 pr-24 rounded-lg bg-[#0F161C] border border-white/10 font-mono text-xs md:text-sm text-white overflow-x-auto shadow-[0_0_20px_rgba(0,0,0,0.3)] inset-shadow">
                   <div className="flex items-center gap-3">
                     <Terminal className="w-4 h-4 text-emerald-500 shrink-0" />
                     <code className="text-emerald-400 text-shadow-sm">claude mcp add cybermem http://localhost:8000/sse</code>
                   </div>
                 </div>
-                <div className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity">
+                <div className="absolute top-1/2 -translate-y-1/2 right-4 opacity-0 group-hover:opacity-100 transition-opacity">
                   <Button
                     size="sm"
                     variant="ghost"
-                    className="h-8 px-3 text-white hover:text-white hover:bg-white/10 bg-black/40 backdrop-blur border border-white/5 shadow-[0_0_10px_rgba(255,255,255,0.05)]"
+                    className="h-8 px-3 text-white bg-black/40 backdrop-blur border border-white/5 shadow-[0_0_10px_rgba(255,255,255,0.05)] hover:bg-white/10 hover:text-white font-medium"
                     onClick={() => copyToClipboard("claude mcp add cybermem http://localhost:8000/sse", "cmd")}
                   >
-                    {copiedId === "cmd" ? <Check className="h-3.5 w-3.5 text-emerald-400 mr-1.5 drop-shadow-[0_0_5px_rgba(52,211,153,0.5)]" /> : <Copy className="h-3.5 w-3.5 mr-1.5 text-white drop-shadow-[0_0_5px_rgba(255,255,255,0.3)]" />}
+                    {copiedId === "cmd" ? <Check className="h-4 w-4 stroke-[2.5] text-emerald-400 mr-2 drop-shadow-[0_0_5px_rgba(52,211,153,0.5)]" /> : <Copy className="h-4 w-4 stroke-[2.5] mr-2 text-white drop-shadow-[0_0_5px_rgba(255,255,255,0.3)]" />}
                     {copiedId === "cmd" ? <span className="text-emerald-400 text-shadow-sm">Copied</span> : <span className="text-white text-shadow-sm">Copy</span>}
                   </Button>
                 </div>
@@ -249,7 +249,7 @@ export default function MCPConfigModal({ onClose }: { onClose: () => void }) {
 
                 {selectedClient !== "claude-code" && (
                   <div className="relative group">
-                    <div className="relative p-5 rounded-lg bg-[#0F161C] border border-white/10 font-mono text-xs md:text-sm text-white overflow-x-auto shadow-[0_0_20px_rgba(0,0,0,0.3)] inset-shadow">
+                    <div className="relative pl-5 py-5 pr-24 rounded-lg bg-[#0F161C] border border-white/10 font-mono text-xs md:text-sm text-white overflow-x-auto shadow-[0_0_20px_rgba(0,0,0,0.3)] inset-shadow">
                       <pre className="text-shadow-sm">
                         {selectedClient === "codex" ? (
                           configContent
@@ -258,14 +258,14 @@ export default function MCPConfigModal({ onClose }: { onClose: () => void }) {
                         )}
                       </pre>
                     </div>
-                    <div className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <div className="absolute top-3 right-4 opacity-0 group-hover:opacity-100 transition-opacity">
                       <Button
                         size="sm"
                         variant="ghost"
-                        className="h-8 px-3 text-white hover:text-white hover:bg-white/10 bg-black/40 backdrop-blur border border-white/5 shadow-[0_0_10px_rgba(255,255,255,0.05)]"
+                        className="h-8 px-3 text-white bg-black/40 backdrop-blur border border-white/5 shadow-[0_0_10px_rgba(255,255,255,0.05)] hover:bg-white/10 hover:text-white font-medium"
                         onClick={() => copyToClipboard(configContent, "config")}
                       >
-                        {copiedId === "config" ? <Check className="h-3.5 w-3.5 text-emerald-400 mr-1.5 drop-shadow-[0_0_5px_rgba(52,211,153,0.5)]" /> : <Copy className="h-3.5 w-3.5 mr-1.5 text-white drop-shadow-[0_0_5px_rgba(255,255,255,0.3)]" />}
+                        {copiedId === "config" ? <Check className="h-4 w-4 stroke-[2.5] text-emerald-400 mr-2 drop-shadow-[0_0_5px_rgba(52,211,153,0.5)]" /> : <Copy className="h-4 w-4 stroke-[2.5] mr-2 text-white drop-shadow-[0_0_5px_rgba(255,255,255,0.3)]" />}
                         {copiedId === "config" ? <span className="text-emerald-400 text-shadow-sm">Copied</span> : <span className="text-white text-shadow-sm">Copy</span>}
                       </Button>
                     </div>
