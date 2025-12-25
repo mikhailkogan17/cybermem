@@ -105,7 +105,7 @@ export default function MetricsGrid({ stats, trends }: MetricsGridProps) {
           <div className="text-sm font-medium text-slate-400 mb-2">Top Writer</div>
           <div className="text-4xl font-bold text-white mb-1 truncate">{getClientDisplayName(stats.topWriter.name)}</div>
           <div className="text-xl text-white/80 whitespace-nowrap">
-            {stats.topWriter.count.toLocaleString()} writes
+            {stats.topWriter.count > 0 ? `${stats.topWriter.count.toLocaleString()} writes` : ""}
           </div>
         </CardContent>
       </Card>
