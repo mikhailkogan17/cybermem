@@ -195,12 +195,16 @@ export default function ChartCard({ service }: ChartCardProps) {
                 />
                 <Tooltip
                   contentStyle={{
-                    backgroundColor: "#0B1116",
+                    backgroundColor: "rgba(11, 17, 22, 0.8)",
                     border: "1px solid rgba(255, 255, 255, 0.1)",
-                    borderRadius: "8px",
+                    borderRadius: "12px",
                     color: "#fff",
+                    backdropFilter: "blur(12px)",
+                    boxShadow: "0 4px 20px rgba(0, 0, 0, 0.5)"
                   }}
-                  itemStyle={{ color: "#fff" }}
+                  itemStyle={{ color: "#fff", fontSize: "12px", padding: "2px 0" }}
+                  labelStyle={{ color: "#9ca3af", marginBottom: "8px", fontSize: "12px", fontWeight: 500 }}
+                  cursor={{ stroke: 'rgba(255,255,255,0.2)', strokeWidth: 1 }}
                 />
                 <Legend
                   verticalAlign="bottom"

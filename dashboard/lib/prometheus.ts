@@ -99,9 +99,10 @@ function getMockRangeData(query: string, start: number, end: number, step: strin
 
   for (let t = start; t <= end; t += stepSeconds) {
     // Generate some random-looking but consistent data
-    const base = Math.sin(t / 3600) * 10 + 20
-    const noise = Math.random() * 5
-    values.push([t, (base + noise).toFixed(2)])
+    // Generate small random deltas (0-5) for integration compatibility
+    // Previous "rate-like" values (20-30) caused massive ramps when integrated over time
+    const val = Math.random() > 0.7 ? Math.floor(Math.random() * 5) : 0
+    values.push([t, val.toString()])
   }
 
   return {
@@ -294,12 +295,11 @@ function parseDuration(duration: string): number {
 
 function chooseStep(duration: string): string {
   const seconds = parseDuration(duration)
-  if (seconds <= 1800) return '30s'
-  if (seconds <= 4 * 3600) return '1m'
-  if (seconds <= 12 * 3600) return '2m'
-  if (seconds <= 24 * 3600) return '5m'
-  if (seconds <= 7 * 86400) return '15m'
-  return '30m'
+  if (seconds <= 3600) return '2m'      // 1h -> 2m (30 pts). Safer for increase() than 30s/1m
+  if (seconds <= 6 * 3600) return '5m' // 6h -> 5m (72 pts)
+  if (seconds <= 24 * 3600) return '15m' // 24h -> 15m (96 pts)
+  if (seconds <= 7 * 86400) return '1h'  // 7d -> 1h (168 pts)
+  return '4h'                            // >7d -> 4h (e.g. 90d -> 540 pts)
 }
 
 // PromQL doesn't support M/Y, map them to days so query_range stays valid
