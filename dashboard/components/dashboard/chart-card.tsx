@@ -102,45 +102,45 @@ export default function ChartCard({ service }: ChartCardProps) {
   const isMultiSeries = clientNames.length > 0
 
   return (
-    <Card className="bg-white/5 border-white/10 backdrop-blur-md">
-      <CardHeader>
+    <Card className="bg-white/5 border-white/10 backdrop-blur-md relative overflow-visible">
+      <CardHeader className="relative">
         <div className="flex items-center justify-between">
           <div>
             <CardTitle className="text-sm font-medium text-slate-400">Time Series</CardTitle>
             <div className="text-2xl font-bold text-white">{service}</div>
           </div>
+        </div>
 
-          {/* Period Selector - Badge Style */}
-          <div className="relative group">
-            <button className="h-8 px-3 rounded-tl-none rounded-tr-lg rounded-bl-lg rounded-br-none bg-white/5 border border-white/10 hover:border-emerald-500/50 text-white text-xs font-medium flex items-center gap-2 transition-all hover:bg-white/10">
-              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
-                />
-              </svg>
-              {periods.find((p) => p.value === period)?.label}
-              <ChevronDown className="w-3 h-3" />
-            </button>
+        {/* Period Selector - Badge Style - Absolute positioned in top-right */}
+        <div className="absolute top-0 right-0 group">
+          <button className="h-8 px-3 rounded-tl-none rounded-tr-lg rounded-bl-2xl rounded-br-none bg-white/5 border-b border-l border-white/10 hover:border-emerald-500/50 text-white text-xs font-medium flex items-center gap-2 transition-all hover:bg-white/10">
+            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
+              />
+            </svg>
+            {periods.find((p) => p.value === period)?.label}
+            <ChevronDown className="w-3 h-3" />
+          </button>
 
-            {/* Dropdown Menu */}
-            <div className="absolute right-0 mt-2 w-40 bg-[#0B1116]/95 border border-white/10 rounded-lg shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-10 backdrop-blur-xl overflow-hidden">
-              {periods.map((p) => (
-                <button
-                  key={p.value}
-                  onClick={() => setPeriod(p.value)}
-                  className={`w-full text-left px-3 py-2 text-xs transition-colors ${
-                    period === p.value
-                      ? "bg-emerald-500/20 text-emerald-400 font-medium"
-                      : "text-neutral-300 hover:bg-white/5 hover:text-white"
-                  }`}
-                >
-                  {p.label}
-                </button>
-              ))}
-            </div>
+          {/* Dropdown Menu */}
+          <div className="absolute right-0 mt-2 w-40 bg-[#0B1116]/95 border border-white/10 rounded-lg shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-10 backdrop-blur-xl overflow-hidden">
+            {periods.map((p) => (
+              <button
+                key={p.value}
+                onClick={() => setPeriod(p.value)}
+                className={`w-full text-left px-3 py-2 text-xs transition-colors ${
+                  period === p.value
+                    ? "bg-emerald-500/20 text-emerald-400 font-medium"
+                    : "text-neutral-300 hover:bg-white/5 hover:text-white"
+                }`}
+              >
+                {p.label}
+              </button>
+            ))}
           </div>
         </div>
       </CardHeader>
@@ -152,40 +152,43 @@ export default function ChartCard({ service }: ChartCardProps) {
         ) : (
           <div className="h-[200px] w-full">
             <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={data}>
+              <AreaChart data={data} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
                 <defs>
                   {isMultiSeries ? (
                     clientNames.map((client, i) => {
                       const color = CLIENT_COLORS[client.toLowerCase()] || FALLBACK_PALETTE[i % FALLBACK_PALETTE.length]
                       return (
                         <linearGradient key={client} id={`gradient-${service}-${i}`} x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor={color} stopOpacity={0.3} />
+                          <stop offset="5%" stopColor={color} stopOpacity={0.15} />
                           <stop offset="95%" stopColor={color} stopOpacity={0} />
                         </linearGradient>
                       )
                     })
                   ) : (
                     <linearGradient id={`gradient-${service}-default`} x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#10b981" stopOpacity={0.3} />
+                      <stop offset="5%" stopColor="#10b981" stopOpacity={0.15} />
                       <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
                     </linearGradient>
                   )}
                 </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="#334155" opacity={0.5} vertical={false} />
+                <CartesianGrid strokeDasharray="0" stroke="#2D3135" opacity={0.3} vertical={false} horizontal={true} />
                 <XAxis
                   dataKey="time"
-                  stroke="#94a3b8"
-                  fontSize={12}
+                  stroke="#6B7280"
+                  fontSize={11}
                   tickLine={false}
                   axisLine={false}
-                  minTickGap={30}
+                  minTickGap={40}
+                  tick={{ fill: '#6B7280' }}
                 />
                 <YAxis
-                  stroke="#94a3b8"
-                  fontSize={12}
+                  stroke="#6B7280"
+                  fontSize={11}
                   tickLine={false}
                   axisLine={false}
                   tickFormatter={(value) => `${value}`}
+                  tick={{ fill: '#6B7280' }}
+                  width={40}
                 />
                 <Tooltip
                   contentStyle={{
@@ -205,11 +208,12 @@ export default function ChartCard({ service }: ChartCardProps) {
                          type="monotone"
                          dataKey={client}
                          stroke={color}
-                         strokeWidth={2}
+                         strokeWidth={1.5}
                          fillOpacity={1}
                          fill={`url(#gradient-${service}-${i})`}
                          stackId="1"
-                         activeDot={{ r: 4, strokeWidth: 0 }}
+                         activeDot={{ r: 3, strokeWidth: 0 }}
+                         dot={false}
                        />
                      )
                   })
@@ -218,10 +222,11 @@ export default function ChartCard({ service }: ChartCardProps) {
                     type="monotone"
                     dataKey="value"
                     stroke="#10b981"
-                    strokeWidth={2}
+                    strokeWidth={1.5}
                     fillOpacity={1}
                     fill={`url(#gradient-${service}-default)`}
-                    activeDot={{ r: 4, strokeWidth: 0 }}
+                    activeDot={{ r: 3, strokeWidth: 0 }}
+                    dot={false}
                   />
                 )}
               </AreaChart>
