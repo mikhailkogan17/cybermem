@@ -109,12 +109,15 @@ export default function Dashboard() {
 
                 const mappedLogs = (logsData.logs || []).map((log: any, index: number) => {
                   const operation = resolveOperation(log)
-                  const statusCode = parseInt(log.status)
+                  // Use rawStatus if available (from our API), otherwise fallback to status
+                  const statusCode = parseInt(log.rawStatus || log.status)
                   let status = "Success"
                   let description = ""
                   if (statusCode >= 500) { status = "Error"; description = "Server error" }
                   else if (statusCode >= 400) { status = "Error"; description = statusCode === 401 ? "Unauthorized" : statusCode === 403 ? "Forbidden" : "Client error" }
                   else if (statusCode >= 300) { status = "Warning"; description = "Redirect" }
+                  // If parsing failed (NaN) but API explicitly said Error, trust it
+                  else if (log.status === "Error") { status = "Error"; description = "Error" }
 
                   return {
                     id: index,
