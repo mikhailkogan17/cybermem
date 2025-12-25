@@ -1,7 +1,7 @@
 "use client"
 
 import { Button } from "@/components/ui/button"
-import { Check, Copy, Info, X } from "lucide-react"
+import { Check, Copy, Info, Terminal, X } from "lucide-react"
 import { useState } from "react"
 
 const clients = [
@@ -109,16 +109,24 @@ export default function MCPConfigModal({ onClose }: { onClose: () => void }) {
         return (
           <div className="space-y-4 text-sm text-neutral-300">
              <p>Add the server directly via the command line.</p>
-             <div className="bg-black/40 border border-white/10 rounded p-3 flex items-center justify-between group">
-                <code className="text-emerald-400 font-mono">claude mcp add cybermem http://localhost:8000/sse</code>
-                <Button
-                   size="icon"
-                   variant="ghost"
-                   className="h-6 w-6 text-neutral-400 hover:text-white"
-                   onClick={() => copyToClipboard("claude mcp add cybermem http://localhost:8000/sse", "cmd")}
-                >
-                   {copiedId === "cmd" ? <Check className="h-3 w-3 text-emerald-500" /> : <Copy className="h-3 w-3" />}
-                </Button>
+             <div className="relative group">
+                <div className="relative p-5 rounded-lg bg-[#0F161C] border border-white/10 font-mono text-xs md:text-sm text-white overflow-x-auto shadow-[0_0_20px_rgba(0,0,0,0.3)] inset-shadow">
+                  <div className="flex items-center gap-3">
+                    <Terminal className="w-4 h-4 text-emerald-500 shrink-0" />
+                    <code className="text-emerald-400 text-shadow-sm">claude mcp add cybermem http://localhost:8000/sse</code>
+                  </div>
+                </div>
+                <div className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="h-8 px-3 text-white hover:text-white hover:bg-white/10 bg-black/40 backdrop-blur border border-white/5 shadow-[0_0_10px_rgba(255,255,255,0.05)]"
+                    onClick={() => copyToClipboard("claude mcp add cybermem http://localhost:8000/sse", "cmd")}
+                  >
+                    {copiedId === "cmd" ? <Check className="h-3.5 w-3.5 text-emerald-400 mr-1.5 drop-shadow-[0_0_5px_rgba(52,211,153,0.5)]" /> : <Copy className="h-3.5 w-3.5 mr-1.5 text-white drop-shadow-[0_0_5px_rgba(255,255,255,0.3)]" />}
+                    {copiedId === "cmd" ? <span className="text-emerald-400 text-shadow-sm">Copied</span> : <span className="text-white text-shadow-sm">Copy</span>}
+                  </Button>
+                </div>
              </div>
           </div>
         )
