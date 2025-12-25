@@ -113,7 +113,7 @@ export default function ChartCard({ service }: ChartCardProps) {
   const isMultiSeries = clientNames.length > 0
 
   return (
-    <Card className="bg-white/5 border-white/10 backdrop-blur-md relative overflow-visible">
+    <Card className="bg-white/5 border-white/10 backdrop-blur-md relative overflow-visible pt-6 pb-2">
       <button
         className="absolute top-0 right-0 z-20 h-8 px-3 rounded-tl-none rounded-tr-xl rounded-bl-2xl rounded-br-none bg-white/5 border-b border-l border-white/10 hover:bg-white/10 text-white text-xs font-medium flex items-center gap-2 transition-all group"
         onClick={() => document.getElementById(`dropdown-${service}`)?.classList.toggle('hidden')}
@@ -158,7 +158,7 @@ export default function ChartCard({ service }: ChartCardProps) {
           </div>
         </div>
       </CardHeader>
-      <CardContent className="pb-2">
+      <CardContent>
         {loading ? (
           <div className="h-[200px] w-full flex items-center justify-center">
             <div className="text-neutral-500 text-sm">Loading...</div>
