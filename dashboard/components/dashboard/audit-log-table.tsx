@@ -1,6 +1,6 @@
 "use client"
 
-import { ChevronDown, ChevronLeft, ChevronRight, RefreshCw } from "lucide-react"
+import { ArrowDown, ArrowUp, ArrowUpDown, ChevronDown, ChevronLeft, ChevronRight, RefreshCw } from "lucide-react"
 import { useState } from "react"
 
 interface AuditLogTableProps {
@@ -28,6 +28,24 @@ const periods = [
 
 export default function AuditLogTable({ logs, loading, currentPage, totalPages, onPageChange }: AuditLogTableProps) {
   const [period, setPeriod] = useState("all")
+  const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'asc' | 'desc' } | null>(null)
+
+  const handleSort = (key: string) => {
+    setSortConfig(current => {
+      if (current?.key === key) {
+        return current.direction === 'asc' ? { key, direction: 'desc' } : null
+      }
+      return { key, direction: 'asc' }
+    })
+  }
+
+  const sortedLogs = [...logs].sort((a, b) => {
+    if (!sortConfig) return 0
+    const { key, direction } = sortConfig
+    if (a[key] < b[key]) return direction === 'asc' ? -1 : 1
+    if (a[key] > b[key]) return direction === 'asc' ? 1 : -1
+    return 0
+  })
 
   return (
     <div className="group relative overflow-hidden rounded-2xl bg-white/5 border border-white/10 backdrop-blur-md shadow-lg p-6 transition-all duration-300">
@@ -82,11 +100,32 @@ export default function AuditLogTable({ logs, loading, currentPage, totalPages, 
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-white/10">
-                <th className="text-left py-4 px-4 font-medium text-neutral-400">Timestamp</th>
-                <th className="text-left py-4 px-4 font-medium text-neutral-400">Client</th>
-                <th className="text-left py-4 px-4 font-medium text-neutral-400">Operation</th>
-                <th className="text-left py-4 px-4 font-medium text-neutral-400">Status</th>
-                <th className="text-left py-4 px-4 font-medium text-neutral-400">Description</th>
+                {[
+                  { label: "Timestamp", key: "date" },
+                  { label: "Client", key: "client" },
+                  { label: "Operation", key: "operation" },
+                  { label: "Status", key: "status" },
+                  { label: "Description", key: "description" },
+                ].map((header) => (
+                  <th
+                    key={header.key}
+                    onClick={() => handleSort(header.key)}
+                    className="text-left py-4 px-4 font-medium text-neutral-400 cursor-pointer hover:text-white transition-colors select-none group/th"
+                  >
+                    <div className="flex items-center gap-2">
+                       {header.label}
+                       <div className="flex flex-col">
+                         {sortConfig?.key === header.key ? (
+                            sortConfig.direction === 'asc' ?
+                              <ArrowUp className="w-3 h-3 text-emerald-400" /> :
+                              <ArrowDown className="w-3 h-3 text-emerald-400" />
+                         ) : (
+                            <ArrowUpDown className="w-3 h-3 text-neutral-700 group-hover/th:text-neutral-500 transition-colors" />
+                         )}
+                       </div>
+                    </div>
+                  </th>
+                ))}
               </tr>
             </thead>
             <tbody>
@@ -102,11 +141,11 @@ export default function AuditLogTable({ logs, loading, currentPage, totalPages, 
                       </tr>
                   ))
               ) : (
-                logs.map((log) => {
+                sortedLogs.map((log) => {
                     const config = statusConfig[log.status] || statusConfig.Success
                     return (
-                        <tr key={log.id} className="border-b border-white/5 hover:bg-white/5 transition-colors">
-                            <td className="py-4 px-4 text-neutral-300">{log.date}</td>
+                        <tr key={log.id} className="border-b border-white/5 hover:bg-white/10 transition-colors even:bg-white/[0.02] group/row">
+                            <td className="py-4 px-4 text-neutral-300 group-hover/row:text-white transition-colors">{log.date}</td>
                             <td className="py-4 px-4 text-white font-medium">{log.client}</td>
                             <td className="py-4 px-4 text-neutral-300">{log.operation}</td>
                             <td className="py-4 px-4">
@@ -122,7 +161,7 @@ export default function AuditLogTable({ logs, loading, currentPage, totalPages, 
                 })
               )}
 
-              {!loading && logs.length === 0 && (
+              {!loading && sortedLogs.length === 0 && (
                 <tr>
                   <td colSpan={5} className="py-12 text-center text-neutral-500">
                     No logs found for this period

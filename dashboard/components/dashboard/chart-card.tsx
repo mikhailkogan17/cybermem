@@ -158,7 +158,7 @@ export default function ChartCard({ service }: ChartCardProps) {
           </div>
         </div>
       </CardHeader>
-      <CardContent>
+      <CardContent className="pb-2">
         {loading ? (
           <div className="h-[200px] w-full flex items-center justify-center">
             <div className="text-neutral-500 text-sm">Loading...</div>
@@ -166,7 +166,7 @@ export default function ChartCard({ service }: ChartCardProps) {
         ) : (
           <div className="h-[200px] w-full">
             <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={data} margin={{ top: 10, right: 40, left: 0, bottom: 0 }}>
+              <AreaChart data={data} margin={{ top: 10, right: 20, left: 0, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="0" stroke="#2D3135" opacity={0.3} vertical={false} horizontal={true} />
                 <XAxis
                   dataKey="time"
@@ -201,6 +201,7 @@ export default function ChartCard({ service }: ChartCardProps) {
                   iconType="circle"
                   onMouseEnter={(e) => setHovered(e.dataKey)}
                   onMouseLeave={() => setHovered(null)}
+                  formatter={(value) => <span className="text-white">{value}</span>}
                 />
                 {isMultiSeries ? (
                   clientNames.map((client, i) => {
