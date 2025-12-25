@@ -1,0 +1,40 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Chart.Name }}-openmemory
+  labels:
+    app.kubernetes.io/name: openmemory
+spec:
+  replicas: {{ .Values.openmemory.replicaCount }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: openmemory
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: openmemory
+    spec:
+      containers:
+        - name: openmemory
+          image: "{{ .Values.openmemory.image.repository }}:{{ .Values.openmemory.image.tag }}"
+          imagePullPolicy: {{ .Values.openmemory.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: 8080
+              protocol: TCP
+          env:
+            - name: OPENMEMORY_API_KEY
+              value: {{ .Values.env.OPENMEMORY_API_KEY | quote }}
+            - name: OPENAI_API_KEY
+              value: {{ .Values.env.OPENAI_API_KEY | quote }}
+            - name: DB_PATH
+              value: "/data/openmemory.sqlite"
+          volumeMounts:
+            - name: data
+              mountPath: /data
+          resources:
+            {{- toYaml .Values.openmemory.resources | nindent 12 }}
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: {{ .Chart.Name }}-openmemory-pvc

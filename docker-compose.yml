@@ -25,7 +25,7 @@ services:
 
   openmemory:
     build:
-      context: ./external/openmemory/backend
+      context: ./external/openmemory/packages/openmemory-js
       dockerfile: Dockerfile
     image: cybermem-openmemory:latest
     container_name: cybermem-openmemory

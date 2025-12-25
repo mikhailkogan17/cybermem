@@ -1,0 +1,17 @@
+---
+- name: Stop CyberMem on Raspberry Pi
+  hosts: rpi
+  become: yes
+  vars:
+    project_dir: /home/{{ ansible_user }}/cybermem
+
+  tasks:
+    - name: Stop services
+      command: docker-compose down
+      args:
+        chdir: "{{ project_dir }}"
+      register: down_output
+
+    - name: Show stop status
+      debug:
+        var: down_output.stdout_lines

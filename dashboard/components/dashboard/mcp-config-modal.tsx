@@ -21,23 +21,29 @@ export default function MCPConfigModal({ onClose }: { onClose: () => void }) {
   const [copiedId, setCopiedId] = useState<string | null>(null)
   const [apiKey] = useState("sk-cybermem-master-key-8f7a2b9c")
 
+  const [baseUrl, setBaseUrl] = useState("http://localhost:8080")
+  const [hostname, setHostname] = useState("localhost")
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const host = window.location.hostname
+      setHostname(host)
+      setBaseUrl(`http://${host}:8080`)
+    }
+  }, [])
+
   const mcpConfig = {
     mcpServers: {
       cybermem: {
-        command: "/Users/mikhailkogan/cybermem/mcp/.venv/bin/python",
-        args: [
-          "/Users/mikhailkogan/cybermem/mcp/server.py"
-        ],
-        env: {
-          "CYBERMEM_API_KEY": "dev-secret-key"
-        }
+        url: `${baseUrl}/mcp`,
+        type: "sse"
       }
     }
   }
 
   const getConfigContent = () => {
     if (selectedClient === "codex") {
-      return `# CyberMem Configuration\n[mcp]\nserver_url = "http://localhost:8000/sse"\napi_key = "${apiKey}"`
+      return `# CyberMem Configuration\n[mcp]\nserver_url = "${baseUrl}/mcp"\napi_key = "${apiKey}"`
     }
     return JSON.stringify(mcpConfig, null, 2)
   }
@@ -113,7 +119,7 @@ export default function MCPConfigModal({ onClose }: { onClose: () => void }) {
                 <div className="relative pl-5 py-5 pr-24 rounded-lg bg-[#0F161C] border border-white/10 font-mono text-xs md:text-sm text-white overflow-x-auto shadow-[0_0_20px_rgba(0,0,0,0.3)] inset-shadow">
                   <div className="flex items-center gap-3">
                     <Terminal className="w-4 h-4 text-white stroke-[2.5] shrink-0" />
-                    <code className="text-white text-shadow-sm">claude mcp add cybermem http://localhost:8000/sse</code>
+                    <code className="text-white text-shadow-sm">claude mcp add cybermem {baseUrl}/mcp</code>
                   </div>
                 </div>
                 <div className="absolute top-1/2 -translate-y-1/2 right-4 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -121,7 +127,7 @@ export default function MCPConfigModal({ onClose }: { onClose: () => void }) {
                     size="sm"
                     variant="ghost"
                     className="h-8 px-3 text-white bg-black/40 backdrop-blur border border-white/5 shadow-[0_0_10px_rgba(255,255,255,0.05)] hover:bg-white/10 hover:text-white font-medium"
-                    onClick={() => copyToClipboard("claude mcp add cybermem http://localhost:8000/sse", "cmd")}
+                    onClick={() => copyToClipboard(`claude mcp add cybermem ${baseUrl}/mcp`, "cmd")}
                   >
                     {copiedId === "cmd" ? <Check className="h-4 w-4 stroke-[2.5] text-emerald-400 mr-2 drop-shadow-[0_0_5px_rgba(52,211,153,0.5)]" /> : <Copy className="h-4 w-4 stroke-[2.5] mr-2 text-white drop-shadow-[0_0_5px_rgba(255,255,255,0.3)]" />}
                     {copiedId === "cmd" ? <span className="text-emerald-400 text-shadow-sm">Copied</span> : <span className="text-white text-shadow-sm">Copy</span>}
@@ -136,7 +142,7 @@ export default function MCPConfigModal({ onClose }: { onClose: () => void }) {
             <p>Use this TOML configuration for Codex.</p>
             <ul className="list-disc list-inside space-y-2 ml-2 text-neutral-400">
               <li>Endpoint Type: <span className="text-white font-medium">SSE</span></li>
-              <li>URL: <code className="text-emerald-400">http://localhost:8000/sse</code></li>
+              <li>URL: <code className="text-emerald-400">{baseUrl}/mcp</code></li>
               <li>Copy the TOML block below</li>
             </ul>
           </div>
@@ -147,7 +153,7 @@ export default function MCPConfigModal({ onClose }: { onClose: () => void }) {
             <p>For generic MCP clients, use the SSE endpoint details below.</p>
             <ul className="list-disc list-inside space-y-2 ml-2 text-neutral-400">
               <li>Endpoint Type: <span className="text-white font-medium">SSE (Server-Sent Events)</span></li>
-              <li>URL: <code className="text-emerald-400">http://localhost:8000/sse</code></li>
+              <li>URL: <code className="text-emerald-400">{baseUrl}/mcp</code></li>
               <li>Auth: <span className="text-white font-medium">X-API-Key</span> header</li>
             </ul>
           </div>

@@ -1,0 +1,10 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ .Chart.Name }}-openmemory-pvc
+spec:
+  accessModes:
+    - {{ .Values.openmemory.persistence.accessMode }}
+  resources:
+    requests:
+      storage: {{ .Values.openmemory.persistence.size }}

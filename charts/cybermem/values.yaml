@@ -1,0 +1,42 @@
+# Default values for cybermem.
+
+openmemory:
+  image:
+    repository: cybermem-openmemory
+    pullPolicy: IfNotPresent
+    tag: "latest"
+  replicaCount: 1
+  service:
+    type: ClusterIP
+    port: 8080
+  persistence:
+    enabled: true
+    size: 10Gi
+    accessMode: ReadWriteOnce
+  resources:
+    limits:
+      cpu: 1000m
+      memory: 1Gi
+    requests:
+      cpu: 100m
+      memory: 256Mi
+  env:
+    # Passed to the container
+    OM_PORT: "8080"
+
+dashboard:
+  image:
+    repository: cybermem-dashboard
+    pullPolicy: IfNotPresent
+    tag: "latest"
+  replicaCount: 1
+  service:
+    type: ClusterIP
+    port: 3000
+    nodePort: 30000 # For k3d/local access if needed
+  resources: {}
+
+env:
+  # Shared secrets
+  OPENMEMORY_API_KEY: "dev-secret-key"
+  OPENAI_API_KEY: ""

@@ -15,6 +15,13 @@ export default function SettingsModal({ onClose }: { onClose: () => void }) {
   const [showAdminPassword, setShowAdminPassword] = useState(false)
   const [saved, setSaved] = useState(false)
 
+  // Set endpoint based on current hostname
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+        setEndpoint(`${window.location.protocol}//${window.location.hostname}:8080`)
+    }
+  }, [])
+
   const generateApiKey = () => {
     const chars = 'abcdefghijklmnopqrstuvwxyz0123456789'
     const randomPart = Array.from({ length: 16 }, () => chars[Math.floor(Math.random() * chars.length)]).join('')

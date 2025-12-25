@@ -1,0 +1,73 @@
+---
+- name: Deploy CyberMem to Raspberry Pi
+  hosts: rpi
+  become: yes
+  vars:
+    project_dir: /home/{{ ansible_user }}/cybermem
+    env_file: .env.rpi
+
+  tasks:
+    - name: Update apt cache
+      apt:
+        update_cache: yes
+        cache_valid_time: 3600
+
+    - name: Install dependencies
+      apt:
+        name:
+          - docker.io
+          - docker-compose
+          - git
+          - rsync
+        state: present
+
+    - name: Ensure Docker service is running
+      service:
+        name: docker
+        state: started
+        enabled: yes
+
+    - name: Add user to docker group
+      user:
+        name: "{{ ansible_user }}"
+        groups: docker
+        append: yes
+
+    - name: Create project directory
+      file:
+        path: "{{ project_dir }}"
+        state: directory
+        owner: "{{ ansible_user }}"
+        group: "{{ ansible_user }}"
+        mode: "0755"
+
+    - name: Synchronize project files
+      synchronize:
+        src: ../../
+        dest: "{{ project_dir }}"
+        rsync_opts:
+          - "--exclude=.git"
+          - "--exclude=node_modules"
+          - "--exclude=.next"
+          - "--exclude=dashboard/.next"
+          - "--exclude=*.log"
+          - "--exclude=tmp"
+          - "--exclude=__pycache__"
+
+    - name: Copy environment file
+      copy:
+        src: "../../{{ env_file }}"
+        dest: "{{ project_dir }}/.env"
+        owner: "{{ ansible_user }}"
+        group: "{{ ansible_user }}"
+        mode: "0600"
+
+    - name: Pull and build services
+      command: docker-compose up -d --build --remove-orphans
+      args:
+        chdir: "{{ project_dir }}"
+      register: compose_output
+
+    - name: Show deployment status
+      debug:
+        var: compose_output.stdout_lines
