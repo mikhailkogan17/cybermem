@@ -110,9 +110,9 @@ export default function ChartCard({ service }: ChartCardProps) {
             <div className="text-2xl font-bold text-white">{service}</div>
           </div>
 
-          {/* Period Selector */}
+          {/* Period Selector - Badge Style */}
           <div className="relative group">
-            <button className="h-8 px-3 rounded-lg bg-white/5 border border-white/10 hover:border-emerald-500/50 text-white text-xs font-medium flex items-center gap-2 transition-all hover:bg-white/10">
+            <button className="h-8 px-3 rounded-tl-none rounded-tr-lg rounded-bl-lg rounded-br-none bg-white/5 border border-white/10 hover:border-emerald-500/50 text-white text-xs font-medium flex items-center gap-2 transition-all hover:bg-white/10">
               <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path
                   strokeLinecap="round"

@@ -1,6 +1,7 @@
 "use client"
 
-import { ChevronLeft, ChevronRight, RefreshCw } from "lucide-react"
+import { ChevronDown, ChevronLeft, ChevronRight, RefreshCw } from "lucide-react"
+import { useState } from "react"
 
 interface AuditLogTableProps {
   logs: any[]
@@ -17,7 +18,16 @@ const statusConfig: Record<string, { bg: string; text: string; border: string }>
   Canceled: { bg: "bg-slate-500/10", text: "text-slate-400", border: "border-slate-500/30" },
 }
 
+const periods = [
+  { label: "1 Hour", value: "1h" },
+  { label: "24 Hours", value: "24h" },
+  { label: "7 Days", value: "7d" },
+  { label: "30 Days", value: "30d" },
+  { label: "All Time", value: "all" },
+]
+
 export default function AuditLogTable({ logs, loading, currentPage, totalPages, onPageChange }: AuditLogTableProps) {
+  const [period, setPeriod] = useState("all")
 
   return (
     <div className="group relative overflow-hidden rounded-2xl bg-white/5 border border-white/10 backdrop-blur-md shadow-lg p-6 transition-all duration-300">
@@ -26,8 +36,43 @@ export default function AuditLogTable({ logs, loading, currentPage, totalPages, 
 
       <div className="relative z-10">
         <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center gap-3">
             <h3 className="text-lg font-semibold text-white">Audit Log</h3>
             {loading && <RefreshCw className="w-4 h-4 text-emerald-500 animate-spin" />}
+          </div>
+
+          {/* Period Selector - Badge Style */}
+          <div className="relative group/period">
+            <button className="h-8 px-3 rounded-tl-none rounded-tr-lg rounded-bl-lg rounded-br-none bg-white/5 border border-white/10 hover:border-emerald-500/50 text-white text-xs font-medium flex items-center gap-2 transition-all hover:bg-white/10">
+              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
+                />
+              </svg>
+              {periods.find((p) => p.value === period)?.label}
+              <ChevronDown className="w-3 h-3" />
+            </button>
+
+            {/* Dropdown Menu */}
+            <div className="absolute right-0 mt-2 w-40 bg-[#0B1116]/95 border border-white/10 rounded-lg shadow-xl opacity-0 invisible group-hover/period:opacity-100 group-hover/period:visible transition-all duration-200 z-10 backdrop-blur-xl overflow-hidden">
+              {periods.map((p) => (
+                <button
+                  key={p.value}
+                  onClick={() => setPeriod(p.value)}
+                  className={`w-full text-left px-3 py-2 text-xs transition-colors ${
+                    period === p.value
+                      ? "bg-emerald-500/20 text-emerald-400 font-medium"
+                      : "text-neutral-300 hover:bg-white/5 hover:text-white"
+                  }`}
+                >
+                  {p.label}
+                </button>
+              ))}
+            </div>
+          </div>
         </div>
 
         <div className="overflow-x-auto min-h-[400px]">
