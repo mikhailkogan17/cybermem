@@ -34,7 +34,7 @@ export async function GET(request: Request) {
     const logs = rawLogs.map((log: any) => {
         const statusCode = parseInt(log.status) || 0
         let status = "Success"
-        if (statusCode >= 500 || statusCode >= 400) status = "Error"
+        if (statusCode === 0 || statusCode >= 400) status = "Error"
         else if (statusCode >= 300) status = "Warning"
 
         // Capitalize operation
