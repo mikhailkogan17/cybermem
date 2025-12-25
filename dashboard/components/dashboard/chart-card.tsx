@@ -115,7 +115,7 @@ export default function ChartCard({ service }: ChartCardProps) {
   return (
     <Card className="bg-white/5 border-white/10 backdrop-blur-md relative overflow-visible">
       <button
-        className="absolute top-0 right-0 z-20 h-8 px-3 rounded-tl-none rounded-tr-xl rounded-bl-2xl rounded-br-none bg-white/5 border-b border-l border-white/10 hover:border-emerald-500/50 text-white text-xs font-medium flex items-center gap-2 transition-all hover:bg-white/10 group"
+        className="absolute top-0 right-0 z-20 h-8 px-3 rounded-tl-none rounded-tr-xl rounded-bl-2xl rounded-br-none bg-white/5 border-b border-l border-white/10 hover:bg-white/10 text-white text-xs font-medium flex items-center gap-2 transition-all group"
         onClick={() => document.getElementById(`dropdown-${service}`)?.classList.toggle('hidden')}
       >
         <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
