@@ -211,13 +211,22 @@ export default function Dashboard() {
         log.description.toLowerCase().includes(searchTerm.toLowerCase()),
     )
 
+  const handleSort = (field: string) => {
+    if (field === sortField) {
+      setSortDirection(prev => prev === "asc" ? "desc" : "asc")
+    } else {
+      setSortField(field as any)
+      setSortDirection("asc")
+    }
+  }
+
   const sortedLog = [...filteredLog].sort((a, b) => {
     const modifier = sortDirection === "asc" ? 1 : -1
     if (sortField === "date") {
       return (new Date(a.date).getTime() - new Date(b.date).getTime()) * modifier
     }
-    const aValue = a[sortField]
-    const bValue = b[sortField]
+    const aValue = a[sortField] || ""
+    const bValue = b[sortField] || ""
     if (typeof aValue === "string" && typeof bValue === "string") {
       return aValue.localeCompare(bValue) * modifier
     }
@@ -256,6 +265,9 @@ export default function Dashboard() {
             currentPage={currentPage}
             totalPages={totalPages}
             onPageChange={setCurrentPage}
+            sortField={sortField}
+            sortDirection={sortDirection}
+            onSort={handleSort}
         />
       </main>
 

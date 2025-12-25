@@ -9,6 +9,9 @@ interface AuditLogTableProps {
   currentPage: number
   totalPages: number
   onPageChange: (page: number) => void
+  sortField: string
+  sortDirection: 'asc' | 'desc'
+  onSort: (field: string) => void
 }
 
 const statusConfig: Record<string, { bg: string; text: string; border: string }> = {
@@ -26,26 +29,17 @@ const periods = [
   { label: "All Time", value: "all" },
 ]
 
-export default function AuditLogTable({ logs, loading, currentPage, totalPages, onPageChange }: AuditLogTableProps) {
+export default function AuditLogTable({
+  logs,
+  loading,
+  currentPage,
+  totalPages,
+  onPageChange,
+  sortField,
+  sortDirection,
+  onSort
+}: AuditLogTableProps) {
   const [period, setPeriod] = useState("all")
-  const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'asc' | 'desc' } | null>(null)
-
-  const handleSort = (key: string) => {
-    setSortConfig(current => {
-      if (current?.key === key) {
-        return current.direction === 'asc' ? { key, direction: 'desc' } : null
-      }
-      return { key, direction: 'asc' }
-    })
-  }
-
-  const sortedLogs = [...logs].sort((a, b) => {
-    if (!sortConfig) return 0
-    const { key, direction } = sortConfig
-    if (a[key] < b[key]) return direction === 'asc' ? -1 : 1
-    if (a[key] > b[key]) return direction === 'asc' ? 1 : -1
-    return 0
-  })
 
   return (
     <div className="group relative overflow-hidden rounded-2xl bg-white/5 border border-white/10 backdrop-blur-md shadow-lg p-6 transition-all duration-300">
@@ -109,14 +103,14 @@ export default function AuditLogTable({ logs, loading, currentPage, totalPages, 
                 ].map((header) => (
                   <th
                     key={header.key}
-                    onClick={() => handleSort(header.key)}
+                    onClick={() => onSort(header.key)}
                     className="text-left py-4 px-4 font-medium text-neutral-400 cursor-pointer hover:text-white transition-colors select-none group/th"
                   >
                     <div className="flex items-center gap-2">
                        {header.label}
                        <div className="flex flex-col">
-                         {sortConfig?.key === header.key ? (
-                            sortConfig.direction === 'asc' ?
+                         {sortField === header.key ? (
+                            sortDirection === 'asc' ?
                               <ArrowUp className="w-3 h-3 text-emerald-400" /> :
                               <ArrowDown className="w-3 h-3 text-emerald-400" />
                          ) : (
@@ -141,7 +135,7 @@ export default function AuditLogTable({ logs, loading, currentPage, totalPages, 
                       </tr>
                   ))
               ) : (
-                sortedLogs.map((log) => {
+                logs.map((log) => {
                     const config = statusConfig[log.status] || statusConfig.Success
                     return (
                         <tr key={log.id} className="border-b border-white/5 hover:bg-white/10 transition-colors even:bg-white/[0.02] group/row">
@@ -161,7 +155,7 @@ export default function AuditLogTable({ logs, loading, currentPage, totalPages, 
                 })
               )}
 
-              {!loading && sortedLogs.length === 0 && (
+              {!loading && logs.length === 0 && (
                 <tr>
                   <td colSpan={5} className="py-12 text-center text-neutral-500">
                     No logs found for this period

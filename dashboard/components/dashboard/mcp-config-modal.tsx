@@ -152,7 +152,7 @@ export default function MCPConfigModal({ onClose }: { onClose: () => void }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
       <div
-        className="w-full max-w-4xl bg-[#0B1116]/80 backdrop-blur-xl border border-emerald-500/20 rounded-2xl shadow-2xl animate-in zoom-in-95 duration-200 overflow-y-auto max-h-[85vh] relative"
+        className="w-full max-w-4xl bg-[#0B1116]/80 backdrop-blur-xl border border-emerald-500/20 rounded-2xl shadow-2xl animate-in zoom-in-95 duration-200 flex flex-col max-h-[85vh] relative overflow-hidden"
         style={{
           backgroundImage: `
             radial-gradient(circle at 0% 0%, oklch(0.7 0 0 / 0.05) 0%, transparent 50%),
@@ -163,7 +163,7 @@ export default function MCPConfigModal({ onClose }: { onClose: () => void }) {
         }}
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-6 pt-6 pb-2">
+        <div className="flex items-center justify-between px-6 pt-6 pb-2 flex-none">
           <div className="flex items-center gap-3">
               <div className="p-2 bg-white/5 rounded-lg border border-white/10 shadow-inner">
                 <img src="/icons/mcp.png" alt="MCP Logo" className="w-5 h-5 drop-shadow-[0_0_5px_rgba(255,255,255,0.3)]" />
@@ -181,7 +181,7 @@ export default function MCPConfigModal({ onClose }: { onClose: () => void }) {
         </div>
 
         {/* Content */}
-        <div className="p-6 space-y-6">
+        <div className="p-6 space-y-6 overflow-y-auto flex-1 min-h-0">
 
           {/* Client Selector */}
           <section>
@@ -275,7 +275,7 @@ export default function MCPConfigModal({ onClose }: { onClose: () => void }) {
         </div>
 
         {/* Footer */}
-        <div className="sticky bottom-0 bg-[#0B1116]/80 backdrop-blur-md border-t border-emerald-500/20 px-6 py-4 flex justify-end gap-3 z-10">
+        <div className="border-t border-emerald-500/20 px-6 py-4 flex justify-end gap-3 flex-none bg-[#0B1116]/30">
           <Button
             onClick={onClose}
             className="bg-white/5 hover:bg-white/10 border border-white/10 text-neutral-300 transition-colors"
