@@ -61,7 +61,7 @@ export default function LoginModal({ onLogin }: LoginModalProps) {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               placeholder="Enter admin password"
-              className="bg-black/40 border-white/10 text-white focus:border-emerald-400/30 focus:ring-emerald-400/10 placeholder:text-neutral-600 shadow-inner"
+              className="bg-black/40 border-white/10 text-white focus:border-emerald-500/30 focus:ring-emerald-500/10 placeholder:text-neutral-600 shadow-inner"
               autoFocus
             />
             {error && (

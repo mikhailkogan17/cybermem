@@ -78,13 +78,13 @@ export default function SettingsModal({ onClose }: { onClose: () => void }) {
                       id="admin-password"
                       value={adminPassword}
                       onChange={(e) => setAdminPassword(e.target.value)}
-                      className="bg-black/40 border-white/10 text-white focus:border-emerald-400/30 focus:ring-emerald-400/10 placeholder:text-neutral-600 shadow-inner pr-10"
+                      className="bg-black/40 border-white/10 text-white focus:border-emerald-500/30 focus:ring-emerald-500/10 placeholder:text-neutral-600 shadow-inner pr-10"
                       type={showAdminPassword ? "text" : "password"}
                     />
                     <button
                       type="button"
                       onClick={() => setShowAdminPassword(!showAdminPassword)}
-                      className="absolute right-2 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-white transition-colors"
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-white transition-colors"
                     >
                       {showAdminPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                     </button>
@@ -110,13 +110,13 @@ export default function SettingsModal({ onClose }: { onClose: () => void }) {
                       id="api-key"
                       value={apiKey}
                       onChange={(e) => setApiKey(e.target.value)}
-                      className="bg-black/40 border-white/10 text-white focus:border-emerald-400/30 focus:ring-emerald-400/10 placeholder:text-neutral-600 shadow-inner pr-10"
+                      className="bg-black/40 border-white/10 text-white focus:border-emerald-500/30 focus:ring-emerald-500/10 placeholder:text-neutral-600 shadow-inner pr-10"
                       type={showApiKey ? "text" : "password"}
                     />
                     <button
                       type="button"
                       onClick={() => setShowApiKey(!showApiKey)}
-                      className="absolute right-2 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-white transition-colors"
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-white transition-colors"
                     >
                       {showApiKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                     </button>
@@ -139,7 +139,7 @@ export default function SettingsModal({ onClose }: { onClose: () => void }) {
                     id="endpoint"
                     value={endpoint}
                     onChange={(e) => setEndpoint(e.target.value)}
-                    className="bg-black/40 border-white/10 text-white focus:border-emerald-400/30 focus:ring-emerald-400/10 placeholder:text-neutral-600 shadow-inner"
+                    className="bg-black/40 border-white/10 text-white focus:border-emerald-500/30 focus:ring-emerald-500/10 placeholder:text-neutral-600 shadow-inner"
                   />
                 </div>
                 <p className="text-xs text-neutral-500">URL of the OpenMemory backend instance</p>
