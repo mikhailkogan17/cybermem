@@ -34,6 +34,7 @@ const periods = [
 
 export default function ChartCard({ service }: ChartCardProps) {
   const [period, setPeriod] = useState("24h")
+  const [hovered, setHovered] = useState<string | null>(null)
   const [data, setData] = useState<any[]>([])
   const [clientNames, setClientNames] = useState<string[]>([])
   const [loading, setLoading] = useState(true)
@@ -47,13 +48,23 @@ export default function ChartCard({ service }: ChartCardProps) {
           const apiData = await res.json()
 
           if (apiData.timeSeries) {
-            // Helper to format time
+            // Helper to format time based on period
             const formatSeries = (series: any[]) => {
               if (!series) return []
-              return series.map(point => ({
-                ...point,
-                time: new Date((point.time as number) * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-              }))
+              return series.map(point => {
+                const date = new Date((point.time as number) * 1000)
+                let timeStr = ""
+                // Show date if period is longer than 24h
+                if (["7d", "30d", "90d", "all"].includes(period)) {
+                   timeStr = date.toLocaleDateString([], { month: '2-digit', day: '2-digit' }) + " " + date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                } else {
+                   timeStr = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                }
+                return {
+                  ...point,
+                  time: timeStr
+                }
+              })
             }
 
             // Extract client names from series
@@ -156,25 +167,6 @@ export default function ChartCard({ service }: ChartCardProps) {
           <div className="h-[200px] w-full">
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart data={data} margin={{ top: 10, right: 40, left: 0, bottom: 0 }}>
-                <defs>
-                  {isMultiSeries ? (
-                    clientNames.map((client, i) => {
-                      const color = CLIENT_COLORS[client.toLowerCase()] || FALLBACK_PALETTE[i % FALLBACK_PALETTE.length]
-                      const gradientId = `gradient-${service.replace(/\s+/g, '-')}-${i}`
-                      return (
-                        <linearGradient key={client} id={gradientId} x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor={color} stopOpacity={0.3} />
-                          <stop offset="95%" stopColor={color} stopOpacity={0} />
-                        </linearGradient>
-                      )
-                    })
-                  ) : (
-                    <linearGradient id={`gradient-${service.replace(/\s+/g, '-')}-default`} x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#10b981" stopOpacity={0.3} />
-                      <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
-                    </linearGradient>
-                  )}
-                </defs>
                 <CartesianGrid strokeDasharray="0" stroke="#2D3135" opacity={0.3} vertical={false} horizontal={true} />
                 <XAxis
                   dataKey="time"
@@ -203,22 +195,33 @@ export default function ChartCard({ service }: ChartCardProps) {
                   }}
                   itemStyle={{ color: "#fff" }}
                 />
-                <Legend verticalAlign="bottom" height={36} iconType="circle" />
+                <Legend
+                  verticalAlign="bottom"
+                  height={36}
+                  iconType="circle"
+                  onMouseEnter={(e) => setHovered(e.dataKey)}
+                  onMouseLeave={() => setHovered(null)}
+                />
                 {isMultiSeries ? (
                   clientNames.map((client, i) => {
                      const color = CLIENT_COLORS[client.toLowerCase()] || FALLBACK_PALETTE[i % FALLBACK_PALETTE.length]
+                     const isHovered = hovered === client
+                     const isAnyHovered = hovered !== null
+
                      return (
                        <Area
                          key={client}
                          type="monotone"
                          dataKey={client}
                          stroke={color}
-                         strokeWidth={1.5}
-                         fillOpacity={1}
-                         fill={`url(#gradient-${service.replace(/\s+/g, '-')}-${i})`}
+                         strokeWidth={isHovered ? 2.5 : 1.5}
+                         fillOpacity={isHovered ? 0.5 : (isAnyHovered ? 0.1 : 0.2)}
+                         fill={color}
                          stackId="1"
-                         activeDot={{ r: 3, strokeWidth: 0 }}
+                         activeDot={{ r: 4, strokeWidth: 0 }}
                          dot={false}
+                         onMouseEnter={() => setHovered(client)}
+                         onMouseLeave={() => setHovered(null)}
                        />
                      )
                   })
@@ -228,10 +231,11 @@ export default function ChartCard({ service }: ChartCardProps) {
                     dataKey="value"
                     stroke="#10b981"
                     strokeWidth={1.5}
-                    fillOpacity={1}
-                    fill={`url(#gradient-${service.replace(/\s+/g, '-')}-default)`}
+                    fillOpacity={0.2}
+                    fill="#10b981"
                     activeDot={{ r: 3, strokeWidth: 0 }}
                     dot={false}
+                    // No hover effect needed for single series as there's nothing to distinguish from
                   />
                 )}
               </AreaChart>
