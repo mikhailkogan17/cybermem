@@ -47,6 +47,20 @@ interface MetricsGridProps {
 }
 
 export default function MetricsGrid({ stats, trends }: MetricsGridProps) {
+  const formatTimestamp = (timestamp: number) => {
+    if (timestamp <= 0) return "No activity"
+    const date = new Date(timestamp)
+    const now = new Date()
+    const isToday = date.getDate() === now.getDate() &&
+                    date.getMonth() === now.getMonth() &&
+                    date.getFullYear() === now.getFullYear()
+
+    if (isToday) {
+      return date.toLocaleTimeString()
+    }
+    return date.toLocaleString()
+  }
+
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
       {/* 1. Memory Records */}
@@ -117,7 +131,7 @@ export default function MetricsGrid({ stats, trends }: MetricsGridProps) {
             {stats.lastWriter.name !== "N/A" ? getClientDisplayName(stats.lastWriter.name) : "N/A"}
           </div>
           <div className="text-xl text-white/80 whitespace-nowrap">
-            {stats.lastWriter.timestamp > 0 ? new Date(stats.lastWriter.timestamp).toLocaleTimeString() : "No activity"}
+            {stats.lastWriter.timestamp > 0 ? formatTimestamp(stats.lastWriter.timestamp) : "No activity"}
           </div>
         </CardContent>
       </Card>
@@ -130,7 +144,7 @@ export default function MetricsGrid({ stats, trends }: MetricsGridProps) {
             {stats.lastReader.name !== "N/A" ? getClientDisplayName(stats.lastReader.name) : "N/A"}
           </div>
           <div className="text-xl text-white/80 whitespace-nowrap">
-            {stats.lastReader.timestamp > 0 ? new Date(stats.lastReader.timestamp).toLocaleTimeString() : "No activity"}
+            {stats.lastReader.timestamp > 0 ? formatTimestamp(stats.lastReader.timestamp) : "No activity"}
           </div>
         </CardContent>
       </Card>
