@@ -3,7 +3,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { ChevronDown } from "lucide-react"
 import { useEffect, useState } from "react"
-import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts"
+import { Area, AreaChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts"
 
 interface ChartCardProps {
   service: string
@@ -155,21 +155,22 @@ export default function ChartCard({ service }: ChartCardProps) {
         ) : (
           <div className="h-[200px] w-full">
             <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={data} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+              <AreaChart data={data} margin={{ top: 10, right: 40, left: 0, bottom: 0 }}>
                 <defs>
                   {isMultiSeries ? (
                     clientNames.map((client, i) => {
                       const color = CLIENT_COLORS[client.toLowerCase()] || FALLBACK_PALETTE[i % FALLBACK_PALETTE.length]
+                      const gradientId = `gradient-${service.replace(/\s+/g, '-')}-${i}`
                       return (
-                        <linearGradient key={client} id={`gradient-${service}-${i}`} x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor={color} stopOpacity={0.15} />
+                        <linearGradient key={client} id={gradientId} x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor={color} stopOpacity={0.3} />
                           <stop offset="95%" stopColor={color} stopOpacity={0} />
                         </linearGradient>
                       )
                     })
                   ) : (
-                    <linearGradient id={`gradient-${service}-default`} x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#10b981" stopOpacity={0.15} />
+                    <linearGradient id={`gradient-${service.replace(/\s+/g, '-')}-default`} x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#10b981" stopOpacity={0.3} />
                       <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
                     </linearGradient>
                   )}
@@ -202,6 +203,7 @@ export default function ChartCard({ service }: ChartCardProps) {
                   }}
                   itemStyle={{ color: "#fff" }}
                 />
+                <Legend verticalAlign="bottom" height={36} iconType="circle" />
                 {isMultiSeries ? (
                   clientNames.map((client, i) => {
                      const color = CLIENT_COLORS[client.toLowerCase()] || FALLBACK_PALETTE[i % FALLBACK_PALETTE.length]
@@ -213,7 +215,7 @@ export default function ChartCard({ service }: ChartCardProps) {
                          stroke={color}
                          strokeWidth={1.5}
                          fillOpacity={1}
-                         fill={`url(#gradient-${service}-${i})`}
+                         fill={`url(#gradient-${service.replace(/\s+/g, '-')}-${i})`}
                          stackId="1"
                          activeDot={{ r: 3, strokeWidth: 0 }}
                          dot={false}
@@ -227,7 +229,7 @@ export default function ChartCard({ service }: ChartCardProps) {
                     stroke="#10b981"
                     strokeWidth={1.5}
                     fillOpacity={1}
-                    fill={`url(#gradient-${service}-default)`}
+                    fill={`url(#gradient-${service.replace(/\s+/g, '-')}-default)`}
                     activeDot={{ r: 3, strokeWidth: 0 }}
                     dot={false}
                   />
