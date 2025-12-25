@@ -295,7 +295,7 @@ function parseDuration(duration: string): number {
 
 function chooseStep(duration: string): string {
   const seconds = parseDuration(duration)
-  if (seconds <= 3600) return '2m'      // 1h -> 2m (30 pts). Safer for increase() than 30s/1m
+  if (seconds <= 3600) return '4m'      // 1h -> 4m (15 pts). More reliable than 2m.
   if (seconds <= 6 * 3600) return '5m' // 6h -> 5m (72 pts)
   if (seconds <= 24 * 3600) return '15m' // 24h -> 15m (96 pts)
   if (seconds <= 7 * 86400) return '1h'  // 7d -> 1h (168 pts)
