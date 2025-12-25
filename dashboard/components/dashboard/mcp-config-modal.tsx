@@ -112,8 +112,8 @@ export default function MCPConfigModal({ onClose }: { onClose: () => void }) {
              <div className="relative group">
                 <div className="relative pl-5 py-5 pr-24 rounded-lg bg-[#0F161C] border border-white/10 font-mono text-xs md:text-sm text-white overflow-x-auto shadow-[0_0_20px_rgba(0,0,0,0.3)] inset-shadow">
                   <div className="flex items-center gap-3">
-                    <Terminal className="w-4 h-4 text-emerald-500 shrink-0" />
-                    <code className="text-emerald-400 text-shadow-sm">claude mcp add cybermem http://localhost:8000/sse</code>
+                    <Terminal className="w-4 h-4 text-white stroke-[2.5] shrink-0" />
+                    <code className="text-white text-shadow-sm">claude mcp add cybermem http://localhost:8000/sse</code>
                   </div>
                 </div>
                 <div className="absolute top-1/2 -translate-y-1/2 right-4 opacity-0 group-hover:opacity-100 transition-opacity">
