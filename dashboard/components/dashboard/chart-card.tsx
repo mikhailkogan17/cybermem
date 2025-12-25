@@ -67,16 +67,23 @@ export default function ChartCard({ service }: ChartCardProps) {
               })
             }
 
-            // Extract client names from series
+            // Extract client names from series and sort by total value (Ascending)
+            // This ensures zero-value series are at the bottom, and the active series (Stroke) is on top.
             const getClients = (series: any[]) => {
                 if (!series || series.length === 0) return []
                 const keys = new Set<string>()
+                const totals: Record<string, number> = {}
+
                 series.forEach(point => {
                     Object.keys(point).forEach(k => {
-                        if (k !== 'time') keys.add(k)
+                        if (k !== 'time') {
+                          keys.add(k)
+                          totals[k] = (totals[k] || 0) + (point[k] as number)
+                        }
                     })
                 })
-                return Array.from(keys)
+
+                return Array.from(keys).sort((a, b) => (totals[a] || 0) - (totals[b] || 0))
             }
 
             // Get data based on service type

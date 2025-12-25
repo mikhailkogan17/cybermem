@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Eye, EyeOff, Key, RefreshCw, Save, Server, Settings, Shield, X } from "lucide-react"
-import { useState } from "react"
+import { useEffect, useState } from "react"
 
 export default function SettingsModal({ onClose }: { onClose: () => void }) {
   const [apiKey, setApiKey] = useState("sk-cybermem-master-key-8f7a2b9c")

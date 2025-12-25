@@ -1,8 +1,8 @@
 "use client"
 
 import { Button } from "@/components/ui/button"
-import { Check, Copy, Info, Terminal, X } from "lucide-react"
-import { useState } from "react"
+import { Check, Copy, FileCode, Info, Monitor, Terminal, X } from "lucide-react"
+import { useEffect, useState } from "react"
 
 const clients = [
   { id: "claude", name: "Claude Desktop", icon: "/icons/claude.png" },
@@ -199,8 +199,8 @@ export default function MCPConfigModal({ onClose }: { onClose: () => void }) {
 
           {/* Client Selector */}
           <section>
-            <h3 className="text-xs font-semibold text-neutral-400 mb-3 uppercase tracking-wider flex items-center gap-2">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shadow-[0_0_5px_#10b981]"></span>
+            <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2 text-shadow-sm">
+                <Monitor className="w-5 h-5 text-white drop-shadow-[0_0_8px_rgba(255,255,255,0.5)]" />
                 Select Client
             </h3>
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
@@ -234,17 +234,13 @@ export default function MCPConfigModal({ onClose }: { onClose: () => void }) {
           </section>
 
           {/* Instructions */}
-          <section className="bg-white/5 border border-white/10 rounded-xl overflow-hidden shadow-[inset_0_0_20px_rgba(255,255,255,0.02)] backdrop-blur-sm">
-             <div className="px-6 py-3 border-b border-white/10 flex items-center justify-between bg-white/5">
-                <div className="flex items-center gap-2">
-                    <Info className="h-4 w-4 text-white drop-shadow-[0_0_5px_rgba(255,255,255,0.3)]" />
-                    <h3 className="text-sm font-medium text-white">
-                        {selectedClient === "codex" ? "Configuration" : (selectedClient === "other" ? "Configuration JSON" : "Integration Instructions")}
-                    </h3>
-                </div>
-             </div>
+          <section>
+             <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2 text-shadow-sm">
+                 <FileCode className="w-5 h-5 text-white drop-shadow-[0_0_8px_rgba(255,255,255,0.5)]" />
+                 {selectedClient === "codex" ? "Configuration" : (selectedClient === "other" ? "Configuration JSON" : "Integration Instructions")}
+             </h3>
 
-             <div className="p-6 space-y-6">
+             <div className="bg-white/5 border border-white/10 rounded-lg p-5 space-y-4 shadow-[inset_0_0_20px_rgba(255,255,255,0.02)] backdrop-blur-sm">
                 {selectedClient === "chatgpt" && (
                     <div className="px-3 py-2 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-xs text-emerald-200">
                     <p>Requires Developer Mode. <a href="https://platform.openai.com/docs/guides/developer-mode" target="_blank" rel="noopener noreferrer" className="underline hover:text-white">Read OpenAI Documentation</a></p>

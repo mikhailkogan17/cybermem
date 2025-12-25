@@ -682,7 +682,9 @@ function formatRangeSeriesByClient(
   end: number,
   stepSeconds: number,
   allClients?: string[],
-  labelKey: string = 'client_name'
+  labelKey: string = 'client_name',
+  isCumulative: boolean = true,
+  integrate: boolean = false
 ): Array<{ time: number, [client: string]: number }> {
   const timeMap = new Map<number, Record<string, number>>()
 
@@ -740,7 +742,9 @@ function formatRangeSeriesByClient(
 
   // "Tare" logic: Subtract the initial value (at t=0 of the graph) from all subsequent values
   // This ensures the graph starts at 0 and shows cumulative growth relative to the start of the period.
-  if (sortedSeries.length > 0) {
+  // "Tare" logic: Subtract the initial value (at t=0 of the graph) from all subsequent values
+  // Only apply if isCumulative is true
+  if (isCumulative && sortedSeries.length > 0) {
     const initialValues: Record<string, number> = {}
     // Initialize with the values from the first point
     const firstPoint = sortedSeries[0] as Record<string, any>
@@ -766,6 +770,29 @@ function formatRangeSeriesByClient(
     })
   }
 
+  // Integration logic: Accumulate values over time
+  // Used when we query 'increase' (deltas) but want to show 'Total' (cumulative)
+  if (integrate && sortedSeries.length > 0) {
+     // We need to track running total for EACH client
+     const runningTotals: Record<string, number> = {}
+
+     // Initialize (optional, assume 0)
+
+     return sortedSeries.map(point => {
+        const p = point as Record<string, any>
+        const newPoint: any = { time: p.time }
+
+        Object.keys(p).forEach(key => {
+           if (key !== 'time') {
+              const delta = p[key] as number
+              runningTotals[key] = (runningTotals[key] || 0) + delta
+              newPoint[key] = Math.round(runningTotals[key])
+           }
+        })
+        return newPoint
+     })
+  }
+
   return sortedSeries
 }
 
@@ -779,14 +806,14 @@ export async function getCreatesByClient(duration: string = '1h'): Promise<Array
   const [allClients, result] = await Promise.all([
     getAllActiveClients(duration),
     queryRange(
-      `sum by (client_name) (openmemory_requests_total{operation="create"})`,
+      `sum by (client_name) (increase(openmemory_requests_total{operation="create"}[${step}]))`,
       start,
       now,
       step
     )
   ])
 
-  return formatRangeSeriesByClient(result, start, now, stepSeconds, allClients)
+  return formatRangeSeriesByClient(result, start, now, stepSeconds, allClients, 'client_name', false, true)
 }
 
 export async function getReadsByClient(duration: string = '1h'): Promise<Array<{ time: number, [client: string]: number }>> {
@@ -798,14 +825,14 @@ export async function getReadsByClient(duration: string = '1h'): Promise<Array<{
   const [allClients, result] = await Promise.all([
     getAllActiveClients(duration),
     queryRange(
-      `sum by (client_name) (openmemory_requests_total{operation="read"})`,
+      `sum by (client_name) (increase(openmemory_requests_total{operation="read"}[${step}]))`,
       start,
       now,
       step
     )
   ])
 
-  return formatRangeSeriesByClient(result, start, now, stepSeconds, allClients)
+  return formatRangeSeriesByClient(result, start, now, stepSeconds, allClients, 'client_name', false, true)
 }
 
 export async function getUpdatesByClient(duration: string = '1h'): Promise<Array<{ time: number, [client: string]: number }>> {
@@ -817,14 +844,14 @@ export async function getUpdatesByClient(duration: string = '1h'): Promise<Array
   const [allClients, result] = await Promise.all([
     getAllActiveClients(duration),
     queryRange(
-      `sum by (client_name) (openmemory_requests_total{operation="update"})`,
+      `sum by (client_name) (increase(openmemory_requests_total{operation="update"}[${step}]))`,
       start,
       now,
       step
     )
   ])
 
-  return formatRangeSeriesByClient(result, start, now, stepSeconds, allClients)
+  return formatRangeSeriesByClient(result, start, now, stepSeconds, allClients, 'client_name', false, true)
 }
 
 export async function getDeletesByClient(duration: string = '1h'): Promise<Array<{ time: number, [client: string]: number }>> {
@@ -836,14 +863,14 @@ export async function getDeletesByClient(duration: string = '1h'): Promise<Array
   const [allClients, result] = await Promise.all([
     getAllActiveClients(duration),
     queryRange(
-      `sum by (client_name) (openmemory_requests_total{operation="delete"})`,
+      `sum by (client_name) (increase(openmemory_requests_total{operation="delete"}[${step}]))`,
       start,
       now,
       step
     )
   ])
 
-  return formatRangeSeriesByClient(result, start, now, stepSeconds, allClients)
+  return formatRangeSeriesByClient(result, start, now, stepSeconds, allClients, 'client_name', false, true)
 }
 
 export async function getErrorsByClient(duration: string = '1h'): Promise<Array<{ time: number, [client: string]: number }>> {
@@ -855,12 +882,12 @@ export async function getErrorsByClient(duration: string = '1h'): Promise<Array<
   const [allClients, result] = await Promise.all([
     getAllActiveClients(duration),
     queryRange(
-      `sum by (client_name) (openmemory_errors_total)`,
+      `sum by (client_name) (increase(openmemory_errors_total[${step}]))`,
       start,
       now,
       step
     )
   ])
 
-  return formatRangeSeriesByClient(result, start, now, stepSeconds, allClients)
+  return formatRangeSeriesByClient(result, start, now, stepSeconds, allClients, 'client_name', false, true)
 }

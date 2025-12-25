@@ -95,16 +95,16 @@ export default function AuditLogTable({
             <thead>
               <tr className="border-b border-white/10">
                 {[
-                  { label: "Timestamp", key: "date" },
-                  { label: "Client", key: "client" },
-                  { label: "Operation", key: "operation" },
-                  { label: "Status", key: "status" },
-                  { label: "Description", key: "description" },
+                  { label: "Timestamp", key: "date", width: "w-[200px]" },
+                  { label: "Client", key: "client", width: "w-[260px]" },
+                  { label: "Operation", key: "operation", width: "w-[120px]" },
+                  { label: "Status", key: "status", width: "w-[120px]" },
+                  { label: "Description", key: "description", width: "" },
                 ].map((header) => (
                   <th
                     key={header.key}
                     onClick={() => onSort(header.key)}
-                    className="text-left py-4 px-4 font-medium text-neutral-400 cursor-pointer hover:text-white transition-colors select-none group/th"
+                    className={`text-left py-4 px-4 font-medium text-neutral-400 cursor-pointer hover:text-white transition-colors select-none group/th ${header.width}`}
                   >
                     <div className="flex items-center gap-2">
                        {header.label}
