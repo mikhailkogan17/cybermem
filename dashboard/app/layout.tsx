@@ -9,9 +9,8 @@ const _geistMono = Geist_Mono({ subsets: ["latin"] })
 const exo2 = Exo_2({ subsets: ["latin"], variable: "--font-exo2" })
 
 export const metadata: Metadata = {
-  title: "CyberMemMetrics - Memory & Resource Monitoring Dashboard",
-  description: "Real-time monitoring dashboard for service memory usage and resource metrics",
-  generator: "v0.app",
+  title: "CyberMem",
+  description: "Real-time memory operations dashboard",
   icons: {
     icon: '/favicon-dark.svg',
     shortcut: '/favicon-dark.svg',
