@@ -76,12 +76,8 @@ export default function MCPConfigModal({ onClose }: { onClose: () => void }) {
             {config.steps.map((step: string, i: number) => (
               <li key={i} dangerouslySetInnerHTML={{
                 __html: step
-                  .replace(/Settings &gt; Developer &gt; Edit Config/g, '<span class="text-white font-medium">Settings &gt; Developer &gt; Edit Config</span>')
-                  .replace(/Features &gt; MCP/g, '<span class="text-white font-medium">Features &gt; MCP</span>')
-                  .replace(/MCP: Manage Servers/g, '<span class="text-white font-medium">MCP: Manage Servers</span>')
-                  .replace(/claude_desktop_config.json/g, '<code class="text-emerald-400 bg-emerald-500/10 px-1 py-0.5 rounded">claude_desktop_config.json</code>')
-                  .replace(/SSE/g, '<span class="text-white font-medium">SSE</span>')
-                  .replace(/X-API-Key/g, '<span class="text-white font-medium">X-API-Key</span>')
+                  .replace(/\*\*(.*?)\*\*/g, '<span class="text-white font-medium">$1</span>')
+                  .replace(/`([^`]+)`/g, '<code class="text-emerald-400 bg-emerald-500/10 px-1 py-0.5 rounded">$1</code>')
               }} />
             ))}
           </ol>

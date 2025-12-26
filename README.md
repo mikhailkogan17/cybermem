@@ -8,17 +8,14 @@
   </p>
   
   <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="docs/assets/logo-dark.svg">
-    <source media="(prefers-color-scheme: light)" srcset="docs/assets/logo-light.svg">
-    <img alt="CyberMem Logo" src="docs/assets/logo-light.svg" width="600">
+    <source media="(prefers-color-scheme: dark)" srcset="docs/images/logo-dark.svg">
+    <source media="(prefers-color-scheme: light)" srcset="docs/images/logo-light.svg">
+    <img alt="CyberMem Logo" src="docs/images/logo-light.svg" width="600">
   </picture>
 
-  <h1>CyberMem</h1>
   <p><strong>Universal Long-Term Memory for any AI Agent.</strong></p>
   <p>Based on <a href="https://github.com/CaviraOSS/OpenMemory">OpenMemory</a>.</p>
 </div>
-
----
 
 ## Why CyberMem?
 
@@ -47,8 +44,10 @@ curl -fsSL https://raw.githubusercontent.com/mikhailkogan17/cybermem/main/script
 
 Manage your agents' memories with a beautiful, real-time interface.
 
-![Dashboard Preview](docs/assets/dashboard_preview.png)
-*(Replace with actual screenshot link)*
+<img src="docs/images/dashboard1.png" width="49%"></img>
+<img src="docs/images/dashboard2.png" width="49%"></img>
+<img src="docs/images/dashboard3.png" width="49%"></img>
+<img src="docs/images/dashboard4.png" width="49%"></img>
 
 - **Real-time Metrics**: Throughput, latency, and error rates.
 - **Memory Inspector**: View and edit stored memories.

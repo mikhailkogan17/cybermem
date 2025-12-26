@@ -38,15 +38,4 @@ Manage your agents' memories with a beautiful, real-time interface.
 - **Memory Inspector**: View and edit stored memories.
 - **Documentation**: Comprehensive guides and references.
 
-## Architecture
 
-```mermaid
-graph TD
-    Client["Client (Claude/Cursor)"] -->|MCP Protocol| Traefik
-    Traefik -->|Load Balance| OM[OpenMemory API]
-    Traefik -->|Logs| Vector
-    OM -->|Store| DB[(PostgreSQL/SQLite)]
-    Vector -->|Metrics| Prometheus
-    Prometheus -->|Data| Grafana
-    Prometheus -->|Data| Dashboard
-```

@@ -69,3 +69,6 @@ generated/
 docs/.vitepress/dist
 docs/.vitepress/cache
 docs/.vitepress/build
+
+# Generated Documentation
+dashboard/public/docs/
