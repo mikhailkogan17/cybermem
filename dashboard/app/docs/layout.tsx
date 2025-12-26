@@ -9,8 +9,8 @@ const links = [
   { href: "/docs", label: "Overview", icon: Book },
   { href: "/docs/deployment", label: "Deployment", icon: Server },
   // Add placeholder links for future content
-  { href: "#", label: "Api Reference", icon: Code },
-  { href: "#", label: "MCP Integration", icon: FileText },
+  { href: "/docs/api-reference", label: "Api Reference", icon: Code },
+  { href: "/docs/mcp-integration", label: "MCP Integration", icon: FileText },
 ];
 
 export default function DocsLayout({
