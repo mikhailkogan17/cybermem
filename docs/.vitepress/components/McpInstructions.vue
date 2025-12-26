@@ -172,43 +172,6 @@ const renderStep = (step) => {
   font-size: 0.9em;
 }
 
-/* Light Mode Overrides with increased specificity */
-@media (prefers-color-scheme: light) {
-  .client-block {
-    background-color: #f5f5f5 !important;
-    border-color: #e5e5e5 !important;
-  }
-  .client-title {
-    color: #171717 !important;
-  }
-  .client-description,
-  .client-steps,
-  .client-steps li {
-    color: #404040 !important;
-  }
-  .config-block {
-    border-top-color: #e5e5e5 !important;
-  }
-}
-
-/* Force light mode styles if class is applied by VitePress (html:not(.dark)) */
-:global(html:not(.dark)) .client-block {
-    background-color: #f9fafb !important;
-    border-color: #e5e7eb !important;
-}
-:global(html:not(.dark)) .client-title {
-    color: #111827 !important;
-}
-:global(html:not(.dark)) .client-description,
-:global(html:not(.dark)) .client-steps,
-:global(html:not(.dark)) .client-steps li {
-    color: #374151 !important;
-}
-:global(html:not(.dark)) .config-block {
-    border-top-color: #e5e7eb !important;
-}
-
-
 .config-block {
   margin-top: 1rem;
   border-top: 1px solid rgba(255, 255, 255, 0.1);
@@ -221,5 +184,54 @@ const renderStep = (step) => {
   border-radius: 0.5rem;
   overflow-x: auto;
   margin: 0;
+}
+
+/* Light Mode Overrides with EXTREME specificity for Safari */
+@media (prefers-color-scheme: light) {
+  .client-block,
+  .client-block * {
+    color: #000000 !important; /* Force BLACK text */
+  }
+
+  .client-block {
+    background-color: #f3f4f6 !important; /* Solid Grey bg-gray-100 */
+    border: 1px solid #d1d5db !important; /* Solid Border border-gray-300 */
+  }
+
+  .client-description,
+  .client-steps,
+  .client-steps li,
+  .client-title {
+    color: #000000 !important;
+  }
+
+  /* Keep code blocks dark */
+  .shiki, .shiki * {
+    color: inherit !important;
+  }
+
+  /* Keep emerald highlights */
+  .text-emerald-400 {
+    color: #059669 !important; /* Darker emerald for light mode */
+  }
+
+  .config-block {
+    border-top: 1px solid #d1d5db !important;
+  }
+}
+
+/* Force light mode styles if class is applied by VitePress (html:not(.dark)) */
+:global(html:not(.dark)) .client-block {
+    background-color: #f3f4f6 !important;
+    border-color: #d1d5db !important;
+}
+:global(html:not(.dark)) .client-block * {
+    color: #000000 !important;
+}
+:global(html:not(.dark)) .text-emerald-400 {
+    color: #059669 !important;
+}
+:global(html:not(.dark)) .config-block {
+    border-top-color: #d1d5db !important;
 }
 </style>
