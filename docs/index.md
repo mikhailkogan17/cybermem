@@ -19,4 +19,4 @@ CyberMem consists of:
 
 ## Getting Started
 
-Check out the [Deployment Guide](/docs/deployment) to get your server running in minutes.
+Check out the [Deployment Guide](/deployment) to get your server running in minutes.
