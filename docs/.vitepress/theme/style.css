@@ -63,8 +63,15 @@
   background-color: transparent !important;
 }
 
+/* Navbar Line: Grey in Light, White Glass in Dark */
 .VPNavBar .divider {
-  display: none !important;
+  display: block !important;
+  height: 1px !important;
+  background-color: rgba(0, 0, 0, 0.1) !important; /* Light Mode: Grey */
+}
+
+.dark .VPNavBar .divider {
+  background-color: rgba(255, 255, 255, 0.15) !important; /* Dark Mode: White Glass */
 }
 
 .VPNavBar {

@@ -89,6 +89,9 @@ deploy_local() {
 
     case "$ACTION" in
         up)
+            log_info "Generating Documentation..."
+            (cd docs && npm install && npm run build) || log_error "Failed to build documentation"
+
             log_info "Starting services with Ollama..."
             docker-compose --env-file "$ENV_FILE" --profile ollama up -d --remove-orphans --force-recreate
             log_info "Waiting for services to be ready..."

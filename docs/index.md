@@ -1,22 +1,58 @@
 
-# CyberMem Overview
+# CyberMem
 
-**CyberMem** is a high-performance Long Term Memory (LTM) Server designed for AI agents. It bridges the gap between ephemeral context windows and persistent knowledge.
+**Universal Long-Term Memory for any AI Agent.**
 
-## Features
+Based on [OpenMemory](https://github.com/CaviraOSS/OpenMemory).
 
-- **🧠 OpenMemory Engine**: Multi-sector cognitive memory (Semantic, Episodic, Procedural).
-- **📊 Real-time Dashboard**: Track memory operations, latency, and throughput per client.
-- **💎 Glassmorphism UI**: Stunning "Emerald" aesthetic dashboard.
-- **🚀 One-Click Deploy**: Universal `deploy.sh` for Local, Raspberry Pi, and VPS.
+<div align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="/logo.svg">
+    <source media="(prefers-color-scheme: light)" srcset="/logo.svg">
+    <img alt="CyberMem Logo" src="/logo.svg" width="600">
+  </picture>
+</div>
 
-## Architecture
+## Why CyberMem?
 
-CyberMem consists of:
-1. **OpenMemory (Backend)**: Node.js/Express server handling memory operations.
-2. **Dashboard (Frontend)**: Next.js application for management and observability.
-3. **Infrastructure**: Traefik, Vector, Prometheus, Grafana, and PostgreSQL.
+- **Easy to Install**: Get started in seconds with a single command. No complex setup required.
+- **Universal**: Runs smoothy on your Mac, Raspberry Pi, or high-performance Cloud VPS.
+- **Secure & Controlled**: Enterprise-grade monitoring and full sovereignty over your memory data.
 
-## Getting Started
+## 🚀 Installation
 
-Check out the [Deployment Guide](/deployment) to get your server running in minutes.
+### Desktop (Mac/Linux)
+```bash
+curl -fsSL https://raw.githubusercontent.com/mikhailkogan17/cybermem/main/scripts/install.sh | bash
+```
+
+### Raspberry Pi (Cluster)
+```bash
+curl -fsSL https://raw.githubusercontent.com/mikhailkogan17/cybermem/main/scripts/install.sh | bash -s -- --target rpi
+```
+
+### Cloud VPS (Kubernetes)
+```bash
+curl -fsSL https://raw.githubusercontent.com/mikhailkogan17/cybermem/main/scripts/install.sh | bash -s -- --target vps
+```
+
+## 📊 Dashboard
+
+Manage your agents' memories with a beautiful, real-time interface.
+
+- **Real-time Metrics**: Throughput, latency, and error rates.
+- **Memory Inspector**: View and edit stored memories.
+- **Documentation**: Comprehensive guides and references.
+
+## 🏗 Architecture
+
+```mermaid
+graph TD
+    Client["Client (Claude/Cursor)"] -->|MCP Protocol| Traefik
+    Traefik -->|Load Balance| OM[OpenMemory API]
+    Traefik -->|Logs| Vector
+    OM -->|Store| DB[(PostgreSQL/SQLite)]
+    Vector -->|Metrics| Prometheus
+    Prometheus -->|Data| Grafana
+    Prometheus -->|Data| Dashboard
+```

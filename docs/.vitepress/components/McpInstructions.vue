@@ -45,13 +45,7 @@ const renderStep = (step) => {
 <template>
   <div class="mcp-instructions">
     <div v-for="client in filteredConfigs" :key="client.id" :id="client.id" class="client-block">
-      <div class="client-header">
-        <div class="icon-wrapper">
-          <img v-if="client.icon" :src="client.icon" :alt="client.name" class="client-icon" />
-          <div v-else class="client-icon-placeholder">?</div>
-        </div>
-        <h2 class="client-title">{{ client.name }}</h2>
-      </div>
+      <!-- Header removed: now handled in markdown -->
 
       <p class="client-description">{{ client.description }}</p>
 
