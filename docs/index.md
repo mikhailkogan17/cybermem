@@ -19,7 +19,7 @@ Based on [OpenMemory](https://github.com/CaviraOSS/OpenMemory).
 - **Universal**: Runs smoothy on your Mac, Raspberry Pi, or high-performance Cloud VPS.
 - **Secure & Controlled**: Enterprise-grade monitoring and full sovereignty over your memory data.
 
-## 🚀 Installation
+## Installation
 
 ### Desktop (Mac/Linux)
 ```bash
@@ -36,7 +36,7 @@ curl -fsSL https://raw.githubusercontent.com/mikhailkogan17/cybermem/main/script
 curl -fsSL https://raw.githubusercontent.com/mikhailkogan17/cybermem/main/scripts/install.sh | bash -s -- --target vps
 ```
 
-## 📊 Dashboard
+## Dashboard
 
 Manage your agents' memories with a beautiful, real-time interface.
 
@@ -44,7 +44,7 @@ Manage your agents' memories with a beautiful, real-time interface.
 - **Memory Inspector**: View and edit stored memories.
 - **Documentation**: Comprehensive guides and references.
 
-## 🏗 Architecture
+## Architecture
 
 ```mermaid
 graph TD
