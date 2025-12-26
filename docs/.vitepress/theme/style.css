@@ -58,5 +58,14 @@
 /* Glassmorphism Header */
 .VPNav {
   backdrop-filter: blur(12px) !important;
+  border-bottom: none !important;
+  background-color: rgba(11, 17, 22, 0.6) !important;
+}
+
+.VPNavBar {
+  border-bottom: none !important;
+}
+
+.VPLocalNav {
   border-bottom: 1px solid rgba(255,255,255,0.05) !important;
 }
