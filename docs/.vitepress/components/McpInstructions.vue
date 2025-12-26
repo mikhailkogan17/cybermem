@@ -1,5 +1,20 @@
 <script setup>
+import { computed } from 'vue';
 import configs from "../../../dashboard/lib/mcp-config.json";
+
+const props = defineProps({
+  clientId: {
+    type: String,
+    default: null
+  }
+})
+
+const filteredConfigs = computed(() => {
+  if (props.clientId) {
+    return configs.filter(c => c.id === props.clientId)
+  }
+  return configs
+})
 
 const renderStep = (step) => {
   return step
@@ -29,7 +44,7 @@ const renderStep = (step) => {
 
 <template>
   <div class="mcp-instructions">
-    <div v-for="client in configs" :key="client.id" :id="client.id" class="client-block">
+    <div v-for="client in filteredConfigs" :key="client.id" :id="client.id" class="client-block">
       <div class="client-header">
         <div class="icon-wrapper">
           <img v-if="client.icon" :src="client.icon" :alt="client.name" class="client-icon" />
