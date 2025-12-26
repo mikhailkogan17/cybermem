@@ -1,7 +1,7 @@
 "use client"
 
 import { Button } from "@/components/ui/button";
-import { Settings } from "lucide-react";
+import { Book, Settings } from "lucide-react";
 import { useEffect, useState } from "react";
 
 export default function DashboardHeader({
@@ -51,6 +51,18 @@ export default function DashboardHeader({
             >
               <img src="/icons/mcp.png" alt="MCP" className="w-4 h-4 mr-2" />
               Configure MCP
+            </Button>
+
+            <Button
+              variant="ghost"
+              size="sm"
+              asChild
+              className="hidden md:flex h-10 px-4 text-sm font-medium text-neutral-400 hover:text-white bg-white/5 border border-white/10 hover:bg-white/10 rounded-lg"
+            >
+              <a href="/docs" target="_blank">
+                <Book className="w-4 h-4 mr-2" />
+                Docs
+              </a>
             </Button>
 
             <Button

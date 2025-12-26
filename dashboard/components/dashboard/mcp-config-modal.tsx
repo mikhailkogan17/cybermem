@@ -287,6 +287,13 @@ export default function MCPConfigModal({ onClose }: { onClose: () => void }) {
         {/* Footer */}
         <div className="border-t border-emerald-500/20 px-6 py-4 flex justify-end gap-3 flex-none bg-[#0B1116]/30">
           <Button
+            asChild
+            variant="ghost"
+            className="bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/20 text-emerald-400 hover:text-emerald-300 mr-auto"
+          >
+            <a href="/docs" target="_blank">Read Documentation</a>
+          </Button>
+          <Button
             onClick={onClose}
             className="bg-white/5 hover:bg-white/10 border border-white/10 text-neutral-300 transition-colors"
           >

@@ -1,0 +1,43 @@
+name: CyberMem CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: "20"
+
+      - name: Install Dashboard Dependencies
+        run: |
+          cd dashboard
+          npm ci
+
+      - name: Lint Dashboard
+        run: |
+          cd dashboard
+          npm run lint
+
+      - name: Build Dashboard
+        run: |
+          cd dashboard
+          npm run build
+
+      - name: E2E Test (Integration)
+        # This requires docker-compose.
+        # Note: This might fail if Ollama (LLM) is too heavy for GitHub runner.
+        # We might need to mock LLM or use a lighter profile.
+        # For now, we attempt to run it.
+        run: |
+          chmod +x deploy.sh tests/e2e.sh scripts/load_test.sh
+          ./tests/e2e.sh

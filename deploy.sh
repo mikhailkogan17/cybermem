@@ -90,7 +90,7 @@ deploy_local() {
     case "$ACTION" in
         up)
             log_info "Starting services with Ollama..."
-            docker-compose --env-file "$ENV_FILE" --profile ollama up -d
+            docker-compose --env-file "$ENV_FILE" --profile ollama up -d --remove-orphans --force-recreate
             log_info "Waiting for services to be ready..."
             sleep 5
             docker-compose ps
@@ -139,6 +139,8 @@ deploy_rpi() {
             log_error "Action $ACTION not supported for RPi"
             ;;
     esac
+}
+
 interactive_vps_wizard() {
     log_info "Welcome to CyberMem VPS Setup"
     echo "---------------------------------"
