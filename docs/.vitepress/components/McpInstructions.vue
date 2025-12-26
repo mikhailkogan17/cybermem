@@ -167,10 +167,49 @@ const renderStep = (step) => {
   background-color: rgba(16, 185, 129, 0.1);
   padding: 0.125rem 0.375rem;
   border-radius: 0.25rem;
-  color: #34d399;
+  color: #10b981; /* text-emerald-500 for better visibility in light */
   font-family: monospace;
   font-size: 0.9em;
 }
+
+/* Light Mode Overrides */
+@media (prefers-color-scheme: light) {
+  .client-block {
+    background-color: #f5f5f5;
+    border-color: #e5e5e5;
+  }
+  .client-title {
+    color: #171717; /* text-neutral-900 */
+  }
+  .client-description {
+    color: #525252; /* text-neutral-600 */
+  }
+  .client-steps {
+    color: #404040; /* text-neutral-700 */
+  }
+  .config-block {
+    border-top-color: #e5e5e5;
+  }
+}
+
+/* Force light mode styles if class is applied by VitePress theme toggler (html.light) */
+:global(html:not(.dark)) .client-block {
+    background-color: #f9fafb; /* bg-gray-50 */
+    border-color: #e5e7eb; /* border-gray-200 */
+}
+:global(html:not(.dark)) .client-title {
+    color: #111827;
+}
+:global(html:not(.dark)) .client-description {
+    color: #4b5563;
+}
+:global(html:not(.dark)) .client-steps {
+    color: #374151;
+}
+:global(html:not(.dark)) .config-block {
+    border-top-color: #e5e7eb;
+}
+
 
 .config-block {
   margin-top: 1rem;

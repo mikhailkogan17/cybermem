@@ -5,13 +5,7 @@
 
 Based on [OpenMemory](https://github.com/CaviraOSS/OpenMemory).
 
-<div align="center">
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="/logo.svg">
-    <source media="(prefers-color-scheme: light)" srcset="/logo.svg">
-    <img alt="CyberMem Logo" src="/logo.svg" width="600">
-  </picture>
-</div>
+
 
 ## Why CyberMem?
 

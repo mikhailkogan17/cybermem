@@ -12,7 +12,7 @@ export default defineConfig({
   ignoreDeadLinks: true,
 
   themeConfig: {
-    logo: '/logo.svg',
+    logo: { light: '/favicon-light.svg', dark: '/logo.svg' },
     nav: [
       { text: 'Back to Dashboard', link: 'http://localhost:3000', target: '_self' },
     ],
