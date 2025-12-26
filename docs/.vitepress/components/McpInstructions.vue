@@ -172,42 +172,40 @@ const renderStep = (step) => {
   font-size: 0.9em;
 }
 
-/* Light Mode Overrides */
+/* Light Mode Overrides with increased specificity */
 @media (prefers-color-scheme: light) {
   .client-block {
-    background-color: #f5f5f5;
-    border-color: #e5e5e5;
+    background-color: #f5f5f5 !important;
+    border-color: #e5e5e5 !important;
   }
   .client-title {
-    color: #171717; /* text-neutral-900 */
+    color: #171717 !important;
   }
-  .client-description {
-    color: #525252; /* text-neutral-600 */
-  }
-  .client-steps {
-    color: #404040; /* text-neutral-700 */
+  .client-description,
+  .client-steps,
+  .client-steps li {
+    color: #404040 !important;
   }
   .config-block {
-    border-top-color: #e5e5e5;
+    border-top-color: #e5e5e5 !important;
   }
 }
 
-/* Force light mode styles if class is applied by VitePress theme toggler (html.light) */
+/* Force light mode styles if class is applied by VitePress (html:not(.dark)) */
 :global(html:not(.dark)) .client-block {
-    background-color: #f9fafb; /* bg-gray-50 */
-    border-color: #e5e7eb; /* border-gray-200 */
+    background-color: #f9fafb !important;
+    border-color: #e5e7eb !important;
 }
 :global(html:not(.dark)) .client-title {
-    color: #111827;
+    color: #111827 !important;
 }
-:global(html:not(.dark)) .client-description {
-    color: #4b5563;
-}
-:global(html:not(.dark)) .client-steps {
-    color: #374151;
+:global(html:not(.dark)) .client-description,
+:global(html:not(.dark)) .client-steps,
+:global(html:not(.dark)) .client-steps li {
+    color: #374151 !important;
 }
 :global(html:not(.dark)) .config-block {
-    border-top-color: #e5e7eb;
+    border-top-color: #e5e7eb !important;
 }
 
 
