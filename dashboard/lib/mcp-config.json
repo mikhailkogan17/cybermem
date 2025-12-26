@@ -1,0 +1,92 @@
+[
+  {
+    "id": "claude",
+    "name": "Claude Desktop",
+    "icon": "/icons/claude.png",
+    "description": "To use CyberMem with Claude Desktop, you need to edit your configuration file.",
+    "steps": [
+      "Open Claude Desktop",
+      "Go to Settings > Developer > Edit Config",
+      "Add the configuration block below to your claude_desktop_config.json",
+      "Restart Claude Desktop to apply changes"
+    ],
+    "configType": "json"
+  },
+  {
+    "id": "cursor",
+    "name": "Cursor",
+    "icon": "/icons/cursor.png",
+    "description": "Cursor fully supports MCP. Configure it in the settings.",
+    "steps": [
+      "Open Cursor Settings (Cmd+,)",
+      "Navigate to Features > MCP",
+      "Click \"Add New Server\"",
+      "Select \"SSE\" type and enter the URL below"
+    ],
+    "configType": "url"
+  },
+  {
+    "id": "vscode",
+    "name": "VS Code",
+    "icon": "/icons/vscode.png",
+    "description": "Use the MCP Extension for VS Code.",
+    "steps": [
+      "Install the \"MCP\" extension",
+      "Open Command Palette (Cmd+Shift+P)",
+      "Run MCP: Manage Servers",
+      "Add the configuration JSON below"
+    ],
+    "configType": "json"
+  },
+  {
+    "id": "windsurf",
+    "name": "Windsurf",
+    "icon": "/icons/windsurf.png",
+    "description": "Configure via MCP settings.",
+    "steps": ["Open Settings", "Navigate to MCP", "Add Server (SSE)"],
+    "configType": "url"
+  },
+  {
+    "id": "warp",
+    "name": "Warp",
+    "icon": "/icons/warp.png",
+    "description": "Warp integration coming soon.",
+    "steps": [],
+    "configType": "url"
+  },
+  {
+    "id": "claude-code",
+    "name": "Claude Code",
+    "icon": "/icons/claude-code.png",
+    "description": "Add the server directly via the command line.",
+    "steps": ["Run the command below in your terminal"],
+    "configType": "command"
+  },
+  {
+    "id": "chatgpt",
+    "name": "ChatGPT",
+    "icon": "/icons/chatgpt.png",
+    "description": "Requires Developer Mode.",
+    "steps": ["Enable Developer Mode", "Add Custom Server"],
+    "configType": "url"
+  },
+  {
+    "id": "codex",
+    "name": "Codex",
+    "icon": "/icons/codex.png",
+    "description": "Use this TOML configuration for Codex.",
+    "steps": ["Endpoint Type: SSE", "Copy the TOML block below"],
+    "configType": "toml"
+  },
+  {
+    "id": "other",
+    "name": "Other",
+    "icon": null,
+    "description": "For generic MCP clients, use the SSE endpoint details below.",
+    "steps": [
+      "Endpoint Type: SSE (Server-Sent Events)",
+      "Auth: X-API-Key header"
+    ],
+    "configType": "json"
+  }
+]

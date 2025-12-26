@@ -1,0 +1,62 @@
+@import url('https://fonts.googleapis.com/css2?family=Exo+2:ital,wght@0,100..900;1,100..900&display=swap');
+
+:root {
+  --vp-font-family-logo: 'Exo 2', sans-serif;
+}
+
+.VPNavBarTitle .title {
+    font-family: 'Exo 2', sans-serif !important;
+    font-weight: 700 !important;
+    letter-spacing: 0.5px;
+}
+
+/**
+ * Customize default theme styling
+ */
+:root {
+  /* Brand Colors - Emerald */
+  --vp-c-brand-1: #10b981;
+  --vp-c-brand-2: #34d399;
+  --vp-c-brand-3: #6ee7b7;
+  --vp-c-brand-soft: rgba(16, 185, 129, 0.16);
+
+  /* Home Hero Button */
+  --vp-home-hero-name-color: transparent;
+  --vp-home-hero-name-background: -webkit-linear-gradient(120deg, #34d399 30%, #10b981);
+}
+
+.dark {
+  /* Dark Mode Overrides - Match Dashboard #0B1116 */
+  --vp-c-bg: #0B1116;
+  --vp-c-bg-alt: #0F161C;
+  --vp-c-bg-elb: #151e26;
+  --vp-c-bg-soft: #1A242E;
+
+  /* Borders */
+  --vp-c-border: rgba(255, 255, 255, 0.1);
+  --vp-c-divider: rgba(255, 255, 255, 0.1);
+
+  /* Text */
+  --vp-c-text-1: rgba(255, 255, 255, 0.9);
+  --vp-c-text-2: rgba(255, 255, 255, 0.7);
+  --vp-c-text-3: rgba(255, 255, 255, 0.5);
+
+  /* Header matches dashboard */
+  --vp-c-bg-nav: rgba(11, 17, 22, 0.8);
+  --vp-nav-bg-color: rgba(11, 17, 22, 0.8);
+  --vp-c-bg-sidebar: #0B1116;
+  --vp-sidebar-bg-color: #0B1116;
+}
+
+/* Force Emerald Accent everywhere */
+:root {
+  --vp-c-brand-1: #10b981;
+  --vp-c-brand-2: #34d399; /* hover */
+  --vp-c-brand-3: #10b981;
+}
+
+/* Glassmorphism Header */
+.VPNav {
+  backdrop-filter: blur(12px) !important;
+  border-bottom: 1px solid rgba(255,255,255,0.05) !important;
+}

@@ -1,20 +1,11 @@
 "use client"
 
 import { Button } from "@/components/ui/button"
-import { Check, Copy, FileCode, Info, Monitor, Terminal, X } from "lucide-react"
+import { Check, Copy, FileCode, Info, Monitor, X } from "lucide-react"
 import { useEffect, useState } from "react"
 
-const clients = [
-  { id: "claude", name: "Claude Desktop", icon: "/icons/claude.png" },
-  { id: "cursor", name: "Cursor", icon: "/icons/cursor.png" },
-  { id: "vscode", name: "VS Code", icon: "/icons/vscode.png" },
-  { id: "windsurf", name: "Windsurf", icon: "/icons/windsurf.png" },
-  { id: "warp", name: "Warp", icon: "/icons/warp.png" },
-  { id: "claude-code", name: "Claude Code", icon: "/icons/claude-code.png" },
-  { id: "chatgpt", name: "ChatGPT", icon: "/icons/chatgpt.png" },
-  { id: "codex", name: "Codex", icon: "/icons/codex.png" },
-  { id: "other", name: "Other", icon: null },
-]
+import configs from "@/lib/mcp-config.json"
+const clients = configs
 
 export default function MCPConfigModal({ onClose }: { onClose: () => void }) {
   const [selectedClient, setSelectedClient] = useState("claude")
@@ -74,91 +65,29 @@ export default function MCPConfigModal({ onClose }: { onClose: () => void }) {
   }
 
   const renderInstructions = () => {
-    switch (selectedClient) {
-      case "claude":
-        return (
-          <div className="space-y-4 text-sm text-neutral-300">
-            <p>To use CyberMem with Claude Desktop, you need to edit your configuration file.</p>
-            <ol className="list-decimal list-inside space-y-2 ml-2 text-neutral-400">
-              <li>Open Claude Desktop</li>
-              <li>Go to <span className="text-white font-medium">Settings &gt; Developer &gt; Edit Config</span></li>
-              <li>Add the configuration block below to your <code className="text-emerald-400 bg-emerald-500/10 px-1 py-0.5 rounded">claude_desktop_config.json</code></li>
-              <li>Restart Claude Desktop to apply changes</li>
-            </ol>
-          </div>
-        )
-      case "cursor":
-        return (
-          <div className="space-y-4 text-sm text-neutral-300">
-             <p>Cursor fully supports MCP. Configure it in the settings.</p>
-             <ol className="list-decimal list-inside space-y-2 ml-2 text-neutral-400">
-               <li>Open Cursor Settings (Cmd+,)</li>
-               <li>Navigate to <span className="text-white font-medium">Features &gt; MCP</span></li>
-               <li>Click "Add New Server"</li>
-               <li>Select "SSE" type and enter the URL below</li>
-             </ol>
-          </div>
-        )
-      case "vscode":
-        return (
-          <div className="space-y-4 text-sm text-neutral-300">
-             <p>Use the MCP Extension for VS Code.</p>
-             <ol className="list-decimal list-inside space-y-2 ml-2 text-neutral-400">
-               <li>Install the "MCP" extension</li>
-               <li>Open Command Palette (Cmd+Shift+P)</li>
-               <li>Run <span className="text-white font-medium">MCP: Manage Servers</span></li>
-               <li>Add the configuration JSON below</li>
-             </ol>
-          </div>
-        )
-      case "claude-code":
-        return (
-          <div className="space-y-4 text-sm text-neutral-300">
-             <p>Add the server directly via the command line.</p>
-             <div className="relative group">
-                <div className="relative pl-5 py-5 pr-24 rounded-lg bg-[#0F161C] border border-white/10 font-mono text-xs md:text-sm text-white overflow-x-auto shadow-[0_0_20px_rgba(0,0,0,0.3)] inset-shadow">
-                  <div className="flex items-center gap-3">
-                    <Terminal className="w-4 h-4 text-white stroke-[2.5] shrink-0" />
-                    <code className="text-white text-shadow-sm">claude mcp add cybermem {baseUrl}/mcp</code>
-                  </div>
-                </div>
-                <div className="absolute top-1/2 -translate-y-1/2 right-4 opacity-0 group-hover:opacity-100 transition-opacity">
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    className="h-8 px-3 text-white bg-black/40 backdrop-blur border border-white/5 shadow-[0_0_10px_rgba(255,255,255,0.05)] hover:bg-white/10 hover:text-white font-medium"
-                    onClick={() => copyToClipboard(`claude mcp add cybermem ${baseUrl}/mcp`, "cmd")}
-                  >
-                    {copiedId === "cmd" ? <Check className="h-4 w-4 stroke-[2.5] text-emerald-400 mr-2 drop-shadow-[0_0_5px_rgba(52,211,153,0.5)]" /> : <Copy className="h-4 w-4 stroke-[2.5] mr-2 text-white drop-shadow-[0_0_5px_rgba(255,255,255,0.3)]" />}
-                    {copiedId === "cmd" ? <span className="text-emerald-400 text-shadow-sm">Copied</span> : <span className="text-white text-shadow-sm">Copy</span>}
-                  </Button>
-                </div>
-             </div>
-          </div>
-        )
-      case "codex":
-        return (
-          <div className="space-y-4 text-sm text-neutral-300">
-            <p>Use this TOML configuration for Codex.</p>
-            <ul className="list-disc list-inside space-y-2 ml-2 text-neutral-400">
-              <li>Endpoint Type: <span className="text-white font-medium">SSE</span></li>
-              <li>URL: <code className="text-emerald-400">{baseUrl}/mcp</code></li>
-              <li>Copy the TOML block below</li>
-            </ul>
-          </div>
-        )
-      default:
-        return (
-          <div className="space-y-4 text-sm text-neutral-300">
-            <p>For generic MCP clients, use the SSE endpoint details below.</p>
-            <ul className="list-disc list-inside space-y-2 ml-2 text-neutral-400">
-              <li>Endpoint Type: <span className="text-white font-medium">SSE (Server-Sent Events)</span></li>
-              <li>URL: <code className="text-emerald-400">{baseUrl}/mcp</code></li>
-              <li>Auth: <span className="text-white font-medium">X-API-Key</span> header</li>
-            </ul>
-          </div>
-        )
-    }
+    const config = (configs as any[]).find(c => c.id === selectedClient)
+    if (!config) return null
+
+    return (
+      <div className="space-y-4 text-sm text-neutral-300">
+        <p>{config.description}</p>
+        {config.steps.length > 0 && (
+          <ol className="list-decimal list-inside space-y-2 ml-2 text-neutral-400">
+            {config.steps.map((step: string, i: number) => (
+              <li key={i} dangerouslySetInnerHTML={{
+                __html: step
+                  .replace(/Settings &gt; Developer &gt; Edit Config/g, '<span class="text-white font-medium">Settings &gt; Developer &gt; Edit Config</span>')
+                  .replace(/Features &gt; MCP/g, '<span class="text-white font-medium">Features &gt; MCP</span>')
+                  .replace(/MCP: Manage Servers/g, '<span class="text-white font-medium">MCP: Manage Servers</span>')
+                  .replace(/claude_desktop_config.json/g, '<code class="text-emerald-400 bg-emerald-500/10 px-1 py-0.5 rounded">claude_desktop_config.json</code>')
+                  .replace(/SSE/g, '<span class="text-white font-medium">SSE</span>')
+                  .replace(/X-API-Key/g, '<span class="text-white font-medium">X-API-Key</span>')
+              }} />
+            ))}
+          </ol>
+        )}
+      </div>
+    )
   }
 
   const configContent = getConfigContent()
@@ -182,7 +111,7 @@ export default function MCPConfigModal({ onClose }: { onClose: () => void }) {
               <div className="p-2 bg-white/5 rounded-lg border border-white/10 shadow-inner">
                 <img src="/icons/mcp.png" alt="MCP Logo" className="w-5 h-5 drop-shadow-[0_0_5px_rgba(255,255,255,0.3)]" />
               </div>
-              <h2 className="text-xl font-semibold text-white text-shadow-sm">Connect to MCP Client</h2>
+              <h2 className="text-xl font-semibold text-white text-shadow-sm">Integrate MCP Client</h2>
           </div>
           <Button
             variant="ghost"

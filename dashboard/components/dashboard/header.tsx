@@ -50,7 +50,7 @@ export default function DashboardHeader({
               className="hidden md:flex h-10 px-4 text-sm font-medium bg-emerald-500/10 text-emerald-400 hover:text-emerald-300 hover:bg-emerald-500/20 border border-emerald-500/20 hover:border-emerald-500/40 rounded-lg"
             >
               <img src="/icons/mcp.png" alt="MCP" className="w-4 h-4 mr-2" />
-              MCP Configuration
+              Connect MCP
             </Button>
 
             <Button
@@ -79,3 +79,4 @@ export default function DashboardHeader({
     </header>
   )
 }
+

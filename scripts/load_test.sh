@@ -18,7 +18,7 @@ for i in $(seq 1 $COUNT); do
         -H "Content-Type: application/json" \
         -d "{\"content\": \"$CONTENT\", \"userId\": \"$CLIENT_ID\"}")
 
-    if [[ $i -mod 10 == 0 ]]; then
+    if (( i % 10 == 0 )); then
         echo "  - Processed $i/$COUNT operations"
     fi
 done

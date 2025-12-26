@@ -14,9 +14,7 @@ export default defineConfig({
   themeConfig: {
     logo: '/logo.svg',
     nav: [
-      { text: 'Home', link: '/' },
-      { text: 'Deployment', link: '/deployment' },
-      { text: 'API', link: '/api-reference' },
+      { text: 'Back to Dashboard', link: 'http://localhost:3000', target: '_self' },
     ],
 
     sidebar: [
@@ -25,7 +23,6 @@ export default defineConfig({
         items: [
           { text: 'Overview', link: '/' },
           { text: 'Deployment', link: '/deployment' },
-          { text: 'API Reference', link: '/api-reference' },
           { text: 'MCP Integration', link: '/mcp-integration' },
         ]
       }
