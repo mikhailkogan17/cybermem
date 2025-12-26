@@ -182,7 +182,7 @@ export default function MCPConfigModal({ onClose }: { onClose: () => void }) {
               <div className="p-2 bg-white/5 rounded-lg border border-white/10 shadow-inner">
                 <img src="/icons/mcp.png" alt="MCP Logo" className="w-5 h-5 drop-shadow-[0_0_5px_rgba(255,255,255,0.3)]" />
               </div>
-              <h2 className="text-xl font-semibold text-white text-shadow-sm">Configure MCP Server</h2>
+              <h2 className="text-xl font-semibold text-white text-shadow-sm">Connect to MCP Client</h2>
           </div>
           <Button
             variant="ghost"

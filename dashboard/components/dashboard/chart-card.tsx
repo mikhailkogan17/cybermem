@@ -206,14 +206,16 @@ export default function ChartCard({ service }: ChartCardProps) {
                   labelStyle={{ color: "#9ca3af", marginBottom: "8px", fontSize: "12px", fontWeight: 500 }}
                   cursor={{ stroke: 'rgba(255,255,255,0.2)', strokeWidth: 1 }}
                 />
-                <Legend
-                  verticalAlign="bottom"
-                  height={36}
-                  iconType="circle"
-                  onMouseEnter={(e) => setHovered(e.dataKey)}
-                  onMouseLeave={() => setHovered(null)}
-                  formatter={(value) => <span className="text-white">{value}</span>}
-                />
+                {isMultiSeries && (
+                  <Legend
+                    verticalAlign="bottom"
+                    height={36}
+                    iconType="circle"
+                    onMouseEnter={(e) => setHovered(e.dataKey)}
+                    onMouseLeave={() => setHovered(null)}
+                    formatter={(value) => <span className="text-white">{value}</span>}
+                  />
+                )}
                 {isMultiSeries ? (
                   clientNames.map((client, i) => {
                      const color = CLIENT_COLORS[client.toLowerCase()] || FALLBACK_PALETTE[i % FALLBACK_PALETTE.length]
