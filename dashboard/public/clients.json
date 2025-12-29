@@ -38,7 +38,10 @@
     "color": "#d946ef",
     "icon": "/icons/antigravity.png",
     "description": "The Antigravity AI Agent.",
-    "steps": [],
+    "steps": [
+      "Configure Antigravity to use the endpoint below",
+      "Restart the agent"
+    ],
     "configType": "json"
   },
   {
@@ -76,7 +79,7 @@
     "color": "#0ea5e9",
     "icon": "/icons/warp.png",
     "description": "Warp integration coming soon.",
-    "steps": [],
+    "steps": ["Use the configuration below to enable MCP in Warp"],
     "configType": "json"
   },
   {
