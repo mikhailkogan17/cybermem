@@ -1,24 +1,23 @@
-import { getAllClients } from '@/lib/client-metadata'
 import {
-    getClientCount,
-    getLastReader,
-    getLastWriter,
-    getMemoryRecordsCount,
-    getMemoryRecordsSparkline,
-    getRequestsByClient,
-    getRequestsByMethod,
-    getRequestsTimeSeries,
-    getRequestsTimeSeriesByMethod,
-    getResponseTimeTimeSeries,
-    getSuccessRate,
-    getSuccessRateByClient,
-    getSuccessRateSparkline,
-    getSuccessRateTimeSeries,
-    getTopReader,
-    getTopWriter,
-    getTotalClientsSparkline,
-    getTotalRequests,
-    getTotalRequestsSparkline
+  getClientCount,
+  getLastReader,
+  getLastWriter,
+  getMemoryRecordsCount,
+  getMemoryRecordsSparkline,
+  getRequestsByClient,
+  getRequestsByMethod,
+  getRequestsTimeSeries,
+  getRequestsTimeSeriesByMethod,
+  getResponseTimeTimeSeries,
+  getSuccessRate,
+  getSuccessRateByClient,
+  getSuccessRateSparkline,
+  getSuccessRateTimeSeries,
+  getTopReader,
+  getTopWriter,
+  getTotalClientsSparkline,
+  getTotalRequests,
+  getTotalRequestsSparkline
 } from '@/lib/prometheus'
 import { NextResponse } from 'next/server'
 
@@ -137,8 +136,7 @@ export async function GET(request: Request) {
         totalRequests: requestsSparkline,
         totalClients: clientsSparkline,
         successRate: successSparkline
-      },
-      metadata: getAllClients()
+      }
     })
   } catch (error) {
     console.error('Error fetching metrics:', error)
