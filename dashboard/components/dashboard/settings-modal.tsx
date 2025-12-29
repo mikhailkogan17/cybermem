@@ -13,7 +13,15 @@ export default function SettingsModal({ onClose }: { onClose: () => void }) {
 
   const [showApiKey, setShowApiKey] = useState(false)
   const [showAdminPassword, setShowAdminPassword] = useState(false)
+  const [demoMode, setDemoMode] = useState(false) // Demo mode state
   const [saved, setSaved] = useState(false)
+
+  // Load demo mode setting
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      setDemoMode(localStorage.getItem("demoMode") === "true")
+    }
+  }, [])
 
   // Set endpoint based on current hostname
   useEffect(() => {
@@ -33,6 +41,7 @@ export default function SettingsModal({ onClose }: { onClose: () => void }) {
   const handleSave = () => {
     // Save admin password to localStorage
     localStorage.setItem("adminPassword", adminPassword)
+    localStorage.setItem("demoMode", String(demoMode))
     setSaved(true)
     setTimeout(() => setSaved(false), 2000)
   }
@@ -170,6 +179,26 @@ export default function SettingsModal({ onClose }: { onClose: () => void }) {
                     <span className="text-xs uppercase tracking-wider text-neutral-500 font-semibold">Environment</span>
                     <p className="text-emerald-400 font-mono mt-1 text-shadow-emerald">Production</p>
                 </div>
+              </div>
+              <div className="mt-4 pt-4 border-t border-white/10 flex items-center justify-between">
+                 <div>
+                    <label htmlFor="demo-mode" className="text-neutral-200 font-medium block">Demo Mode</label>
+                    <p className="text-xs text-neutral-500 mt-1">Generate simulated traffic for demonstration</p>
+                 </div>
+                 <div className="relative inline-block w-12 h-6 transition duration-200 ease-in-out rounded-full border border-white/10">
+                    <input
+                        type="checkbox"
+                        id="demo-mode"
+                        className="peer absolute w-0 h-0 opacity-0"
+                        checked={demoMode}
+                        onChange={(e) => setDemoMode(e.target.checked)}
+                    />
+                    <label
+                        htmlFor="demo-mode"
+                        className={`block w-full h-full rounded-full cursor-pointer transition-colors duration-300 ${demoMode ? "bg-emerald-500/30" : "bg-black/40"}`}
+                    ></label>
+                    <div className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow-md transform transition-transform duration-300 ${demoMode ? "translate-x-6 bg-emerald-100" : "translate-x-0 bg-neutral-400"}`}></div>
+                 </div>
               </div>
             </div>
           </section>

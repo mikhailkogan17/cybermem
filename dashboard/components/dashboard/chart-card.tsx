@@ -9,20 +9,19 @@ interface ChartCardProps {
   service: string
 }
 
-const CLIENT_COLORS: Record<string, string> = {
-  'openai': '#FFFFFF',           // white
-  'claude': '#FF7A00',           // orange
-  'cursor': '#2D2D2D',           // dark gray
-  'vscode': '#007ACC',           // VS Code blue
-  'claude-code': '#FF7A00',      // orange
-  'claude-desktop': '#FF7A00',   // orange
-  'claude desktop': '#FF7A00',   // orange (with space)
-  'github-copilot': '#000000',   // black
-  'windsurf': '#00D4FF',         // cyan
-  'anonymous': '#666666',        // gray
+// Fallback color generator
+function stringToColor(str: string): string {
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    hash = str.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  let color = '#';
+  for (let i = 0; i < 3; i++) {
+    const value = (hash >> (i * 8)) & 0xFF;
+    color += ('00' + value.toString(16)).substr(-2);
+  }
+  return color;
 }
-
-const FALLBACK_PALETTE = ["#10b981", "#06b6d4", "#8b5cf6", "#f59e0b", "#ef4444"]
 
 const periods = [
   { value: "1h", label: "1 Hour" },
@@ -37,7 +36,16 @@ export default function ChartCard({ service }: ChartCardProps) {
   const [hovered, setHovered] = useState<string | null>(null)
   const [data, setData] = useState<any[]>([])
   const [clientNames, setClientNames] = useState<string[]>([])
+  const [clientMetadata, setClientMetadata] = useState<Record<string, any>>({})
   const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    // Fetch client metadata
+    fetch('/api/clients')
+      .then(res => res.json())
+      .then(setClientMetadata)
+      .catch(console.error)
+  }, [])
 
   useEffect(() => {
     async function fetchData() {
@@ -46,6 +54,11 @@ export default function ChartCard({ service }: ChartCardProps) {
         const res = await fetch(`/api/metrics?period=${period}`)
         if (res.ok) {
           const apiData = await res.json()
+
+          // Update client metadata if provided in response
+          if (apiData.metadata) {
+            setClientMetadata(prev => ({ ...prev, ...apiData.metadata }))
+          }
 
           if (apiData.timeSeries) {
             // Helper to format time based on period
@@ -211,14 +224,23 @@ export default function ChartCard({ service }: ChartCardProps) {
                     verticalAlign="bottom"
                     height={36}
                     iconType="circle"
-                    onMouseEnter={(e) => setHovered(e.dataKey)}
+                    onMouseEnter={(e) => {
+                      if (e.dataKey) setHovered(e.dataKey.toString())
+                    }}
                     onMouseLeave={() => setHovered(null)}
-                    formatter={(value) => <span className="text-white">{value}</span>}
+                    formatter={(value, entry: any) => {
+                      const key = entry.dataKey;
+                      // Normalize client key to match metadata ID (lowercase)
+                      const meta = clientMetadata[key.toString().toLowerCase()];
+                      return <span className="text-white">{meta?.name || value}</span>
+                    }}
                   />
                 )}
                 {isMultiSeries ? (
                   clientNames.map((client, i) => {
-                     const color = CLIENT_COLORS[client.toLowerCase()] || FALLBACK_PALETTE[i % FALLBACK_PALETTE.length]
+                     // Normalize client key to match metadata ID (lowercase)
+                     const meta = clientMetadata[client.toLowerCase()]
+                     const color = meta?.color || stringToColor(client)
                      const isHovered = hovered === client
                      const isAnyHovered = hovered !== null
 
@@ -227,6 +249,7 @@ export default function ChartCard({ service }: ChartCardProps) {
                          key={client}
                          type="monotone"
                          dataKey={client}
+                         name={meta?.name || client}
                          stroke={color}
                          strokeWidth={isHovered ? 2.5 : 1.5}
                          fillOpacity={isHovered ? 0.5 : (isAnyHovered ? 0.1 : 0.2)}

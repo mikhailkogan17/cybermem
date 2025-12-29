@@ -3,23 +3,6 @@
 import { Card, CardContent } from "@/components/ui/card"
 import MetricCard from "./metric-card"
 
-// Constants from dashboard_old
-const CLIENT_DISPLAY_NAMES: Record<string, string> = {
-  'claude-code': 'Claude Code',
-  'claude-desktop': 'Claude Desktop',
-  'cursor': 'Cursor',
-  'vscode': 'VS Code',
-  'production': 'Production',
-  'staging': 'Staging',
-  'dev': 'Development',
-  'anonymous': 'Anonymous',
-  'Anonymous': 'Anonymous',
-}
-
-const getClientDisplayName = (clientId: string): string => {
-  return CLIENT_DISPLAY_NAMES[clientId] || clientId
-}
-
 // Types
 interface TrendState {
   change: string
@@ -103,7 +86,7 @@ export default function MetricsGrid({ stats, trends }: MetricsGridProps) {
       <Card className="bg-white/5 border-white/10 backdrop-blur-md text-white shadow-lg overflow-hidden">
         <CardContent className="pt-6 pb-6 relative">
           <div className="text-sm font-medium text-slate-400 mb-2">Top Writer</div>
-          <div className="text-4xl font-bold text-white mb-1 truncate">{getClientDisplayName(stats.topWriter.name)}</div>
+          <div className="text-4xl font-bold text-white mb-1 truncate">{stats.topWriter.name}</div>
           <div className="text-xl text-white/80 whitespace-nowrap">
             {stats.topWriter.count > 0 ? `${stats.topWriter.count.toLocaleString()} writes` : ""}
           </div>
@@ -115,7 +98,7 @@ export default function MetricsGrid({ stats, trends }: MetricsGridProps) {
         <CardContent className="pt-6 pb-6 relative">
           <div className="text-sm font-medium text-slate-400 mb-2">Top Reader</div>
           <div className="text-4xl font-bold text-white mb-1 truncate">
-            {stats.topReader.count > 0 ? getClientDisplayName(stats.topReader.name) : "N/A"}
+            {stats.topReader.count > 0 ? stats.topReader.name : "N/A"}
           </div>
           <div className="text-xl text-white/80 whitespace-nowrap">
             {stats.topReader.count > 0 ? `${stats.topReader.count.toLocaleString()} reads` : ""}
@@ -128,7 +111,7 @@ export default function MetricsGrid({ stats, trends }: MetricsGridProps) {
         <CardContent className="pt-6 pb-6 relative">
           <div className="text-sm font-medium text-slate-400 mb-2">Last Writer</div>
           <div className="text-4xl font-bold text-white mb-1 truncate">
-            {stats.lastWriter.name !== "N/A" ? getClientDisplayName(stats.lastWriter.name) : "N/A"}
+            {stats.lastWriter.name !== "N/A" ? stats.lastWriter.name : "N/A"}
           </div>
           <div className="text-xl text-white/80 whitespace-nowrap">
             {stats.lastWriter.timestamp > 0 ? formatTimestamp(stats.lastWriter.timestamp) : "No activity"}
@@ -141,7 +124,7 @@ export default function MetricsGrid({ stats, trends }: MetricsGridProps) {
         <CardContent className="pt-6 pb-6 relative">
           <div className="text-sm font-medium text-slate-400 mb-2">Last Reader</div>
           <div className="text-4xl font-bold text-white mb-1 truncate">
-            {stats.lastReader.name !== "N/A" ? getClientDisplayName(stats.lastReader.name) : "N/A"}
+            {stats.lastReader.name !== "N/A" ? stats.lastReader.name : "N/A"}
           </div>
           <div className="text-xl text-white/80 whitespace-nowrap">
             {stats.lastReader.timestamp > 0 ? formatTimestamp(stats.lastReader.timestamp) : "No activity"}

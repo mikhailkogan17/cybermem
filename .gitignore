@@ -62,8 +62,9 @@ charts/*/Chart.lock
 # Generated files
 generated/
 
-# Private learning data
-.claude/
+# Private Context
+.context.private.md
+
 
 # VitePress
 docs/.vitepress/dist

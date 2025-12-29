@@ -12,6 +12,9 @@ services:
       - --providers.docker=true
       - --providers.docker.exposedbydefault=false
       - --entrypoints.web.address=:80
+      - --accesslog=true
+      - --accesslog.filepath=/var/log/traefik/access.log
+      - --accesslog.format=json
     ports:
       - "80:80"
       - "8081:8080"
@@ -54,7 +57,7 @@ services:
 
       # Performance
       OM_RATE_LIMIT_ENABLED: "true"
-      OM_RATE_LIMIT_MAX_REQUESTS: "100"
+      OM_RATE_LIMIT_MAX_REQUESTS: "1000"
     # Directly expose port 8080 for debugging/direct access
     ports:
       - "8080:8080"
@@ -62,7 +65,7 @@ services:
       - openmemory-data:/data
     labels:
       - traefik.enable=true
-      - traefik.http.routers.openmemory.rule=PathPrefix(`/memory`) || PathPrefix(`/health`)
+      - traefik.http.routers.openmemory.rule=PathPrefix(`/memory`) || PathPrefix(`/health`) || PathPrefix(`/v1`)
       - traefik.http.services.openmemory.loadbalancer.server.port=8080
     healthcheck:
       test:
@@ -194,6 +197,7 @@ services:
     environment:
       NEXT_PUBLIC_PROMETHEUS_URL: http://prometheus:9090
       PROMETHEUS_URL: http://prometheus:9090
+      OM_API_KEY: ${OM_API_KEY:-dev-secret-key}
       # WATCHPACK_POLLING: "true" # Enable if hot reload blocks (high CPU usage)
     ports:
       - "3000:3000"
