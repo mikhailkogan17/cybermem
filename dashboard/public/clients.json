@@ -29,7 +29,7 @@
       "Enter Type: `SSE`",
       "Enter URL: `http://localhost:8080/mcp`"
     ],
-    "configType": "url"
+    "configType": "json"
   },
   {
     "id": "antigravity",
@@ -39,7 +39,7 @@
     "icon": "/icons/antigravity.png",
     "description": "The Antigravity AI Agent.",
     "steps": [],
-    "configType": "none"
+    "configType": "json"
   },
   {
     "id": "vscode",
@@ -67,7 +67,7 @@
       "Open `~/.codeium/windsurf/mcp_config.json`",
       "Add the configuration block"
     ],
-    "configType": "url"
+    "configType": "json"
   },
   {
     "id": "warp",
@@ -77,7 +77,7 @@
     "icon": "/icons/warp.png",
     "description": "Warp integration coming soon.",
     "steps": [],
-    "configType": "url"
+    "configType": "json"
   },
   {
     "id": "claude-code",
@@ -97,7 +97,7 @@
     "icon": "/icons/chatgpt.png",
     "description": "Requires Developer Mode.",
     "steps": ["Enable Developer Mode", "Add Custom Server"],
-    "configType": "url"
+    "configType": "json"
   },
   {
     "id": "codex",
