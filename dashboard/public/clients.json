@@ -42,16 +42,6 @@
     "configType": "none"
   },
   {
-    "id": "openai",
-    "name": "OpenAI",
-    "match": "openai",
-    "color": "#4aa081",
-    "icon": "/icons/openai.png",
-    "description": "OpenAI Models",
-    "steps": [],
-    "configType": "none"
-  },
-  {
     "id": "vscode",
     "name": "VS Code",
     "match": "vscode",
