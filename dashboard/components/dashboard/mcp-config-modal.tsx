@@ -67,16 +67,17 @@ export default function MCPConfigModal({ onClose }: { onClose: () => void }) {
     })
   }
 
+  const selectedConfig = (clients as any[]).find(c => c.id === selectedClient)
+
   const renderInstructions = () => {
-    const config = (clients as any[]).find(c => c.id === selectedClient)
-    if (!config) return null
+    if (!selectedConfig) return null
 
     return (
       <div className="space-y-4 text-sm text-neutral-300">
-        <p>{config.description}</p>
-        {config.steps.length > 0 && (
+        <p>{selectedConfig.description}</p>
+        {selectedConfig.steps.length > 0 && (
           <ol className="list-decimal list-inside space-y-2 ml-2 text-neutral-400">
-            {config.steps.map((step: string, i: number) => (
+            {selectedConfig.steps.map((step: string, i: number) => (
               <li key={i} dangerouslySetInnerHTML={{
                 __html: step
                   .replace(/\*\*(.*?)\*\*/g, '<span class="text-white font-medium">$1</span>')
