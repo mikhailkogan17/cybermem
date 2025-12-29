@@ -36,6 +36,9 @@ export default function MCPConfigModal({ onClose }: { onClose: () => void }) {
     if (selectedClient === "codex") {
       return `# CyberMem Configuration\n[mcp]\nserver_url = "${baseUrl}/mcp"\napi_key = "${apiKey}"`
     }
+    if (selectedClient === "claude-code") {
+      return `npx -y @modelcontextprotocol/server-sse --url ${baseUrl}/mcp`
+    }
     return JSON.stringify(mcpConfig, null, 2)
   }
 
@@ -174,15 +177,18 @@ export default function MCPConfigModal({ onClose }: { onClose: () => void }) {
 
                 {renderInstructions()}
 
-                {selectedClient !== "claude-code" && (
+                {true && (
                   <div className="relative group">
                     <div className="relative pl-5 py-5 pr-24 rounded-lg bg-[#0F161C] border border-white/10 font-mono text-xs md:text-sm text-white overflow-x-auto shadow-[0_0_20px_rgba(0,0,0,0.3)] inset-shadow">
                       <pre className="text-shadow-sm">
-                        {selectedClient === "codex" ? (
-                          configContent
-                        ) : (
-                          <code dangerouslySetInnerHTML={{ __html: highlightJSON(mcpConfig) }} />
-                        )}
+                        {(() => {
+                          const config = (clients as any[]).find(c => c.id === selectedClient);
+                          if (config?.configType === 'json') {
+                             return <code dangerouslySetInnerHTML={{ __html: highlightJSON(mcpConfig) }} />;
+                          } else {
+                             return configContent;
+                          }
+                        })()}
                       </pre>
                     </div>
                     <div className="absolute top-5 right-4 opacity-0 group-hover:opacity-100 transition-opacity">
