@@ -43,7 +43,10 @@ export default function ChartCard({ service }: ChartCardProps) {
 
   useEffect(() => {
     async function fetchData() {
-      setLoading(true)
+      // Only show loading state on initial load or period change, not background refresh
+      // We check if data is empty to determine initial load
+      if (data.length === 0) setLoading(true)
+
       try {
         const timeSeriesData = await strategy.getChartData(period)
 
