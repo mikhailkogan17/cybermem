@@ -33,12 +33,8 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
   const [refreshSignal, setRefreshSignal] = useState(0)
   const [clientConfigs, setClientConfigs] = useState<ClientConfig[]>([])
 
-  // Initialize from local storage and load config
+  // Load configuration on mount
   useEffect(() => {
-    const savedDemo = localStorage.getItem("demoMode") === "true"
-    setIsDemo(savedDemo)
-    setStrategy(savedDemo ? new DemoDataSource() : new ProductionDataSource())
-
     // Load client config
     fetch("/clients.json")
         .then(res => res.json())
@@ -49,7 +45,6 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
   const toggleDemo = () => {
     const newState = !isDemo
     setIsDemo(newState)
-    localStorage.setItem("demoMode", String(newState))
     setStrategy(newState ? new DemoDataSource() : new ProductionDataSource())
     setRefreshSignal(prev => prev + 1)
   }
