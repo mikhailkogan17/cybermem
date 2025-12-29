@@ -3,6 +3,7 @@
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { useDashboard } from "@/lib/data/dashboard-context"
 import { Eye, EyeOff, Key, RefreshCw, Save, Server, Settings, Shield, X } from "lucide-react"
 import { useEffect, useState } from "react"
 
@@ -11,17 +12,10 @@ export default function SettingsModal({ onClose }: { onClose: () => void }) {
   const [endpoint, setEndpoint] = useState("http://localhost:8080")
   const [adminPassword, setAdminPassword] = useState(localStorage.getItem("adminPassword") || "admin")
 
+  const { isDemo, toggleDemo } = useDashboard()
   const [showApiKey, setShowApiKey] = useState(false)
   const [showAdminPassword, setShowAdminPassword] = useState(false)
-  const [demoMode, setDemoMode] = useState(false) // Demo mode state
-  const [saved, setSaved] = useState(false)
-
-  // Load demo mode setting
-  useEffect(() => {
-    if (typeof window !== "undefined") {
-      setDemoMode(localStorage.getItem("demoMode") === "true")
-    }
-  }, [])
+  /* Demo mode controlled by context now */
 
   // Set endpoint based on current hostname
   useEffect(() => {
@@ -38,10 +32,11 @@ export default function SettingsModal({ onClose }: { onClose: () => void }) {
     setShowApiKey(true) // Automatically show the new key
   }
 
+  const [saved, setSaved] = useState(false)
+
   const handleSave = () => {
     // Save admin password to localStorage
     localStorage.setItem("adminPassword", adminPassword)
-    localStorage.setItem("demoMode", String(demoMode))
     setSaved(true)
     setTimeout(() => setSaved(false), 2000)
   }
@@ -186,18 +181,18 @@ export default function SettingsModal({ onClose }: { onClose: () => void }) {
                     <p className="text-xs text-neutral-500 mt-1">Generate simulated traffic for demonstration</p>
                  </div>
                  <div className="relative inline-block w-12 h-6 transition duration-200 ease-in-out rounded-full border border-white/10">
-                    <input
+                     <input
                         type="checkbox"
                         id="demo-mode"
                         className="peer absolute w-0 h-0 opacity-0"
-                        checked={demoMode}
-                        onChange={(e) => setDemoMode(e.target.checked)}
+                        checked={isDemo}
+                        onChange={toggleDemo}
                     />
                     <label
                         htmlFor="demo-mode"
-                        className={`block w-full h-full rounded-full cursor-pointer transition-colors duration-300 ${demoMode ? "bg-emerald-500/30" : "bg-black/40"}`}
+                        className={`block w-full h-full rounded-full cursor-pointer transition-colors duration-300 ${isDemo ? "bg-emerald-500/30" : "bg-black/40"}`}
                     ></label>
-                    <div className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow-md transform transition-transform duration-300 ${demoMode ? "translate-x-6 bg-emerald-100" : "translate-x-0 bg-neutral-400"}`}></div>
+                    <div className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow-md transform transition-transform duration-300 ${isDemo ? "translate-x-6 bg-emerald-100" : "translate-x-0 bg-neutral-400"}`}></div>
                  </div>
               </div>
             </div>

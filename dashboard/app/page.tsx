@@ -7,38 +7,40 @@ import LoginModal from "@/components/dashboard/login-modal"
 import MCPConfigModal from "@/components/dashboard/mcp-config-modal"
 import MetricsGrid from "@/components/dashboard/metrics-grid"
 import SettingsModal from "@/components/dashboard/settings-modal"
+import { useDashboard } from "@/lib/data/dashboard-context"
+import { DashboardData } from "@/lib/data/types"
 import { useEffect, useState } from "react"
 
-// Types
-interface TrendState {
-  change: string
-  trend: "up" | "down" | "neutral"
-  hasData: boolean
-  data: number[]
-}
-
-const calculateTrend = (data: number[]) => {
-  if (!data || data.length < 2) return { change: "0", trend: "neutral" as const, hasData: false, data: [] }
-
-  const first = data[0]
-  const last = data[data.length - 1]
-  const diff = last - first
-
-  const trend = diff > 0 ? "up" : diff < 0 ? "down" : "neutral"
-  const prefix = diff > 0 ? "+" : ""
-
-  return {
-    change: `${prefix}${diff.toLocaleString()}`,
-    trend: trend as "up" | "down" | "neutral",
-    hasData: true,
-    data
-  }
-}
+// Types (Ideally imported, but keeping for now if used elsewhere locally, though strategy returns properly typed data)
+// We use the types from lib/data/types.ts now
 
 export default function Dashboard() {
+  const { strategy, isDemo, toggleDemo, refreshSignal } = useDashboard()
+
   const [showMCPConfig, setShowMCPConfig] = useState(false)
   const [showSettings, setShowSettings] = useState(false)
   const [isAuthenticated, setIsAuthenticated] = useState(false)
+
+  // Data State
+  const [data, setData] = useState<DashboardData>({
+      stats: {
+        memoryRecords: 0,
+        totalClients: 0,
+        successRate: 0,
+        totalRequests: 0,
+        topWriter: { name: "N/A", count: 0 },
+        topReader: { name: "N/A", count: 0 },
+        lastWriter: { name: "N/A", timestamp: 0 },
+        lastReader: { name: "N/A", timestamp: 0 },
+      },
+      trends: {
+        memory: { change: "", trend: "neutral", hasData: false, data: [] },
+        clients: { change: "", trend: "neutral", hasData: false, data: [] },
+        success: { change: "", trend: "neutral", hasData: false, data: [] },
+        requests: { change: "", trend: "neutral", hasData: false, data: [] },
+      },
+      logs: []
+  })
 
   // Check authentication on mount
   useEffect(() => {
@@ -53,184 +55,28 @@ export default function Dashboard() {
     setIsAuthenticated(true)
   }
 
-  // State
-  const [stats, setStats] = useState({
-    memoryRecords: 0,
-    totalClients: 0,
-    successRate: 0,
-    totalRequests: 0,
-    topWriter: { name: "N/A", count: 0 },
-    topReader: { name: "N/A", count: 0 },
-    lastWriter: { name: "N/A", timestamp: 0 },
-    lastReader: { name: "N/A", timestamp: 0 },
-  })
-
-  const [trends, setTrends] = useState<{
-    memory: TrendState
-    clients: TrendState
-    success: TrendState
-    requests: TrendState
-  }>({
-    memory: { change: "", trend: "neutral", hasData: false },
-    clients: { change: "", trend: "neutral", hasData: false },
-    success: { change: "", trend: "neutral", hasData: false },
-    requests: { change: "", trend: "neutral", hasData: false },
-  })
-
+  // Fetch Data Effect - Reacts to strategy change or refresh signal
   useEffect(() => {
-    async function fetchData() {
-      try {
-        // Fetch all-time metrics (no period filter)
-        const res = await fetch(`/api/metrics`)
-        if (res.ok) {
-            const data = await res.json()
-
-            // Fetch all logs for latest writer/reader
-            const logsRes = await fetch(`/api/audit-logs`)
-            let latestWriter = { name: "N/A", timestamp: 0 }
-            let latestReader = { name: "N/A", timestamp: 0 }
-            let calculatedTopWriter = { name: "N/A", count: 0 }
-            let calculatedTopReader = { name: "N/A", count: 0 }
-
-            if (logsRes.ok) {
-                const logsData = await logsRes.json()
-                const resolveOperation = (log: any) => {
-                  const normalizedOp = (log.operation || "").toString().toLowerCase()
-                  if (normalizedOp === "read") return "Read"
-                  if (normalizedOp === "write" || normalizedOp === "create") return "Write"
-                  if (normalizedOp === "update") return "Update"
-                  if (normalizedOp === "delete") return "Delete"
-                  const method = (log.method || "").toString().toUpperCase()
-                  if (method === "GET") return "Read"
-                  if (method === "DELETE") return "Delete"
-                  if (method === "PATCH" || method === "PUT") return "Update"
-                  return "Write"
-                }
-
-                const mappedLogs = (logsData.logs || []).map((log: any, index: number) => {
-                  const operation = resolveOperation(log)
-                  // Use rawStatus if available (from our API), otherwise fallback to status
-                  const statusCode = parseInt(log.rawStatus || log.status)
-                  let status = "Success"
-                  let description = ""
-                  if (statusCode >= 500) { status = "Error"; description = "Server error" }
-                  else if (statusCode >= 400) { status = "Error"; description = statusCode === 401 ? "Unauthorized" : statusCode === 403 ? "Forbidden" : "Client error" }
-                  else if (statusCode >= 300) { status = "Warning"; description = "Redirect" }
-                  // If parsing failed (NaN) but API explicitly said Error, trust it
-                  else if (log.status === "Error") { status = "Error"; description = "Error" }
-
-                  return {
-                    id: index,
-                    date: new Date(log.timestamp),
-                    client: log.client || "Unknown",
-                    operation,
-                    status,
-                    description,
-                    timestamp: new Date(log.timestamp).getTime()
-                  }
-                })
-
-                // Sort by date desc to find latest
-                const sortedByDate = [...mappedLogs].sort((a, b) => b.timestamp - a.timestamp)
-
-                // Find latest writer
-                const wLog = sortedByDate.find(l => ["Write", "Update", "Delete", "Create"].includes(l.operation))
-                if (wLog) {
-                    latestWriter = { name: wLog.client, timestamp: wLog.timestamp }
-                }
-
-                // Find latest reader
-                const rLog = sortedByDate.find(l => l.operation === "Read")
-                if (rLog) {
-                    latestReader = { name: rLog.client, timestamp: rLog.timestamp }
-                }
-
-                // Calculate Top Writer & Reader from logs (Client-side implementation to ensure consistency)
-                const writerCounts: Record<string, number> = {}
-                const readerCounts: Record<string, number> = {}
-
-                mappedLogs.forEach((log: any) => {
-                  if (["Write", "Update", "Delete", "Create"].includes(log.operation)) {
-                    writerCounts[log.client] = (writerCounts[log.client] || 0) + 1
-                  } else if (log.operation === "Read") {
-                    readerCounts[log.client] = (readerCounts[log.client] || 0) + 1
-                  }
-                })
-
-                const getTop = (counts: Record<string, number>) => {
-                  const entries = Object.entries(counts)
-                  if (entries.length === 0) return { name: "N/A", count: 0 }
-                  entries.sort((a, b) => b[1] - a[1])
-                  return { name: entries[0][0], count: entries[0][1] }
-                }
-
-                calculatedTopWriter = getTop(writerCounts)
-                calculatedTopReader = getTop(readerCounts)
-
-                setFullAuditLog(mappedLogs)
-            }
-
-            setStats({
-                memoryRecords: data.stats.memoryRecords ?? 0,
-                totalClients: data.stats.totalClients ?? 0,
-                successRate: data.stats.successRate ?? 0,
-                totalRequests: data.stats.totalRequests ?? 0,
-                topWriter: logsRes.ok ? calculatedTopWriter : (data.stats.topWriter ?? { name: "N/A", count: 0 }),
-                topReader: logsRes.ok ? calculatedTopReader : (data.stats.topReader ?? { name: "N/A", count: 0 }),
-                lastWriter: latestWriter,
-                lastReader: latestReader,
-            })
-
-            // We don't show trends anymore, so this code is not needed
-            // But keeping it for backwards compatibility
-            if (data.sparklines?.memoryRecords) {
-                const trend = calculateTrend(data.sparklines.memoryRecords)
-                setTrends(prev => ({ ...prev, memory: trend }))
-            }
-
-            if (data.sparklines?.totalClients) {
-                const trend = calculateTrend(data.sparklines.totalClients)
-                setTrends(prev => ({ ...prev, clients: trend }))
-            }
-
-            if (data.sparklines?.successRate) {
-                const first = data.sparklines.successRate[0] || 0
-                const last = data.sparklines.successRate[data.sparklines.successRate.length - 1] || 0
-                const diff = last - first
-                setTrends(prev => ({
-                    ...prev,
-                    success: {
-                        change: `${diff > 0 ? "+" : ""}${diff.toFixed(1)}%`,
-                        trend: diff >= 0 ? "up" : "down",
-                        hasData: true
-                    }
-                }))
-            }
-
-            if (data.sparklines?.totalRequests) {
-                const trend = calculateTrend(data.sparklines.totalRequests)
-                setTrends(prev => ({ ...prev, requests: trend }))
-            }
+    async function updateData() {
+        try {
+            const potentialData = await strategy.fetchGlobalStats()
+            setData(potentialData)
+        } catch (e) {
+            console.error("Failed to fetch dashboard data:", e)
         }
-
-      } catch (e) {
-        console.error(e)
-      }
     }
-    fetchData()
-    const interval = setInterval(fetchData, 5000)
-    return () => clearInterval(interval)
-  }, [])
+    updateData()
+  }, [strategy, refreshSignal])
 
-  // Audit Log State & Logic
-  const [fullAuditLog, setFullAuditLog] = useState<Array<any>>([])
+
+  // Audit Log internal state for filtering/sorting (UI logic only)
   const [searchTerm, setSearchTerm] = useState("")
   const [currentPage, setCurrentPage] = useState(1)
   const [sortField, setSortField] = useState<"date" | "client" | "operation" | "status">("date")
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc")
   const itemsPerPage = 10
 
-  const filteredLog = fullAuditLog.filter(
+  const filteredLog = (data.logs || []).filter(
       (log) =>
         log.client.toLowerCase().includes(searchTerm.toLowerCase()) ||
         log.operation.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -252,8 +98,8 @@ export default function Dashboard() {
     if (sortField === "date") {
       return (new Date(a.date).getTime() - new Date(b.date).getTime()) * modifier
     }
-    const aValue = a[sortField] || ""
-    const bValue = b[sortField] || ""
+    const aValue = (a as any)[sortField] || ""
+    const bValue = (b as any)[sortField] || ""
     if (typeof aValue === "string" && typeof bValue === "string") {
       return aValue.localeCompare(bValue) * modifier
     }
@@ -262,7 +108,6 @@ export default function Dashboard() {
 
   const paginatedLog = sortedLog.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage)
   const totalPages = Math.ceil(sortedLog.length / itemsPerPage)
-  const loading = false
 
   // Show login modal if not authenticated
   if (!isAuthenticated) {
@@ -277,7 +122,7 @@ export default function Dashboard() {
       />
 
       <main className="px-6 py-8 max-w-7xl mx-auto space-y-8">
-        <MetricsGrid stats={stats} trends={trends} />
+        <MetricsGrid stats={data.stats} trends={data.trends} />
         <ChartsSection period="" />
         <AuditLogTable
             logs={(paginatedLog || []).map(log => ({
@@ -288,7 +133,7 @@ export default function Dashboard() {
                 status: log.status,
                 description: log.description
             }))}
-            loading={loading}
+            loading={false}
             currentPage={currentPage}
             totalPages={totalPages}
             onPageChange={setCurrentPage}
@@ -299,7 +144,7 @@ export default function Dashboard() {
       </main>
 
       {showMCPConfig && <MCPConfigModal onClose={() => setShowMCPConfig(false)} />}
-      {showSettings && <SettingsModal onClose={() => setShowSettings(false)} />}
+      {showSettings && <SettingsModal onClose={() => { setShowSettings(false); }} />}
     </div>
   )
 }

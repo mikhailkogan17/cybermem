@@ -1,3 +1,4 @@
+import { DashboardProvider } from "@/lib/data/dashboard-context"
 import { Analytics } from "@vercel/analytics/next"
 import type { Metadata } from "next"
 import { Exo_2, Geist, Geist_Mono } from "next/font/google"
@@ -26,7 +27,9 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning className="relative">
       <body className={`font-sans antialiased relative z-10 ${exo2.variable}`}>
-        {children}
+        <DashboardProvider>
+          {children}
+        </DashboardProvider>
         <Analytics />
       </body>
     </html>

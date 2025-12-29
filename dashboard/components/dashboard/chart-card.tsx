@@ -1,6 +1,7 @@
 "use client"
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { useDashboard } from "@/lib/data/dashboard-context"; // Update import path if needed
 import { ChevronDown } from "lucide-react"
 import { useEffect, useState } from "react"
 import { Area, AreaChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts"
@@ -32,6 +33,7 @@ const periods = [
 ]
 
 export default function ChartCard({ service }: ChartCardProps) {
+  const { strategy, refreshSignal } = useDashboard()
   const [period, setPeriod] = useState("24h")
   const [hovered, setHovered] = useState<string | null>(null)
   const [data, setData] = useState<any[]>([])
@@ -40,95 +42,82 @@ export default function ChartCard({ service }: ChartCardProps) {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    // Fetch client metadata
-    fetch('/api/clients')
-      .then(res => res.json())
-      .then(setClientMetadata)
-      .catch(console.error)
-  }, [])
-
-  useEffect(() => {
     async function fetchData() {
       setLoading(true)
       try {
-        const res = await fetch(`/api/metrics?period=${period}`)
-        if (res.ok) {
-          const apiData = await res.json()
+        const timeSeriesData = await strategy.getChartData(period)
 
-          // Update client metadata if provided in response
-          if (apiData.metadata) {
-            setClientMetadata(prev => ({ ...prev, ...apiData.metadata }))
-          }
-
-          if (apiData.timeSeries) {
-            // Helper to format time based on period
-            const formatSeries = (series: any[]) => {
-              if (!series) return []
-              return series.map(point => {
-                const date = new Date((point.time as number) * 1000)
-                let timeStr = ""
-                // Show date if period is longer than 24h
-                if (["7d", "30d", "90d", "all"].includes(period)) {
-                   timeStr = date.toLocaleDateString([], { month: '2-digit', day: '2-digit' }) + " " + date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-                } else {
-                   timeStr = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-                }
-                return {
-                  ...point,
-                  time: timeStr
-                }
-              })
-            }
-
-            // Extract client names from series and sort by total value (Ascending)
-            // This ensures zero-value series are at the bottom, and the active series (Stroke) is on top.
-            const getClients = (series: any[]) => {
-                if (!series || series.length === 0) return []
-                const keys = new Set<string>()
-                const totals: Record<string, number> = {}
-
-                series.forEach(point => {
-                    Object.keys(point).forEach(k => {
-                        if (k !== 'time') {
-                          keys.add(k)
-                          totals[k] = (totals[k] || 0) + (point[k] as number)
-                        }
-                    })
-                })
-
-                return Array.from(keys).sort((a, b) => (totals[a] || 0) - (totals[b] || 0))
-            }
-
-            // Get data based on service type
-            let seriesData: any[] = []
-            let clients: string[] = []
-
-            if (service.includes("Creates")) {
-              seriesData = formatSeries(apiData.timeSeries.creates)
-              clients = getClients(apiData.timeSeries.creates)
-            } else if (service.includes("Reads")) {
-              seriesData = formatSeries(apiData.timeSeries.reads)
-              clients = getClients(apiData.timeSeries.reads)
-            } else if (service.includes("Updates")) {
-              seriesData = formatSeries(apiData.timeSeries.updates)
-              clients = getClients(apiData.timeSeries.updates)
-            } else if (service.includes("Deletes")) {
-              seriesData = formatSeries(apiData.timeSeries.deletes)
-              clients = getClients(apiData.timeSeries.deletes)
-            }
-
-            setData(seriesData)
-            setClientNames(clients)
-          }
+        // Update client metadata if provided in response
+        if (timeSeriesData.metadata) {
+            setClientMetadata(prev => ({ ...prev, ...timeSeriesData.metadata }))
         }
+
+        // Helper to format time based on period
+        const formatSeries = (series: any[]) => {
+            if (!series) return []
+            return series.map(point => {
+            const date = new Date((point.time as number) * 1000)
+            let timeStr = ""
+            // Show date if period is longer than 24h
+            if (["7d", "30d", "90d", "all"].includes(period)) {
+                timeStr = date.toLocaleDateString([], { month: '2-digit', day: '2-digit' }) + " " + date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+            } else {
+                timeStr = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+            }
+            return {
+                ...point,
+                time: timeStr
+            }
+            })
+        }
+
+        // Extract client names from series and sort by total value (Ascending)
+        const getClients = (series: any[]) => {
+            if (!series || series.length === 0) return []
+            const keys = new Set<string>()
+            const totals: Record<string, number> = {}
+
+            series.forEach(point => {
+                Object.keys(point).forEach(k => {
+                    if (k !== 'time') {
+                        keys.add(k)
+                        totals[k] = (totals[k] || 0) + (point[k] as number)
+                    }
+                })
+            })
+
+            return Array.from(keys).sort((a, b) => (totals[a] || 0) - (totals[b] || 0))
+        }
+
+        // Get data based on service type
+        let seriesData: any[] = []
+        let clients: string[] = []
+
+        if (service.includes("Creates")) {
+            seriesData = formatSeries(timeSeriesData.creates)
+            clients = getClients(timeSeriesData.creates)
+        } else if (service.includes("Reads")) {
+            seriesData = formatSeries(timeSeriesData.reads)
+            clients = getClients(timeSeriesData.reads)
+        } else if (service.includes("Updates")) {
+            seriesData = formatSeries(timeSeriesData.updates)
+            clients = getClients(timeSeriesData.updates)
+        } else if (service.includes("Deletes")) {
+            seriesData = formatSeries(timeSeriesData.deletes)
+            clients = getClients(timeSeriesData.deletes)
+        }
+
+        setData(seriesData)
+        setClientNames(clients)
+
       } catch (e) {
-        console.error(e)
+        console.error("Failed to fetch chart data:", e)
       } finally {
         setLoading(false)
       }
     }
     fetchData()
-  }, [period, service])
+  }, [period, service, strategy, refreshSignal])
 
   const isMultiSeries = clientNames.length > 0
 

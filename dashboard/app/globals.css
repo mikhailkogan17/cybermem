@@ -123,18 +123,20 @@
 }
 
 html {
-  background-color: #040404;
+  background-color: #020202;
   min-height: 100%;
 
   background-image:
-    radial-gradient(circle at 0% 50%, oklch(72.399% 0.12193 187.358 / 0.02) 0%, transparent 70%),
-    radial-gradient(circle at 100% 50%, oklch(0.75 0.1257 215.22 / 0.02) 0%, transparent 70%),
-    radial-gradient(circle at 25% 25%, oklch(68.073% 0.11257 209.377 / 0.06) 0%, transparent 60%),
-    radial-gradient(circle at 75% 25%, oklch(0.71 0.1491 162.48 / 0.04) 0%, transparent 60%),
-    radial-gradient(circle at 65% 65%, oklch(59.83% 0.10619 177.492 / 0.03) 0%, transparent 60%),
-    radial-gradient(circle at 50% 55%, oklch(0.75 0.1257 215.22 / 0.02) 0%, transparent 65%),
-    radial-gradient(circle at 25% 85%, oklch(0.77 0.09845 196.726 / 0.05) 0%, transparent 60%),
-    radial-gradient(circle at 95% 95%, oklch(66.101% 0.11198 215.999 / 0.03) 0%, transparent 60%);
+    /* Top Left - subtle Cyan/Teal */
+    radial-gradient(circle at 0% 0%, oklch(0.65 0.12 190 / 0.03) 0%, transparent 60%),
+    /* Top Right - Deep Emerald */
+    radial-gradient(circle at 100% 0%, oklch(0.65 0.14 160 / 0.04) 0%, transparent 60%),
+    /* Bottom Right - subtle Cyan */
+    radial-gradient(circle at 100% 100%, oklch(0.65 0.12 185 / 0.03) 0%, transparent 60%),
+    /* Bottom Left - Deep Emerald */
+    radial-gradient(circle at 0% 100%, oklch(0.65 0.14 155 / 0.04) 0%, transparent 60%),
+    /* Center wash - Very dark Emerald/Cyan mix to bind them */
+    radial-gradient(circle at 50% 50%, oklch(0.6 0.1 170 / 0.02) 0%, transparent 50%);
 
   background-size: 100% 100%;
   background-attachment: fixed;
