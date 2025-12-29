@@ -3,7 +3,7 @@
     "id": "claude",
     "name": "Claude Desktop",
     "match": "claude",
-    "color": "#be7774",
+    "color": "#e65c40",
     "icon": "/icons/claude.png",
     "description": "To use CyberMem with Claude Desktop, you need to edit your configuration file.",
     "steps": [
@@ -18,7 +18,7 @@
     "id": "cursor",
     "name": "Cursor",
     "match": "cursor",
-    "color": "#76fffa",
+    "color": "#8d7f75",
     "icon": "/icons/cursor.png",
     "description": "Cursor fully supports MCP. Configure it in the settings.",
     "steps": [
@@ -36,7 +36,7 @@
     "name": "Antigravity",
     "match": "antigravity",
     "color": "#d946ef",
-    "icon": "/icons/antigravity.svg",
+    "icon": "/icons/antigravity.png",
     "description": "The Antigravity AI Agent.",
     "steps": [],
     "configType": "none"
