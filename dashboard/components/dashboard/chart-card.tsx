@@ -1,10 +1,10 @@
 "use client"
 
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useDashboard } from "@/lib/data/dashboard-context"; // Update import path if needed
-import { ChevronDown } from "lucide-react"
-import { useEffect, useState } from "react"
-import { Area, AreaChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts"
+import { ChevronDown } from "lucide-react";
+import { useEffect, useState } from "react";
+import { Area, AreaChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 
 interface ChartCardProps {
   service: string
@@ -220,7 +220,8 @@ export default function ChartCard({ service }: ChartCardProps) {
                     formatter={(value, entry: any) => {
                       const key = entry.dataKey;
                       // Normalize client key to match metadata ID (lowercase)
-                      const meta = clientMetadata[key.toString().toLowerCase()];
+                      const keyLower = key.toString().toLowerCase().trim()
+                      const meta = clientMetadata[keyLower];
                       return <span className="text-white">{meta?.name || value}</span>
                     }}
                   />
@@ -228,7 +229,7 @@ export default function ChartCard({ service }: ChartCardProps) {
                 {isMultiSeries ? (
                   clientNames.map((client, i) => {
                      // Normalize client key to match metadata ID (lowercase)
-                     const meta = clientMetadata[client.toLowerCase()]
+                     const meta = clientMetadata[client.toLowerCase().trim()]
                      const color = meta?.color || stringToColor(client)
                      const isHovered = hovered === client
                      const isAnyHovered = hovered !== null
