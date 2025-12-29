@@ -1,4 +1,3 @@
-import { getClientMetadata } from '@/lib/client-metadata'
 import { NextResponse } from 'next/server'
 
 export const dynamic = 'force-dynamic'
@@ -20,7 +19,6 @@ export async function GET(request: Request) {
 
     if (!response.ok) {
         console.error('Failed to fetch audit logs from db-exporter:', response.status, response.statusText)
-        return NextResponse.json({ logs: [] })
     }
 
     const data = await response.json()
@@ -31,14 +29,13 @@ export async function GET(request: Request) {
         // Resolve client name
         // log-exporter stores "client_name" from X-Client-Name header
         const rawClientId = log.client_name || 'unknown'
-        const clientMeta = getClientMetadata(rawClientId)
 
         // Convert timestamp (ms) to ISO string
         const date = new Date(log.timestamp)
 
         return {
             timestamp: date.toISOString(),
-            client: clientMeta.name,
+            client: rawClientId,
             operation: log.operation === 'other' ? 'API Request' : log.operation, // 'create', 'read', etc.
             status: log.is_error ? 'Error' : 'Success',
             method: log.method,

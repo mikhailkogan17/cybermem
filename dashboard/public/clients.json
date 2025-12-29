@@ -37,10 +37,12 @@
     "match": "antigravity",
     "color": "#d946ef",
     "icon": "/icons/antigravity.png",
-    "description": "The Antigravity AI Agent.",
+    "description": "Antigravity supports MCP via configuration.",
     "steps": [
-      "Configure Antigravity to use the endpoint below",
-      "Restart the agent"
+      "On Agents tab, click on three dots and select **MCP Servers**",
+      "Click **Manage MCP Servers**",
+      "Click **View RAW Config**",
+      "Paste the configuration block below"
     ],
     "configType": "json"
   },
@@ -78,8 +80,13 @@
     "match": "warp",
     "color": "#0ea5e9",
     "icon": "/icons/warp.png",
-    "description": "Warp integration coming soon.",
-    "steps": ["Use the configuration below to enable MCP in Warp"],
+    "description": "Warp fully supports MCP.",
+    "steps": [
+      "Open Warp Settings (`Cmd` + `,`)",
+      "Navigate to **MCP Servers**",
+      "Click **Add**",
+      "Paste the configuration block below"
+    ],
     "configType": "json"
   },
   {
@@ -89,7 +96,7 @@
     "color": "#d97757",
     "icon": "/icons/claude-code.png",
     "description": "Add the server directly via the command line.",
-    "steps": ["Run the command below in your terminal"],
+    "steps": [],
     "configType": "command"
   },
   {
@@ -111,6 +118,24 @@
     "description": "Use this TOML configuration for Codex.",
     "steps": ["Endpoint Type: SSE", "Copy the TOML block below"],
     "configType": "toml"
+  },
+  {
+    "id": "perplexity",
+    "name": "Perplexity",
+    "match": "perplexity",
+    "color": "#69d8e3",
+    "icon": "/icons/perplexity.png",
+    "description": "Perplexity Desktop client supports MCP via configuration.",
+    "steps": [
+      "Open Perplexity Desktop Settings (`Cmd` + `,`)",
+      "Navigate to **Connectors**",
+      "Click **Add**",
+      "Select **Advanced**",
+      "Enter Name: `CyberMem`",
+      "Paste the configuration block below",
+      "Click **Save**"
+    ],
+    "configType": "json"
   },
   {
     "id": "other",
