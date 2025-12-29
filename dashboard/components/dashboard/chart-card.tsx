@@ -33,7 +33,7 @@ const periods = [
 ]
 
 export default function ChartCard({ service }: ChartCardProps) {
-  const { strategy, refreshSignal } = useDashboard()
+  const { strategy, refreshSignal, clientConfigs } = useDashboard()
   const [period, setPeriod] = useState("24h")
   const [hovered, setHovered] = useState<string | null>(null)
   const [data, setData] = useState<any[]>([])
@@ -218,19 +218,22 @@ export default function ChartCard({ service }: ChartCardProps) {
                     }}
                     onMouseLeave={() => setHovered(null)}
                     formatter={(value, entry: any) => {
-                      const key = entry.dataKey;
-                      // Normalize client key to match metadata ID (lowercase)
-                      const keyLower = key.toString().toLowerCase().trim()
-                      const meta = clientMetadata[keyLower];
-                      return <span className="text-white">{meta?.name || value}</span>
+                      // value is usually the name set on the Area, which we set below.
+                      // But if that fails, we fallback to finding config.
+                      return <span className="text-white">{value}</span>
                     }}
                   />
                 )}
                 {isMultiSeries ? (
                   clientNames.map((client, i) => {
-                     // Normalize client key to match metadata ID (lowercase)
-                     const meta = clientMetadata[client.toLowerCase().trim()]
-                     const color = meta?.color || stringToColor(client)
+                     // Find matching config
+                     const keyLower = client.toLowerCase()
+                     const config = clientConfigs.find((c: any) => keyLower.includes(c.match))
+
+                     // Use config if found, otherwise fallback
+                     const name = config?.name || client
+                     const color = config?.color || stringToColor(client)
+
                      const isHovered = hovered === client
                      const isAnyHovered = hovered !== null
 
@@ -239,7 +242,7 @@ export default function ChartCard({ service }: ChartCardProps) {
                          key={client}
                          type="monotone"
                          dataKey={client}
-                         name={meta?.name || client}
+                         name={name}
                          stroke={color}
                          strokeWidth={isHovered ? 2.5 : 1.5}
                          fillOpacity={isHovered ? 0.5 : (isAnyHovered ? 0.1 : 0.2)}

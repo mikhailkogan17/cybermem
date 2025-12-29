@@ -2,6 +2,8 @@
   {
     "id": "claude",
     "name": "Claude Desktop",
+    "match": "claude",
+    "color": "#be7774",
     "icon": "/icons/claude.png",
     "description": "To use CyberMem with Claude Desktop, you need to edit your configuration file.",
     "steps": [
@@ -15,6 +17,8 @@
   {
     "id": "cursor",
     "name": "Cursor",
+    "match": "cursor",
+    "color": "#76fffa",
     "icon": "/icons/cursor.png",
     "description": "Cursor fully supports MCP. Configure it in the settings.",
     "steps": [
@@ -28,8 +32,30 @@
     "configType": "url"
   },
   {
+    "id": "antigravity",
+    "name": "Antigravity",
+    "match": "antigravity",
+    "color": "#10b981",
+    "icon": "/icons/antigravity.svg",
+    "description": "The Antigravity AI Agent.",
+    "steps": [],
+    "configType": "none"
+  },
+  {
+    "id": "openai",
+    "name": "OpenAI",
+    "match": "openai",
+    "color": "#12b028",
+    "icon": "/icons/openai.png",
+    "description": "OpenAI Models",
+    "steps": [],
+    "configType": "none"
+  },
+  {
     "id": "vscode",
     "name": "VS Code",
+    "match": "vscode",
+    "color": "#23a9f2",
     "icon": "/icons/vscode.png",
     "description": "Requires the official MCP extension.",
     "steps": [
@@ -43,6 +69,8 @@
   {
     "id": "windsurf",
     "name": "Windsurf",
+    "match": "windsurf",
+    "color": "#3b82f6",
     "icon": "/icons/windsurf.png",
     "description": "Windsurf supports MCP via configuration.",
     "steps": [
@@ -54,6 +82,8 @@
   {
     "id": "warp",
     "name": "Warp",
+    "match": "warp",
+    "color": "#0ea5e9",
     "icon": "/icons/warp.png",
     "description": "Warp integration coming soon.",
     "steps": [],
@@ -62,6 +92,8 @@
   {
     "id": "claude-code",
     "name": "Claude Code",
+    "match": "claude-code",
+    "color": "#d97757",
     "icon": "/icons/claude-code.png",
     "description": "Add the server directly via the command line.",
     "steps": ["Run the command below in your terminal"],
@@ -70,6 +102,8 @@
   {
     "id": "chatgpt",
     "name": "ChatGPT",
+    "match": "chatgpt",
+    "color": "#10a37f",
     "icon": "/icons/chatgpt.png",
     "description": "Requires Developer Mode.",
     "steps": ["Enable Developer Mode", "Add Custom Server"],
@@ -78,6 +112,8 @@
   {
     "id": "codex",
     "name": "Codex",
+    "match": "codex",
+    "color": "#6366f1",
     "icon": "/icons/codex.png",
     "description": "Use this TOML configuration for Codex.",
     "steps": ["Endpoint Type: SSE", "Copy the TOML block below"],
@@ -86,6 +122,8 @@
   {
     "id": "other",
     "name": "Other",
+    "match": "other",
+    "color": "#9ca3af",
     "icon": null,
     "description": "For any other MCP-compliant client, use the following connection details:",
     "steps": [

@@ -1,13 +1,13 @@
 "use client"
 
 import { Button } from "@/components/ui/button"
+import { useDashboard } from "@/lib/data/dashboard-context"
 import { Check, Copy, FileCode, Info, Monitor, X } from "lucide-react"
 import { useEffect, useState } from "react"
 
-import configs from "@/lib/mcp-config.json"
-const clients = configs
-
 export default function MCPConfigModal({ onClose }: { onClose: () => void }) {
+  const { clientConfigs } = useDashboard()
+  const clients = clientConfigs
   const [selectedClient, setSelectedClient] = useState("claude")
   const [copiedId, setCopiedId] = useState<string | null>(null)
   const [apiKey] = useState("sk-cybermem-master-key-8f7a2b9c")
@@ -65,7 +65,7 @@ export default function MCPConfigModal({ onClose }: { onClose: () => void }) {
   }
 
   const renderInstructions = () => {
-    const config = (configs as any[]).find(c => c.id === selectedClient)
+    const config = (clients as any[]).find(c => c.id === selectedClient)
     if (!config) return null
 
     return (
