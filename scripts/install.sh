@@ -112,7 +112,7 @@ if [ -d "$CYBERMEM_DIR" ]; then
 else
     echo -e "${BLUE}Cloning into $CYBERMEM_DIR...${NC}"
     if ! git clone --recursive "$REPO_URL" "$CYBERMEM_DIR"; then
-        echo -e "${RED || exit}Error: Failed to clone repository.${NC}"
+        echo -e "${RED}Error: Failed to clone repository.${NC}"
         echo "Please check your internet connection or the repository URL."
         exit 1
     fi

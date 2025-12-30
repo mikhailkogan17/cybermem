@@ -1,5 +1,5 @@
 #!/bin/bash
-set -euo pipefail
+set -eo pipefail
 
 # CyberMem Universal Deployment Script
 # Deploys to: local (docker-compose) | rpi (ansible) | vps (helm)
@@ -54,6 +54,29 @@ log_error() {
     exit 1
 }
 
+
+# Helper: Wait for Docker to start
+wait_for_docker() {
+    echo -e "${BLUE}Waiting for Docker daemon to start...${NC}"
+    local counter=0
+
+    while ! docker info > /dev/null 2>&1; do
+        printf "."
+        sleep 2
+        counter=$((counter+1))
+
+        if [ $((counter % 5)) -eq 0 ]; then
+             echo ""
+             echo -e "${YELLOW}Docker is not running yet. Please start Docker Desktop.${NC}"
+             if [[ "$OSTYPE" == "darwin"* ]]; then
+                open -a Docker 2>/dev/null || true
+             fi
+        fi
+    done
+    echo ""
+    echo -e "${GREEN}Docker is running!${NC}"
+}
+
 check_prerequisites() {
     local target=$1
 
@@ -61,6 +84,10 @@ check_prerequisites() {
         local)
             command -v docker >/dev/null 2>&1 || log_error "docker not found. Install: https://docs.docker.com/get-docker/"
             command -v docker-compose >/dev/null 2>&1 || log_error "docker-compose not found"
+
+            if ! docker info > /dev/null 2>&1; then
+                wait_for_docker
+            fi
             ;;
         rpi)
             command -v ansible >/dev/null 2>&1 || log_error "ansible not found. Install: brew install ansible"
@@ -110,7 +137,7 @@ deploy_local() {
             log_info "  - OpenMemory:  http://localhost:8080"
             log_info "  - Traefik:     http://localhost:8081"
             log_info "  - Prometheus:  http://localhost:9090"
-            log_info "  - Grafana:     http://localhost:3000 (admin/admin)"
+            log_info "  - Dashboard:   http://localhost:3000 (admin/admin)"
             ;;
         down)
             log_info "Stopping services..."
