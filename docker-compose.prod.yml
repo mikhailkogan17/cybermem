@@ -5,6 +5,8 @@ services:
   traefik:
     image: traefik:v3.0
     container_name: cybermem-traefik
+    security_opt:
+      - seccomp:unconfined
     platform: ${DOCKER_PLATFORM:-}
     command:
       - --api.dashboard=true
@@ -29,6 +31,8 @@ services:
   openmemory:
     image: ghcr.io/mikhailkogan17/cybermem-openmemory:latest
     container_name: cybermem-openmemory
+    security_opt:
+      - seccomp:unconfined
     platform: ${DOCKER_PLATFORM:-}
     user: root
     pull_policy: always
@@ -78,6 +82,8 @@ services:
   db-exporter:
     image: ghcr.io/mikhailkogan17/cybermem-db_exporter:latest
     container_name: cybermem-db-exporter
+    security_opt:
+      - seccomp:unconfined
     platform: ${DOCKER_PLATFORM:-}
     pull_policy: always
     environment:
@@ -95,6 +101,8 @@ services:
   log-exporter:
     image: ghcr.io/mikhailkogan17/cybermem-log_exporter:latest
     container_name: cybermem-log-exporter
+    security_opt:
+      - seccomp:unconfined
     platform: ${DOCKER_PLATFORM:-}
     pull_policy: always
     environment:
@@ -149,6 +157,8 @@ services:
   ollama:
     image: ollama/ollama:latest
     container_name: cybermem-ollama
+    security_opt:
+      - seccomp:unconfined
     platform: ${DOCKER_PLATFORM:-}
     ports:
       - "11434:11434"
@@ -161,6 +171,8 @@ services:
   prometheus:
     image: prom/prometheus:v2.48.0
     container_name: cybermem-prometheus
+    security_opt:
+      - seccomp:unconfined
     platform: ${DOCKER_PLATFORM:-}
     command:
       - --config.file=/etc/prometheus/prometheus.yml
@@ -180,6 +192,8 @@ services:
   dashboard:
     image: ghcr.io/mikhailkogan17/cybermem-dashboard:latest
     container_name: cybermem-dashboard
+    security_opt:
+      - seccomp:unconfined
     platform: ${DOCKER_PLATFORM:-}
     pull_policy: always
     environment:
