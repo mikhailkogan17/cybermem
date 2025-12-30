@@ -27,7 +27,7 @@ RUN --mount=type=cache,target=/root/.pnpm-store \
     pnpm build
 
 # Production stage
-FROM node:20-alpine AS runner
+FROM node:20-alpine AS production
 WORKDIR /app
 
 ENV NODE_ENV=production
