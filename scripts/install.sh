@@ -145,7 +145,10 @@ fi
 
 # 5. Launch
 echo -e "${GREEN}Installation Complete!${NC}"
-echo "Starting CyberMem..."
+echo "Starting CyberMem with pre-built images..."
+
+# Use pre-built images for faster startup
+export USE_PREBUILT=1
 
 # Default to local if no target specified
 if [ $# -eq 0 ]; then
@@ -155,8 +158,38 @@ else
 fi
 
 echo ""
-echo -e "${GREEN}SUCCESS!${NC}"
-echo "Dashboard: http://localhost:3000"
+echo -e "${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+echo -e "${GREEN}                    🎉 SUCCESS! 🎉                          ${NC}"
+echo -e "${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
 echo ""
-echo "Use the ${GREEN}cybermem${NC} command to manage your server in the future."
-echo "(You may need to restart your terminal or run: source $SHELL_CONFIG)"
+echo -e "${BLUE}📊 Dashboard:${NC}  http://localhost:3000"
+echo -e "${BLUE}🔌 MCP Server:${NC} http://localhost:8080/mcp"
+echo ""
+echo -e "${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+echo -e "${GREEN}           Connect Your AI Assistant                       ${NC}"
+echo -e "${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+echo ""
+echo -e "${BLUE}🤖 Claude Desktop:${NC}"
+echo "   1. Open Claude Desktop"
+echo "   2. Go to Settings → Developer → Edit Config"
+echo "   3. Add this configuration:"
+echo ""
+echo -e "${GREEN}   {\"mcpServers\": {\"cybermem\": {\"url\": \"http://localhost:8080/mcp\", \"type\": \"sse\"}}}${NC}"
+echo ""
+echo -e "${BLUE}💻 Cursor:${NC}"
+echo "   1. Open Settings (Cmd+,)"
+echo "   2. Go to Features → MCP"
+echo "   3. Click 'Add New MCP Server'"
+echo "   4. Enter URL: http://localhost:8080/mcp"
+echo ""
+echo -e "${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+echo ""
+echo -e "${BLUE}💡 Quick Commands:${NC}"
+echo "   ${GREEN}cybermem${NC}        - Start/restart CyberMem"
+echo "   ${GREEN}cybermem-update${NC} - Update to latest version"
+echo ""
+echo -e "${BLUE}📚 Full setup guide:${NC} http://localhost:3000"
+echo ""
+echo -e "${BLUE}ℹ️  Note:${NC} You may need to restart your terminal or run:"
+echo "   source $SHELL_CONFIG"
+echo ""

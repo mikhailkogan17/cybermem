@@ -93,7 +93,15 @@ deploy_local() {
             (cd docs && npm install && npm run build) || log_error "Failed to build documentation"
 
             log_info "Starting services with Ollama..."
-            docker-compose --env-file "$ENV_FILE" --profile ollama up -d --remove-orphans --force-recreate
+
+            # Use pre-built images if USE_PREBUILT=1, otherwise build locally
+            if [[ "${USE_PREBUILT:-0}" == "1" ]]; then
+                log_info "Using pre-built images from GHCR"
+                docker-compose -f docker-compose.prod.yml --env-file "$ENV_FILE" --profile ollama up -d --pull always
+            else
+                log_info "Building images locally"
+                docker-compose --env-file "$ENV_FILE" --profile ollama up -d --remove-orphans --force-recreate
+            fi
             log_info "Waiting for services to be ready..."
             sleep 5
             docker-compose ps

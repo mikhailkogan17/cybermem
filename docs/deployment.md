@@ -30,17 +30,52 @@ CyberMem includes a universal deployment script `deploy.sh` that handles setup f
 
 ## Environments
 
-### Raspberry Pi
-Use Ansible to deploy to a Raspberry Pi cluster.
-```bash
-./deploy.sh --target rpi
-```
+### Raspberry Pi (Ansible)
+Deploy to a Raspberry Pi (or any Debian-based server) using existing credentials.
 
-### VPS (Kubernetes)
-Deploy to a VPS using K3s and Helm.
-```bash
-./deploy.sh --target vps
-```
+**Prerequisites:**
+- Ansible (`brew install ansible`)
+- SSH access to the RPi
+- Valid `ansible/inventory/hosts.ini` (see existing file for template)
+
+**Deployment:**
+Since the repository might be private or local-only, the deployment uses `rsync` to sync your local files to the RPi.
+
+1. Configure your inventory in `ansible/inventory/hosts.ini`:
+   ```ini
+   [rpi]
+   raspberrypi.local ansible_user=pi ansible_ssh_pass=SECRET
+   ```
+2. Run the deploy script:
+   ```bash
+   ./deploy.sh --target rpi
+   ```
+
+This will:
+- Install Docker & Docker Compose on the RPi
+- Sync your project files (excluding git/cache)
+- Start the services using the optimized `.env.rpi` config
+
+### VPS (Helm / AWS / Generic K8s)
+Deploy to a Kubernetes cluster (e.g., K3s on a VPS, EKS on AWS).
+
+**Prerequisites:**
+- `kubectl` configured for your cluster
+- `helm` installed
+
+**Deployment:**
+The script includes an interactive wizard to generate `values-vps.yaml`.
+
+1. Run the deploy script:
+   ```bash
+   ./deploy.sh --target vps
+   ```
+2. Follow the wizard to configure:
+   - Domain name (Ingress)
+   - API Keys
+   - OpenMemory/OpenAI settings
+
+For **AWS EKS**, ensure you have your `~/.kube/config` pointing to the EKS cluster. The Helm chart is agnostic but assumes an Nginx Ingress Controller by default.
 
 ## Troubleshooting
 

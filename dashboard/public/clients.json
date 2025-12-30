@@ -97,7 +97,8 @@
     "icon": "/icons/claude-code.png",
     "description": "Add the server directly via the command line.",
     "steps": [],
-    "configType": "command"
+    "configType": "command",
+    "command": "claude mcp add --transport sse cybermem http://localhost:8080/mcp"
   },
   {
     "id": "chatgpt",
@@ -136,6 +137,17 @@
       "Click **Save**"
     ],
     "configType": "json"
+  },
+  {
+    "id": "gemini-cli",
+    "name": "Gemini CLI",
+    "match": "gemini",
+    "color": "#9ca3af",
+    "icon": "/icons/gemini.png",
+    "description": "Gemini CLI supports MCP via configuration.",
+    "steps": ["Open your terminal", "Paste the command below"],
+    "configType": "cmd",
+    "command": "gemini mcp add --transport sse cybermem http://localhost:8080/mcp"
   },
   {
     "id": "other",

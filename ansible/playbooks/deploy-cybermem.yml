@@ -15,8 +15,6 @@
     - name: Install dependencies
       apt:
         name:
-          - docker.io
-          - docker-compose
           - git
           - rsync
         state: present
@@ -43,7 +41,7 @@
 
     - name: Synchronize project files
       synchronize:
-        src: ../../
+        src: "{{ playbook_dir }}/../../"
         dest: "{{ project_dir }}"
         rsync_opts:
           - "--exclude=.git"
@@ -62,8 +60,8 @@
         group: "{{ ansible_user }}"
         mode: "0600"
 
-    - name: Pull and build services
-      command: docker-compose up -d --build --remove-orphans
+    - name: Pull and start services
+      command: docker-compose -f docker-compose.prod.yml --profile ollama up -d --pull always
       args:
         chdir: "{{ project_dir }}"
       register: compose_output

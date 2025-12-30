@@ -33,13 +33,20 @@ export default function MCPConfigModal({ onClose }: { onClose: () => void }) {
   }
 
   const getConfigContent = () => {
-    if (selectedClient === "codex") {
-      return `# CyberMem Configuration\n[mcp]\nserver_url = "${baseUrl}/mcp"\napi_key = "${apiKey}"`
+    const config = (clients as any[]).find(c => c.id === selectedClient);
+
+    // Handle TOML config (Codex)
+    if (config?.configType === 'toml') {
+      return `# CyberMem Configuration\n[mcp]\nserver_url = "${baseUrl}/mcp"\napi_key = "${apiKey}"`;
     }
-    if (selectedClient === "claude-code") {
-      return `npx -y @modelcontextprotocol/server-sse --url ${baseUrl}/mcp`
+
+    // Handle command-based configs (Claude Code, Gemini CLI, etc.)
+    if ((config?.configType === 'command' || config?.configType === 'cmd') && config?.command) {
+      return config.command;
     }
-    return JSON.stringify(mcpConfig, null, 2)
+
+    // Default to JSON config
+    return JSON.stringify(mcpConfig, null, 2);
   }
 
   const copyToClipboard = (text: string, id: string) => {
