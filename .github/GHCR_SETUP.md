@@ -4,7 +4,7 @@ After the first CI run, you need to make the images public so they can be pulled
 
 ## Steps:
 
-1. Go to https://github.com/mikhailkogan?tab=packages
+1. Go to https://github.com/mikhailkogan17?tab=packages
 2. For each package (cybermem-openmemory, cybermem-dashboard, etc.):
    - Click on the package
    - Go to "Package settings" (bottom right)

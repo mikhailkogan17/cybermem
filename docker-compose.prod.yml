@@ -26,7 +26,7 @@ services:
     restart: unless-stopped
 
   openmemory:
-    image: ghcr.io/mikhailkogan/cybermem-openmemory:latest
+    image: ghcr.io/mikhailkogan17/cybermem-openmemory:latest
     container_name: cybermem-openmemory
     pull_policy: always
     environment:
@@ -73,7 +73,7 @@ services:
       - traefik
 
   db-exporter:
-    image: ghcr.io/mikhailkogan/cybermem-db_exporter:latest
+    image: ghcr.io/mikhailkogan17/cybermem-db_exporter:latest
     container_name: cybermem-db-exporter
     pull_policy: always
     environment:
@@ -89,7 +89,7 @@ services:
       - openmemory
 
   log-exporter:
-    image: ghcr.io/mikhailkogan/cybermem-log_exporter:latest
+    image: ghcr.io/mikhailkogan17/cybermem-log_exporter:latest
     container_name: cybermem-log-exporter
     pull_policy: always
     environment:
@@ -171,7 +171,7 @@ services:
       - db-exporter
 
   dashboard:
-    image: ghcr.io/mikhailkogan/cybermem-dashboard:latest
+    image: ghcr.io/mikhailkogan17/cybermem-dashboard:latest
     container_name: cybermem-dashboard
     pull_policy: always
     environment:
