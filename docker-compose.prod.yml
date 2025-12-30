@@ -5,6 +5,7 @@ services:
   traefik:
     image: traefik:v3.0
     container_name: cybermem-traefik
+    platform: ${DOCKER_PLATFORM:-}
     command:
       - --api.dashboard=true
       - --api.insecure=true
@@ -28,6 +29,8 @@ services:
   openmemory:
     image: ghcr.io/mikhailkogan17/cybermem-openmemory:latest
     container_name: cybermem-openmemory
+    platform: ${DOCKER_PLATFORM:-}
+    user: root
     pull_policy: always
     environment:
       OM_PORT: "8080"
@@ -75,6 +78,7 @@ services:
   db-exporter:
     image: ghcr.io/mikhailkogan17/cybermem-db_exporter:latest
     container_name: cybermem-db-exporter
+    platform: ${DOCKER_PLATFORM:-}
     pull_policy: always
     environment:
       DB_PATH: /data/openmemory.sqlite
@@ -91,6 +95,7 @@ services:
   log-exporter:
     image: ghcr.io/mikhailkogan17/cybermem-log_exporter:latest
     container_name: cybermem-log-exporter
+    platform: ${DOCKER_PLATFORM:-}
     pull_policy: always
     environment:
       LOG_FILE: /var/log/traefik/access.log
@@ -144,6 +149,7 @@ services:
   ollama:
     image: ollama/ollama:latest
     container_name: cybermem-ollama
+    platform: ${DOCKER_PLATFORM:-}
     ports:
       - "11434:11434"
     volumes:
@@ -155,6 +161,7 @@ services:
   prometheus:
     image: prom/prometheus:v2.48.0
     container_name: cybermem-prometheus
+    platform: ${DOCKER_PLATFORM:-}
     command:
       - --config.file=/etc/prometheus/prometheus.yml
       - --storage.tsdb.path=/prometheus
@@ -173,6 +180,7 @@ services:
   dashboard:
     image: ghcr.io/mikhailkogan17/cybermem-dashboard:latest
     container_name: cybermem-dashboard
+    platform: ${DOCKER_PLATFORM:-}
     pull_policy: always
     environment:
       NEXT_PUBLIC_PROMETHEUS_URL: http://prometheus:9090
@@ -180,6 +188,8 @@ services:
       OM_API_KEY: ${OM_API_KEY:-dev-secret-key}
     ports:
       - "3000:3000"
+    volumes:
+      - ./docs/.vitepress/dist:/app/public/docs:ro
     restart: unless-stopped
     depends_on:
       - prometheus
