@@ -5,7 +5,6 @@ export default defineConfig({
   description: "Universal Long-Term Memory for AI Agents",
   lang: 'en-US',
   base: '/docs/',
-  outDir: '../dashboard/public/docs',
   lastUpdated: true,
   cleanUrls: true,
   ignoreDeadLinks: true,
@@ -22,7 +21,7 @@ export default defineConfig({
         items: [
           { text: 'Overview', link: '/' },
           { text: 'Deployment', link: '/deployment' },
-          { text: 'MCP Integration', link: '/mcp-integration' },
+          { text: 'MCP Integration', link: '/mcp' },
         ]
       }
     ],
