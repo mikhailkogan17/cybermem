@@ -7,6 +7,10 @@
     {
       "name": "OpenMemory (submodule)",
       "path": "external/openmemory"
+    },
+    {
+      "name": "Landing",
+      "path": "../cybermem-landing"
     }
   ],
   "settings": {

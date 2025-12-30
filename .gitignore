@@ -4,7 +4,7 @@
 .env.*.local
 
 # Docker volumes
-data/
+/data/
 *.sqlite
 *.sqlite-shm
 *.sqlite-wal
