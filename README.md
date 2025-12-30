@@ -27,17 +27,17 @@
 
 ### Desktop (Mac/Linux)
 ```bash
-curl -fsSL https://raw.githubusercontent.com/mikhailkogan17/cybermem/main/scripts/install.sh | bash
+curl -fsSL https://cybermem.vercel.app/install | bash
 ```
 
 ### Raspberry Pi (Cluster)
 ```bash
-curl -fsSL https://raw.githubusercontent.com/mikhailkogan17/cybermem/main/scripts/install.sh | bash -s -- --target rpi
+curl -fsSL https://cybermem.vercel.app/rpi | bash
 ```
 
 ### Cloud VPS (Kubernetes)
 ```bash
-curl -fsSL https://raw.githubusercontent.com/mikhailkogan17/cybermem/main/scripts/install.sh | bash -s -- --target vps
+curl -fsSL https://cybermem.vercel.app/cloud | bash
 ```
 
 ## 📊 Dashboard

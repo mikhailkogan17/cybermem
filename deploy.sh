@@ -121,6 +121,14 @@ deploy_local() {
 
             log_info "Starting services with Ollama..."
 
+            # Auto-detect ARM architecture (e.g. Raspberry Pi local install)
+            local arch
+            arch=$(uname -m)
+            if [[ "$arch" == "aarch64" || "$arch" == "arm64" ]]; then
+                log_info "Detected ARM architecture ($arch). Configuring for linux/arm64..."
+                export DOCKER_PLATFORM="linux/arm64"
+            fi
+
             # Use pre-built images if USE_PREBUILT=1, otherwise build locally
             if [[ "${USE_PREBUILT:-0}" == "1" ]]; then
                 log_info "Using pre-built images from GHCR"
