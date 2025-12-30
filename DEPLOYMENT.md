@@ -27,10 +27,10 @@ USE_PREBUILT=1 ./deploy.sh --target local
 ## Image Build Strategy
 
 **GitHub Actions** automatically builds multi-arch images (amd64 + arm64) on every push to `main`:
-- `ghcr.io/mikhailkogan/cybermem-openmemory:latest`
-- `ghcr.io/mikhailkogan/cybermem-dashboard:latest`
-- `ghcr.io/mikhailkogan/cybermem-db_exporter:latest`
-- `ghcr.io/mikhailkogan/cybermem-log_exporter:latest`
+- `ghcr.io/mikhailkogan17/cybermem-openmemory:latest`
+- `ghcr.io/mikhailkogan17/cybermem-dashboard:latest`
+- `ghcr.io/mikhailkogan17/cybermem-db_exporter:latest`
+- `ghcr.io/mikhailkogan17/cybermem-log_exporter:latest`
 
 **Benefits:**
 - ✅ No local builds on slow devices (RPi)
