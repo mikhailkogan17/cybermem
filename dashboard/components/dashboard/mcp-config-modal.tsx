@@ -34,6 +34,14 @@ export default function MCPConfigModal({ onClose }: { onClose: () => void }) {
       })
   }, [])
 
+  const generateApiKey = () => {
+    const chars = 'abcdefghijklmnopqrstuvwxyz0123456789'
+    const randomPart = Array.from({ length: 16 }, () => chars[Math.floor(Math.random() * chars.length)]).join('')
+    const newKey = `sk-cybermem-${randomPart}`
+    setApiKey(newKey)
+    setIsKeyVisible(true)
+  }
+
   const getMcpConfig = (clientId: string) => {
     const isAntigravity = clientId === 'antigravity'
     const urlKey = isAntigravity ? 'serverUrl' : 'url'
@@ -227,7 +235,15 @@ export default function MCPConfigModal({ onClose }: { onClose: () => void }) {
                       {isKeyVisible ? (apiKey || "sk-not-generated-yet") : "••••••••••••••••••••••••••••••••"}
                     </div>
                   </div>
-                  <div className="flex items-center gap-2 self-end sm:self-auto">
+                   <div className="flex items-center gap-2 self-end sm:self-auto">
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="h-8 px-2 text-neutral-400 hover:text-white hover:bg-white/10 text-[11px] font-medium"
+                      onClick={generateApiKey}
+                    >
+                      Regenerate
+                    </Button>
                     <Button
                       size="sm"
                       variant="ghost"

@@ -140,16 +140,26 @@ export default function SettingsModal({ onClose }: { onClose: () => void }) {
                       className="bg-black/40 border-white/10 text-white focus-visible:border-emerald-500/30 focus-visible:ring-emerald-500/10 placeholder:text-neutral-600 shadow-inner pr-10 font-mono"
                       type={showApiKey ? "text" : "password"}
                     />
-                    <button
-                      type="button"
-                      onClick={() => setShowApiKey(!showApiKey)}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-white transition-colors"
-                    >
-                      {showApiKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                    </button>
+                    <div className="flex items-center gap-2 self-end mt-2">
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="h-8 px-2 text-neutral-400 hover:text-white hover:bg-white/10"
+                        onClick={generateApiKey}
+                      >
+                        Regenerate
+                      </Button>
+                      <button
+                        type="button"
+                        onClick={() => setShowApiKey(!showApiKey)}
+                        className="p-2 text-neutral-400 hover:text-white transition-colors"
+                      >
+                        {showApiKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      </button>
+                    </div>
                   </div>
                 </div>
-                <p className="text-xs text-neutral-500">Configured via environment variable (OM_API_KEY)</p>
+                <p className="text-xs text-neutral-500">Your master secret key for all MCP clients</p>
               </div>
 
               <div className="space-y-2">
