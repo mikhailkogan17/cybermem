@@ -131,14 +131,14 @@ EOF
         fi
 
         ENV_FILE=".env"
-        log_success "✅ Generated .env with secure API Key: $new_key"
+        log_info "✅ Generated .env with secure API Key: $new_key"
         log_warn "⚠️  SAVE THIS KEY! Use it to configure your MCP client."
     fi
 
     case "$ACTION" in
         up)
-            log_info "Generating Documentation..."
-            (cd docs && npm install && npm run build) || log_error "Failed to build documentation"
+            # log_info "Generating Documentation..."
+            # (cd docs && npm install && npm run build) || log_error "Failed to build documentation"
 
             log_info "Starting services with Ollama..."
 
@@ -187,6 +187,23 @@ deploy_rpi() {
 
     if [[ ! -f "ansible/inventory/hosts.ini" ]]; then
         log_error "Ansible inventory not found. Create ansible/inventory/hosts.ini first"
+    fi
+
+    if [[ ! -f ".env.rpi" ]]; then
+        log_info "No .env.rpi file found. Generating default..."
+        local new_key="sk-$(openssl rand -hex 16)"
+
+        cat > .env.rpi <<EOF
+# CyberMem RPi Configuration
+OM_API_KEY=$new_key
+OM_PORT=8080
+OM_TIER=edge
+DB_BACKEND=sqlite
+DB_PATH=/data/openmemory.sqlite
+VECTOR_BACKEND=sqlite
+DOCKER_PLATFORM=linux/arm64
+EOF
+        log_info "✅ Generated .env.rpi with secure API Key: $new_key"
     fi
 
     case "$ACTION" in
