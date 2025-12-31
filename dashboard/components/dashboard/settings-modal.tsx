@@ -18,33 +18,60 @@ export default function SettingsModal({ onClose }: { onClose: () => void }) {
   const [showAdminPassword, setShowAdminPassword] = useState(false)
   /* Demo mode controlled by context now */
 
+  const [showRegenConfirm, setShowRegenConfirm] = useState(false)
+  const [regenInputValue, setRegenInputValue] = useState("")
+
   // Fetch settings from server
   useEffect(() => {
-    fetch("/api/settings")
-      .then(res => res.json())
-      .then(data => {
-        setApiKey(data.apiKey)
-        // If endpoint is still just localhost from the server, but we are on a different host,
-        // try to be smart about it, but prefer what the server says.
-        let srvEndpoint = data.endpoint
-        if (srvEndpoint.includes('localhost') && typeof window !== "undefined" && !window.location.hostname.includes('localhost')) {
-           srvEndpoint = `${window.location.protocol}//${window.location.hostname}:8080`
-        }
-        setEndpoint(srvEndpoint)
-        setIsLoading(false)
-      })
-      .catch(err => {
-        console.error("Failed to fetch settings:", err)
-        setIsLoading(false)
-      })
+    // Try to get key from local storage first (simulating persistence)
+    const localKey = localStorage.getItem("om_api_key")
+    if (localKey) {
+        setApiKey(localKey)
+        fetch("/api/settings")
+            .then(res => res.json())
+            .then(data => {
+                let srvEndpoint = data.endpoint
+                if (srvEndpoint.includes('localhost') && typeof window !== "undefined" && !window.location.hostname.includes('localhost')) {
+                   srvEndpoint = `${window.location.protocol}//${window.location.hostname}:8080`
+                }
+                setEndpoint(srvEndpoint)
+                setIsLoading(false)
+            })
+            .catch(err => setIsLoading(false))
+    } else {
+        fetch("/api/settings")
+          .then(res => res.json())
+          .then(data => {
+            setApiKey(data.apiKey !== 'not-set' ? data.apiKey : '')
+            let srvEndpoint = data.endpoint
+            if (srvEndpoint.includes('localhost') && typeof window !== "undefined" && !window.location.hostname.includes('localhost')) {
+               srvEndpoint = `${window.location.protocol}//${window.location.hostname}:8080`
+            }
+            setEndpoint(srvEndpoint)
+            setIsLoading(false)
+          })
+          .catch(err => {
+            console.error("Failed to fetch settings:", err)
+            setIsLoading(false)
+          })
+    }
   }, [])
 
   const generateApiKey = () => {
+    // Legacy direct generation - now just triggers the confirmation flow if button linked here
+    // But the button in UI calls setShowRegenConfirm(true) directly.
+    // We can keep this empty or redirect.
+  }
+
+  const confirmRegenerate = () => {
     const chars = 'abcdefghijklmnopqrstuvwxyz0123456789'
     const randomPart = Array.from({ length: 16 }, () => chars[Math.floor(Math.random() * chars.length)]).join('')
     const newKey = `sk-cybermem-${randomPart}`
     setApiKey(newKey)
+    localStorage.setItem("om_api_key", newKey)
     setShowApiKey(true) // Automatically show the new key
+    setShowRegenConfirm(false)
+    setRegenInputValue("")
   }
 
   const [saved, setSaved] = useState(false)
@@ -134,30 +161,63 @@ export default function SettingsModal({ onClose }: { onClose: () => void }) {
                   <div className="relative flex-1">
                     <Input
                       id="api-key"
-                      value={apiKey}
-                      placeholder={isLoading ? "••••••••••••••••" : ""}
+                      value={apiKey || "not-generated-yet"}
+                      placeholder={isLoading ? "••••••••••••••••" : "not-generated-yet"}
                       readOnly
                       className="bg-black/40 border-white/10 text-white focus-visible:border-emerald-500/30 focus-visible:ring-emerald-500/10 placeholder:text-neutral-600 shadow-inner pr-10 font-mono"
-                      type={showApiKey ? "text" : "password"}
+                      type={showApiKey || !apiKey || apiKey.includes('not-') ? "text" : "password"}
                     />
-                    <div className="flex items-center gap-2 self-end mt-2">
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        className="h-8 px-2 text-neutral-400 hover:text-white hover:bg-white/10"
-                        onClick={generateApiKey}
-                      >
-                        Regenerate
-                      </Button>
-                      <button
+                    <button
                         type="button"
                         onClick={() => setShowApiKey(!showApiKey)}
-                        className="p-2 text-neutral-400 hover:text-white transition-colors"
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-white transition-colors"
                       >
                         {showApiKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                      </button>
-                    </div>
+                    </button>
                   </div>
+                </div>
+
+                {/* Regeneration Controls */}
+                <div className="flex justify-end pt-2">
+                   {showRegenConfirm ? (
+                       <div className="flex items-center gap-2 animate-in fade-in slide-in-from-right-4 duration-200">
+                           <span className="text-xs text-red-400 font-medium">Warning: This will disconnect all existing clients.</span>
+                           <Input
+                                value={regenInputValue}
+                                onChange={(e) => setRegenInputValue(e.target.value)}
+                                placeholder="Type 'agree'"
+                                className="h-8 w-28 bg-red-500/10 border-red-500/30 text-red-200 text-xs placeholder:text-red-500/30 focus-visible:border-red-500/50"
+                           />
+                           <Button
+                                size="sm"
+                                variant="ghost"
+                                className="h-8 px-3 text-neutral-400 hover:text-white hover:bg-white/10"
+                                onClick={() => {
+                                    setShowRegenConfirm(false)
+                                    setRegenInputValue("")
+                                }}
+                           >
+                               Cancel
+                           </Button>
+                           <Button
+                                size="sm"
+                                disabled={regenInputValue !== 'agree'}
+                                className="h-8 px-3 bg-red-500/20 text-red-400 hover:bg-red-500/30 border border-red-500/20 disabled:opacity-50 disabled:cursor-not-allowed"
+                                onClick={confirmRegenerate}
+                           >
+                               Confirm
+                           </Button>
+                       </div>
+                   ) : (
+                        <Button
+                            size="sm"
+                            variant="ghost"
+                            className="h-8 px-2 text-neutral-400 hover:text-white hover:bg-white/10"
+                            onClick={() => setShowRegenConfirm(true)}
+                        >
+                            Regenerate Key
+                        </Button>
+                   )}
                 </div>
                 <p className="text-xs text-neutral-500">Your master secret key for all MCP clients</p>
               </div>

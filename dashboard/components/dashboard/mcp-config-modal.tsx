@@ -1,6 +1,8 @@
 "use client"
 
 import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
 import { useDashboard } from "@/lib/data/dashboard-context"
 import { Check, Copy, Eye, EyeOff, FileCode, Info, Monitor, X } from "lucide-react"
 import { useEffect, useState } from "react"
@@ -14,32 +16,58 @@ export default function MCPConfigModal({ onClose }: { onClose: () => void }) {
   const [baseUrl, setBaseUrl] = useState("http://localhost:8080")
   const [isLoading, setIsLoading] = useState(true)
   const [isKeyVisible, setIsKeyVisible] = useState(false)
+  const [showRegenConfirm, setShowRegenConfirm] = useState(false)
+  const [regenInputValue, setRegenInputValue] = useState("")
 
   useEffect(() => {
-    fetch("/api/settings")
-      .then(res => res.json())
-      .then(data => {
-        setApiKey(data.apiKey)
-        let srvEndpoint = data.endpoint
-        // If server says localhost but we are browsing via another host, adjust for convenience
-        if (srvEndpoint.includes('localhost') && typeof window !== "undefined" && !window.location.hostname.includes('localhost')) {
-           srvEndpoint = `${window.location.protocol}//${window.location.hostname}:8080`
-        }
-        setBaseUrl(srvEndpoint)
-        setIsLoading(false)
-      })
-      .catch(err => {
-        console.error("Failed to fetch settings:", err)
-        setIsLoading(false)
-      })
+    // Try to get key from local storage first (simulating persistence)
+    const localKey = localStorage.getItem("om_api_key")
+    if (localKey) {
+       setApiKey(localKey)
+       // We still fetch settings for the endpoint
+       fetch("/api/settings")
+        .then(res => res.json())
+        .then(data => {
+            let srvEndpoint = data.endpoint
+            if (srvEndpoint.includes('localhost') && typeof window !== "undefined" && !window.location.hostname.includes('localhost')) {
+               srvEndpoint = `${window.location.protocol}//${window.location.hostname}:8080`
+            }
+            setBaseUrl(srvEndpoint)
+            setIsLoading(false)
+        })
+        .catch(err => setIsLoading(false))
+    } else {
+        fetch("/api/settings")
+          .then(res => res.json())
+          .then(data => {
+            setApiKey(data.apiKey !== 'not-set' ? data.apiKey : '')
+            let srvEndpoint = data.endpoint
+            if (srvEndpoint.includes('localhost') && typeof window !== "undefined" && !window.location.hostname.includes('localhost')) {
+               srvEndpoint = `${window.location.protocol}//${window.location.hostname}:8080`
+            }
+            setBaseUrl(srvEndpoint)
+            setIsLoading(false)
+          })
+          .catch(err => {
+            console.error("Failed to fetch settings:", err)
+            setIsLoading(false)
+          })
+    }
   }, [])
 
   const generateApiKey = () => {
+    // Legacy - redirected to confirmRegenerate logic via UI state
+  }
+
+  const confirmRegenerate = () => {
     const chars = 'abcdefghijklmnopqrstuvwxyz0123456789'
     const randomPart = Array.from({ length: 16 }, () => chars[Math.floor(Math.random() * chars.length)]).join('')
     const newKey = `sk-cybermem-${randomPart}`
     setApiKey(newKey)
+    localStorage.setItem("om_api_key", newKey)
     setIsKeyVisible(true)
+    setShowRegenConfirm(false)
+    setRegenInputValue("")
   }
 
   const getMcpConfig = (clientId: string) => {
@@ -195,7 +223,11 @@ export default function MCPConfigModal({ onClose }: { onClose: () => void }) {
                     `}
                   >
                     <div className="mb-2 transition-transform duration-300 group-hover:scale-110">
-                       {client.icon ? (
+                       {client.id === 'codex' ? (
+                          <div className="w-8 h-8 flex items-center justify-center text-white/50 bg-white/5 rounded-full border border-white/10 transition-transform duration-300">
+                             <span className="text-sm font-bold">C</span>
+                           </div>
+                       ) : client.icon ? (
                          <img src={client.icon} alt={client.name} className="w-8 h-8 object-contain drop-shadow-lg" />
                        ) : (
                          <div className="w-8 h-8 flex items-center justify-center text-white/50 bg-white/5 rounded-full border border-white/10 transition-transform duration-300">
@@ -227,41 +259,80 @@ export default function MCPConfigModal({ onClose }: { onClose: () => void }) {
 
                 {renderInstructions()}
 
-                {/* API Key Toggle Row */}
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 rounded-lg bg-white/5 border border-white/10 mb-4">
-                  <div className="flex-1 min-w-0">
-                    <div className="text-[10px] text-neutral-500 uppercase tracking-wider mb-1 font-bold">Your Secret Key</div>
-                    <div className="font-mono text-sm text-emerald-400 truncate max-w-[200px] sm:max-w-md">
-                      {isKeyVisible ? (apiKey || "sk-not-generated-yet") : "••••••••••••••••••••••••••••••••"}
+                {/* API Key Control Row (Standardized) */}
+                <div className="bg-white/5 border border-white/10 rounded-lg p-5 space-y-4 shadow-[inset_0_0_20px_rgba(255,255,255,0.02)] backdrop-blur-sm mb-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="mcp-api-key" className="text-neutral-200">Master API Key</Label>
+                    <div className="flex gap-2">
+                      <div className="relative flex-1">
+                        <Input
+                          id="mcp-api-key"
+                          value={apiKey || "sk-not-generated-yet"}
+                          readOnly
+                          className="bg-black/40 border-white/10 text-white focus-visible:border-emerald-500/30 focus-visible:ring-emerald-500/10 placeholder:text-neutral-600 shadow-inner pr-10 font-mono"
+                          type={isKeyVisible ? "text" : "password"}
+                        />
+                         <button
+                            type="button"
+                            onClick={() => setIsKeyVisible(!isKeyVisible)}
+                            className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-white transition-colors"
+                          >
+                            {isKeyVisible ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                        </button>
+                      </div>
+                      <Button
+                          size="icon"
+                          variant="ghost"
+                          className="h-10 w-10 border border-white/10 bg-white/5 hover:bg-white/10 text-neutral-400 hover:text-white"
+                          onClick={() => copyToClipboard(apiKey, "apikey")}
+                          title="Copy API Key"
+                        >
+                          {copiedId === "apikey" ? <Check className="h-4 w-4 text-emerald-400" /> : <Copy className="h-4 w-4" />}
+                      </Button>
                     </div>
-                  </div>
-                   <div className="flex items-center gap-2 self-end sm:self-auto">
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      className="h-8 px-2 text-neutral-400 hover:text-white hover:bg-white/10 text-[11px] font-medium"
-                      onClick={generateApiKey}
-                    >
-                      Regenerate
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      className="h-8 w-8 p-0 text-neutral-400 hover:text-white hover:bg-white/10"
-                      onClick={() => setIsKeyVisible(!isKeyVisible)}
-                      title={isKeyVisible ? "Hide Key" : "Show Key"}
-                    >
-                      {isKeyVisible ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      className="h-8 px-2 text-neutral-400 hover:text-white hover:bg-white/10 flex items-center gap-1"
-                      onClick={() => copyToClipboard(apiKey, "apikey")}
-                    >
-                      {copiedId === "apikey" ? <Check className="h-3 w-3 text-emerald-400" /> : <Copy className="h-3 w-3" />}
-                      <span className="text-[11px] font-medium">{copiedId === "apikey" ? "Copied" : "Copy"}</span>
-                    </Button>
+
+                    {/* Regeneration Controls */}
+                    <div className="flex justify-end pt-2">
+                      {showRegenConfirm ? (
+                          <div className="flex items-center gap-2 animate-in fade-in slide-in-from-right-4 duration-200">
+                              <span className="text-xs text-red-400 font-medium">Warning: Disconnects clients.</span>
+                              <Input
+                                    value={regenInputValue}
+                                    onChange={(e) => setRegenInputValue(e.target.value)}
+                                    placeholder="Type 'agree'"
+                                    className="h-8 w-28 bg-red-500/10 border-red-500/30 text-red-200 text-xs placeholder:text-red-500/30 focus-visible:border-red-500/50"
+                              />
+                              <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    className="h-8 px-3 text-neutral-400 hover:text-white hover:bg-white/10"
+                                    onClick={() => {
+                                        setShowRegenConfirm(false)
+                                        setRegenInputValue("")
+                                    }}
+                              >
+                                  Cancel
+                              </Button>
+                              <Button
+                                    size="sm"
+                                    disabled={regenInputValue !== 'agree'}
+                                    className="h-8 px-3 bg-red-500/20 text-red-400 hover:bg-red-500/30 border border-red-500/20 disabled:opacity-50 disabled:cursor-not-allowed"
+                                    onClick={confirmRegenerate}
+                              >
+                                  Confirm
+                              </Button>
+                          </div>
+                      ) : (
+                            <Button
+                                size="sm"
+                                variant="ghost"
+                                className="h-8 px-2 text-neutral-400 hover:text-white hover:bg-white/10"
+                                onClick={() => setShowRegenConfirm(true)}
+                            >
+                                Regenerate Key
+                            </Button>
+                      )}
+                    </div>
                   </div>
                 </div>
 

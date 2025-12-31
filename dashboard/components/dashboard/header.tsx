@@ -59,7 +59,7 @@ export default function DashboardHeader({
               asChild
               className="hidden md:flex h-10 px-4 text-sm font-medium text-neutral-400 hover:text-white bg-white/5 border border-white/10 hover:bg-white/10 rounded-lg"
             >
-              <a href="/docs" target="_blank">
+              <a href="https://cybermem.dev/docs" target="_blank">
                 <Book className="w-4 h-4 mr-2" />
                 Docs
               </a>
