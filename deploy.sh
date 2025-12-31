@@ -109,9 +109,30 @@ deploy_local() {
         log_info "Using .env.local"
     elif [[ -f ".env" ]]; then
         ENV_FILE=".env"
-        log_info "Using .env (fallback)"
+        log_info "Using .env"
     else
-        log_error "Environment file not found. Create .env.local or .env"
+        log_info "No environment file found. Generating default .env..."
+        local new_key="sk-$(openssl rand -hex 16)"
+
+        cat > .env <<EOF
+# CyberMem Configuration
+OM_API_KEY=$new_key
+OM_PORT=8080
+OM_TIER=deep
+DB_BACKEND=sqlite
+DB_PATH=/data/openmemory.sqlite
+VECTOR_BACKEND=sqlite
+# Add other defaults as needed
+EOF
+
+        # Auto-detect ARM
+        if [[ "$(uname -m)" == "aarch64" || "$(uname -m)" == "arm64" ]]; then
+             echo "DOCKER_PLATFORM=linux/arm64" >> .env
+        fi
+
+        ENV_FILE=".env"
+        log_success "✅ Generated .env with secure API Key: $new_key"
+        log_warn "⚠️  SAVE THIS KEY! Use it to configure your MCP client."
     fi
 
     case "$ACTION" in
