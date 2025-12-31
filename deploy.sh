@@ -361,12 +361,20 @@ echo "---------------------------------------------------"
 echo "  CYBERMEM DEPLOYMENT COMPLETE"
 echo "---------------------------------------------------"
 if [[ "$TARGET" == "local" ]]; then
-    echo "  Dashboard:   http://localhost:3000"
-    echo "  MCP Config:  http://localhost:8080/mcp"
+    # Extract API Key from env file
+    PROJECT_KEY=$(grep '^OM_API_KEY=' "$ENV_FILE" | cut -d '=' -f2)
+
+    echo "  Dashboard:      http://localhost:3000"
+    echo "  MCP Config:     http://localhost:8080/mcp"
+    echo "  Master API Key: $PROJECT_KEY"
 elif [[ "$TARGET" == "rpi" ]]; then
     RPI_HOST=$(grep -oE '^[a-zA-Z0-9.-]+' ansible/inventory/hosts.ini | head -n 1 || echo "raspberrypi.local")
-    echo "  Dashboard:   http://${RPI_HOST}:3000"
-    echo "  MCP Config:  http://${RPI_HOST}:8080/mcp"
+    # Attempt to read key from rpi env file
+    PROJECT_KEY=$(grep '^OM_API_KEY=' .env.rpi | cut -d '=' -f2)
+
+    echo "  Dashboard:      http://${RPI_HOST}:3000"
+    echo "  MCP Config:     http://${RPI_HOST}:8080/mcp"
+    echo "  Master API Key: ${PROJECT_KEY:-<check .env.rpi>}"
 elif [[ "$TARGET" == "vps" ]]; then
     echo "  Check your Ingress/Service IP via: kubectl get svc -n cybermem"
 fi
