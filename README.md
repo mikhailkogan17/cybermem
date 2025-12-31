@@ -27,17 +27,17 @@
 
 ### Desktop (Mac/Linux)
 ```bash
-curl -fsSL https://cybermem.vercel.app/install | bash
+curl -fsSL https://cybermem.dev/install | bash
 ```
 
 ### Raspberry Pi (Cluster)
 ```bash
-curl -fsSL https://cybermem.vercel.app/rpi | bash
+curl -fsSL https://cybermem.dev/rpi | bash
 ```
 
 ### Cloud VPS (Kubernetes)
 ```bash
-curl -fsSL https://cybermem.vercel.app/cloud | bash
+curl -fsSL https://cybermem.dev/cloud | bash
 ```
 
 ## 📊 Dashboard
