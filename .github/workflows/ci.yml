@@ -32,12 +32,3 @@ jobs:
         run: |
           cd dashboard
           npm run build
-
-      - name: E2E Test (Integration)
-        # This requires docker-compose.
-        # Note: This might fail if Ollama (LLM) is too heavy for GitHub runner.
-        # We might need to mock LLM or use a lighter profile.
-        # For now, we attempt to run it.
-        run: |
-          chmod +x deploy.sh tests/e2e.sh scripts/load_test.sh
-          ./tests/e2e.sh

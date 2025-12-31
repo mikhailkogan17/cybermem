@@ -44,10 +44,12 @@ curl -fsSL https://cybermem.dev/cloud | bash
 
 Manage your agents' memories with a beautiful, real-time interface.
 
+<!--
 <img src="docs/images/dashboard1.png" width="49%"></img>
 <img src="docs/images/dashboard2.png" width="49%"></img>
 <img src="docs/images/dashboard3.png" width="49%"></img>
 <img src="docs/images/dashboard4.png" width="49%"></img>
+-->
 
 - **Real-time Metrics**: Throughput, latency, and error rates.
 - **Memory Inspector**: View and edit stored memories.
