@@ -4,24 +4,39 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { useDashboard } from "@/lib/data/dashboard-context"
-import { Eye, EyeOff, Key, RefreshCw, Save, Server, Settings, Shield, X } from "lucide-react"
+import { Eye, EyeOff, Key, Save, Server, Settings, Shield, X } from "lucide-react"
 import { useEffect, useState } from "react"
 
 export default function SettingsModal({ onClose }: { onClose: () => void }) {
-  const [apiKey, setApiKey] = useState("sk-cybermem-master-key-8f7a2b9c")
-  const [endpoint, setEndpoint] = useState("http://localhost:8080")
+  const [apiKey, setApiKey] = useState("")
+  const [endpoint, setEndpoint] = useState("")
   const [adminPassword, setAdminPassword] = useState(localStorage.getItem("adminPassword") || "admin")
+  const [isLoading, setIsLoading] = useState(true)
 
   const { isDemo, toggleDemo } = useDashboard()
   const [showApiKey, setShowApiKey] = useState(false)
   const [showAdminPassword, setShowAdminPassword] = useState(false)
   /* Demo mode controlled by context now */
 
-  // Set endpoint based on current hostname
+  // Fetch settings from server
   useEffect(() => {
-    if (typeof window !== "undefined") {
-        setEndpoint(`${window.location.protocol}//${window.location.hostname}:8080`)
-    }
+    fetch("/api/settings")
+      .then(res => res.json())
+      .then(data => {
+        setApiKey(data.apiKey)
+        // If endpoint is still just localhost from the server, but we are on a different host,
+        // try to be smart about it, but prefer what the server says.
+        let srvEndpoint = data.endpoint
+        if (srvEndpoint.includes('localhost') && typeof window !== "undefined" && !window.location.hostname.includes('localhost')) {
+           srvEndpoint = `${window.location.protocol}//${window.location.hostname}:8080`
+        }
+        setEndpoint(srvEndpoint)
+        setIsLoading(false)
+      })
+      .catch(err => {
+        console.error("Failed to fetch settings:", err)
+        setIsLoading(false)
+      })
   }, [])
 
   const generateApiKey = () => {
@@ -120,8 +135,9 @@ export default function SettingsModal({ onClose }: { onClose: () => void }) {
                     <Input
                       id="api-key"
                       value={apiKey}
-                      onChange={(e) => setApiKey(e.target.value)}
-                      className="bg-black/40 border-white/10 text-white focus-visible:border-emerald-500/30 focus-visible:ring-emerald-500/10 placeholder:text-neutral-600 shadow-inner pr-10"
+                      placeholder={isLoading ? "••••••••••••••••" : ""}
+                      readOnly
+                      className="bg-black/40 border-white/10 text-white focus-visible:border-emerald-500/30 focus-visible:ring-emerald-500/10 placeholder:text-neutral-600 shadow-inner pr-10 font-mono"
                       type={showApiKey ? "text" : "password"}
                     />
                     <button
@@ -132,15 +148,8 @@ export default function SettingsModal({ onClose }: { onClose: () => void }) {
                       {showApiKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                     </button>
                   </div>
-                  <Button
-                    onClick={generateApiKey}
-                    className="bg-white/5 hover:bg-white/10 border border-white/10 text-white transition-colors hover:shadow-[0_0_10px_rgba(255,255,255,0.1)] gap-2"
-                  >
-                    <RefreshCw className="w-4 h-4" />
-                    Regenerate
-                  </Button>
                 </div>
-                <p className="text-xs text-neutral-500">Used for administrative access to OpenMemory</p>
+                <p className="text-xs text-neutral-500">Configured via environment variable (OM_API_KEY)</p>
               </div>
 
               <div className="space-y-2">

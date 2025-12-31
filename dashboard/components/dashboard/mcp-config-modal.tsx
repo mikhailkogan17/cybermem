@@ -2,7 +2,7 @@
 
 import { Button } from "@/components/ui/button"
 import { useDashboard } from "@/lib/data/dashboard-context"
-import { Check, Copy, FileCode, Info, Monitor, X } from "lucide-react"
+import { Check, Copy, Eye, EyeOff, FileCode, Info, Monitor, X } from "lucide-react"
 import { useEffect, useState } from "react"
 
 export default function MCPConfigModal({ onClose }: { onClose: () => void }) {
@@ -10,43 +10,77 @@ export default function MCPConfigModal({ onClose }: { onClose: () => void }) {
   const clients = clientConfigs
   const [selectedClient, setSelectedClient] = useState("claude")
   const [copiedId, setCopiedId] = useState<string | null>(null)
-  const [apiKey] = useState("sk-cybermem-master-key-8f7a2b9c")
-
+  const [apiKey, setApiKey] = useState("")
   const [baseUrl, setBaseUrl] = useState("http://localhost:8080")
-  const [hostname, setHostname] = useState("localhost")
+  const [isLoading, setIsLoading] = useState(true)
+  const [isKeyVisible, setIsKeyVisible] = useState(false)
 
   useEffect(() => {
-    if (typeof window !== "undefined") {
-      const host = window.location.hostname
-      setHostname(host)
-      setBaseUrl(`http://${host}:8080`)
-    }
+    fetch("/api/settings")
+      .then(res => res.json())
+      .then(data => {
+        setApiKey(data.apiKey)
+        let srvEndpoint = data.endpoint
+        // If server says localhost but we are browsing via another host, adjust for convenience
+        if (srvEndpoint.includes('localhost') && typeof window !== "undefined" && !window.location.hostname.includes('localhost')) {
+           srvEndpoint = `${window.location.protocol}//${window.location.hostname}:8080`
+        }
+        setBaseUrl(srvEndpoint)
+        setIsLoading(false)
+      })
+      .catch(err => {
+        console.error("Failed to fetch settings:", err)
+        setIsLoading(false)
+      })
   }, [])
 
-  const mcpConfig = {
-    mcpServers: {
-      cybermem: {
-        url: `${baseUrl}/mcp`,
-        type: "sse"
+  const getMcpConfig = (clientId: string) => {
+    const isAntigravity = clientId === 'antigravity'
+    const urlKey = isAntigravity ? 'serverUrl' : 'url'
+
+    return {
+      mcpServers: {
+        cybermem: {
+          [urlKey]: `${baseUrl}/mcp`,
+          "headers": {
+            "x-api-key": apiKey || "sk-your-generated-key"
+          }
+        }
       }
     }
   }
 
-  const getConfigContent = () => {
+  const getConfigContent = (maskKey = false) => {
     const config = (clients as any[]).find(c => c.id === selectedClient);
+    const displayKey = maskKey ? "••••••••••••••••" : (apiKey || "sk-your-generated-key");
+    const actualKey = apiKey || "sk-your-generated-key";
 
     // Handle TOML config (Codex)
     if (config?.configType === 'toml') {
-      return `# CyberMem Configuration\n[mcp]\nserver_url = "${baseUrl}/mcp"\napi_key = "${apiKey}"`;
+      return `# CyberMem Configuration\n[mcp]\nserver_url = "${baseUrl}/mcp"\napi_key = "${maskKey ? displayKey : actualKey}"`;
     }
 
     // Handle command-based configs (Claude Code, Gemini CLI, etc.)
     if ((config?.configType === 'command' || config?.configType === 'cmd') && config?.command) {
-      return config.command;
+      let cmd = config.command.replace("http://localhost:8080", baseUrl);
+
+      // Add API key as header if it's missing and it's a CLI that usually supports it
+      if (config.id === 'claude-code' || config.id === 'gemini-cli') {
+        const headerPart = `--header "x-api-key: ${maskKey ? displayKey : actualKey}"`;
+        if (!cmd.includes('x-api-key')) {
+          // Insert before transport or just at the end
+          cmd = cmd.replace('mcp add', `mcp add ${headerPart}`);
+        }
+      }
+      return cmd;
     }
 
     // Default to JSON config
-    return JSON.stringify(mcpConfig, null, 2);
+    const jsonConfig = getMcpConfig(selectedClient);
+    if (maskKey) {
+      (jsonConfig.mcpServers.cybermem as any).headers["x-api-key"] = displayKey;
+    }
+    return JSON.stringify(jsonConfig, null, 2);
   }
 
   const copyToClipboard = (text: string, id: string) => {
@@ -185,33 +219,61 @@ export default function MCPConfigModal({ onClose }: { onClose: () => void }) {
 
                 {renderInstructions()}
 
-                {true && (
-                  <div className="relative group">
-                    <div className="relative pl-5 py-5 pr-24 rounded-lg bg-[#0F161C] border border-white/10 font-mono text-xs md:text-sm text-white overflow-x-auto shadow-[0_0_20px_rgba(0,0,0,0.3)] inset-shadow">
-                      <pre className="text-shadow-sm">
-                        {(() => {
-                          const config = (clients as any[]).find(c => c.id === selectedClient);
-                          if (config?.configType === 'json') {
-                             return <code dangerouslySetInnerHTML={{ __html: highlightJSON(mcpConfig) }} />;
-                          } else {
-                             return configContent;
-                          }
-                        })()}
-                      </pre>
-                    </div>
-                    <div className="absolute top-5 right-4 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        className="h-8 px-3 text-white bg-black/40 backdrop-blur border border-white/5 shadow-[0_0_10px_rgba(255,255,255,0.05)] hover:bg-white/10 hover:text-white font-medium"
-                        onClick={() => copyToClipboard(configContent, "config")}
-                      >
-                        {copiedId === "config" ? <Check className="h-4 w-4 stroke-[2.5] text-emerald-400 mr-2 drop-shadow-[0_0_5px_rgba(52,211,153,0.5)]" /> : <Copy className="h-4 w-4 stroke-[2.5] mr-2 text-white drop-shadow-[0_0_5px_rgba(255,255,255,0.3)]" />}
-                        {copiedId === "config" ? <span className="text-emerald-400 text-shadow-sm">Copied</span> : <span className="text-white text-shadow-sm">Copy</span>}
-                      </Button>
+                {/* API Key Toggle Row */}
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 rounded-lg bg-white/5 border border-white/10 mb-4">
+                  <div className="flex-1 min-w-0">
+                    <div className="text-[10px] text-neutral-500 uppercase tracking-wider mb-1 font-bold">Your Secret Key</div>
+                    <div className="font-mono text-sm text-emerald-400 truncate max-w-[200px] sm:max-w-md">
+                      {isKeyVisible ? (apiKey || "sk-not-generated-yet") : "••••••••••••••••••••••••••••••••"}
                     </div>
                   </div>
-                )}
+                  <div className="flex items-center gap-2 self-end sm:self-auto">
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="h-8 w-8 p-0 text-neutral-400 hover:text-white hover:bg-white/10"
+                      onClick={() => setIsKeyVisible(!isKeyVisible)}
+                      title={isKeyVisible ? "Hide Key" : "Show Key"}
+                    >
+                      {isKeyVisible ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="h-8 px-2 text-neutral-400 hover:text-white hover:bg-white/10 flex items-center gap-1"
+                      onClick={() => copyToClipboard(apiKey, "apikey")}
+                    >
+                      {copiedId === "apikey" ? <Check className="h-3 w-3 text-emerald-400" /> : <Copy className="h-3 w-3" />}
+                      <span className="text-[11px] font-medium">{copiedId === "apikey" ? "Copied" : "Copy"}</span>
+                    </Button>
+                  </div>
+                </div>
+
+                <div className="relative group">
+                  <div className="relative pl-5 py-5 pr-24 rounded-lg bg-[#0F161C] border border-white/10 font-mono text-xs md:text-sm text-white overflow-x-auto shadow-[0_0_20px_rgba(0,0,0,0.3)] inset-shadow">
+                    <pre className="text-shadow-sm">
+                      {(() => {
+                        const config = (clients as any[]).find(c => c.id === selectedClient);
+                        if (config?.configType === 'json') {
+                           return <code dangerouslySetInnerHTML={{ __html: highlightJSON(JSON.parse(getConfigContent(!isKeyVisible))) }} />;
+                        } else {
+                           return getConfigContent(!isKeyVisible);
+                        }
+                      })()}
+                    </pre>
+                  </div>
+                  <div className="absolute top-5 right-4 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="h-8 px-3 text-white bg-black/40 backdrop-blur border border-white/5 shadow-[0_0_10px_rgba(255,255,255,0.05)] hover:bg-white/10 hover:text-white font-medium"
+                      onClick={() => copyToClipboard(getConfigContent(false), "config")}
+                    >
+                      {copiedId === "config" ? <Check className="h-4 w-4 stroke-[2.5] text-emerald-400 mr-2 drop-shadow-[0_0_5px_rgba(52,211,153,0.5)]" /> : <Copy className="h-4 w-4 stroke-[2.5] mr-2 text-white drop-shadow-[0_0_5px_rgba(255,255,255,0.3)]" />}
+                      {copiedId === "config" ? <span className="text-emerald-400 text-shadow-sm">Copied</span> : <span className="text-white text-shadow-sm">Copy</span>}
+                    </Button>
+                  </div>
+                </div>
 
                 <div className="flex items-start gap-3 p-3 rounded-lg bg-emerald-500/5 border border-emerald-500/10 text-emerald-200/70 text-xs">
                   <Info className="h-4 w-4 shrink-0 text-white mt-0.5" />
@@ -230,7 +292,7 @@ export default function MCPConfigModal({ onClose }: { onClose: () => void }) {
             variant="ghost"
             className="bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/20 text-emerald-400 hover:text-emerald-300 mr-auto"
           >
-            <a href="/docs" target="_blank">Read Documentation</a>
+            <a href="https://cybermem.dev/docs" target="_blank">Read Documentation</a>
           </Button>
           <Button
             onClick={onClose}

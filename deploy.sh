@@ -364,8 +364,9 @@ if [[ "$TARGET" == "local" ]]; then
     echo "  Dashboard:   http://localhost:3000"
     echo "  MCP Config:  http://localhost:8080/mcp"
 elif [[ "$TARGET" == "rpi" ]]; then
-    echo "  Dashboard:   http://<RPi_IP>:3000"
-    echo "  MCP Config:  http://<RPi_IP>:8080/mcp"
+    RPI_HOST=$(grep -oE '^[a-zA-Z0-9.-]+' ansible/inventory/hosts.ini | head -n 1 || echo "raspberrypi.local")
+    echo "  Dashboard:   http://${RPI_HOST}:3000"
+    echo "  MCP Config:  http://${RPI_HOST}:8080/mcp"
 elif [[ "$TARGET" == "vps" ]]; then
     echo "  Check your Ingress/Service IP via: kubectl get svc -n cybermem"
 fi
