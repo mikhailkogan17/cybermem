@@ -223,11 +223,7 @@ export default function MCPConfigModal({ onClose }: { onClose: () => void }) {
                     `}
                   >
                     <div className="mb-2 transition-transform duration-300 group-hover:scale-110">
-                       {client.id === 'codex' ? (
-                          <div className="w-8 h-8 flex items-center justify-center text-white/50 bg-white/5 rounded-full border border-white/10 transition-transform duration-300">
-                             <span className="text-sm font-bold">C</span>
-                           </div>
-                       ) : client.icon ? (
+                       {client.icon ? (
                          <img src={client.icon} alt={client.name} className="w-8 h-8 object-contain drop-shadow-lg" />
                        ) : (
                          <div className="w-8 h-8 flex items-center justify-center text-white/50 bg-white/5 rounded-full border border-white/10 transition-transform duration-300">
