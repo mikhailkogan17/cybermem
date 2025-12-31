@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { useDashboard } from "@/lib/data/dashboard-context"
-import { Eye, EyeOff, Key, Save, Server, Settings, Shield, X } from "lucide-react"
+import { Check, Copy, Eye, EyeOff, Key, Save, Server, Settings, Shield, X } from "lucide-react"
 import { useEffect, useState } from "react"
 
 export default function SettingsModal({ onClose }: { onClose: () => void }) {
@@ -20,6 +20,13 @@ export default function SettingsModal({ onClose }: { onClose: () => void }) {
 
   const [showRegenConfirm, setShowRegenConfirm] = useState(false)
   const [regenInputValue, setRegenInputValue] = useState("")
+  const [copiedId, setCopiedId] = useState<string | null>(null)
+
+  const copyToClipboard = (text: string, id: string) => {
+    navigator.clipboard.writeText(text)
+    setCopiedId(id)
+    setTimeout(() => setCopiedId(null), 2000)
+  }
 
   // Fetch settings from server
   useEffect(() => {
@@ -161,13 +168,12 @@ export default function SettingsModal({ onClose }: { onClose: () => void }) {
                   <div className="relative flex-1">
                     <Input
                       id="api-key"
-                      value={apiKey || "not-generated-yet"}
-                      placeholder={isLoading ? "••••••••••••••••" : "not-generated-yet"}
+                      value={apiKey || "sk-not-generated-yet"}
                       readOnly
                       className="bg-black/40 border-white/10 text-white focus-visible:border-emerald-500/30 focus-visible:ring-emerald-500/10 placeholder:text-neutral-600 shadow-inner pr-10 font-mono"
-                      type={showApiKey || !apiKey || apiKey.includes('not-') ? "text" : "password"}
+                      type={showApiKey ? "text" : "password"}
                     />
-                    <button
+                     <button
                         type="button"
                         onClick={() => setShowApiKey(!showApiKey)}
                         className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-white transition-colors"
@@ -175,6 +181,15 @@ export default function SettingsModal({ onClose }: { onClose: () => void }) {
                         {showApiKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                     </button>
                   </div>
+                  <Button
+                      size="icon"
+                      variant="ghost"
+                      className="h-10 w-10 border border-white/10 bg-white/5 hover:bg-white/10 text-neutral-400 hover:text-white"
+                      onClick={() => copyToClipboard(apiKey, "apikey")}
+                      title="Copy API Key"
+                    >
+                      {copiedId === "apikey" ? <Check className="h-4 w-4 text-emerald-400" /> : <Copy className="h-4 w-4" />}
+                  </Button>
                 </div>
 
                 {/* Regeneration Controls */}
