@@ -69,25 +69,6 @@ graph TD
     Prometheus -->|Data| Dashboard
 ```
 
-## 🏗️ Monorepo Architecture
-CyberMem is built as a modern TypeScript monorepo using NPM Workspaces:
-
-- **[packages/cli](packages/cli)**: The core management tool (`@cybermem/cli`). orchestrates deployments and configuration.
-- **[packages/dashboard](packages/dashboard)**: Next.js based monitoring and configuration UI (`@cybermem/dashboard`).
-- **[packages/mcp](packages/mcp)**: High-performance TypeScript MCP server (`@cybermem/mcp`).
-- **[external/openmemory](external/openmemory)**: The underlying high-performance memory engine.
-
-## 🚀 Development
-```bash
-# Install the workspace
-npm install
-
-# Build all packages
-npm run build
-
-# Run the CLI locally
-npm run cli -- deploy
-```
-
 ## License
+
 MIT © [Mikhail Kogan](https://github.com/mikhailkogan17)

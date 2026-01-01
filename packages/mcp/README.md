@@ -1,104 +1,49 @@
-# OpenMemory MCP Server
+# @cybermem/mcp
 
-MCP (Model Context Protocol) server that exposes OpenMemory functionality to Claude Code and other MCP clients.
+Official TypeScript MCP Server for CyberMem.
 
-## Features
+## Configuration
 
-Provides three tools for managing persistent memory:
+### Option A: Local (Standard)
+If you are running CyberMem locally on your machine, use `npx` to spawn the MCP server. It will bridge the connection to your local Docker instance.
 
-1. **add_memory** - Store information in long-term memory
-   - Input: `content` (string), `metadata` (object, optional)
-   - Output: Memory ID, chunks count, sectors
-
-2. **search_memory** - Search through stored memories
-   - Input: `query` (string), `limit` (number, default: 5)
-   - Output: Relevant memories with relevance scores
-
-3. **list_memories** - List recent memories
-   - Input: `limit` (number, default: 10)
-   - Output: List of recent memories
-
-## Setup
-
-### 1. Install Dependencies
-
-```bash
-cd mcp_server
-uv venv --python 3.11
-uv pip install mcp httpx
-```
-
-### 2. Configure MCP in Claude Code
-
-The `.mcp.json` file is already configured in the project root:
-
+**Claude Desktop Config (`~/Library/Application Support/Claude/claude_desktop_config.json`):**
 ```json
 {
   "mcpServers": {
-    "openmemory": {
-      "command": "/Users/mikhailkogan/cybermem/mcp_server/.venv/bin/python",
+    "cybermem": {
+      "command": "npx",
       "args": [
-        "/Users/mikhailkogan/cybermem/mcp_server/openmemory_mcp.py"
+        "-y",
+        "@cybermem/mcp"
       ],
       "env": {
-        "OPENMEMORY_URL": "http://localhost/memory",
-        "OPENMEMORY_API_KEY": "dev-secret-key"
+        "CYBERMEM_URL": "http://localhost:8080/memory",
+        "CYBERMEM_API_KEY": "your-api-key"
       }
     }
   }
 }
 ```
 
-### 3. Restart Claude Code
+### Option B: Remote (RPi / Cloud)
+If you have deployed CyberMem to a Raspberry Pi or Cloud VPS, **do not use npx**. Instead, connect directly to the remote SSE endpoint.
 
-After configuration, restart Claude Code to load the MCP server.
-
-## Usage in Claude Code
-
-Once configured, Claude Code will have access to memory management tools:
-
-```
-User: Remember that our API key for production is xyz-123-prod
-
-Claude: [Uses add_memory tool]
-✅ Stored in memory!
-```
-
-```
-User: What's our production API key?
-
-Claude: [Uses search_memory tool]
-Found: "API key for production is xyz-123-prod"
-```
-
-## Testing
-
-Run the test script to verify MCP server functionality:
-
-```bash
-python test_mcp.py
-```
-
-## Architecture
-
-```
-Claude Code <--MCP--> OpenMemory MCP Server <--HTTP--> OpenMemory API
-                             ↓
-                    Traefik → OpenMemory Container
+**Claude Desktop Config:**
+```json
+{
+  "mcpServers": {
+    "cybermem-remote": {
+      "url": "http://<your-rpi-ip>:8080/mcp",
+      "transport": "sse",
+      "headers": {
+        "x-api-key": "your-api-key"
+      }
+    }
+  }
+}
 ```
 
 ## Environment Variables
-
-- `OPENMEMORY_URL` - OpenMemory API endpoint (default: http://localhost/memory)
-- `OPENMEMORY_API_KEY` - API key for authentication (default: dev-secret-key)
-
-## Monitoring
-
-All requests to OpenMemory are logged through Traefik and visible in Grafana dashboard:
-- http://localhost:3000/d/cybermem-memory
-
-You can see:
-- Which clients (MCP server) accessed memories
-- Search queries performed
-- Response times
-- Success/failure rates
+- `CYBERMEM_URL`: URL to the OpenMemory API (default: `http://localhost:8080/memory`)
+- `CYBERMEM_API_KEY`: Your API Key (found in `~/.cybermem/.env`)

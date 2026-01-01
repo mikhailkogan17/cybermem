@@ -10,8 +10,8 @@ import dotenv from "dotenv";
 
 dotenv.config();
 
-const API_URL = process.env.OPENMEMORY_URL || "http://localhost:8080/memory";
-const API_KEY = process.env.OPENMEMORY_API_KEY || "dev-secret-key";
+const API_URL = process.env.CYBERMEM_URL || "http://localhost:8080/memory";
+const API_KEY = process.env.CYBERMEM_API_KEY || "dev-secret-key";
 
 const server = new Server(
   {

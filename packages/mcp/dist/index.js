@@ -9,8 +9,8 @@ const types_js_1 = require("@modelcontextprotocol/sdk/types.js");
 const axios_1 = __importDefault(require("axios"));
 const dotenv_1 = __importDefault(require("dotenv"));
 dotenv_1.default.config();
-const API_URL = process.env.OPENMEMORY_URL || "http://localhost:8080/memory";
-const API_KEY = process.env.OPENMEMORY_API_KEY || "dev-secret-key";
+const API_URL = process.env.CYBERMEM_URL || "http://localhost:8080/memory";
+const API_KEY = process.env.CYBERMEM_API_KEY || "dev-secret-key";
 const server = new index_js_1.Server({
     name: "cybermem-mcp",
     version: "0.1.0",

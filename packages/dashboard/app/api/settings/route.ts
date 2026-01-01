@@ -20,6 +20,6 @@ export async function GET() {
 
   return NextResponse.json({
     apiKey: apiKey,
-    endpoint: process.env.OPENMEMORY_URL || 'http://localhost:8080'
+    endpoint: process.env.CYBERMEM_URL || 'http://localhost:8080'
   })
 }

@@ -11,8 +11,13 @@ const nextConfig = {
     unoptimized: true,
   },
   output: 'standalone',
+  transpilePackages: ['recharts'],
+  serverExternalPackages: ['dockerode', 'ssh2'],
   experimental: {
-    serverExternalPackages: ['dockerode', 'ssh2'],
+  },
+  webpack: (config) => {
+    config.externals = [...(config.externals || []), 'ssh2', 'dockerode'];
+    return config;
   },
   async rewrites() {
     return [

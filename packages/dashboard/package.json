@@ -5,7 +5,7 @@
     "access": "public"
   },
   "scripts": {
-    "build": "next build",
+    "build": "next build --webpack",
     "dev": "next dev",
     "lint": "eslint .",
     "start": "next start"
@@ -46,6 +46,12 @@
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "cmdk": "1.0.4",
+    "d3-format": "^3.1.0",
+    "d3-path": "^3.1.0",
+    "d3-scale": "^4.0.2",
+    "d3-shape": "^3.2.0",
+    "d3-time": "^3.1.0",
+    "d3-time-format": "^4.1.0",
     "date-fns": "4.1.0",
     "dockerode": "^4.0.9",
     "echarts": "^5.5.0",
@@ -61,6 +67,7 @@
     "react-hook-form": "^7.60.0",
     "react-resizable-panels": "^2.1.7",
     "recharts": "2.15.4",
+    "recharts-scale": "^0.4.5",
     "sonner": "^1.7.4",
     "ssh2": "^1.17.0",
     "tailwind-merge": "^3.3.1",

@@ -42,11 +42,15 @@ exports.deployCommand = new commander_1.Command('deploy')
                 let envContent = fs_1.default.readFileSync(internalEnvExample, 'utf-8');
                 const newKey = `sk-${crypto_1.default.randomBytes(16).toString('hex')}`;
                 // Replace placeholder or key
-                if (envContent.includes('key-change-me') || envContent.includes('OM_API_KEY=')) {
-                    envContent = envContent.replace(/OM_API_KEY=.*/, `OM_API_KEY=${newKey}`);
+                if (envContent.includes('key-change-me') || envContent.includes('CYBERMEM_API_KEY=')) {
+                    envContent = envContent.replace(/CYBERMEM_API_KEY=.*/, `CYBERMEM_API_KEY=${newKey}`);
+                }
+                else if (envContent.includes('OM_API_KEY=')) {
+                    // Migration support
+                    envContent = envContent.replace(/OM_API_KEY=.*/, `CYBERMEM_API_KEY=${newKey}`);
                 }
                 else {
-                    envContent += `\nOM_API_KEY=${newKey}\n`;
+                    envContent += `\nCYBERMEM_API_KEY=${newKey}\n`;
                 }
                 fs_1.default.writeFileSync(envFile, envContent);
                 console.log(chalk_1.default.green(`Generated secure .env at ${envFile}`));
@@ -74,7 +78,7 @@ exports.deployCommand = new commander_1.Command('deploy')
             console.log(`  - Traefik:     ${chalk_1.default.underline('http://localhost:8081')}`);
             // Check for key
             const envContent = fs_1.default.readFileSync(envFile, 'utf-8');
-            const match = envContent.match(/OM_API_KEY=(sk-[a-f0-9]+)/);
+            const match = envContent.match(/CYBERMEM_API_KEY=(sk-[a-f0-9]+)/);
             if (match) {
                 console.log(chalk_1.default.yellow(`\n🔑 Master API Key: ${match[1]}`));
             }

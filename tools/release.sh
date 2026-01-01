@@ -3,9 +3,15 @@ set -e
 
 echo "🚀 Preparing release for CyberMem Monorepo..."
 
-# Build all packages from root
-npm install
-npm run build
+# Build packages sequentially to avoid OOM
+echo "🏗️ Building Dashboard..."
+npm run build -w @cybermem/dashboard
+
+echo "🏗️ Building CLI..."
+npm run build -w @cybermem/cli
+
+echo "🏗️ Building MCP..."
+npm run build -w @cybermem/mcp
 
 # Packages to publish
 PACKAGES=("packages/cli" "packages/mcp" "packages/dashboard")

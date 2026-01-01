@@ -44,10 +44,13 @@ export const deployCommand = new Command('deploy')
                 const newKey = `sk-${crypto.randomBytes(16).toString('hex')}`;
 
                 // Replace placeholder or key
-                if(envContent.includes('key-change-me') || envContent.includes('OM_API_KEY=')) {
-                    envContent = envContent.replace(/OM_API_KEY=.*/, `OM_API_KEY=${newKey}`);
+                if(envContent.includes('key-change-me') || envContent.includes('CYBERMEM_API_KEY=')) {
+                    envContent = envContent.replace(/CYBERMEM_API_KEY=.*/, `CYBERMEM_API_KEY=${newKey}`);
+                } else if(envContent.includes('OM_API_KEY=')) {
+                    // Migration support
+                    envContent = envContent.replace(/OM_API_KEY=.*/, `CYBERMEM_API_KEY=${newKey}`);
                 } else {
-                    envContent += `\nOM_API_KEY=${newKey}\n`;
+                    envContent += `\nCYBERMEM_API_KEY=${newKey}\n`;
                 }
 
                 fs.writeFileSync(envFile, envContent);
@@ -80,7 +83,7 @@ export const deployCommand = new Command('deploy')
 
              // Check for key
             const envContent = fs.readFileSync(envFile, 'utf-8');
-            const match = envContent.match(/OM_API_KEY=(sk-[a-f0-9]+)/);
+            const match = envContent.match(/CYBERMEM_API_KEY=(sk-[a-f0-9]+)/);
             if (match) {
                     console.log(chalk.yellow(`\n🔑 Master API Key: ${match[1]}`));
             }
