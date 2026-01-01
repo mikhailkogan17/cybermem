@@ -46,10 +46,10 @@ curl -fsSL https://cybermem.dev/cloud | bash
 Manage your agents' memories with a beautiful, real-time interface.
 
 <!--
-<img src="README_assets/images/dashboard1.png" width="49%"></img>
-<img src="README_assets/images/dashboard2.png" width="49%"></img>
-<img src="README_assets/images/dashboard3.png" width="49%"></img>
-<img src="README_assets/images/dashboard4.png" width="49%"></img>
+<img src="README_assets/dashboard1.png" width="49%"></img>
+<img src="README_assets/dashboard2.png" width="49%"></img>
+<img src="README_assets/dashboard3.png" width="49%"></img>
+<img src="README_assets/dashboard4.png" width="49%"></img>
 -->
 
 - **Real-time Metrics**: Throughput, latency, and error rates.
