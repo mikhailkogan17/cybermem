@@ -27,11 +27,8 @@
 
 ### Desktop (Mac/Linux)
 ```bash
-# Install the official CLI
-npm install -g @cybermem/cli
-
-# Deploy in one command
-cybermem deploy
+# Install and deploy in one command
+npm install -g @cybermem/cli && cybermem deploy
 ```
 
 ### Raspberry Pi (Cluster)
