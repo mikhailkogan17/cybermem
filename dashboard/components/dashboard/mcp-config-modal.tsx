@@ -59,15 +59,22 @@ export default function MCPConfigModal({ onClose }: { onClose: () => void }) {
     // Legacy - redirected to confirmRegenerate logic via UI state
   }
 
-  const confirmRegenerate = () => {
-    const chars = 'abcdefghijklmnopqrstuvwxyz0123456789'
-    const randomPart = Array.from({ length: 16 }, () => chars[Math.floor(Math.random() * chars.length)]).join('')
-    const newKey = `sk-cybermem-${randomPart}`
-    setApiKey(newKey)
-    localStorage.setItem("om_api_key", newKey)
-    setIsKeyVisible(true)
-    setShowRegenConfirm(false)
-    setRegenInputValue("")
+  const confirmRegenerate = async () => {
+    try {
+        const res = await fetch('/api/settings/regenerate', { method: 'POST' })
+        if (!res.ok) throw new Error('Failed to regenerate key')
+        const data = await res.json()
+
+        const newKey = data.apiKey
+        setApiKey(newKey)
+        localStorage.setItem("om_api_key", newKey)
+        setIsKeyVisible(true)
+        setShowRegenConfirm(false)
+        setRegenInputValue("")
+    } catch (e) {
+        console.error(e)
+        alert("Failed to regenerate key on server.")
+    }
   }
 
   const getMcpConfig = (clientId: string) => {

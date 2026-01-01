@@ -70,15 +70,22 @@ export default function SettingsModal({ onClose }: { onClose: () => void }) {
     // We can keep this empty or redirect.
   }
 
-  const confirmRegenerate = () => {
-    const chars = 'abcdefghijklmnopqrstuvwxyz0123456789'
-    const randomPart = Array.from({ length: 16 }, () => chars[Math.floor(Math.random() * chars.length)]).join('')
-    const newKey = `sk-cybermem-${randomPart}`
-    setApiKey(newKey)
-    localStorage.setItem("om_api_key", newKey)
-    setShowApiKey(true) // Automatically show the new key
-    setShowRegenConfirm(false)
-    setRegenInputValue("")
+  const confirmRegenerate = async () => {
+    try {
+        const res = await fetch('/api/settings/regenerate', { method: 'POST' })
+        if (!res.ok) throw new Error('Failed to regenerate key')
+        const data = await res.json()
+
+        const newKey = data.apiKey
+        setApiKey(newKey)
+        localStorage.setItem("om_api_key", newKey)
+        setShowApiKey(true)
+        setShowRegenConfirm(false)
+        setRegenInputValue("")
+    } catch (e) {
+        console.error(e)
+        alert("Failed to regenerate key on server.")
+    }
   }
 
   const [saved, setSaved] = useState(false)
@@ -248,6 +255,25 @@ export default function SettingsModal({ onClose }: { onClose: () => void }) {
                   />
                 </div>
                 <p className="text-xs text-neutral-500">URL of the OpenMemory backend instance</p>
+              </div>
+
+              <div className="pt-2 border-t border-white/10">
+                  <Button
+                    variant="destructive"
+                    className="w-full bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20"
+                    onClick={async () => {
+                        if(!confirm("Are you sure you want to restart the OpenMemory server?")) return;
+                        try {
+                            const res = await fetch('/api/system/restart', { method: 'POST' })
+                            if(res.ok) alert("Server restarting... Please wait a moment.")
+                            else alert("Failed to restart server")
+                        } catch(e) {
+                            alert("Error triggering restart")
+                        }
+                    }}
+                  >
+                      Restart Server
+                  </Button>
               </div>
             </div>
           </section>
