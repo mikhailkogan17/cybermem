@@ -206,6 +206,7 @@ services:
       - /app/node_modules
       - /app/.next
       - openmemory-data:/data
+      - /var/run/docker.sock:/var/run/docker.sock
     restart: unless-stopped
     depends_on:
       - prometheus

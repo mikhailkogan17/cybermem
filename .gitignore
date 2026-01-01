@@ -1,7 +1,10 @@
 # Environment files with secrets
 .env
-.env.local
-.env.*.local
+.env.*
+!.env.example
+!.env.local.example
+!.env.rpi.example
+!.env.vps.example
 
 # Docker volumes
 /data/

@@ -34,9 +34,9 @@ Examples:
   ./deploy.sh --target rpi --action down
 
 Environment files:
-  local: .env.local (SQLite + Ollama)
-  rpi:   .env.rpi (SQLite + Ollama, resource limits)
-  vps:   values-vps.yaml (PostgreSQL + OpenAI)
+  local: .env.local (or generated from envs/local.example)
+  rpi:   .env.rpi (or generated from envs/rpi.example)
+  vps:   values-vps.yaml (or generated from envs/vps.example)
 EOF
     exit 0
 }
@@ -111,19 +111,32 @@ deploy_local() {
         ENV_FILE=".env"
         log_info "Using .env"
     else
-        log_info "No environment file found. Generating default .env..."
-        local new_key="sk-$(openssl rand -hex 16)"
+        log_info "No environment file found. Generating from template..."
 
-        cat > .env <<EOF
-# CyberMem Configuration
-OM_API_KEY=$new_key
+        if [[ -f "envs/local.example" ]]; then
+            cp envs/local.example .env
+        else
+            log_warn "Template envs/local.example not found. Using minimal defaults."
+            cat > .env <<EOF
 OM_PORT=8080
 OM_TIER=deep
 DB_BACKEND=sqlite
 DB_PATH=/data/openmemory.sqlite
 VECTOR_BACKEND=sqlite
-# Add other defaults as needed
 EOF
+        fi
+
+        # Generate Key if placeholder or missing
+        if grep -q "change-me" .env || ! grep -q "OM_API_KEY" .env; then
+             local new_key="sk-$(openssl rand -hex 16)"
+             # Replace if exists, append if not
+             if grep -q "OM_API_KEY" .env; then
+                sed -i '' "s/OM_API_KEY=.*/OM_API_KEY=$new_key/" .env
+             else
+                echo "OM_API_KEY=$new_key" >> .env
+             fi
+             log_info "✅ Generated .env with secure API Key"
+        fi
 
         # Auto-detect ARM
         if [[ "$(uname -m)" == "aarch64" || "$(uname -m)" == "arm64" ]]; then
@@ -131,8 +144,6 @@ EOF
         fi
 
         ENV_FILE=".env"
-        log_info "✅ Generated .env with secure API Key: $new_key"
-        log_warn "⚠️  SAVE THIS KEY! Use it to configure your MCP client."
     fi
 
     case "$ACTION" in
@@ -190,10 +201,14 @@ deploy_rpi() {
     fi
 
     if [[ ! -f ".env.rpi" ]]; then
-        log_info "No .env.rpi file found. Generating default..."
-        local new_key="sk-$(openssl rand -hex 16)"
+        log_info "No .env.rpi file found. Generating from template..."
 
-        cat > .env.rpi <<EOF
+        if [[ -f "envs/rpi.example" ]]; then
+            cp envs/rpi.example .env.rpi
+        else
+            log_warn "Template envs/rpi.example not found. Using defaults."
+            local new_key="sk-$(openssl rand -hex 16)"
+            cat > .env.rpi <<EOF
 # CyberMem RPi Configuration
 OM_API_KEY=$new_key
 OM_PORT=8080
@@ -203,7 +218,18 @@ DB_PATH=/data/openmemory.sqlite
 VECTOR_BACKEND=sqlite
 DOCKER_PLATFORM=linux/arm64
 EOF
-        log_info "✅ Generated .env.rpi with secure API Key: $new_key"
+        fi
+
+        # Generate Key if placeholder or missing
+        if grep -q "change-me" .env.rpi || ! grep -q "OM_API_KEY" .env.rpi; then
+             local new_key="sk-$(openssl rand -hex 16)"
+             if grep -q "OM_API_KEY" .env.rpi; then
+                sed -i '' "s/OM_API_KEY=.*/OM_API_KEY=$new_key/" .env.rpi
+             else
+                echo "OM_API_KEY=$new_key" >> .env.rpi
+             fi
+             log_info "✅ Generated .env.rpi with secure API Key"
+        fi
     fi
 
     case "$ACTION" in
