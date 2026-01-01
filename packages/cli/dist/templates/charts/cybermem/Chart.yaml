@@ -1,0 +1,6 @@
+apiVersion: v2
+name: cybermem
+description: A Helm chart for CyberMem AI Memory System
+type: application
+version: 0.1.0
+appVersion: "1.0.0"

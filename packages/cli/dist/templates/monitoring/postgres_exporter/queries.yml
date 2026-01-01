@@ -1,0 +1,22 @@
+pg_openmemory_stored_memories:
+  query: "SELECT user_id as client, COUNT(*) as count FROM openmemory_memories GROUP BY user_id"
+  metrics:
+    - client:
+        usage: "LABEL"
+        description: "Client identifier"
+    - count:
+        usage: "GAUGE"
+        description: "Total memories stored per client"
+
+pg_openmemory_stored_memories_by_sector:
+  query: "SELECT user_id as client, primary_sector as sector, COUNT(*) as count FROM openmemory_memories GROUP BY user_id, primary_sector"
+  metrics:
+    - client:
+        usage: "LABEL"
+        description: "Client identifier"
+    - sector:
+        usage: "LABEL"
+        description: "Memory sector"
+    - count:
+        usage: "GAUGE"
+        description: "Memories stored per client per sector"

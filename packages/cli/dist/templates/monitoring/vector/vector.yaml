@@ -1,0 +1,106 @@
+sources:
+  traefik_logs:
+    type: file
+    include:
+      - /var/log/traefik/access.log
+    read_from: end
+
+transforms:
+  parse_logs:
+    type: remap
+    inputs:
+      - traefik_logs
+    source: |
+      . = parse_json!(.message)
+
+  extract_metrics:
+    type: remap
+    inputs:
+      - parse_logs
+    source: |
+      auth_header = .request_Authorization
+      client_name = "Anonymous"
+
+      # Extract client from Authorization header and map to human-readable names
+      if !is_null(auth_header) {
+        parts = split!(auth_header, ".")
+        if length(parts) > 0 {
+            token_start = replace!(parts[0], "Bearer ", "")
+
+            # Map client tokens to human-readable names
+            if contains(token_start, "claude") || contains(token_start, "anthropic") {
+                client_name = "Claude Desktop"
+            } else if contains(token_start, "cursor") {
+                client_name = "Cursor"
+            } else if contains(token_start, "vscode") || contains(token_start, "code") {
+                client_name = "Visual Studio Code"
+            } else if contains(token_start, "copilot") || contains(token_start, "github") {
+                client_name = "GitHub Copilot"
+            } else if contains(token_start, "windsurf") {
+                client_name = "Windsurf"
+            } else if contains(token_start, "cline") {
+                client_name = "Cline"
+            } else if contains(token_start, "continue") {
+                client_name = "Continue"
+            } else if contains(token_start, "zed") {
+                client_name = "Zed"
+            } else if length(token_start) > 0 {
+                # For dev/testing, use the token itself
+                client_name = token_start
+            }
+        }
+      }
+
+      endpoint = .RequestPath
+      method = .RequestMethod
+      status = .DownstreamStatus
+      duration_seconds = to_float!(.Duration) / 1000000000.0
+
+      .tags = {
+        "client": client_name,
+        "method": method,
+        "endpoint": endpoint,
+        "status": to_string!(status)
+      }
+      .duration = duration_seconds
+      .count = 1
+
+  generate_metrics:
+    type: log_to_metric
+    inputs:
+      - extract_metrics
+    metrics:
+      - type: counter
+        field: count
+        name: requests_total
+        namespace: openmemory
+        tags:
+          client: "{{ tags.client }}"
+          method: "{{ tags.method }}"
+          endpoint: "{{ tags.endpoint }}"
+          status: "{{ tags.status }}"
+
+      - type: histogram
+        field: duration
+        name: request_duration_seconds
+        namespace: openmemory
+        tags:
+          client: "{{ tags.client }}"
+          endpoint: "{{ tags.endpoint }}"
+
+sinks:
+  prometheus:
+    type: prometheus_exporter
+    inputs:
+      - generate_metrics
+    address: 0.0.0.0:9091
+    default_namespace: openmemory
+    flush_period_secs: 5
+    suppress_timestamp: true
+
+  console:
+    type: console
+    inputs:
+      - extract_metrics
+    encoding:
+      codec: json

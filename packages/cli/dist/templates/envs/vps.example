@@ -1,0 +1,25 @@
+# VPS production environment
+# For Hetzner CX22 or similar (2 vCPU, 4GB RAM)
+
+# Embeddings (use OpenAI for production)
+EMBEDDINGS_PROVIDER=openai
+OPENAI_API_KEY=sk-change-me-in-production
+OLLAMA_URL=
+
+# Database (PostgreSQL for production)
+DB_BACKEND=postgres
+VECTOR_BACKEND=postgres
+
+# PostgreSQL
+PG_HOST=postgres
+PG_DB=openmemory
+PG_USER=openmemory
+PG_PASSWORD=change-me-in-production-use-secrets
+
+# OpenMemory
+OM_API_KEY=change-me-in-production-use-secrets
+
+# Monitoring
+PROM_RETENTION=30d
+GRAFANA_USER=admin
+GRAFANA_PASSWORD=change-me-in-production-use-secrets

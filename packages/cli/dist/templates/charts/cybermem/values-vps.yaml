@@ -1,0 +1,18 @@
+# VPS Overrides
+
+openmemory:
+  image:
+    repository: ghcr.io/mikhailkogan17/cybermem-openmemory
+    pullPolicy: Always
+  service:
+    type: ClusterIP
+
+dashboard:
+  image:
+    repository: ghcr.io/mikhailkogan17/cybermem-dashboard
+    pullPolicy: Always
+
+env:
+  OPENMEMORY_API_KEY: "prod-secret-key-CHANGE-ME"
+  # Add your OpenAI Key here for production
+  OPENAI_API_KEY: "sk-..."

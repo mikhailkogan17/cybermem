@@ -1,0 +1,20 @@
+{
+  "name": "cybermem",
+  "private": true,
+  "description": "Unified AI Memory System",
+  "workspaces": [
+    "packages/*",
+    "external/openmemory/packages/*"
+  ],
+  "scripts": {
+    "build": "npm run build --workspaces --if-present",
+    "test": "npm test --workspaces --if-present",
+    "cli": "npm run start -w @cybermem/cli",
+    "dashboard:dev": "npm run dev -w @cybermem/dashboard",
+    "mcp:dev": "npm run dev -w @cybermem/mcp",
+    "release": "./tools/release.sh"
+  },
+  "devDependencies": {
+    "typescript": "^5.0.0"
+  }
+}

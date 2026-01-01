@@ -1,27 +1,20 @@
 #!/bin/bash
 set -e
 
-echo "🚀 Preparing release for @cybermem/cli..."
+echo "🚀 Preparing release for CyberMem Monorepo..."
 
-# Navigate to cli directory
-cd "$(dirname "$0")/../cli"
-
-# Ensure clean state
-rm -rf dist
-
-# Build
-echo "📦 Building package..."
+# Build all packages from root
 npm install
 npm run build
 
-# Check if logged in to npm
-if ! npm whoami >/dev/null 2>&1; then
-    echo "❌ Error: You are not logged in to npm. Please run 'npm login' first."
-    exit 1
-fi
+# Packages to publish
+PACKAGES=("packages/cli" "packages/mcp" "packages/dashboard")
 
-# Publish
-echo "📤 Publishing to npm..."
-npm publish
+for PKG in "${PACKAGES[@]}"; do
+    echo "📤 Publishing $PKG..."
+    cd "$PKG"
+    npm publish
+    cd - > /dev/null
+done
 
-echo "✨ Release successful!"
+echo "✨ All packages published successfully!"

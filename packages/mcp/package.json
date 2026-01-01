@@ -1,0 +1,27 @@
+{
+  "name": "@cybermem/mcp",
+  "version": "0.1.0",
+  "description": "CyberMem MCP Server (TypeScript)",
+  "main": "dist/index.js",
+  "bin": {
+    "cybermem-mcp": "./dist/index.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "dev": "ts-node src/index.ts"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.0",
+    "axios": "^1.6.0",
+    "dotenv": "^16.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^18.0.0",
+    "ts-node": "^10.9.1",
+    "typescript": "^5.0.0"
+  }
+}

@@ -1,0 +1,77 @@
+[sources.traefik_logs]
+type = "file"
+include = ["/var/log/traefik/access.log"]
+read_from = "beginning"
+
+[transforms.parse_logs]
+type = "remap"
+inputs = ["traefik_logs"]
+source = '''
+  . = parse_json!(.message)
+'''
+
+[transforms.extract_metrics]
+type = "remap"
+inputs = ["parse_logs"]
+source = '''
+  # Extract client_id from Authorization header (Bearer <client_id>.<secret>)
+  # If no auth header or invalid format, use "anonymous"
+  auth_header = .request_Authorization
+  client_id = "anonymous"
+  
+  if !is_null(auth_header) {
+    # Try to capture everything between "Bearer " and the first dot
+    parts = split(auth_header, ".")
+    if length(parts) > 0 {
+        # Remove "Bearer " prefix if present
+        token_start = replace(parts[0], "Bearer ", "")
+        # Basic validation to ensure it looks like a client ID
+        if length(token_start) > 0 {
+            client_id = token_start
+        }
+    }
+  }
+  
+  # Standardize endpoint (remove query params, maybe aggregate IDs)
+  endpoint = .RequestPath
+  method = .RequestMethod
+  status = .DownstreamStatus
+  duration_seconds = to_float!(.Duration) / 1000000000.0
+  
+  .tags = {
+    "client": client_id,
+    "method": method,
+    "endpoint": endpoint,
+    "status": to_string(status)
+  }
+  .duration = duration_seconds
+'''
+
+[transforms.generate_metrics]
+type = "log_to_metric"
+inputs = ["extract_metrics"]
+
+  [[transforms.generate_metrics.metrics]]
+  type = "counter"
+  field = "status"
+  name = "requests_total"
+  namespace = "openmemory"
+  tags = ["client", "method", "endpoint", "status"]
+
+  [[transforms.generate_metrics.metrics]]
+  type = "histogram"
+  field = "duration"
+  name = "request_duration_seconds"
+  namespace = "openmemory"
+  tags = ["client", "endpoint"]
+  buckets = [0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0, 10.0]
+
+[sinks.prometheus]
+type = "prometheus_exporter"
+inputs = ["generate_metrics"]
+address = "0.0.0.0:9091"
+
+[sinks.console]
+type = "console"
+inputs = ["extract_metrics"]
+encoding.codec = "json"
