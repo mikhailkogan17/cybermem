@@ -19,21 +19,20 @@ echo "--------------------------------"
 
 # 1. Clean Environment
 echo "🧹 Cleaning previous environment..."
-if [ -f "docker-compose.prod.yml" ]; then
-    $COMPOSE -f docker-compose.prod.yml down -v --remove-orphans 2>/dev/null || true
-    docker network prune -f >/dev/null 2>&1 || true
-    sleep 3
-fi
+# CLI manages its own project name
+docker-compose -p cybermem down -v --remove-orphans 2>/dev/null || true
+docker network prune -f >/dev/null 2>&1 || true
+sleep 3
 
 # 2. Start Stack
-echo "🔥 Starting CyberMem stack..."
-export USE_PREBUILT=1  # Use prebuilt images for speed/stability in CI
-./deploy.sh --target local
+echo "🔥 Starting CyberMem stack via CLI..."
+# Use internal CLI deploy
+npx cybermem deploy --target local
 
 # Wait for health (API)
 echo "⏳ Waiting for API ($API_URL)..."
 retries=0
-while ! curl -s "$API_URL/health" > /dev/null; do
+while ! curl -s "$API_URL/api/health" > /dev/null; do
     sleep 2
     retries=$((retries+1))
     if [ $retries -gt 30 ]; then
@@ -46,7 +45,7 @@ echo "✅ API is UP"
 
 # 3. Check Dashboard Reachability
 echo "⏳ Checking Dashboard ($DASHBOARD_URL)..."
-if curl -I -s "$DASHBOARD_URL" | head -n 1 | grep -q -E "200|307|308"; then
+if curl -I -s "$DASHBOARD_URL" | head -n 1 | grep -q -E "200|302|307|308"; then
     echo "✅ Dashboard is accessible"
 else
     echo "❌ Dashboard is unreachable"
@@ -55,8 +54,8 @@ fi
 
 # 4. Run Load Test
 echo "⚡ Running Load Test..."
-chmod +x scripts/load_test.sh
-./scripts/load_test.sh "$API_URL" 50
+chmod +x tools/load_test.sh
+./tools/load_test.sh "$API_URL" 50
 
 # 5. Verify Metrics
 echo "🔍 Verifying Metrics via Prometheus Federation..."

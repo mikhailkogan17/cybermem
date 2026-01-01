@@ -19,9 +19,9 @@
   - **Orchestration**: Docker Compose (Local) -> converted to Helm charts via `kompose` (VPS).
 
 ## 3. Directory Map
+- `cli/`: Management CLI (@cybermem/cli)
 - `dashboard/`: Next.js Dashboard
 - `mcp/`: MCP Server (Python)
 - `external/openmemory/`: OpenMemory submodule
-- `monitoring/`: Configs for Traefik, Vector, Prometheus
-- `deploy.sh`: Main deployment script
-- `charts/cybermem`: Kubernetes Helm charts
+- `tools/`: Utility scripts (load testing, e2e)
+- `README_assets/`: Assets for project documentation

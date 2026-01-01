@@ -1,10 +1,14 @@
-# Environment files with secrets
+# Environment files
 .env
 .env.*
-!.env.example
-!.env.local.example
-!.env.rpi.example
-!.env.vps.example
+openmemory.env
+
+# CLI & Build
+cli/dist/
+cli/node_modules/
+dashboard/.next/
+dashboard/node_modules/
+dashboard/shared.env
 
 # Docker volumes
 /data/

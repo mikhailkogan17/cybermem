@@ -8,9 +8,9 @@
   </p>
   
   <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="docs/images/logo-dark.svg">
-    <source media="(prefers-color-scheme: light)" srcset="docs/images/logo-light.svg">
-    <img alt="CyberMem Logo" src="docs/images/logo-light.svg" width="600">
+    <source media="(prefers-color-scheme: dark)" srcset="README_assets/images/logo-dark.svg">
+    <source media="(prefers-color-scheme: light)" srcset="README_assets/images/logo-light.svg">
+    <img alt="CyberMem Logo" src="README_assets/images/logo-light.svg" width="600">
   </picture>
 
   <p><strong>Universal Long-Term Memory for any AI Agent.</strong></p>
@@ -27,7 +27,11 @@
 
 ### Desktop (Mac/Linux)
 ```bash
-curl -fsSL https://cybermem.dev/install | bash
+# Install the official CLI
+npm install -g @cybermem/cli
+
+# Deploy in one command
+cybermem deploy
 ```
 
 ### Raspberry Pi (Cluster)
@@ -45,15 +49,15 @@ curl -fsSL https://cybermem.dev/cloud | bash
 Manage your agents' memories with a beautiful, real-time interface.
 
 <!--
-<img src="docs/images/dashboard1.png" width="49%"></img>
-<img src="docs/images/dashboard2.png" width="49%"></img>
-<img src="docs/images/dashboard3.png" width="49%"></img>
-<img src="docs/images/dashboard4.png" width="49%"></img>
+<img src="README_assets/images/dashboard1.png" width="49%"></img>
+<img src="README_assets/images/dashboard2.png" width="49%"></img>
+<img src="README_assets/images/dashboard3.png" width="49%"></img>
+<img src="README_assets/images/dashboard4.png" width="49%"></img>
 -->
 
 - **Real-time Metrics**: Throughput, latency, and error rates.
 - **Memory Inspector**: View and edit stored memories.
-- **Documentation**: Full guides available at `/docs`.
+- **Documentation**: Visit [cybermem.dev/docs](https://cybermem.dev/docs) for full guides.
 
 ## 🏗 Architecture
 

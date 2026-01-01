@@ -1,41 +1,20 @@
-
 import crypto from 'crypto'
 import fs from 'fs'
 import { NextResponse } from 'next/server'
-import path from 'path'
 
 export const dynamic = 'force-dynamic'
 
-const CONFIG_PATH = '/data/config.json'
-
-export async function POST() {
+export async function POST(req: Request) {
   try {
-    // Generate new key
-    const randomPart = crypto.randomBytes(16).toString('hex')
-    const newKey = `sk-${randomPart}`
+    const apiKey = `sk-${crypto.randomBytes(16).toString('hex')}`
+    const sharedEnvPath = '/app/shared.env'
 
-    // Write to shared volume
-    const config = {
-      api_key: newKey,
-      updated_at: new Date().toISOString()
-    }
+    // Write OM_API_KEY=... to shared file mounted at /.env in OpenMemory
+    fs.writeFileSync(sharedEnvPath, `OM_API_KEY=${apiKey}\n`)
 
-    // Ensure directory exists
-    const dir = path.dirname(CONFIG_PATH)
-    if (!fs.existsSync(dir)) {
-      fs.mkdirSync(dir, { recursive: true })
-    }
-
-    fs.writeFileSync(CONFIG_PATH, JSON.stringify(config, null, 2))
-
-    console.log(`[Dashboard] Regenerated API Key: ${newKey}`)
-
-    return NextResponse.json({
-      success: true,
-      apiKey: newKey
-    })
+    return NextResponse.json({ success: true, apiKey })
   } catch (error) {
-    console.error('[Dashboard] Failed to regenerate key:', error)
-    return NextResponse.json({ error: 'Failed to regenerate key' }, { status: 500 })
+    console.error('[Settings] Failed to regenerate API Key:', error)
+    return NextResponse.json({ error: 'Failed to regenerate API Key' }, { status: 500 })
   }
 }
