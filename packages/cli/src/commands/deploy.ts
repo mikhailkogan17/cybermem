@@ -3,19 +3,26 @@ import { Command } from 'commander';
 import crypto from 'crypto';
 import execa from 'execa';
 import fs from 'fs';
+import inquirer from 'inquirer';
 import os from 'os';
 import path from 'path';
 
 export const deployCommand = new Command('deploy')
   .description('Deploy CyberMem services')
   .option('-t, --target <target>', 'Deployment target (local, rpi, vps)', 'local')
+  .option('-h, --host <host>', 'SSH Host (user@ip) for remote deployment')
   .action(async (options) => {
     const target = options.target;
     console.log(chalk.blue(`Deploying to ${target}...`));
 
     try {
+        // Resolve Template Directory (Support both Dev and Prod)
+        let templateDir = path.resolve(__dirname, '../templates'); // Prod: dist/templates
+        if (!fs.existsSync(templateDir)) {
+             templateDir = path.resolve(__dirname, '../../templates'); // Dev: src/../../templates
+        }
+
         if (target === 'local') {
-            const templateDir = path.resolve(__dirname, '../templates');
             const composeFile = path.join(templateDir, 'docker-compose.yml');
             const internalEnvExample = path.join(templateDir, 'envs/local.example');
 
@@ -47,7 +54,6 @@ export const deployCommand = new Command('deploy')
                 if(envContent.includes('key-change-me') || envContent.includes('CYBERMEM_API_KEY=')) {
                     envContent = envContent.replace(/CYBERMEM_API_KEY=.*/, `CYBERMEM_API_KEY=${newKey}`);
                 } else if(envContent.includes('OM_API_KEY=')) {
-                    // Migration support
                     envContent = envContent.replace(/OM_API_KEY=.*/, `CYBERMEM_API_KEY=${newKey}`);
                 } else {
                     envContent += `\nCYBERMEM_API_KEY=${newKey}\n`;
@@ -69,7 +75,6 @@ export const deployCommand = new Command('deploy')
                 stdio: 'inherit',
                 env: {
                     ...process.env,
-                    // Pass DATA_DIR to compose so it mounts ~/.cybermem/data instead of ./data
                     DATA_DIR: dataDir,
                     CYBERMEM_ENV_PATH: envFile
                 }
@@ -88,7 +93,77 @@ export const deployCommand = new Command('deploy')
                     console.log(chalk.yellow(`\n🔑 Master API Key: ${match[1]}`));
             }
         }
-        // ... rpi, vps logic placeholders
+        else if (target === 'rpi') {
+            const composeFile = path.join(templateDir, 'docker-compose.yml');
+            const internalEnvExample = path.join(templateDir, 'envs/rpi.example');
+
+            let sshHost = options.host;
+            if (!sshHost) {
+                const answers = await inquirer.prompt([
+                    {
+                        type: 'input',
+                        name: 'host',
+                        message: 'Enter SSH Host (e.g. pi@raspberrypi.local):',
+                        validate: (input) => input.includes('@') ? true : 'Format must be user@host'
+                    }
+                ]);
+                sshHost = answers.host;
+            }
+
+            console.log(chalk.blue(`Remote deploying to ${sshHost}...`));
+
+            // 1. Create remote directory
+            await execa('ssh', [sshHost, 'mkdir -p ~/.cybermem/data']);
+
+            // 2. Initial Env Setup (if missing)
+            // We read remote file check using ssh
+            try {
+                await execa('ssh', [sshHost, '[ -f ~/.cybermem/.env ]']);
+                console.log(chalk.gray('Remote .env exists, skipping generation.'));
+            } catch (e) {
+                console.log(chalk.yellow('Generating remote .env...'));
+                let envContent = fs.readFileSync(internalEnvExample, 'utf-8');
+                const newKey = `sk-${crypto.randomBytes(16).toString('hex')}`;
+
+                if(envContent.includes('CYBERMEM_API_KEY=')) {
+                    envContent = envContent.replace(/CYBERMEM_API_KEY=.*/, `CYBERMEM_API_KEY=${newKey}`);
+                }
+
+                // Write to temp file then scp
+                const tempEnv = path.join(os.tmpdir(), 'cybermem-rpi.env');
+                fs.writeFileSync(tempEnv, envContent);
+                await execa('scp', [tempEnv, `${sshHost}:~/.cybermem/.env`]);
+                fs.unlinkSync(tempEnv);
+            }
+
+            // 3. Copy Docker Compose
+            console.log(chalk.blue('Uploading templates...'));
+            await execa('scp', [composeFile, `${sshHost}:~/.cybermem/docker-compose.yml`]);
+
+            // 4. Run Docker Compose Remotely
+            console.log(chalk.blue('Starting services on RPi...'));
+            // We pass CYBERMEM_ENV_PATH explicitly as ~/.cybermem/.env and DATA_DIR as ~/.cybermem/data
+            // The template uses ${CYBERMEM_ENV_PATH} and maps volumes.
+            // We need to set these vars in the shell when running docker-compose
+            const remoteCmd = `
+                export CYBERMEM_ENV_PATH=~/.cybermem/.env
+                export DATA_DIR=~/.cybermem/data
+                docker-compose -f ~/.cybermem/docker-compose.yml up -d --remove-orphans
+            `;
+
+            await execa('ssh', [sshHost, remoteCmd], { stdio: 'inherit' });
+
+            console.log(chalk.green('\n✅ RPi deployment successful!'));
+            // Parse host from ssh string for convenience
+            const hostIp = sshHost.split('@')[1];
+            console.log(chalk.bold('Access Points:'));
+            console.log(`  - Dashboard:   ${chalk.underline(`http://${hostIp}:3000`)} (admin/admin)`);
+            console.log(`  - OpenMemory:  ${chalk.underline(`http://${hostIp}:8080`)}`);
+        }
+        else {
+            console.error(chalk.red(`Target ${target} not verified for deployment yet.`));
+        }
+
     } catch (error) {
         console.error(chalk.red('Deployment failed:'), error);
         process.exit(1);
