@@ -20,15 +20,15 @@ jobs:
 
       - name: Install Dashboard Dependencies
         run: |
-          cd dashboard
+          cd packages/dashboard
           npm ci
 
       - name: Lint Dashboard
         run: |
-          cd dashboard
+          cd packages/dashboard
           npm run lint
 
       - name: Build Dashboard
         run: |
-          cd dashboard
+          cd packages/dashboard
           npm run build
