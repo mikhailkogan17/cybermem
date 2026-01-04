@@ -36,7 +36,7 @@ export default function PasswordAlertModal({
           <div className="flex-1">
             <h2 className="text-lg font-semibold text-white">Default Password Detected</h2>
             <p className="text-neutral-400 text-sm mt-1">
-              You're using the default admin password. For security, we recommend changing it now.
+              You&apos;re using the default admin password. For security, we recommend changing it now.
             </p>
           </div>
           <Button
@@ -63,7 +63,7 @@ export default function PasswordAlertModal({
             onClick={handleDontShowAgain}
             className="w-full text-neutral-400 hover:text-white hover:bg-white/10"
           >
-            Don't show again
+            Don&apos;t show again
           </Button>
         </div>
       </div>
