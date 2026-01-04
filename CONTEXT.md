@@ -8,20 +8,24 @@
 ## 2. Technology Stack & Architecture
 - **App Core**: OpenMemory (Python/FastAPI) as `external/openmemory` submodule.
 - **Infrastructure**:
+  - **Networking**: Tailscale Funnel (zero-config public HTTPS for RPi/VPS).
   - **Reverse Proxy**: Traefik (handles auth extraction into logs).
   - **Log Processing**: Vector (parses Traefik access logs -> Prometheus metrics).
   - **Metrics**: Prometheus (scrapes Vector + Postgres Exporter).
   - **Visualization**: Grafana (dashboards for writes/reads, latency, errors).
   - **Database**:
-    - **VPS (Cloud)**: PostgreSQL (via Helm).
+    - **VPS (Cloud)**: PostgreSQL (via Helm charts in CLI templates).
     - **Local/RPi**: SQLite.
   - **Embeddings**: OpenAI (VPS) or Ollama (Local/RPi).
   - **Orchestration**: Docker Compose (Local) -> converted to Helm charts via `kompose` (VPS).
+- **Monorepo Architecture**:
+  - **NPM Workspaces**: Manages `@cybermem/cli`, `@cybermem/dashboard`, and `@cybermem/mcp`.
 
 ## 3. Directory Map
-- `cli/`: Management CLI (@cybermem/cli)
-- `dashboard/`: Next.js Dashboard
-- `mcp/`: MCP Server (Python)
-- `external/openmemory/`: OpenMemory submodule
-- `tools/`: Utility scripts (load testing, e2e)
-- `README_assets/`: Assets for project documentation
+- `packages/cli/`: Management CLI (@cybermem/cli)
+  - `templates/`: Production-ready configurations (Docker Compose, Helm Charts, Ansible Playbooks, Tailscale Funnel).
+- `packages/dashboard/`: Monitoring UI (metrics, audit logs) — NOT the public landing page.
+- `packages/mcp/`: MCP Server (Python).
+- `external/openmemory/`: OpenMemory submodule.
+- `tools/`: Utility scripts (load_test.sh, e2e tests).
+- `README_assets/`: Assets for project documentation.
