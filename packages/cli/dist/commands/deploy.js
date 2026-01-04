@@ -92,16 +92,16 @@ exports.deployCommand = new commander_1.Command('deploy')
                     CYBERMEM_ENV_PATH: envFile
                 }
             });
-            console.log(chalk_1.default.green('\n✅ Local deployment successful!'));
-            console.log(chalk_1.default.bold('Access Points:'));
-            console.log(`  - Dashboard:   ${chalk_1.default.underline('http://localhost:3000')} (admin/admin)`);
-            console.log(`  - OpenMemory:  ${chalk_1.default.underline('http://localhost:8080')}`);
-            console.log(`  - Traefik:     ${chalk_1.default.underline('http://localhost:8081')}`);
+            console.log(chalk_1.default.green('\n🎉 CyberMem Installed!'));
+            console.log('');
+            console.log(chalk_1.default.bold('Next Step:'));
+            console.log(`  Configure your AI client: ${chalk_1.default.underline('http://localhost:3000')} (password: admin)`);
+            console.log('');
             // Check for key
             const envContent = fs_1.default.readFileSync(envFile, 'utf-8');
             const match = envContent.match(/CYBERMEM_API_KEY=(sk-[a-f0-9]+)/);
             if (match) {
-                console.log(chalk_1.default.yellow(`\n🔑 Master API Key: ${match[1]}`));
+                console.log(chalk_1.default.dim(`API Key: ${match[1]}`));
             }
         }
         else if (target === 'rpi') {

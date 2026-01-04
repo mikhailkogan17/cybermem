@@ -11,13 +11,12 @@ services:
       - --api.insecure=true
       - --providers.docker=true
       - --providers.docker.exposedbydefault=false
-      - --entrypoints.web.address=:80
+      - --entrypoints.web.address=:8088
       - --accesslog=true
       - --accesslog.filepath=/var/log/traefik/access.log
       - --accesslog.format=json
     ports:
-      - "80:80"
-      - "8081:8080"
+      - "8088:8088"
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - ./monitoring/traefik/traefik.yml:/etc/traefik/traefik.yml:ro
