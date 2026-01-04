@@ -16,11 +16,12 @@ exports.deployCommand = new commander_1.Command('deploy')
     .description('Deploy CyberMem services')
     .option('-t, --target <target>', 'Deployment target (local, rpi, vps)', 'local')
     .option('-h, --host <host>', 'SSH Host (user@ip) for remote deployment')
-    .option('--tailscale', 'Enable Tailscale Funnel for public HTTPS access (RPi/VPS)')
+    .option('--remote-access', 'Enable remote access via Tailscale Funnel (HTTPS)', false)
+    .option('--tailscale', 'Alias for --remote-access (deprecated)', false)
     .option('--caddy', 'Use Caddy for automatic HTTPS (VPS only)')
     .action(async (options) => {
     const target = options.target;
-    const useTailscale = options.tailscale;
+    const useTailscale = options.remoteAccess || options.tailscale;
     const useCaddy = options.caddy;
     console.log(chalk_1.default.blue(`Deploying to ${target}...`));
     try {
@@ -163,29 +164,51 @@ exports.deployCommand = new commander_1.Command('deploy')
             console.log(`  - OpenMemory:  ${chalk_1.default.underline(`http://${hostIp}:8080`)}`);
             // Tailscale Funnel setup
             if (useTailscale) {
-                console.log(chalk_1.default.blue('\n🔗 Setting up Tailscale Funnel for public HTTPS access...'));
+                console.log(chalk_1.default.blue('\n🔗 Setting up Remote Access (Tailscale Funnel)...'));
                 try {
-                    // Check if Tailscale is installed
-                    await (0, execa_1.default)('ssh', [sshHost, 'which tailscale']);
-                    // Setup Funnel for dashboard and MCP
-                    await (0, execa_1.default)('ssh', [sshHost, 'sudo tailscale funnel --bg 3000'], { stdio: 'inherit' });
-                    await (0, execa_1.default)('ssh', [sshHost, 'sudo tailscale funnel --bg --set-path=/mcp 8080'], { stdio: 'inherit' });
+                    // 1. Check/Install Tailscale
+                    try {
+                        await (0, execa_1.default)('ssh', [sshHost, 'which tailscale']);
+                    }
+                    catch (e) {
+                        console.log(chalk_1.default.yellow('  Tailscale not found. Installing...'));
+                        await (0, execa_1.default)('ssh', [sshHost, 'curl -fsSL https://tailscale.com/install.sh | sh'], { stdio: 'inherit' });
+                    }
+                    // 2. Auth (interactive if needed)
+                    console.log(chalk_1.default.blue('  Ensuring Tailscale is up...'));
+                    try {
+                        // Check status first to avoid re-auth if already up
+                        await (0, execa_1.default)('ssh', [sshHost, 'tailscale status']);
+                    }
+                    catch (e) {
+                        // Interactive auth
+                        console.log(chalk_1.default.yellow('  ⚠️  Tailscale authentication required. Please follow the prompts:'));
+                        await (0, execa_1.default)('ssh', [sshHost, 'sudo tailscale up'], { stdio: 'inherit' });
+                    }
+                    // 3. Configure Funnel (Verified commands)
+                    console.log(chalk_1.default.blue('  Configuring HTTPS Funnel (requires sudo access)...'));
+                    console.log(chalk_1.default.gray('  You may be prompted for your RPi password.'));
+                    // Route /memory -> 8088
+                    // We use -t to force TTY allocation so sudo prompts for password
+                    await (0, execa_1.default)('ssh', ['-t', sshHost, 'sudo tailscale serve reset'], { stdio: 'inherit' }).catch(() => { });
+                    await (0, execa_1.default)('ssh', ['-t', sshHost, 'sudo tailscale serve --bg --set-path /memory http://127.0.0.1:8088/memory'], { stdio: 'inherit' });
+                    await (0, execa_1.default)('ssh', ['-t', sshHost, 'sudo tailscale serve --bg http://127.0.0.1:3000'], { stdio: 'inherit' });
+                    await (0, execa_1.default)('ssh', ['-t', sshHost, 'sudo tailscale funnel --bg 443'], { stdio: 'inherit' });
                     // Get DNS name
                     const { stdout } = await (0, execa_1.default)('ssh', [sshHost, 'tailscale status --json | grep -o \'"DNSName":"[^"]*"\' | head -1 | cut -d: -f2 | tr -d \'"\\.\'']);
                     const dnsName = stdout.trim() + '.ts.net';
-                    console.log(chalk_1.default.green('\n🌐 Public HTTPS Access (via Tailscale Funnel):'));
+                    console.log(chalk_1.default.green('\n🌐 Remote Access Active (HTTPS):'));
                     console.log(`  - Dashboard: ${chalk_1.default.underline(`https://${dnsName}/`)}`);
-                    console.log(`  - MCP API:   ${chalk_1.default.underline(`https://${dnsName}/mcp`)}`);
-                    console.log(chalk_1.default.gray('  (Accessible from anywhere without VPN)'));
+                    console.log(`  - MCP API:   ${chalk_1.default.underline(`https://${dnsName}/memory`)}`);
                 }
                 catch (e) {
-                    console.log(chalk_1.default.yellow('\n⚠️  Tailscale not installed or not configured.'));
-                    console.log(chalk_1.default.gray('  Install: curl -fsSL https://tailscale.com/install.sh | sh'));
-                    console.log(chalk_1.default.gray('  Then run: tailscale up && tailscale funnel --bg 3000'));
+                    console.log(chalk_1.default.red('\n❌ Remote Access setup failed:'));
+                    console.error(e);
+                    console.log(chalk_1.default.gray('Manual setup: curl -fsSL https://tailscale.com/install.sh | sh && sudo tailscale up'));
                 }
             }
             else {
-                console.log(chalk_1.default.gray('\n💡 For public HTTPS access, re-run with: cybermem deploy --target rpi --tailscale'));
+                console.log(chalk_1.default.gray('\n💡 For remote access, re-run with: cybermem deploy --target rpi --remote-access'));
             }
         }
         else if (target === 'vps') {

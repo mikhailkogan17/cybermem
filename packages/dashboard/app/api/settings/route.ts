@@ -32,9 +32,17 @@ export async function GET(request: NextRequest) {
       // ignore
   }
 
+  // Endpoint resolution:
+  // 1. Env var CYBERMEM_URL
+  // 2. Default to localhost:8088/memory (Managed Mode)
+  const rawEndpoint = process.env.CYBERMEM_URL;
+  const endpoint = rawEndpoint || 'http://localhost:8088/memory';
+  const isManaged = !rawEndpoint;
+
   return NextResponse.json({
     apiKey: apiKey,
-    endpoint: process.env.CYBERMEM_URL || 'http://localhost:8080'
+    endpoint,
+    isManaged
   }, {
     headers: {
       'X-RateLimit-Remaining': String(rateLimit.remaining)

@@ -10,6 +10,7 @@ import { useEffect, useState } from "react"
 export default function SettingsModal({ onClose }: { onClose: () => void }) {
   const [apiKey, setApiKey] = useState("")
   const [endpoint, setEndpoint] = useState("")
+  const [isManaged, setIsManaged] = useState(false)
   const [adminPassword, setAdminPassword] = useState(localStorage.getItem("adminPassword") || "admin")
   const [isLoading, setIsLoading] = useState(true)
 
@@ -50,11 +51,22 @@ export default function SettingsModal({ onClose }: { onClose: () => void }) {
           .then(res => res.json())
           .then(data => {
             setApiKey(data.apiKey !== 'not-set' ? data.apiKey : '')
-            let srvEndpoint = data.endpoint
-            if (srvEndpoint.includes('localhost') && typeof window !== "undefined" && !window.location.hostname.includes('localhost')) {
-               srvEndpoint = `${window.location.protocol}//${window.location.hostname}:8080`
+            
+            // Handle managed endpoint
+            if (data.isManaged) {
+                setEndpoint(data.endpoint)
+                setIsManaged(true)
+            } else {
+                let srvEndpoint = data.endpoint
+                if (srvEndpoint.includes('localhost') && typeof window !== "undefined" && !window.location.hostname.includes('localhost')) {
+                   // If server says localhost but we are not on localhost (e.g. accessing via tailored IP), try to adapt port
+                   // But since we moved to 8088, we should probably stick to what server says or adapt to 8088
+                   srvEndpoint = `${window.location.protocol}//${window.location.hostname}:8088/memory`
+                }
+                setEndpoint(srvEndpoint)
+                setIsManaged(false)
             }
-            setEndpoint(srvEndpoint)
+            
             setIsLoading(false)
           })
           .catch(err => {
@@ -245,16 +257,29 @@ export default function SettingsModal({ onClose }: { onClose: () => void }) {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="endpoint" className="text-neutral-200">Server Endpoint</Label>
+                <Label htmlFor="endpoint" className="text-neutral-200 flex items-center gap-2">
+                    Server Endpoint
+                    {isManaged && (
+                        <span className="text-[10px] font-bold bg-emerald-500/20 text-emerald-400 px-2 py-0.5 rounded border border-emerald-500/30">
+                            MANAGED LOCALLY
+                        </span>
+                    )}
+                </Label>
                 <div className="flex gap-2">
                   <Input
                     id="endpoint"
                     value={endpoint}
                     onChange={(e) => setEndpoint(e.target.value)}
-                    className="bg-black/40 border-white/10 text-white focus-visible:border-emerald-500/30 focus-visible:ring-emerald-500/10 placeholder:text-neutral-600 shadow-inner"
+                    disabled={isManaged}
+                    title={isManaged ? "Managed by CyberMem CLI" : "Custom Endpoint"}
+                    className={`bg-black/40 border-white/10 text-white focus-visible:border-emerald-500/30 focus-visible:ring-emerald-500/10 placeholder:text-neutral-600 shadow-inner ${isManaged ? 'opacity-50 cursor-not-allowed' : ''}`}
                   />
                 </div>
-                <p className="text-xs text-neutral-500">URL of the OpenMemory backend instance</p>
+                <p className="text-xs text-neutral-500">
+                    {isManaged 
+                        ? "Automatically configured via CyberMem CLI (Port 8088)" 
+                        : "URL of the OpenMemory backend instance"}
+                </p>
               </div>
 
               <div className="pt-2 border-t border-white/10">
