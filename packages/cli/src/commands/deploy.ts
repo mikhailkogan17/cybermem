@@ -11,8 +11,12 @@ export const deployCommand = new Command('deploy')
   .description('Deploy CyberMem services')
   .option('-t, --target <target>', 'Deployment target (local, rpi, vps)', 'local')
   .option('-h, --host <host>', 'SSH Host (user@ip) for remote deployment')
+  .option('--tailscale', 'Enable Tailscale Funnel for public HTTPS access (RPi/VPS)')
+  .option('--caddy', 'Use Caddy for automatic HTTPS (VPS only)')
   .action(async (options) => {
     const target = options.target;
+    const useTailscale = options.tailscale;
+    const useCaddy = options.caddy;
     console.log(chalk.blue(`Deploying to ${target}...`));
 
     try {
@@ -156,12 +160,60 @@ export const deployCommand = new Command('deploy')
             console.log(chalk.green('\n✅ RPi deployment successful!'));
             // Parse host from ssh string for convenience
             const hostIp = sshHost.split('@')[1];
-            console.log(chalk.bold('Access Points:'));
+            console.log(chalk.bold('Access Points (LAN):'));
             console.log(`  - Dashboard:   ${chalk.underline(`http://${hostIp}:3000`)} (admin/admin)`);
             console.log(`  - OpenMemory:  ${chalk.underline(`http://${hostIp}:8080`)}`);
+
+            // Tailscale Funnel setup
+            if (useTailscale) {
+                console.log(chalk.blue('\n🔗 Setting up Tailscale Funnel for public HTTPS access...'));
+                try {
+                    // Check if Tailscale is installed
+                    await execa('ssh', [sshHost, 'which tailscale']);
+
+                    // Setup Funnel for dashboard and MCP
+                    await execa('ssh', [sshHost, 'sudo tailscale funnel --bg 3000'], { stdio: 'inherit' });
+                    await execa('ssh', [sshHost, 'sudo tailscale funnel --bg --set-path=/mcp 8080'], { stdio: 'inherit' });
+
+                    // Get DNS name
+                    const { stdout } = await execa('ssh', [sshHost, 'tailscale status --json | grep -o \'"DNSName":"[^"]*"\' | head -1 | cut -d: -f2 | tr -d \'"\\.\'']);
+                    const dnsName = stdout.trim() + '.ts.net';
+
+                    console.log(chalk.green('\n🌐 Public HTTPS Access (via Tailscale Funnel):'));
+                    console.log(`  - Dashboard: ${chalk.underline(`https://${dnsName}/`)}`);
+                    console.log(`  - MCP API:   ${chalk.underline(`https://${dnsName}/mcp`)}`);
+                    console.log(chalk.gray('  (Accessible from anywhere without VPN)'));
+                } catch (e) {
+                    console.log(chalk.yellow('\n⚠️  Tailscale not installed or not configured.'));
+                    console.log(chalk.gray('  Install: curl -fsSL https://tailscale.com/install.sh | sh'));
+                    console.log(chalk.gray('  Then run: tailscale up && tailscale funnel --bg 3000'));
+                }
+            } else {
+                console.log(chalk.gray('\n💡 For public HTTPS access, re-run with: cybermem deploy --target rpi --tailscale'));
+            }
+        }
+        else if (target === 'vps') {
+            console.log(chalk.yellow('VPS deployment is similar to RPi.'));
+            console.log(chalk.blue('\n📋 VPS Deployment Steps:'));
+            console.log('1. Run: cybermem deploy --target rpi --host user@your-vps-ip');
+            console.log('2. For HTTPS, choose one of:');
+            console.log(chalk.gray('   a) Tailscale Funnel: --tailscale flag'));
+            console.log(chalk.gray('   b) Caddy (recommended for public VPS):'));
+            console.log(chalk.gray('      - Install Caddy: sudo apt install caddy'));
+            console.log(chalk.gray('      - Configure /etc/caddy/Caddyfile:'));
+            console.log(chalk.cyan(`
+        cybermem.yourdomain.com {
+            reverse_proxy localhost:3000
+        }
+        api.cybermem.yourdomain.com {
+            reverse_proxy localhost:8080
+        }
+      `));
+            console.log(chalk.gray('      - Restart: sudo systemctl restart caddy'));
+            console.log(chalk.green('\n📚 Full docs: https://cybermem.dev/docs#https'));
         }
         else {
-            console.error(chalk.red(`Target ${target} not verified for deployment yet.`));
+            console.error(chalk.red(`Unknown target: ${target}. Use: local, rpi, or vps`));
         }
 
     } catch (error) {

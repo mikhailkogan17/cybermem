@@ -76,10 +76,6 @@ export default function LoginModal({ onLogin }: LoginModalProps) {
             <LogIn className="w-4 h-4" />
             Login
           </Button>
-
-          <p className="text-xs text-neutral-500 text-center mt-4">
-            Default password: <code className="text-emerald-400 bg-emerald-500/10 px-1 py-0.5 rounded">admin</code>
-          </p>
         </form>
       </div>
     </div>

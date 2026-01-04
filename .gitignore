@@ -70,7 +70,7 @@ charts/*/Chart.lock
 generated/
 
 # Private Context
-.context.private.md
+.agent/rules/
 
 
 # VitePress

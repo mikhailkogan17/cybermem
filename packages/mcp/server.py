@@ -16,7 +16,7 @@ from mcp.server.models import InitializationOptions
 from mcp.server.stdio import stdio_server
 
 # CyberMem configuration (OpenMemory backend)
-OPENMEMORY_URL = os.getenv("OPENMEMORY_URL", "http://localhost:80")
+OPENMEMORY_URL = os.getenv("OPENMEMORY_URL", "http://localhost:8080")
 CYBERMEM_API_KEY = os.getenv("CYBERMEM_API_KEY", "dev-secret-key")
 
 # Create MCP server instance
