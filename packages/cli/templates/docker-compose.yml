@@ -58,13 +58,11 @@ services:
       # Performance
       OM_RATE_LIMIT_ENABLED: "true"
       OM_RATE_LIMIT_MAX_REQUESTS: "1000"
-    # Directly expose port 8080 for debugging/direct access
-    ports:
-      - "8080:8080"
 
     labels:
       - traefik.enable=true
-      - traefik.http.routers.openmemory.rule=PathPrefix(`/memory`) || PathPrefix(`/health`) || PathPrefix(`/v1`) || PathPrefix(`/api`)
+      - traefik.http.routers.openmemory.entrypoints=web
+      - traefik.http.routers.openmemory.rule=PathPrefix(`/memory`) || PathPrefix(`/health`) || PathPrefix(`/v1`) || PathPrefix(`/api`) || PathPrefix(`/all`) || PathPrefix(`/add`)
       - traefik.http.services.openmemory.loadbalancer.server.port=8080
     healthcheck:
       test:

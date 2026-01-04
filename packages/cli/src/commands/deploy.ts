@@ -21,9 +21,26 @@ export const deployCommand = new Command('deploy')
 
     try {
         // Resolve Template Directory (Support both Dev and Prod)
-        let templateDir = path.resolve(__dirname, '../templates'); // Prod: dist/templates
+        // Resolve Template Directory (Support both Dev and Prod)
+        // In Prod: __dirname is dist/commands, so templates is ../templates (dist/templates)
+        // In Dev (ts-node): __dirname is src/commands, so templates is ../../templates (root/packages/cli/templates)
+        
+        // Try production path first (dist/templates)
+        let templateDir = path.resolve(__dirname, '../templates');
+        
+        // If not found, try development path (src/../../templates)
         if (!fs.existsSync(templateDir)) {
-             templateDir = path.resolve(__dirname, '../../templates'); // Dev: src/../../templates
+             templateDir = path.resolve(__dirname, '../../templates');
+        }
+
+        // Final sanity check
+        if (!fs.existsSync(templateDir)) {
+             // Fallback for when running from root with ts-node directly (unlikely but possible)
+             templateDir = path.resolve(process.cwd(), 'packages/cli/templates');
+        }
+
+        if (!fs.existsSync(templateDir)) {
+            throw new Error(`Templates not found at ${templateDir}. Please ensure package is built correctly.`);
         }
 
         if (target === 'local') {

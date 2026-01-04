@@ -1,3 +1,4 @@
+#!/usr/bin/env node
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import {
@@ -60,6 +61,31 @@ const tools: Tool[] = [
         limit: { type: "number", default: 10 },
       },
     },
+  },
+  {
+    name: "delete_memory",
+    description: "Delete a memory by ID",
+    inputSchema: {
+      type: "object",
+      properties: {
+        id: { type: "string" },
+      },
+      required: ["id"],
+    },
+  },
+  {
+    name: "update_memory",
+    description: "Update a memory by ID",
+    inputSchema: {
+      type: "object",
+      properties: {
+        id: { type: "string" },
+        content: { type: "string" },
+        tags: { type: "array", items: { type: "string" } },
+        metadata: { type: "object" },
+      },
+      required: ["id"],
+    },
   }
 ];
 
@@ -86,7 +112,21 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       }
       case "list_memories": {
         const limit = args?.limit || 10;
-        const response = await axios.get(`${API_URL}/list?limit=${limit}`, {
+        const response = await axios.get(`${API_URL}/all?l=${limit}`, {
+          headers: { "Authorization": `Bearer ${API_KEY}` }
+        });
+        return { content: [{ type: "text", text: JSON.stringify(response.data) }] };
+      }
+      case "delete_memory": {
+        const { id } = args as { id: string };
+        await axios.delete(`${API_URL}/${id}`, {
+          headers: { "Authorization": `Bearer ${API_KEY}` }
+        });
+        return { content: [{ type: "text", text: `Memory ${id} deleted` }] };
+      }
+      case "update_memory": {
+        const { id, ...updates } = args as { id: string; [key: string]: any };
+        const response = await axios.patch(`${API_URL}/${id}`, updates, {
           headers: { "Authorization": `Bearer ${API_KEY}` }
         });
         return { content: [{ type: "text", text: JSON.stringify(response.data) }] };

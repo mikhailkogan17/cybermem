@@ -26,21 +26,13 @@
 
 ## 🚀 Installation
 
-### Desktop (Mac/Linux)
+### Quick Start
 ```bash
 # Install and deploy in one command
 npm install -g @cybermem/cli && cybermem deploy
 ```
 
-### Raspberry Pi (Cluster)
-```bash
-curl -fsSL https://cybermem.dev/rpi | bash
-```
-
-### Cloud VPS (Kubernetes)
-```bash
-curl -fsSL https://cybermem.dev/cloud | bash
-```
+For advanced deployments (Raspberry Pi Cluster, Cloud VPS), see our [Documentation](https://cybermem.dev/docs).
 
 ## 📊 Dashboard
 
@@ -55,7 +47,10 @@ Manage your agents' memories with a beautiful, real-time interface.
 
 - **Real-time Metrics**: Throughput, latency, and error rates.
 - **Memory Inspector**: View and edit stored memories.
-- **Documentation**: Visit [cybermem.dev/docs](https://cybermem.dev/docs) for full guides.
+
+## 📚 Documentation
+
+Visit [cybermem.dev/docs](https://cybermem.dev/docs) for full guides.
 
 ## 🏗 Architecture
 
@@ -82,6 +77,10 @@ The `@cybermem/cli` includes production-ready deployment templates:
 - **Tailscale Funnel** — Zero-config public HTTPS
 
 See [`packages/cli/templates/`](packages/cli/templates/) for all configurations.
+
+## 🤝 Community & Contributing
+
+We welcome contributions! Please see our [CONTRIBUTING.md](CONTRIBUTING.md) for details on how to get started, development workflow, and code standards.
 
 ## License
 

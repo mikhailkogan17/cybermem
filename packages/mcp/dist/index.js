@@ -1,3 +1,4 @@
+#!/usr/bin/env node
 "use strict";
 var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
@@ -54,6 +55,31 @@ const tools = [
                 limit: { type: "number", default: 10 },
             },
         },
+    },
+    {
+        name: "delete_memory",
+        description: "Delete a memory by ID",
+        inputSchema: {
+            type: "object",
+            properties: {
+                id: { type: "string" },
+            },
+            required: ["id"],
+        },
+    },
+    {
+        name: "update_memory",
+        description: "Update a memory by ID",
+        inputSchema: {
+            type: "object",
+            properties: {
+                id: { type: "string" },
+                content: { type: "string" },
+                tags: { type: "array", items: { type: "string" } },
+                metadata: { type: "object" },
+            },
+            required: ["id"],
+        },
     }
 ];
 server.setRequestHandler(types_js_1.ListToolsRequestSchema, async () => ({
@@ -77,7 +103,21 @@ server.setRequestHandler(types_js_1.CallToolRequestSchema, async (request) => {
             }
             case "list_memories": {
                 const limit = args?.limit || 10;
-                const response = await axios_1.default.get(`${API_URL}/list?limit=${limit}`, {
+                const response = await axios_1.default.get(`${API_URL}/all?l=${limit}`, {
+                    headers: { "Authorization": `Bearer ${API_KEY}` }
+                });
+                return { content: [{ type: "text", text: JSON.stringify(response.data) }] };
+            }
+            case "delete_memory": {
+                const { id } = args;
+                await axios_1.default.delete(`${API_URL}/${id}`, {
+                    headers: { "Authorization": `Bearer ${API_KEY}` }
+                });
+                return { content: [{ type: "text", text: `Memory ${id} deleted` }] };
+            }
+            case "update_memory": {
+                const { id, ...updates } = args;
+                const response = await axios_1.default.patch(`${API_URL}/${id}`, updates, {
                     headers: { "Authorization": `Bearer ${API_KEY}` }
                 });
                 return { content: [{ type: "text", text: JSON.stringify(response.data) }] };
