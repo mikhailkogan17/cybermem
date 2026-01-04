@@ -123,40 +123,9 @@ export default function AuditLogTable({
       </div>
 
       <div className="relative z-10">
-        <div className="flex items-center justify-between mb-6">
-          <div className="flex items-center gap-3">
-            <h3 className="text-lg font-semibold text-white">Audit Log</h3>
-            {loading && <RefreshCw className="w-4 h-4 text-emerald-500 animate-spin" />}
-          </div>
-
-          {/* Export Button */}
-          <div className="relative">
-            <button
-              onClick={() => setShowExportMenu(!showExportMenu)}
-              className="h-8 px-3 rounded-lg bg-white/5 border border-white/10 hover:bg-white/10 text-neutral-400 hover:text-white text-xs font-medium flex items-center gap-2 transition-all"
-            >
-              <Download className="w-3 h-3" />
-              Export
-              <ChevronDown className="w-3 h-3" />
-            </button>
-
-            {showExportMenu && (
-              <div className="absolute right-0 mt-2 w-32 bg-[#0B1116]/95 border border-white/10 rounded-lg shadow-xl z-30 backdrop-blur-xl overflow-hidden">
-                <button
-                  onClick={exportToCSV}
-                  className="w-full text-left px-3 py-2 text-xs text-neutral-300 hover:bg-white/5 hover:text-white transition-colors"
-                >
-                  Export CSV
-                </button>
-                <button
-                  onClick={exportToJSON}
-                  className="w-full text-left px-3 py-2 text-xs text-neutral-300 hover:bg-white/5 hover:text-white transition-colors"
-                >
-                  Export JSON
-                </button>
-              </div>
-            )}
-          </div>
+        <div className="flex items-center gap-3 mb-6">
+          <h3 className="text-lg font-semibold text-white">Audit Log</h3>
+          {loading && <RefreshCw className="w-4 h-4 text-emerald-500 animate-spin" />}
         </div>
 
 
@@ -238,10 +207,40 @@ export default function AuditLogTable({
           </table>
         </div>
 
-        <div className="mt-6 flex items-center justify-between">
-          <p className="text-sm text-neutral-500">
+        <div className="mt-6 flex items-center justify-between relative">
+          {/* Export Button (Left) */}
+          <div className="relative">
+            <button
+              onClick={() => setShowExportMenu(!showExportMenu)}
+              className="h-8 px-3 rounded-lg bg-white/5 border border-white/10 hover:bg-white/10 text-neutral-400 hover:text-white text-xs font-medium flex items-center gap-2 transition-all"
+            >
+              <Download className="w-3 h-3" />
+              Export
+              <ChevronDown className="w-3 h-3" />
+            </button>
+
+            {showExportMenu && (
+              <div className="absolute left-0 bottom-full mb-2 w-32 bg-[#0B1116]/95 border border-white/10 rounded-lg shadow-xl z-30 backdrop-blur-xl overflow-hidden">
+                <button
+                  onClick={exportToCSV}
+                  className="w-full text-left px-3 py-2 text-xs text-neutral-300 hover:bg-white/5 hover:text-white transition-colors"
+                >
+                  Export CSV
+                </button>
+                <button
+                  onClick={exportToJSON}
+                  className="w-full text-left px-3 py-2 text-xs text-neutral-300 hover:bg-white/5 hover:text-white transition-colors"
+                >
+                  Export JSON
+                </button>
+              </div>
+            )}
+          </div>
+
+          <p className="absolute left-1/2 -translate-x-1/2 text-sm text-neutral-500">
             Page {currentPage} of {Math.max(1, totalPages)}
           </p>
+
           <div className="flex gap-2">
             <button
                 onClick={() => onPageChange(Math.max(1, currentPage - 1))}
