@@ -21,6 +21,7 @@
 
 - **Easy to Install**: Get started in seconds with a single command. No complex setup required.
 - **Universal**: Runs smoothy on your Mac, Raspberry Pi, or high-performance Cloud VPS.
+- **Infrastructure as Code**: Production-grade IaC templates (Helm, Ansible, Terraform) built right into the CLI.
 - **Secure & Controlled**: Enterprise-grade monitoring and full sovereignty over your memory data.
 
 ## 🚀 Installation
@@ -77,6 +78,7 @@ The `@cybermem/cli` includes production-ready deployment templates:
 - **Docker Compose** — Local and RPi deployment
 - **Helm Charts** — Kubernetes deployment
 - **Ansible Playbooks** — RPi fleet management
+- **Terraform Modules** — Cloud infrastructure provisioning (AWS/Azure/GCP)
 - **Tailscale Funnel** — Zero-config public HTTPS
 
 See [`packages/cli/templates/`](packages/cli/templates/) for all configurations.

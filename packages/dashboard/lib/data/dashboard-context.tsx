@@ -17,12 +17,26 @@ interface ClientConfig {
   configType: string
 }
 
+interface ServiceStatus {
+  name: string
+  status: 'ok' | 'error' | 'warning'
+  message?: string
+  latencyMs?: number
+}
+
+interface SystemHealth {
+  overall: 'ok' | 'degraded' | 'error'
+  services: ServiceStatus[]
+  timestamp: string
+}
+
 interface DashboardContextType {
   strategy: DataSourceStrategy
   isDemo: boolean
   toggleDemo: () => void
   refreshSignal: number
   clientConfigs: ClientConfig[]
+  systemHealth: SystemHealth | null
 }
 
 const DashboardContext = createContext<DashboardContextType | undefined>(undefined)
@@ -32,6 +46,7 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
   const [strategy, setStrategy] = useState<DataSourceStrategy>(new ProductionDataSource())
   const [refreshSignal, setRefreshSignal] = useState(0)
   const [clientConfigs, setClientConfigs] = useState<ClientConfig[]>([])
+  const [systemHealth, setSystemHealth] = useState<SystemHealth | null>(null)
 
   // Load configuration on mount
   useEffect(() => {
@@ -40,6 +55,34 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
         .then(res => res.json())
         .then(data => setClientConfigs(data))
         .catch(err => console.error("Failed to load client configs:", err))
+  }, [])
+
+  // Check system health
+  useEffect(() => {
+    const checkHealth = async () => {
+      try {
+        const res = await fetch("/api/health", { signal: AbortSignal.timeout(5000) })
+        if (res.ok) {
+          const data = await res.json()
+          setSystemHealth(data)
+        } else {
+          setSystemHealth({
+            overall: 'error',
+            services: [{ name: 'Dashboard API', status: 'error', message: `HTTP ${res.status}` }],
+            timestamp: new Date().toISOString()
+          })
+        }
+      } catch (error: any) {
+        setSystemHealth({
+          overall: 'error',
+          services: [{ name: 'Dashboard API', status: 'error', message: error.message || 'Connection failed' }],
+          timestamp: new Date().toISOString()
+        })
+      }
+    }
+    checkHealth()
+    const interval = setInterval(checkHealth, 30000) // Check every 30s
+    return () => clearInterval(interval)
   }, [])
 
   const toggleDemo = () => {
@@ -60,7 +103,7 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
   }, [isDemo])
 
   return (
-    <DashboardContext.Provider value={{ strategy, isDemo, toggleDemo, refreshSignal, clientConfigs }}>
+    <DashboardContext.Provider value={{ strategy, isDemo, toggleDemo, refreshSignal, clientConfigs, systemHealth }}>
       {children}
     </DashboardContext.Provider>
   )

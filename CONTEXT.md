@@ -23,7 +23,7 @@
 
 ## 3. Directory Map
 - `packages/cli/`: Management CLI (@cybermem/cli)
-  - `templates/`: Production-ready configurations (Docker Compose, Helm Charts, Ansible Playbooks, Tailscale Funnel).
+  - `templates/`: Production-ready configurations (Docker Compose, Helm Charts, Ansible Playbooks, Terraform Modules, Tailscale Funnel).
 - `packages/dashboard/`: Monitoring UI (metrics, audit logs) — NOT the public landing page.
 - `packages/mcp/`: MCP Server (Python).
 - `external/openmemory/`: OpenMemory submodule.

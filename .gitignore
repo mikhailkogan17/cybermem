@@ -1,6 +1,7 @@
 # Environment files
 .env
 .env.*
+.mcp.json
 openmemory.env
 
 # CLI & Build

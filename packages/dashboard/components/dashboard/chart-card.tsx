@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useDashboard } from "@/lib/data/dashboard-context";
 import { ChevronDown } from "lucide-react";
 import dynamic from "next/dynamic";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 // Dynamic import with SSR disabled
 const MetricsChart = dynamic(() => import("./metrics-chart"), { ssr: false });
@@ -44,11 +44,11 @@ export default function ChartCard({ service }: ChartCardProps) {
   const [clientMetadata, setClientMetadata] = useState<Record<string, any>>({})
   const [loading, setLoading] = useState(true)
 
+  const isInitialLoad = useRef(true)
   useEffect(() => {
-    let isInitialLoad = data.length === 0
     async function fetchData() {
       // Only show loading state on initial load, not background refresh
-      if (isInitialLoad) setLoading(true)
+      if (isInitialLoad.current) setLoading(true)
 
       try {
         const timeSeriesData = await strategy.getChartData(period)
@@ -120,6 +120,7 @@ export default function ChartCard({ service }: ChartCardProps) {
         console.error("Failed to fetch chart data:", e)
       } finally {
         setLoading(false)
+        isInitialLoad.current = false
       }
     }
     fetchData()

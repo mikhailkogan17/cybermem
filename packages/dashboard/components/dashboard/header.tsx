@@ -1,7 +1,8 @@
 "use client"
 
 import { Button } from "@/components/ui/button";
-import { Book, Settings } from "lucide-react";
+import { useDashboard } from "@/lib/data/dashboard-context";
+import { AlertCircle, Book, CheckCircle2, Loader2, Settings, XCircle } from "lucide-react";
 import Image from "next/image";
 import { useEffect, useState } from "react";
 
@@ -13,6 +14,8 @@ export default function DashboardHeader({
   onShowSettings: () => void;
 }) {
   const [isScrolled, setIsScrolled] = useState(false)
+  const [showHealthPopup, setShowHealthPopup] = useState(false)
+  const { systemHealth } = useDashboard()
 
   useEffect(() => {
     // Check initial scroll position on mount
@@ -24,6 +27,23 @@ export default function DashboardHeader({
     window.addEventListener("scroll", handleScroll)
     return () => window.removeEventListener("scroll", handleScroll)
   }, [])
+
+  const getStatusConfig = () => {
+    if (!systemHealth) {
+      return { bg: "bg-neutral-500/10", text: "text-neutral-400", border: "border-neutral-500/20", icon: Loader2, label: "Checking..." }
+    }
+    switch (systemHealth.overall) {
+      case 'ok':
+        return { bg: "bg-emerald-500/10", text: "text-emerald-400", border: "border-emerald-500/20", icon: CheckCircle2, label: "All Systems OK" }
+      case 'degraded':
+        return { bg: "bg-amber-500/10", text: "text-amber-400", border: "border-amber-500/20", icon: AlertCircle, label: "Degraded" }
+      case 'error':
+        return { bg: "bg-red-500/10", text: "text-red-400", border: "border-red-500/20", icon: XCircle, label: "System Error" }
+    }
+  }
+
+  const statusConfig = getStatusConfig()
+  const StatusIcon = statusConfig.icon
 
   return (
     <header className={`sticky top-0 z-50 transition-all duration-300 ${
@@ -40,6 +60,54 @@ export default function DashboardHeader({
             <div>
               <h1 className="text-3xl font-bold tracking-tight text-white leading-none font-exo">CyberMem</h1>
               <p className="text-sm text-neutral-400 mt-1">Memory MCP Server</p>
+            </div>
+            {/* System Health Status Badge with Hover Popup */}
+            <div
+              className="relative ml-4"
+              onMouseEnter={() => setShowHealthPopup(true)}
+              onMouseLeave={() => setShowHealthPopup(false)}
+            >
+              <div className={`px-3 py-1 rounded-full text-xs font-medium flex items-center gap-1.5 cursor-pointer ${statusConfig.bg} ${statusConfig.text} border ${statusConfig.border}`}>
+                <StatusIcon className={`w-3 h-3 ${!systemHealth ? 'animate-spin' : ''}`} />
+                {statusConfig.label}
+              </div>
+
+              {/* Hover Popup */}
+              {showHealthPopup && systemHealth && (
+                <div className="absolute top-full left-0 mt-2 w-64 bg-[#0B1116]/95 border border-white/10 rounded-lg shadow-xl z-50 backdrop-blur-xl overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200">
+                  <div className="p-3 border-b border-white/5">
+                    <p className="text-xs text-neutral-400">System Health</p>
+                    <p className="text-[10px] text-neutral-500 mt-0.5">Updated: {new Date(systemHealth.timestamp).toLocaleTimeString()}</p>
+                  </div>
+                  <div className="p-2 space-y-1">
+                    {systemHealth.services.map((service, i) => (
+                      <div key={i} className="flex items-center justify-between px-2 py-1.5 rounded hover:bg-white/5">
+                        <span className="text-xs text-neutral-300">{service.name}</span>
+                        <div className="flex items-center gap-2">
+                          {service.latencyMs && (
+                            <span className="text-[10px] text-neutral-500">{service.latencyMs}ms</span>
+                          )}
+                          {service.status === 'ok' ? (
+                            <CheckCircle2 className="w-3 h-3 text-emerald-400" />
+                          ) : service.status === 'warning' ? (
+                            <AlertCircle className="w-3 h-3 text-amber-400" />
+                          ) : (
+                            <XCircle className="w-3 h-3 text-red-400" />
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                    {systemHealth.services.some(s => s.status !== 'ok' && s.message) && (
+                      <div className="mt-2 p-2 rounded bg-red-500/10 border border-red-500/20">
+                        <p className="text-xs text-red-300 font-medium">Issues:</p>
+                        {systemHealth.services.filter(s => s.status !== 'ok' && s.message).map((s, i) => (
+                          <p key={i} className="text-[10px] text-red-400 mt-1">• {s.name}: {s.message}</p>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
           </div>
 
@@ -80,4 +148,3 @@ export default function DashboardHeader({
     </header>
   )
 }
-
