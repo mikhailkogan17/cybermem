@@ -2,6 +2,7 @@
 
 import { Button } from "@/components/ui/button";
 import { Book, Settings } from "lucide-react";
+import Image from "next/image";
 import { useEffect, useState } from "react";
 
 export default function DashboardHeader({
@@ -34,7 +35,7 @@ export default function DashboardHeader({
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
             <div className="relative w-10 h-10 flex-shrink-0">
-              <img src="/logo.svg" alt="CyberMem Logo" className="w-full h-full object-contain" />
+              <Image src="/logo.svg" alt="CyberMem Logo" width={40} height={40} className="object-contain" />
             </div>
             <div>
               <h1 className="text-3xl font-bold tracking-tight text-white leading-none font-exo">CyberMem</h1>
@@ -49,7 +50,7 @@ export default function DashboardHeader({
               onClick={onShowMCPConfig}
               className="hidden md:flex h-10 px-4 text-sm font-medium bg-emerald-500/10 text-emerald-400 hover:text-emerald-300 hover:bg-emerald-500/20 border border-emerald-500/20 hover:border-emerald-500/40 rounded-lg"
             >
-              <img src="/icons/mcp.png" alt="MCP" className="w-4 h-4 mr-2" />
+              <Image src="/icons/mcp.png" alt="MCP" width={16} height={16} className="mr-2" />
               Connect MCP
             </Button>
 

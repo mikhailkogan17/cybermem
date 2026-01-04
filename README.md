@@ -61,6 +61,7 @@ Manage your agents' memories with a beautiful, real-time interface.
 ```mermaid
 graph TD
     Client["Client (Claude/Cursor)"] -->|MCP Protocol| Traefik
+    Tailscale["Tailscale Funnel"] -.->|Public HTTPS| Traefik
     Traefik -->|Load Balance| OM[OpenMemory API]
     Traefik -->|Logs| Vector
     OM -->|Store| DB[(PostgreSQL/SQLite)]
@@ -69,6 +70,18 @@ graph TD
     Prometheus -->|Data| Dashboard
 ```
 
+## 📦 CLI Templates
+
+The `@cybermem/cli` includes production-ready deployment templates:
+
+- **Docker Compose** — Local and RPi deployment
+- **Helm Charts** — Kubernetes deployment
+- **Ansible Playbooks** — RPi fleet management
+- **Tailscale Funnel** — Zero-config public HTTPS
+
+See [`packages/cli/templates/`](packages/cli/templates/) for all configurations.
+
 ## License
 
 MIT © [Mikhail Kogan](https://github.com/mikhailkogan17)
+

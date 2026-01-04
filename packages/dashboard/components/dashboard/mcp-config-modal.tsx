@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { useDashboard } from "@/lib/data/dashboard-context"
 import { Check, Copy, Eye, EyeOff, FileCode, Info, Monitor, X } from "lucide-react"
+import Image from "next/image"
 import { useEffect, useState } from "react"
 
 export default function MCPConfigModal({ onClose }: { onClose: () => void }) {
@@ -193,7 +194,7 @@ export default function MCPConfigModal({ onClose }: { onClose: () => void }) {
         <div className="flex items-center justify-between px-6 pt-6 pb-2 flex-none">
           <div className="flex items-center gap-3">
               <div className="p-2 bg-white/5 rounded-lg border border-white/10 shadow-inner">
-                <img src="/icons/mcp.png" alt="MCP Logo" className="w-5 h-5 drop-shadow-[0_0_5px_rgba(255,255,255,0.3)]" />
+                <Image src="/icons/mcp.png" alt="MCP Logo" width={20} height={20} className="drop-shadow-[0_0_5px_rgba(255,255,255,0.3)]" />
               </div>
               <h2 className="text-xl font-semibold text-white text-shadow-sm">Integrate MCP Client</h2>
           </div>
@@ -231,7 +232,7 @@ export default function MCPConfigModal({ onClose }: { onClose: () => void }) {
                   >
                     <div className="mb-2 transition-transform duration-300 group-hover:scale-110">
                        {client.icon ? (
-                         <img src={client.icon} alt={client.name} className="w-8 h-8 object-contain drop-shadow-lg" />
+                         <Image src={client.icon} alt={client.name} width={32} height={32} className="object-contain drop-shadow-lg" />
                        ) : (
                          <div className="w-8 h-8 flex items-center justify-center text-white/50 bg-white/5 rounded-full border border-white/10 transition-transform duration-300">
                            <span className="text-sm font-bold">?</span>
