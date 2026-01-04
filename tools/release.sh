@@ -19,7 +19,7 @@ PACKAGES=("packages/cli" "packages/mcp" "packages/dashboard")
 for PKG in "${PACKAGES[@]}"; do
     echo "📤 Publishing $PKG..."
     cd "$PKG"
-    npm publish
+    npm publish --access public
     cd - > /dev/null
 done
 

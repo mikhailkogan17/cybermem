@@ -313,7 +313,7 @@ export default function SettingsModal({ onClose }: { onClose: () => void }) {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                     <span className="text-xs uppercase tracking-wider text-neutral-500 font-semibold">Version</span>
-                    <p className="text-neutral-200 font-mono mt-1">v0.1.0-beta</p>
+                    <p className="text-neutral-200 font-mono mt-1">v0.2.0</p>
                 </div>
                 <div>
                     <span className="text-xs uppercase tracking-wider text-neutral-500 font-semibold">Environment</span>
