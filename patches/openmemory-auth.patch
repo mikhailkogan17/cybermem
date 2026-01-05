@@ -1,11 +1,19 @@
 diff --git a/packages/openmemory-js/src/server/middleware/auth.ts b/packages/openmemory-js/src/server/middleware/auth.ts
-index XXXXXXX..XXXXXXX 100644
+index 484056b..14163ca 100644
 --- a/packages/openmemory-js/src/server/middleware/auth.ts
 +++ b/packages/openmemory-js/src/server/middleware/auth.ts
-@@ -10,6 +10,13 @@ function is_public_endpoint(path: string): boolean {
-     return public_endpoints.some(prefix => path.startsWith(prefix));
+@@ -1,5 +1,5 @@
+-import { env } from "../../core/cfg";
+ import crypto from "crypto";
++import { env } from "../../core/cfg";
+ 
+ const rate_limit_store = new Map<
+     string,
+@@ -83,13 +83,50 @@ function get_client_id(req: any, api_key: string | null): string {
+     return req.ip || req.connection.remoteAddress || "unknown";
  }
-
+ 
++
 +function is_localhost_request(req: any) {
 +    const remoteAddr = req.socket.remoteAddress;
 +    // Check for localhost variants: 127.0.0.1, ::1, ::ffff:127.0.0.1
