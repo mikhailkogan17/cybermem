@@ -94,9 +94,9 @@ export const deployCommand = new Command('deploy')
 
             console.log(chalk.green('\n🎉 CyberMem Installed!'));
             console.log('');
-            console.log(chalk.bold('Next Step:'));
-            console.log(`  Open your dashboard: ${chalk.underline('http://localhost:3000')} (password: admin)`);
-            console.log(`  To connect MCP clients, just follow instructions in the dashboard.`);
+            console.log(chalk.bold('Next Steps:'));
+            console.log(`  1. Open ${chalk.underline('http://localhost:3000/client-connect')} to connect your MCP clients`);
+            console.log(`  2. Default password: ${chalk.bold('admin')} (you'll be prompted to change it)`);
             console.log('');
             console.log(chalk.dim('Local mode is active: No API key required for connections from this laptop.'));
         }
