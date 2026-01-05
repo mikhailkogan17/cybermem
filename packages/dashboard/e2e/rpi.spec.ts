@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test';
 
 // Only run this test if RPi target is specified (via URL or env)
-// For now we assume we run with BASE_URL=https://***REMOVED*** npm run test:e2e
+// For now we assume we run with BASE_URL=https://target-rpi-url npm run test:e2e
 test.describe('RPi Dashboard Checks', () => {
     // Basic auth if needed? Dashboard has admin login.
     // We reuse the auth logic
