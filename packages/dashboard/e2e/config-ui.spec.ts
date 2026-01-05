@@ -52,11 +52,11 @@ test.describe('Dashboard Configuration UI', () => {
 
     // Check command
     const codeBlock = page.locator('pre code, pre');
-    await expect(codeBlock).toContainText('npx -y @google/gemini-cli');
+    await expect(codeBlock).toContainText('npx @cybermem-mcp deploy --local');
 
     // Select Claude Code to check for NPX
     await page.getByRole('button', { name: 'Claude Code' }).click();
-    await expect(codeBlock).toContainText('npx -y @anthropic-ai/claude-code');
+    await expect(codeBlock).toContainText('npx @cybermem-mcp deploy --local');
 
     // Ensure footer warning is HIDDEN in Local Mode
     await expect(page.getByText('Keep it secure and do not share it publicly.')).not.toBeVisible();

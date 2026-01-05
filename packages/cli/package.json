@@ -1,5 +1,5 @@
 {
-  "name": "cybermem-mcp",
+  "name": "@cybermem/mcp",
   "version": "0.2.0",
   "description": "CyberMem Management CLI",
   "bin": {

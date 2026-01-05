@@ -133,6 +133,11 @@ export default function MCPConfigModal({ onClose }: { onClose: () => void }) {
         } else if (config.id === 'gemini-cli' && cmd.includes('gemini ')) {
           cmd = cmd.replace('gemini ', 'npx -y @google/gemini-cli ');
         }
+
+        // Update installation command to use the new npx approach if found in help text
+        if (cmd.includes('npm install -g')) {
+          cmd = `npx @cybermem/mcp deploy --local && ${cmd}`;
+        }
       } else {
         // Remote mode - inject API key
         if (config.id === 'claude-code' || config.id === 'gemini-cli') {
