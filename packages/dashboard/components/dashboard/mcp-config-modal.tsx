@@ -123,30 +123,26 @@ export default function MCPConfigModal({ onClose }: { onClose: () => void }) {
     }
 
     // Handle command-based configs (Claude Code, Gemini CLI, etc.)
-    if ((config?.configType === 'command' || config?.configType === 'cmd') && config?.command) {
-      let cmd = config.command.replace("http://localhost:8080", baseUrl);
+    if ((config?.configType === 'command' || config?.configType === 'cmd')) {
+      // Select command based on mode
+      let cmd = isManaged ? config?.localCommand : config?.remoteCommand;
 
-      // In managed mode, no API key header needed + use npx "хоть убей"
-      if (isManaged) {
-        if (config.id === 'claude-code' && cmd.includes('claude ')) {
-          cmd = cmd.replace('claude ', 'npx -y @anthropic-ai/claude-code ');
-        } else if (config.id === 'gemini-cli' && cmd.includes('gemini ')) {
-          cmd = cmd.replace('gemini ', 'npx -y @google/gemini-cli ');
-        }
+      // Fallback to legacy 'command' field if new fields not present
+      if (!cmd) {
+        cmd = config?.command?.replace("http://localhost:8080", baseUrl) || '';
+      }
 
-        // Update installation command to use the new npx approach if found in help text
-        if (cmd.includes('npm install -g')) {
-          cmd = `npx @cybermem/mcp deploy --local && ${cmd}`;
-        }
-      } else {
-        // Remote mode - inject API key
-        if (config.id === 'claude-code' || config.id === 'gemini-cli') {
-          const headerPart = `--header "x-api-key: ${maskKey ? displayKey : actualKey}"`;
-          if (!cmd.includes('x-api-key')) {
-            cmd = cmd.replace('mcp add', `mcp add ${headerPart}`);
-          }
+      // Substitute {{ENDPOINT}} placeholder with actual endpoint
+      cmd = cmd.replace('{{ENDPOINT}}', `${baseUrl}/mcp`);
+
+      // Remote mode - inject API key for SSE transport commands
+      if (!isManaged && cmd.includes('--transport sse')) {
+        const headerPart = `--header "x-api-key: ${maskKey ? displayKey : actualKey}"`;
+        if (!cmd.includes('x-api-key')) {
+          cmd = cmd.replace('mcp add', `mcp add ${headerPart}`);
         }
       }
+
       return cmd;
     }
 

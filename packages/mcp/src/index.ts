@@ -11,8 +11,9 @@ import dotenv from "dotenv";
 
 dotenv.config();
 
-const API_URL = process.env.CYBERMEM_URL || "http://localhost:8088/memory";
-const API_KEY = process.env.CYBERMEM_API_KEY || "dev-secret-key";
+// Default to local CyberMem backend (via Traefik on port 8626)
+const API_URL = process.env.CYBERMEM_URL || "http://localhost:8626/memory";
+const API_KEY = process.env.CYBERMEM_API_KEY || "";
 
 const server = new Server(
   {

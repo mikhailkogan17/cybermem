@@ -107,7 +107,8 @@
       "The server will be available in all Claude Code sessions"
     ],
     "configType": "command",
-    "command": "claude mcp add --transport sse cybermem http://localhost:8626/mcp"
+    "localCommand": "claude mcp add cybermem npx @cybermem/mcp-server",
+    "remoteCommand": "claude mcp add --transport sse cybermem {{ENDPOINT}}"
   },
   {
     "id": "chatgpt",
@@ -162,14 +163,15 @@
     "match": "gemini",
     "color": "#9ca3af",
     "icon": "/icons/gemini.png",
-    "description": "Gemini CLI supports MCP servers via command-line.",
+    "description": "Gemini CLI supports MCP servers via stdio transport.",
     "steps": [
       "Open your terminal",
       "Run the command below to add CyberMem",
       "The server persists across sessions"
     ],
     "configType": "cmd",
-    "command": "gemini mcp add --transport sse cybermem http://localhost:8626/mcp"
+    "localCommand": "gemini mcp add cybermem npx @cybermem/mcp-server",
+    "remoteCommand": "gemini mcp add --transport sse cybermem {{ENDPOINT}}"
   },
   {
     "id": "other",
