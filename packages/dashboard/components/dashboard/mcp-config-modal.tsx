@@ -86,17 +86,19 @@ export default function MCPConfigModal({ onClose }: { onClose: () => void }) {
     const isAntigravity = clientId === 'antigravity'
     const urlKey = isAntigravity ? 'serverUrl' : 'url'
 
-    // In managed/local mode, no API key needed
+    // Local mode: use stdio (command-based) - no server needed, runs via npx
     if (isManaged) {
       return {
         mcpServers: {
           cybermem: {
-            [urlKey]: `${baseUrl}/mcp`
+            command: "npx",
+            args: ["@cybermem/mcp-server"]
           }
         }
       }
     }
 
+    // Remote mode: use SSE URL with API key header
     return {
       mcpServers: {
         cybermem: {
@@ -117,7 +119,7 @@ export default function MCPConfigModal({ onClose }: { onClose: () => void }) {
     // Handle TOML config (Codex)
     if (config?.configType === 'toml') {
       if (isManaged) {
-        return `# CyberMem Configuration (Local Mode)\n[mcp]\nserver_url = "${baseUrl}/mcp"`;
+        return `# CyberMem Configuration (Local Mode)\n[mcp]\ncommand = "npx"\nargs = ["@cybermem/mcp-server"]`;
       }
       return `# CyberMem Configuration\n[mcp]\nserver_url = "${baseUrl}/mcp"\napi_key = "${maskKey ? displayKey : actualKey}"`;
     }
