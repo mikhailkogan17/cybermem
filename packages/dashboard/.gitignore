@@ -30,3 +30,4 @@ next-env.d.ts
 playwright-report/
 test-results/
 .env
+**/private-context.md

@@ -27,4 +27,12 @@ export default defineConfig({
       use: { ...devices['Pixel 5'] },
     },
   ],
+  webServer: {
+    command: 'lsof -ti:3000 | xargs kill -9 || true && npm run dev -- -p 3000',
+    url: 'http://localhost:3000',
+    reuseExistingServer: !process.env.CI,
+    stdout: 'pipe',
+    stderr: 'pipe',
+    timeout: 120000,
+  },
 });

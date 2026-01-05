@@ -126,11 +126,20 @@ export default function MCPConfigModal({ onClose }: { onClose: () => void }) {
     if ((config?.configType === 'command' || config?.configType === 'cmd') && config?.command) {
       let cmd = config.command.replace("http://localhost:8080", baseUrl);
 
-      // In managed mode, no API key header needed
-      if (!isManaged && (config.id === 'claude-code' || config.id === 'gemini-cli')) {
-        const headerPart = `--header "x-api-key: ${maskKey ? displayKey : actualKey}"`;
-        if (!cmd.includes('x-api-key')) {
-          cmd = cmd.replace('mcp add', `mcp add ${headerPart}`);
+      // In managed mode, no API key header needed + use npx "хоть убей"
+      if (isManaged) {
+        if (config.id === 'claude-code' && cmd.includes('claude ')) {
+          cmd = cmd.replace('claude ', 'npx -y @anthropic-ai/claude-code ');
+        } else if (config.id === 'gemini-cli' && cmd.includes('gemini ')) {
+          cmd = cmd.replace('gemini ', 'npx -y @google/gemini-cli ');
+        }
+      } else {
+        // Remote mode - inject API key
+        if (config.id === 'claude-code' || config.id === 'gemini-cli') {
+          const headerPart = `--header "x-api-key: ${maskKey ? displayKey : actualKey}"`;
+          if (!cmd.includes('x-api-key')) {
+            cmd = cmd.replace('mcp add', `mcp add ${headerPart}`);
+          }
         }
       }
       return cmd;
@@ -363,7 +372,7 @@ export default function MCPConfigModal({ onClose }: { onClose: () => void }) {
                     <Info className="h-4 w-4 shrink-0 text-emerald-400 mt-0.5" />
                     <div className="space-y-1">
                       <p className="text-sm font-medium text-emerald-200">Local Mode Active</p>
-                      <p className="text-xs text-emerald-200/60">No API key required for localhost connections. Just copy the config below.</p>
+                      <p className="text-xs text-emerald-200/60">No API key required for connection from your laptop. Just copy the config below.</p>
                     </div>
                   </div>
                 </div>
@@ -395,12 +404,14 @@ export default function MCPConfigModal({ onClose }: { onClose: () => void }) {
                   </div>
                 </div>
 
-                <div className="flex items-start gap-3 p-3 rounded-lg bg-emerald-500/5 border border-emerald-500/10 text-emerald-200/70 text-xs">
+                {!isManaged && (
+                <div className="flex items-start gap-3 p-3 rounded-lg bg-emerald-500/5 border border-emerald-500/10 text-emerald-200/70 text-xs mt-4">
                   <Info className="h-4 w-4 shrink-0 text-white mt-0.5" />
                   <p>
                     This configuration includes your generated API key. Keep it secure and do not share it publicly.
                   </p>
                 </div>
+                )}
              </div>
           </section>
         </div>

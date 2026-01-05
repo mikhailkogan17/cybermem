@@ -172,7 +172,7 @@ export default function SettingsModal({ onClose }: { onClose: () => void }) {
             </h3>
             <div className="bg-emerald-500/5 border border-emerald-500/20 rounded-lg p-5 space-y-2 backdrop-blur-sm">
               <p className="text-sm font-medium text-emerald-300">Local Mode Active</p>
-              <p className="text-xs text-emerald-200/60">Keyless authentication is active for localhost/local network. Key management is hidden.</p>
+              <p className="text-xs text-emerald-200/60">No API key required for connection from your laptop. Key management is hidden.</p>
 
               <div className="mt-4 pt-4 border-t border-white/10">
                 <Label htmlFor="endpoint" className="text-xs text-neutral-500 mb-2 block">System Endpoint</Label>
