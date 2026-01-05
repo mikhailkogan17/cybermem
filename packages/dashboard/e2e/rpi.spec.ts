@@ -42,8 +42,7 @@ test.describe('RPi Dashboard Checks', () => {
         // The user wants to verify it stands correct URL.
         // If accessed via https://***REMOVED***, expected is likely that domain.
 
-        const inputValue = await endpointInput.inputValue();
-        console.log('Settings Endpoint:', inputValue);
+
 
         const url = new URL(page.url());
         if (url.hostname.includes('tailscale.ts.net')) {
