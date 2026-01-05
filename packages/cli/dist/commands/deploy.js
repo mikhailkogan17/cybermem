@@ -188,18 +188,19 @@ exports.deployCommand = new commander_1.Command('deploy')
                     // 3. Configure Funnel (Verified commands)
                     console.log(chalk_1.default.blue('  Configuring HTTPS Funnel (requires sudo access)...'));
                     console.log(chalk_1.default.gray('  You may be prompted for your RPi password.'));
-                    // Route /memory -> 8088
-                    // We use -t to force TTY allocation so sudo prompts for password
+                    // Routes:
+                    // - / -> Dashboard (3000)
+                    // - /cybermem/mcp -> MCP API (8626/mcp)
                     await (0, execa_1.default)('ssh', ['-t', sshHost, 'sudo tailscale serve reset'], { stdio: 'inherit' }).catch(() => { });
-                    await (0, execa_1.default)('ssh', ['-t', sshHost, 'sudo tailscale serve --bg --set-path /memory http://127.0.0.1:8088/memory'], { stdio: 'inherit' });
+                    await (0, execa_1.default)('ssh', ['-t', sshHost, 'sudo tailscale serve --bg --set-path /cybermem http://127.0.0.1:8626'], { stdio: 'inherit' });
                     await (0, execa_1.default)('ssh', ['-t', sshHost, 'sudo tailscale serve --bg http://127.0.0.1:3000'], { stdio: 'inherit' });
                     await (0, execa_1.default)('ssh', ['-t', sshHost, 'sudo tailscale funnel --bg 443'], { stdio: 'inherit' });
                     // Get DNS name
-                    const { stdout } = await (0, execa_1.default)('ssh', [sshHost, 'tailscale status --json | grep -o \'"DNSName":"[^"]*"\' | head -1 | cut -d: -f2 | tr -d \'"\\.\'']);
-                    const dnsName = stdout.trim() + '.ts.net';
+                    const { stdout } = await (0, execa_1.default)('ssh', [sshHost, "tailscale status --json | jq -r '.Self.DNSName' | sed 's/\\.$//'"], { shell: true });
+                    const dnsName = stdout.trim();
                     console.log(chalk_1.default.green('\n🌐 Remote Access Active (HTTPS):'));
                     console.log(`  - Dashboard: ${chalk_1.default.underline(`https://${dnsName}/`)}`);
-                    console.log(`  - MCP API:   ${chalk_1.default.underline(`https://${dnsName}/memory`)}`);
+                    console.log(`  - MCP API:   ${chalk_1.default.underline(`https://${dnsName}/cybermem/mcp`)}`);
                 }
                 catch (e) {
                     console.log(chalk_1.default.red('\n❌ Remote Access setup failed:'));

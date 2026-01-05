@@ -28,6 +28,8 @@ services:
   openmemory:
     image: ghcr.io/mikhailkogan17/cybermem-openmemory:latest
     container_name: cybermem-openmemory
+    ports:
+      - "8626:8080" # Direct MCP access (8626 = MCP mnemonic)
     volumes:
       - openmemory-data:/data
       - ${CYBERMEM_ENV_PATH}:/.env

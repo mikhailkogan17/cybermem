@@ -2,23 +2,23 @@
   "folders": [
     {
       "name": "CyberMem",
-      "path": "."
+      "path": ".",
     },
     {
       "name": "OpenMemory (submodule)",
-      "path": "external/openmemory"
+      "path": "external/openmemory",
     },
     {
       "name": "Landing",
-      "path": "../cybermem-landing"
-    }
+      "path": "../cybermem-landing",
+    },
   ],
   "settings": {
     // ===== Editor & Files =====
     "editor.formatOnSave": true,
     "editor.codeActionsOnSave": {
       "source.organizeImports": "explicit",
-      "source.fixAll": "explicit"
+      "source.fixAll": "explicit",
     },
     "editor.rulers": [100],
     "files.autoSave": "afterDelay",
@@ -28,7 +28,7 @@
     "files.associations": {
       "Dockerfile*": "dockerfile",
       "*.yaml": "yaml",
-      "*.yml": "yaml"
+      "*.yml": "yaml",
     },
 
     // ===== Python (Ruff) =====
@@ -38,35 +38,38 @@
       "editor.formatOnSave": true,
       "editor.codeActionsOnSave": {
         "source.organizeImports": "explicit",
-        "source.fixAll": "explicit"
-      }
+        "source.fixAll": "explicit",
+      },
     },
 
     // ===== YAML =====
     "yaml.validate": true,
     "yaml.format.enable": true,
     "yaml.schemas": {
-      "https://json.schemastore.org/docker-compose.json": "docker-compose*.yml",
-      "https://json.schemastore.org/helmfile.json": "helmfile.yaml"
+      "https://json.schemastore.org/docker-compose.json": [
+        "docker-compose*.yml",
+        "file:///Users/mikhailkogan/cybermem/packages/cli/templates/docker-compose.yml",
+      ],
+      "https://json.schemastore.org/helmfile.json": "helmfile.yaml",
     },
     "[yaml]": {
       "editor.defaultFormatter": "redhat.vscode-yaml",
-      "editor.autoIndent": "advanced"
+      "editor.autoIndent": "advanced",
     },
 
     // ===== JSON =====
     "[json]": {
-      "editor.defaultFormatter": "esbenp.prettier-vscode"
+      "editor.defaultFormatter": "esbenp.prettier-vscode",
     },
     "[jsonc]": {
-      "editor.defaultFormatter": "esbenp.prettier-vscode"
+      "editor.defaultFormatter": "esbenp.prettier-vscode",
     },
 
     // ===== Shell/Bash =====
     "shellcheck.enable": true,
     "[shellscript]": {
       "editor.defaultFormatter": "foxundermoon.shell-format",
-      "editor.tabSize": 2
+      "editor.tabSize": 2,
     },
 
     // ===== Markdown =====
@@ -74,14 +77,14 @@
     "[markdown]": {
       "editor.defaultFormatter": "yzhang.markdown-all-in-one",
       "editor.wordWrap": "on",
-      "files.trimTrailingWhitespace": false
+      "files.trimTrailingWhitespace": false,
     },
 
     // ===== Kubernetes =====
     "vs-kubernetes": {
       "vs-kubernetes.helm-path": "/opt/homebrew/bin/helm",
       "vs-kubernetes.kubectl-path": "/opt/homebrew/bin/kubectl",
-      "disable-linters": ["resource-limits"]
+      "disable-linters": ["resource-limits"],
     },
 
     // ===== Git =====
@@ -94,13 +97,13 @@
       "**/__pycache__": true,
       "**/*.pyc": true,
       "**/.venv": true,
-      "**/node_modules": true
+      "**/node_modules": true,
     },
     "search.exclude": {
       "**/node_modules": true,
       "**/.venv": true,
       "**/external/openmemory": false,
-      "**/.git": true
+      "**/.git": true,
     },
     "cSpell.ignoreRegExpList": [
       "cybermem",
@@ -125,15 +128,15 @@
       "isready",
       "exposedbydefault",
       "image: .*",
-      "\".*.\","
+      "\".*.\",",
     ],
     "cSpell.words": [
       "modelcontextprotocol",
       "smhdw",
       "Sparkline",
       "sparklines",
-      "topk"
-    ]
+      "topk",
+    ],
   },
   "extensions": {
     "recommendations": [
@@ -169,8 +172,8 @@
       "streetsidesoftware.code-spell-checker",
 
       // Metrics & Monitoring
-      "prometheus-io.promql"
-    ]
+      "prometheus-io.promql",
+    ],
   },
   "launch": {
     "version": "0.2.0",
@@ -181,7 +184,7 @@
         "request": "launch",
         "program": "${file}",
         "console": "integratedTerminal",
-        "cwd": "${fileDirname}"
+        "cwd": "${fileDirname}",
       },
       {
         "name": "Docker: Attach to OpenMemory",
@@ -189,16 +192,16 @@
         "request": "attach",
         "connect": {
           "host": "localhost",
-          "port": 5678
+          "port": 5678,
         },
         "pathMappings": [
           {
             "localRoot": "${workspaceFolder}/external/openmemory/backend",
-            "remoteRoot": "/app"
-          }
-        ]
-      }
-    ]
+            "remoteRoot": "/app",
+          },
+        ],
+      },
+    ],
   },
   "tasks": {
     "version": "2.0.0",
@@ -209,22 +212,22 @@
         "command": "./deploy.sh --target local",
         "group": {
           "kind": "build",
-          "isDefault": true
+          "isDefault": true,
         },
         "presentation": {
           "reveal": "always",
-          "panel": "new"
-        }
+          "panel": "new",
+        },
       },
       {
         "label": "Deploy: Local Down",
         "type": "shell",
-        "command": "./deploy.sh --target local --action down"
+        "command": "./deploy.sh --target local --action down",
       },
       {
         "label": "Deploy: VPS",
         "type": "shell",
-        "command": "./deploy.sh --target vps"
+        "command": "./deploy.sh --target vps",
       },
       {
         "label": "Logs: OpenMemory",
@@ -232,13 +235,13 @@
         "command": "docker-compose logs -f openmemory",
         "presentation": {
           "reveal": "always",
-          "panel": "new"
-        }
+          "panel": "new",
+        },
       },
       {
         "label": "Logs: Vector",
         "type": "shell",
-        "command": "docker-compose logs -f vector"
+        "command": "docker-compose logs -f vector",
       },
       {
         "label": "Logs: All Services",
@@ -246,18 +249,18 @@
         "command": "docker-compose logs -f",
         "presentation": {
           "reveal": "always",
-          "panel": "new"
-        }
+          "panel": "new",
+        },
       },
       {
         "label": "K8s: Install Helm Chart",
         "type": "shell",
-        "command": "helm upgrade --install cybermem charts/cybermem -f charts/cybermem/values-local.yaml -n cybermem --create-namespace"
+        "command": "helm upgrade --install cybermem charts/cybermem -f charts/cybermem/values-local.yaml -n cybermem --create-namespace",
       },
       {
         "label": "K8s: Uninstall Helm Chart",
         "type": "shell",
-        "command": "helm uninstall cybermem -n cybermem"
+        "command": "helm uninstall cybermem -n cybermem",
       },
       {
         "label": "K8s: Port Forward Grafana",
@@ -266,29 +269,29 @@
         "isBackground": true,
         "presentation": {
           "reveal": "always",
-          "panel": "new"
-        }
+          "panel": "new",
+        },
       },
       {
         "label": "Test: Metrics Pipeline",
         "type": "shell",
-        "command": "curl -X POST http://localhost:8080/api/store -H 'Authorization: Bearer client_123.secret' -H 'Content-Type: application/json' -d '{\"content\": \"test\", \"userId\": \"client_123\"}' && sleep 2 && curl http://localhost:9091/metrics | grep openmemory"
+        "command": "curl -X POST http://localhost:8080/api/store -H 'Authorization: Bearer client_123.secret' -H 'Content-Type: application/json' -d '{\"content\": \"test\", \"userId\": \"client_123\"}' && sleep 2 && curl http://localhost:9091/metrics | grep openmemory",
       },
       {
         "label": "Validate: docker-compose.yml",
         "type": "shell",
-        "command": "docker-compose config"
+        "command": "docker-compose config",
       },
       {
         "label": "Validate: Helm Chart",
         "type": "shell",
-        "command": "helm lint charts/cybermem"
+        "command": "helm lint charts/cybermem",
       },
       {
         "label": "Regenerate: K8s Manifests",
         "type": "shell",
-        "command": "kompose convert -f docker-compose.yml -o charts/cybermem/templates/"
-      }
-    ]
-  }
+        "command": "kompose convert -f docker-compose.yml -o charts/cybermem/templates/",
+      },
+    ],
+  },
 }

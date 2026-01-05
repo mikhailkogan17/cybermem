@@ -12,6 +12,7 @@
   "scripts": {
     "build": "tsc && cp -r templates dist/",
     "start": "ts-node src/index.ts",
+    "test:e2e": "ts-node e2e/test-mcp.ts",
     "prepublishOnly": "npm run build"
   },
   "keywords": [

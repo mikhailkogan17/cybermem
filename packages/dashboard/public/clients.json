@@ -5,12 +5,13 @@
     "match": "claude",
     "color": "#e65c40",
     "icon": "/icons/claude.png",
-    "description": "To use CyberMem with Claude Desktop, you need to edit your configuration file.",
+    "description": "Configure Claude Desktop to use CyberMem for persistent memory across conversations.",
     "steps": [
       "Open Claude Desktop",
       "Go to **Settings** > **Developer** > **Edit Config**",
-      "Add the configuration block below to your `claude_desktop_config.json`",
-      "Restart Claude Desktop to apply changes"
+      "This opens `~/Library/Application Support/Claude/claude_desktop_config.json` (macOS) or `%APPDATA%\\Claude\\claude_desktop_config.json` (Windows)",
+      "Add the configuration block below to the `mcpServers` object",
+      "Save the file and restart Claude Desktop"
     ],
     "configType": "json"
   },
@@ -20,14 +21,14 @@
     "match": "cursor",
     "color": "#8d7f75",
     "icon": "/icons/cursor.png",
-    "description": "Cursor fully supports MCP. Configure it in the settings.",
+    "description": "Cursor IDE fully supports MCP. Configure it via Settings or config file.",
     "steps": [
-      "Open Cursor Settings (`Cmd` + `,`)",
+      "Open Cursor Settings (`Cmd` + `,` on macOS, `Ctrl` + `,` on Windows)",
       "Navigate to **Features** > **MCP**",
-      "Click \"Add New MCP Server\"",
+      "Click **Add New MCP Server**",
       "Enter Name: `cybermem`",
       "Enter Type: `SSE`",
-      "Enter URL: `http://localhost:8080/mcp`"
+      "Enter the URL from the config below"
     ],
     "configType": "json"
   },
@@ -37,12 +38,13 @@
     "match": "antigravity",
     "color": "#d946ef",
     "icon": "/icons/antigravity.png",
-    "description": "Antigravity supports MCP via configuration.",
+    "description": "Antigravity supports MCP via raw JSON configuration. Note: uses 'serverUrl' instead of 'url'.",
     "steps": [
-      "On Agents tab, click on three dots and select **MCP Servers**",
+      "Open Antigravity and go to the **Agents** tab",
+      "Click on the three dots menu and select **MCP Servers**",
       "Click **Manage MCP Servers**",
       "Click **View RAW Config**",
-      "Paste the configuration block below"
+      "Paste the configuration block below (note: uses `serverUrl` key)"
     ],
     "configType": "json"
   },
@@ -52,12 +54,13 @@
     "match": "vscode",
     "color": "#23a9f2",
     "icon": "/icons/vscode.png",
-    "description": "Requires the official MCP extension.",
+    "description": "VS Code requires the MCP Servers extension for MCP support.",
     "steps": [
-      "Install \"MCP Servers\" extension",
-      "Open Command Palette (`Cmd`+`Shift`+`P`)",
+      "Install the **MCP Servers** extension from VS Code marketplace",
+      "Open Command Palette (`Cmd`+`Shift`+`P` on macOS, `Ctrl`+`Shift`+`P` on Windows)",
       "Run **MCP: Manage Servers**",
-      "Add the configuration below"
+      "Click **Add Server** and paste the configuration below",
+      "Alternatively, edit `.vscode/mcp.json` in your workspace"
     ],
     "configType": "json"
   },
@@ -67,10 +70,12 @@
     "match": "windsurf",
     "color": "#3b82f6",
     "icon": "/icons/windsurf.png",
-    "description": "Windsurf supports MCP via configuration.",
+    "description": "Windsurf (Codeium) supports MCP via a dedicated config file.",
     "steps": [
-      "Open `~/.codeium/windsurf/mcp_config.json`",
-      "Add the configuration block"
+      "Open the config file: `~/.codeium/windsurf/mcp_config.json`",
+      "Create the file if it doesn't exist",
+      "Add the configuration block below",
+      "Restart Windsurf to apply changes"
     ],
     "configType": "json"
   },
@@ -80,12 +85,13 @@
     "match": "warp",
     "color": "#0ea5e9",
     "icon": "/icons/warp.png",
-    "description": "Warp fully supports MCP.",
+    "description": "Warp terminal supports MCP natively in settings.",
     "steps": [
       "Open Warp Settings (`Cmd` + `,`)",
-      "Navigate to **MCP Servers**",
+      "Navigate to **AI** > **MCP Servers**",
       "Click **Add**",
-      "Paste the configuration block below"
+      "Paste the configuration block below",
+      "Save and the server will connect automatically"
     ],
     "configType": "json"
   },
@@ -95,10 +101,13 @@
     "match": "claude-code",
     "color": "#d97757",
     "icon": "/icons/claude-code.png",
-    "description": "Add the server directly via the command line.",
-    "steps": [],
+    "description": "Add CyberMem to Claude Code CLI with a single command.",
+    "steps": [
+      "Run the command below in your terminal",
+      "The server will be available in all Claude Code sessions"
+    ],
     "configType": "command",
-    "command": "claude mcp add --transport sse cybermem http://localhost:8080/mcp"
+    "command": "claude mcp add --transport sse cybermem http://localhost:8626/mcp"
   },
   {
     "id": "chatgpt",
@@ -106,8 +115,14 @@
     "match": "chatgpt",
     "color": "#10a37f",
     "icon": "/icons/chatgpt.png",
-    "description": "Requires Developer Mode.",
-    "steps": ["Enable Developer Mode", "Add Custom Server"],
+    "description": "ChatGPT requires Developer Mode for custom MCP servers.",
+    "steps": [
+      "Open ChatGPT Desktop and go to **Settings**",
+      "Enable **Developer Mode** (requires ChatGPT Plus)",
+      "Navigate to **MCP** section",
+      "Click **Add Custom Server**",
+      "Paste the configuration below"
+    ],
     "configType": "json"
   },
   {
@@ -116,8 +131,12 @@
     "match": "codex",
     "color": "#6366f1",
     "icon": "/icons/codex.png",
-    "description": "Use this TOML configuration for Codex.",
-    "steps": ["Endpoint Type: SSE", "Copy the TOML block below"],
+    "description": "Codex CLI uses TOML format for MCP configuration.",
+    "steps": [
+      "Edit `~/.codex/config.toml`",
+      "Add the TOML block below to the file",
+      "Codex will auto-connect on next run"
+    ],
     "configType": "toml"
   },
   {
@@ -126,15 +145,14 @@
     "match": "perplexity",
     "color": "#69d8e3",
     "icon": "/icons/perplexity.png",
-    "description": "Perplexity Desktop client supports MCP via configuration.",
+    "description": "Perplexity Desktop supports MCP through the Connectors interface.",
     "steps": [
       "Open Perplexity Desktop Settings (`Cmd` + `,`)",
       "Navigate to **Connectors**",
-      "Click **Add**",
-      "Select **Advanced**",
+      "Click **Add** and select **Advanced**",
       "Enter Name: `CyberMem`",
       "Paste the configuration block below",
-      "Click **Save**"
+      "Click **Save** to enable"
     ],
     "configType": "json"
   },
@@ -144,10 +162,14 @@
     "match": "gemini",
     "color": "#9ca3af",
     "icon": "/icons/gemini.png",
-    "description": "Gemini CLI supports MCP via configuration.",
-    "steps": ["Open your terminal", "Paste the command below"],
+    "description": "Gemini CLI supports MCP servers via command-line.",
+    "steps": [
+      "Open your terminal",
+      "Run the command below to add CyberMem",
+      "The server persists across sessions"
+    ],
     "configType": "cmd",
-    "command": "gemini mcp add --transport sse cybermem http://localhost:8080/mcp"
+    "command": "gemini mcp add --transport sse cybermem http://localhost:8626/mcp"
   },
   {
     "id": "other",
@@ -158,7 +180,9 @@
     "description": "For any other MCP-compliant client, use the following connection details:",
     "steps": [
       "**Transport**: SSE (Server-Sent Events)",
-      "**URL**: `http://localhost:8080/mcp`"
+      "**Endpoint URL**: See config below",
+      "**Authentication**: `x-api-key` header (if required)",
+      "Refer to your client's documentation for config file location"
     ],
     "configType": "json"
   }

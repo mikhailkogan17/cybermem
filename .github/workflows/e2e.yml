@@ -1,0 +1,58 @@
+name: E2E Testing
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  e2e:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          submodules: recursive
+
+      - name: Use Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: "18"
+
+      - name: Start Docker Stack (Local Simulation)
+        working-directory: packages/cli/templates
+        run: |
+          docker-compose up -d
+          sleep 30 # Wait for services to be ready
+
+      - name: Install CLI Dependencies
+        working-directory: packages/cli
+        run: npm ci
+
+      - name: Run E2E Tests (MCP)
+        working-directory: packages/cli
+        run: npm run test:e2e local
+
+      - name: Install Dashboard Dependencies
+        working-directory: packages/dashboard
+        run: npm ci
+
+      - name: Install Playwright Browsers
+        working-directory: packages/dashboard
+        run: npx playwright install --with-deps chromium
+
+      - name: Run Playwright Tests (Dashboard)
+        working-directory: packages/dashboard
+        run: npx playwright test e2e/auth.spec.ts e2e/metrics.spec.ts e2e/settings.spec.ts
+        env:
+          CI: true
+
+      - name: Upload Playwright Report
+        if: failure()
+        uses: actions/upload-artifact@v3
+        with:
+          name: playwright-report
+          path: packages/dashboard/playwright-report/
+          retention-days: 7

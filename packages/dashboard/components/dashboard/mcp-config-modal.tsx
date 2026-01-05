@@ -19,6 +19,7 @@ export default function MCPConfigModal({ onClose }: { onClose: () => void }) {
   const [isKeyVisible, setIsKeyVisible] = useState(false)
   const [showRegenConfirm, setShowRegenConfirm] = useState(false)
   const [regenInputValue, setRegenInputValue] = useState("")
+  const [isManaged, setIsManaged] = useState(false) // true = local mode, no API key needed
 
   useEffect(() => {
     // Try to get key from local storage first (simulating persistence)
@@ -42,6 +43,7 @@ export default function MCPConfigModal({ onClose }: { onClose: () => void }) {
           .then(res => res.json())
           .then(data => {
             setApiKey(data.apiKey !== 'not-set' ? data.apiKey : '')
+            setIsManaged(data.isManaged || false)
             let srvEndpoint = data.endpoint
             if (srvEndpoint.includes('localhost') && typeof window !== "undefined" && !window.location.hostname.includes('localhost')) {
                srvEndpoint = `${window.location.protocol}//${window.location.hostname}:8080`
@@ -82,6 +84,17 @@ export default function MCPConfigModal({ onClose }: { onClose: () => void }) {
     const isAntigravity = clientId === 'antigravity'
     const urlKey = isAntigravity ? 'serverUrl' : 'url'
 
+    // In managed/local mode, no API key needed
+    if (isManaged) {
+      return {
+        mcpServers: {
+          cybermem: {
+            [urlKey]: `${baseUrl}/mcp`
+          }
+        }
+      }
+    }
+
     return {
       mcpServers: {
         cybermem: {
@@ -101,6 +114,9 @@ export default function MCPConfigModal({ onClose }: { onClose: () => void }) {
 
     // Handle TOML config (Codex)
     if (config?.configType === 'toml') {
+      if (isManaged) {
+        return `# CyberMem Configuration (Local Mode)\n[mcp]\nserver_url = "${baseUrl}/mcp"`;
+      }
       return `# CyberMem Configuration\n[mcp]\nserver_url = "${baseUrl}/mcp"\napi_key = "${maskKey ? displayKey : actualKey}"`;
     }
 
@@ -108,11 +124,10 @@ export default function MCPConfigModal({ onClose }: { onClose: () => void }) {
     if ((config?.configType === 'command' || config?.configType === 'cmd') && config?.command) {
       let cmd = config.command.replace("http://localhost:8080", baseUrl);
 
-      // Add API key as header if it's missing and it's a CLI that usually supports it
-      if (config.id === 'claude-code' || config.id === 'gemini-cli') {
+      // In managed mode, no API key header needed
+      if (!isManaged && (config.id === 'claude-code' || config.id === 'gemini-cli')) {
         const headerPart = `--header "x-api-key: ${maskKey ? displayKey : actualKey}"`;
         if (!cmd.includes('x-api-key')) {
-          // Insert before transport or just at the end
           cmd = cmd.replace('mcp add', `mcp add ${headerPart}`);
         }
       }
@@ -121,7 +136,7 @@ export default function MCPConfigModal({ onClose }: { onClose: () => void }) {
 
     // Default to JSON config
     const jsonConfig = getMcpConfig(selectedClient);
-    if (maskKey) {
+    if (!isManaged && maskKey) {
       (jsonConfig.mcpServers.cybermem as any).headers["x-api-key"] = displayKey;
     }
     return JSON.stringify(jsonConfig, null, 2);
@@ -263,7 +278,8 @@ export default function MCPConfigModal({ onClose }: { onClose: () => void }) {
 
                 {renderInstructions()}
 
-                {/* API Key Control Row (Standardized) */}
+                {/* API Key Control Row - Only show in remote mode */}
+                {!isManaged ? (
                 <div className="bg-white/5 border border-white/10 rounded-lg p-5 space-y-4 shadow-[inset_0_0_20px_rgba(255,255,255,0.02)] backdrop-blur-sm mb-4">
                   <div className="space-y-2">
                     <Label htmlFor="mcp-api-key" className="text-neutral-200">Master API Key</Label>
@@ -339,6 +355,17 @@ export default function MCPConfigModal({ onClose }: { onClose: () => void }) {
                     </div>
                   </div>
                 </div>
+                ) : (
+                <div className="bg-emerald-500/5 border border-emerald-500/20 rounded-lg p-4 mb-4">
+                  <div className="flex items-start gap-3">
+                    <Info className="h-4 w-4 shrink-0 text-emerald-400 mt-0.5" />
+                    <div className="space-y-1">
+                      <p className="text-sm font-medium text-emerald-200">Local Mode Active</p>
+                      <p className="text-xs text-emerald-200/60">No API key required for localhost connections. Just copy the config below.</p>
+                    </div>
+                  </div>
+                </div>
+                )}
 
                 <div className="relative group">
                   <div className="relative pl-5 py-5 pr-24 rounded-lg bg-[#0F161C] border border-white/10 font-mono text-xs md:text-sm text-white overflow-x-auto shadow-[0_0_20px_rgba(0,0,0,0.3)] inset-shadow">

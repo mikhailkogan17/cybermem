@@ -20,8 +20,8 @@
 ## Why CyberMem?
 
 - **Easy to Install**: Get started in seconds with a single command. No complex setup required.
-- **Universal**: Runs smoothy on your Mac, Raspberry Pi, or high-performance Cloud VPS.
-- **Infrastructure as Code**: Production-grade IaC templates (Helm, Ansible, Terraform) built right into the CLI.
+- **Universal**: Runs smoothly on your Mac, Raspberry Pi, or high-performance Cloud VPS.
+- **Infrastructure as Code**: Production-grade templates (Helm Charts, Ansible Playbooks, Docker Compose) built into the CLI.
 - **Secure & Controlled**: Enterprise-grade monitoring and full sovereignty over your memory data.
 
 ## 🚀 Installation
@@ -32,9 +32,36 @@
 npm install -g @cybermem/cli && cybermem deploy
 ```
 
-For advanced deployments (Raspberry Pi Cluster, Cloud VPS), see our [Documentation](https://cybermem.dev/docs).
+For advanced deployments (Raspberry Pi, Cloud VPS), see our [Documentation](https://cybermem.dev/docs).
 
-## 📊 Dashboard
+## � Security
+
+CyberMem adapts security to your deployment environment:
+
+| Environment      | HTTPS                          | Auth                                |
+| ---------------- | ------------------------------ | ----------------------------------- |
+| **Local**        | Not needed (localhost only)    | Optional — keyless localhost access |
+| **Raspberry Pi** | Tailscale Funnel (zero-config) | API key required for remote         |
+| **Cloud/VPS**    | Caddy/Traefik auto-cert        | API key always required             |
+
+```bash
+# RPi with Tailscale remote access
+cybermem deploy --target rpi --remote-access
+
+# Cloud with auto-SSL via Caddy
+cybermem deploy --target vps
+```
+
+### Quick Access (Local)
+
+After installation, access your CyberMem instance:
+
+- **Dashboard**: [http://localhost:3000](http://localhost:3000) (password: `admin`)
+- **MCP API**: `http://localhost:8626/mcp` (for AI clients)
+- **Prometheus**: [http://localhost:9092](http://localhost:9092) (metrics)
+
+
+## �📊 Dashboard
 
 Manage your agents' memories with a beautiful, real-time interface.
 
@@ -70,11 +97,13 @@ graph TD
 
 The `@cybermem/cli` includes production-ready deployment templates:
 
-- **Docker Compose** — Local and RPi deployment
-- **Helm Charts** — Kubernetes deployment
-- **Ansible Playbooks** — RPi fleet management
-- **Terraform Modules** — Cloud infrastructure provisioning (AWS/Azure/GCP)
-- **Tailscale Funnel** — Zero-config public HTTPS
+| Template              | Use Case                 | Location                       |
+| --------------------- | ------------------------ | ------------------------------ |
+| **Docker Compose**    | Local & RPi deployment   | `templates/docker-compose.yml` |
+| **Helm Charts**       | Kubernetes (K8s/K3s)     | `templates/charts/cybermem/`   |
+| **Ansible Playbooks** | RPi fleet automation     | `templates/ansible/`           |
+| **Monitoring Stack**  | Grafana + Prometheus     | `templates/monitoring/`        |
+| **Tailscale Funnel**  | Zero-config public HTTPS | Built into `--remote-access`   |
 
 See [`packages/cli/templates/`](packages/cli/templates/) for all configurations.
 
@@ -85,4 +114,5 @@ We welcome contributions! Please see our [CONTRIBUTING.md](CONTRIBUTING.md) for 
 ## License
 
 MIT © [Mikhail Kogan](https://github.com/mikhailkogan17)
+
 

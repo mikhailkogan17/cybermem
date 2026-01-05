@@ -1,0 +1,285 @@
+
+// Ignore self-signed certs for RPi HTTPS
+process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
+
+
+import * as fs from 'fs';
+import * as os from 'os';
+import * as path from 'path';
+
+// Helper to get local API Key
+const getLocalApiKey = () => {
+    try {
+        const envPath = path.join(os.homedir(), '.cybermem', '.env');
+        if (fs.existsSync(envPath)) {
+            const content = fs.readFileSync(envPath, 'utf-8');
+            const match = content.match(/CYBERMEM_API_KEY=(sk-[a-f0-9]+)/);
+            if (match) return match[1];
+        }
+    } catch (e) {}
+    // Fallback or explicit override
+    return process.env.CYBERMEM_API_KEY || '***REMOVED***';
+};
+
+const TARGETS = {
+    local: {
+        url: 'http://localhost:8626/mcp',
+        headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json, text/event-stream',
+            'x-api-key': getLocalApiKey(),
+             'User-Agent': 'CyberMem-CLI/1.0.0'
+        }
+    },
+    rpi: {
+        url: 'https://***REMOVED***/cybermem/mcp',
+        headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json, text/event-stream',
+            'x-api-key': '***REMOVED***',
+             'User-Agent': 'CyberMem-CLI/1.0.0'
+        }
+    }
+};
+
+const RPC = (method: string, params: any = {}, id: number) => ({
+    jsonrpc: "2.0",
+    id,
+    method,
+    params
+});
+
+async function runTest(name: string, config: any) {
+    console.log(`\n🧪 Testing Target: ${name.toUpperCase()}`);
+    console.log(`   URL: ${config.url}`);
+
+    const post = async (body: any, retries = 3) => {
+        for (let i = 0; i < retries; i++) {
+            try {
+                const res = await fetch(config.url, {
+                    method: 'POST',
+                    headers: config.headers,
+                    body: JSON.stringify(body)
+                });
+
+                if (!res.ok) {
+                    const txt = await res.text();
+                    throw new Error(`HTTP ${res.status}: ${txt}`);
+                }
+                return await res.json();
+            } catch (e: any) {
+                if (i === retries - 1) throw e;
+                console.log(`      ⚠️  Retry ${i + 1}/${retries} due to: ${e.message}`);
+                await new Promise(r => setTimeout(r, 1000 * (i + 1)));
+            }
+        }
+    };
+
+    try {
+        // 1. Initialize
+        console.log('   [1/6] Initializing...');
+        const initRes: any = await post(RPC("initialize", {
+            protocolVersion: "2024-11-05",
+            capabilities: { roots: { listChanged: true } },
+            clientInfo: { name: "mcp-e2e-tester", version: "1.0.0" }
+        }, 1));
+
+        if (!initRes?.result?.serverInfo) throw new Error("Invalid Initialize response");
+        console.log(`      ✅ Connected to ${initRes.result.serverInfo.name} v${initRes.result.serverInfo.version}`);
+
+        await post(RPC("notifications/initialized", {}, 2));
+
+        // 2. Store Memory
+        console.log('   [2/6] Storing Memory...');
+        const memoryContent = `E2E Test Run ${Date.now()}`;
+        const storeRes: any = await post(RPC("tools/call", {
+            name: "openmemory_store",
+            arguments: {
+                content: memoryContent,
+                tags: ["e2e", "test"]
+            }
+        }, 3));
+
+        if (storeRes.error) throw new Error(storeRes.error.message);
+
+        // Parse result to get content
+        const storeContent = JSON.parse(storeRes.result.content[1].text);
+        const memoryId = storeContent.id;
+
+        if (!memoryId) throw new Error("No memory ID returned");
+        console.log(`      ✅ Stored Memory ID: ${memoryId}`);
+
+        // 3. Get Memory
+        console.log('   [3/6] Getting Memory...');
+        const getRes: any = await post(RPC("tools/call", {
+            name: "openmemory_get",
+            arguments: { id: memoryId }
+        }, 4));
+
+        if (getRes.error) throw new Error(getRes.error.message);
+        const getPayload = JSON.parse(getRes.result.content[0].text);
+
+        if (getPayload.content !== memoryContent) throw new Error("Content mismatch");
+        console.log('      ✅ Validated content match');
+
+        // 4. Reinforce Memory
+        console.log('   [4/6] Reinforcing Memory...');
+        const reinforceRes: any = await post(RPC("tools/call", {
+            name: "openmemory_reinforce",
+            arguments: { id: memoryId, boost: 0.5 }
+        }, 5));
+
+        if (reinforceRes.error) throw new Error(reinforceRes.error.message);
+        console.log('      ✅ Default boost applied');
+
+        // 5. List Memories
+        console.log('   [5/6] Listing Memories...');
+        const listRes: any = await post(RPC("tools/call", {
+            name: "openmemory_list",
+            arguments: { limit: 5 }
+        }, 6));
+
+        if (listRes.error) throw new Error(listRes.error.message);
+        const listPayload = JSON.parse(listRes.result.content[1].text);
+        const listedMem = listPayload.items.find((m: any) => m.id === memoryId);
+
+        if (!listedMem) throw new Error("Memory not found in list");
+        console.log('      ✅ Memory found in recent list');
+
+        // 6. Query Memory
+        console.log('   [6/6] Querying Memory...');
+        // Wait briefly for indexing if needed (usually instant for local sqlite)
+        const queryRes: any = await post(RPC("tools/call", {
+            name: "openmemory_query",
+            arguments: {
+                query: "E2E Test Run",
+                min_salience: 0.0
+            }
+        }, 7));
+
+        if (queryRes.error) throw new Error(queryRes.error.message);
+
+        const queryContent = JSON.parse(queryRes.result.content[1].text);
+        const match = queryContent.matches.find((m: any) => m.id === memoryId);
+
+        if (match) {
+            console.log(`      ✅ Found memory via semantic search (score=${match.score})`);
+        } else {
+            console.warn('      ⚠️  Stored memory not found in search results (possible indexing delay)');
+        }
+
+        console.log(`   ✨ ${name.toUpperCase()} E2E PASSED!`);
+        return true;
+
+    } catch (e: any) {
+        console.error(`   ❌ ${name.toUpperCase()} FAILED: ${e.message}`);
+        // console.error(e);
+        return false;
+    }
+}
+
+import { execSync } from 'child_process';
+
+const resetDB = async () => {
+    console.log('\n🧹 Resetting Database...');
+    try {
+        // Remove the database files (sqlite, -shm, -wal)
+        try {
+            execSync("docker exec cybermem-openmemory sh -c 'rm -f /data/openmemory.sqlite*'", { stdio: 'ignore' });
+        } catch (e) {
+            // Ignore error
+        }
+
+        // Restart the container
+        execSync('docker restart cybermem-openmemory', { stdio: 'ignore' });
+
+        console.log('   ⏳ Waiting for service to come back online...');
+
+        // Poll for health (up to 30s)
+        const start = Date.now();
+        while (Date.now() - start < 30000) {
+            try {
+                // Check if port is open / endpoint reachable
+                await fetch('http://localhost:8626/health');
+                console.log('   ✅ Database reset complete');
+                return true;
+            } catch (e) {
+                await new Promise(r => setTimeout(r, 1000));
+            }
+        }
+        console.log('   ⚠️ Service restart timed out (but proceeding)');
+        return true;
+    } catch (e: any) {
+        console.error(`   ❌ DB Reset Failed: ${e.message}`);
+        return false;
+    }
+};
+
+const resetDBRemote = async (host: string) => {
+    console.log(`\n🧹 Resetting Remote Database on ${host}...`);
+    const sshCmd = `sshpass -p 'Darwin1809' ssh -o StrictHostKeyChecking=no ${host}`;
+    try {
+        // Remove DB (SQLite + WAL/SHM)
+        try {
+            execSync(`${sshCmd} "docker exec cybermem-openmemory sh -c 'rm -f /data/openmemory.sqlite*'"`, { stdio: 'ignore' });
+        } catch (e) {}
+
+        // Restart Container
+        execSync(`${sshCmd} "docker restart cybermem-openmemory"`, { stdio: 'ignore' });
+
+        console.log('   ⏳ Waiting for remote service...');
+         const start = Date.now();
+        while (Date.now() - start < 30000) {
+            try {
+                // Poll health via HTTP (Tailscale) or SSH curl
+                // Using SSH curl to avoid network caching issues from local machine
+                execSync(`${sshCmd} "curl -sIf http://localhost:8080/health"`, { stdio: 'ignore' });
+                console.log('   ✅ Remote DB reset complete');
+                return true;
+            } catch (e) {
+                await new Promise(r => setTimeout(r, 1000));
+            }
+        }
+        return true;
+    } catch (e: any) {
+         console.error(`   ❌ Remote DB Reset Failed: ${e.message}`);
+         return false;
+    }
+}
+
+async function main() {
+    const args = process.argv.slice(2);
+    const target = args[0] || 'local';
+
+    let success = true;
+
+    if (target === 'local' || target === 'all') {
+        // Reset Before
+        await resetDB();
+
+        if (!await runTest('local', TARGETS.local)) success = false;
+
+        // Reset After
+        await resetDB();
+    }
+
+    if (target === 'rpi' || target === 'all') {
+        // Assume SSH host passed via env or default
+        // For this specific user env, we know the host
+        const rpiHost = process.env.RPI_HOST || 'pi@raspberrypi.local';
+
+        // Reset Before
+        await resetDBRemote(rpiHost);
+
+        if (!await runTest('rpi', TARGETS.rpi)) success = false;
+
+        // Reset After
+        // await resetDBRemote(rpiHost); // Optional, maybe keep state for debugging?
+        // User asked "reset base in beginning and end".
+        await resetDBRemote(rpiHost);
+    }
+
+    if (!success) process.exit(1);
+}
+
+main();

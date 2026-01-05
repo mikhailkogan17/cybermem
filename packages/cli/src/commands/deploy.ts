@@ -25,10 +25,10 @@ export const deployCommand = new Command('deploy')
         // Resolve Template Directory (Support both Dev and Prod)
         // In Prod: __dirname is dist/commands, so templates is ../templates (dist/templates)
         // In Dev (ts-node): __dirname is src/commands, so templates is ../../templates (root/packages/cli/templates)
-        
+
         // Try production path first (dist/templates)
         let templateDir = path.resolve(__dirname, '../templates');
-        
+
         // If not found, try development path (src/../../templates)
         if (!fs.existsSync(templateDir)) {
              templateDir = path.resolve(__dirname, '../../templates');
@@ -185,7 +185,7 @@ export const deployCommand = new Command('deploy')
             // Tailscale Funnel setup
             if (useTailscale) {
                 console.log(chalk.blue('\n🔗 Setting up Remote Access (Tailscale Funnel)...'));
-                
+
                 try {
                     // 1. Check/Install Tailscale
                     try {
@@ -209,21 +209,22 @@ export const deployCommand = new Command('deploy')
                     // 3. Configure Funnel (Verified commands)
                     console.log(chalk.blue('  Configuring HTTPS Funnel (requires sudo access)...'));
                     console.log(chalk.gray('  You may be prompted for your RPi password.'));
-                    
-                    // Route /memory -> 8088
-                    // We use -t to force TTY allocation so sudo prompts for password
+
+                    // Routes:
+                    // - / -> Dashboard (3000)
+                    // - /cybermem/mcp -> MCP API (8626/mcp)
                     await execa('ssh', ['-t', sshHost, 'sudo tailscale serve reset'], { stdio: 'inherit' }).catch(() => {});
-                    await execa('ssh', ['-t', sshHost, 'sudo tailscale serve --bg --set-path /memory http://127.0.0.1:8088/memory'], { stdio: 'inherit' });
+                    await execa('ssh', ['-t', sshHost, 'sudo tailscale serve --bg --set-path /cybermem http://127.0.0.1:8626'], { stdio: 'inherit' });
                     await execa('ssh', ['-t', sshHost, 'sudo tailscale serve --bg http://127.0.0.1:3000'], { stdio: 'inherit' });
                     await execa('ssh', ['-t', sshHost, 'sudo tailscale funnel --bg 443'], { stdio: 'inherit' });
 
                     // Get DNS name
-                    const { stdout } = await execa('ssh', [sshHost, 'tailscale status --json | grep -o \'"DNSName":"[^"]*"\' | head -1 | cut -d: -f2 | tr -d \'"\\.\'']);
-                    const dnsName = stdout.trim() + '.ts.net';
+                    const { stdout } = await execa('ssh', [sshHost, "tailscale status --json | jq -r '.Self.DNSName' | sed 's/\\.$//'"], { shell: true });
+                    const dnsName = stdout.trim();
 
                     console.log(chalk.green('\n🌐 Remote Access Active (HTTPS):'));
                     console.log(`  - Dashboard: ${chalk.underline(`https://${dnsName}/`)}`);
-                    console.log(`  - MCP API:   ${chalk.underline(`https://${dnsName}/memory`)}`);
+                    console.log(`  - MCP API:   ${chalk.underline(`https://${dnsName}/cybermem/mcp`)}`);
                 } catch (e) {
                     console.log(chalk.red('\n❌ Remote Access setup failed:'));
                     console.error(e);
