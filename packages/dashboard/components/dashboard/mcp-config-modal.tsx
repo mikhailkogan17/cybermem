@@ -32,7 +32,8 @@ export default function MCPConfigModal({ onClose }: { onClose: () => void }) {
         .then(data => {
             let srvEndpoint = data.endpoint
             if (srvEndpoint.includes('localhost') && typeof window !== "undefined" && !window.location.hostname.includes('localhost')) {
-               srvEndpoint = `${window.location.protocol}//${window.location.hostname}:8080`
+                const port = srvEndpoint.split(':').pop()?.split('/')[0] || '8626'
+                srvEndpoint = `${window.location.protocol}//${window.location.hostname}:${port}`
             }
             setBaseUrl(srvEndpoint)
             setIsLoading(false)
@@ -46,7 +47,8 @@ export default function MCPConfigModal({ onClose }: { onClose: () => void }) {
             setIsManaged(data.isManaged || false)
             let srvEndpoint = data.endpoint
             if (srvEndpoint.includes('localhost') && typeof window !== "undefined" && !window.location.hostname.includes('localhost')) {
-               srvEndpoint = `${window.location.protocol}//${window.location.hostname}:8080`
+                const port = srvEndpoint.split(':').pop()?.split('/')[0] || '8626'
+                srvEndpoint = `${window.location.protocol}//${window.location.hostname}:${port}`
             }
             setBaseUrl(srvEndpoint)
             setIsLoading(false)

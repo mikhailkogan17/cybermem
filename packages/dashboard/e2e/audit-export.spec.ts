@@ -9,21 +9,33 @@ import { expect, test } from '@playwright/test';
 
 test.describe('Audit Log Export', () => {
   test.beforeEach(async ({ page }) => {
-    // Navigate to dashboard and login
+    // Navigate to dashboard
     await page.goto('http://localhost:3000');
 
-    // Handle login if needed (default password: admin)
-    const loginModal = page.locator('[data-testid="login-modal"]');
-    if (await loginModal.isVisible()) {
-      await page.fill('input[type="password"]', 'admin');
-      await page.click('button:has-text("Login")');
+    // Handle login if redirected or modal visible
+    const passwordInput = page.getByPlaceholder('Enter admin password');
+    if (await passwordInput.isVisible()) {
+      await passwordInput.fill('admin');
+      await page.keyboard.press('Enter');
     }
+
+    // Handle Password Alert Modal (if it appears on default password)
+    const dontShowAgainButton = page.locator('button:has-text("Don\'t show again")');
+    if (await dontShowAgainButton.isVisible({ timeout: 2000 }).catch(() => false)) {
+        await dontShowAgainButton.click();
+    }
+
+    // Wait for dashboard to fully load
+    await expect(page.getByRole('heading', { name: 'CyberMem' })).toBeVisible({ timeout: 15000 });
+
+    // Force scroll to bottom or click tab to ensure Audit Log is active
+    const auditHeader = page.locator('h3:has-text("Audit Log")');
+    await auditHeader.scrollIntoViewIfNeeded();
   });
 
   test('should display export button in audit log table', async ({ page }) => {
-    // Wait for audit log table to load
-    const auditTable = page.locator('text=Audit Log');
-    await expect(auditTable).toBeVisible();
+    // Wait for audit log table headers to ensure content failed
+    await expect(page.locator('th:has-text("Timestamp")')).toBeVisible({ timeout: 10000 });
 
     // Check export button exists
     const exportButton = page.locator('button:has-text("Export")');
