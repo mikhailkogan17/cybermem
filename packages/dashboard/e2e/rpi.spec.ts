@@ -40,7 +40,7 @@ test.describe('RPi Dashboard Checks', () => {
         //    srvEndpoint = `${window.location.protocol}//${window.location.hostname}:8080` (or 8088?)
         // }
         // The user wants to verify it stands correct URL.
-        // If accessed via https://***REMOVED***, expected is likely that domain.
+        // If accessed via https://raspberrypi.tail7242ed.ts.net, expected is likely that domain.
 
 
 
