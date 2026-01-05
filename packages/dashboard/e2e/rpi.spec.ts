@@ -44,6 +44,9 @@ test.describe('RPi Dashboard Checks', () => {
 
 
 
+        // The user wants to verify it stands correct URL.
+        // If accessed via process.env.BASE_URL (e.g. Tailscale), expected is likely that domain.
+
         const url = new URL(page.url());
         if (url.hostname.includes('tailscale.ts.net')) {
             // Tailscale Mode (HTTPS)

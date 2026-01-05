@@ -17,13 +17,18 @@ const getLocalApiKey = () => {
             if (match) return match[1];
         }
     } catch (e) {}
-    // Fallback or explicit override
-    return process.env.CYBERMEM_API_KEY || '***REMOVED***';
+    // Fallback via Env
+    return process.env.CYBERMEM_API_KEY || '';
 };
+
+// Helper for Remote RPi Key
+const getRemoteApiKey = () => {
+     return process.env.RPI_API_KEY || '';
+}
 
 const TARGETS = {
     local: {
-        url: 'http://localhost:8626/mcp',
+        url: process.env.CYBERMEM_URL || 'http://localhost:8626/mcp',
         headers: {
             'Content-Type': 'application/json',
             'Accept': 'application/json, text/event-stream',
@@ -32,11 +37,12 @@ const TARGETS = {
         }
     },
     rpi: {
-        url: 'https://***REMOVED***/cybermem/mcp',
+        // Default to env or placeholder. NEVER hardcode real domains/keys in repo.
+        url: process.env.RPI_URL || '',
         headers: {
             'Content-Type': 'application/json',
             'Accept': 'application/json, text/event-stream',
-            'x-api-key': '***REMOVED***',
+            'x-api-key': getRemoteApiKey(),
              'User-Agent': 'CyberMem-CLI/1.0.0'
         }
     }
