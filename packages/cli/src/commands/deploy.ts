@@ -65,29 +65,18 @@ export const deployCommand = new Command('deploy')
                 fs.mkdirSync(dataDir, { recursive: true });
             }
 
-            // 2. Generate .env if missing
+            // 2. Local Mode: Simplified setup without mandatory API key
             if (!fs.existsSync(envFile)) {
-                console.log(chalk.yellow(`Initializing configuration in ${configDir}...`));
-                let envContent = fs.readFileSync(internalEnvExample, 'utf-8');
-
-                const newKey = `sk-${crypto.randomBytes(16).toString('hex')}`;
-
-                // Replace placeholder or key
-                if(envContent.includes('key-change-me') || envContent.includes('CYBERMEM_API_KEY=')) {
-                    envContent = envContent.replace(/CYBERMEM_API_KEY=.*/, `CYBERMEM_API_KEY=${newKey}`);
-                } else if(envContent.includes('OM_API_KEY=')) {
-                    envContent = envContent.replace(/OM_API_KEY=.*/, `CYBERMEM_API_KEY=${newKey}`);
-                } else {
-                    envContent += `\nCYBERMEM_API_KEY=${newKey}\n`;
-                }
-
+                console.log(chalk.yellow(`Initializing local configuration in ${configDir}...`));
+                const envContent = fs.readFileSync(internalEnvExample, 'utf-8');
                 fs.writeFileSync(envFile, envContent);
-                console.log(chalk.green(`Generated secure .env at ${envFile}`));
+                console.log(chalk.green(`Created .env at ${envFile}`));
             }
 
-            console.log(chalk.blue('Starting CyberMem services...'));
+            console.log(chalk.blue('Starting CyberMem services in Local Mode...'));
 
             // Execute docker-compose with internal file and USER HOME env
+            // Note: We pass CYBERMEM_API_KEY="" explicitly for local mode to trigger keyless bypass
             await execa('docker-compose', [
                 '-f', composeFile,
                 '--env-file', envFile,
@@ -98,22 +87,18 @@ export const deployCommand = new Command('deploy')
                 env: {
                     ...process.env,
                     DATA_DIR: dataDir,
-                    CYBERMEM_ENV_PATH: envFile
+                    CYBERMEM_ENV_PATH: envFile,
+                    CYBERMEM_API_KEY: ''
                 }
             });
 
             console.log(chalk.green('\n🎉 CyberMem Installed!'));
             console.log('');
             console.log(chalk.bold('Next Step:'));
-            console.log(`  Configure your AI client: ${chalk.underline('http://localhost:3000')} (password: admin)`);
+            console.log(`  Open your dashboard: ${chalk.underline('http://localhost:3000')} (password: admin)`);
+            console.log(`  To connect MCP clients, just follow instructions in the dashboard.`);
             console.log('');
-
-             // Check for key
-            const envContent = fs.readFileSync(envFile, 'utf-8');
-            const match = envContent.match(/CYBERMEM_API_KEY=(sk-[a-f0-9]+)/);
-            if (match) {
-                    console.log(chalk.dim(`API Key: ${match[1]}`));
-            }
+            console.log(chalk.dim('Local mode is active: No API key required for connections from this laptop.'));
         }
         else if (target === 'rpi') {
             const composeFile = path.join(templateDir, 'docker-compose.yml');
