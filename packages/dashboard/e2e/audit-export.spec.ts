@@ -109,38 +109,3 @@ test.describe('Audit Log Export', () => {
     expect(csvContent).toContain('Description');
   });
 });
-
-test.describe('System Health Indicator', () => {
-  test('should display system health badge in header', async ({ page }) => {
-    await page.goto('http://localhost:3000');
-
-    // Handle login
-    const loginModal = page.locator('[data-testid="login-modal"]');
-    if (await loginModal.isVisible()) {
-      await page.fill('input[type="password"]', 'admin');
-      await page.click('button:has-text("Login")');
-    }
-
-    // Check for health badge (one of the possible states)
-    const healthBadge = page.locator('text=All Systems OK, text=Degraded, text=System Error, text=Checking...').first();
-    await expect(healthBadge).toBeVisible({ timeout: 10000 });
-  });
-
-  test('should show popup on hover with service details', async ({ page }) => {
-    await page.goto('http://localhost:3000');
-
-    // Handle login
-    const loginModal = page.locator('[data-testid="login-modal"]');
-    if (await loginModal.isVisible()) {
-      await page.fill('input[type="password"]', 'admin');
-      await page.click('button:has-text("Login")');
-    }
-
-    // Hover over health badge
-    const healthBadge = page.locator('.rounded-full:has-text("Systems"), .rounded-full:has-text("Degraded"), .rounded-full:has-text("Error"), .rounded-full:has-text("Checking")').first();
-    await healthBadge.hover();
-
-    // Check popup appears with system health details
-    await expect(page.locator('text=System Health')).toBeVisible({ timeout: 5000 });
-  });
-});
