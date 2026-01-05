@@ -55,15 +55,22 @@ export async function GET(request: NextRequest) {
     return rateLimitResponse(rateLimit.resetIn)
   }
 
-  const prometheusUrl = process.env.PROMETHEUS_URL || 'http://prometheus:9090'
-  const openMemoryUrl = process.env.CYBERMEM_URL || 'http://localhost:8080'
-  const vectorUrl = process.env.VECTOR_URL || 'http://vector:8686'
+  // Use environment variables with sensible defaults for local Docker stack
+  const prometheusUrl = process.env.PROMETHEUS_URL || 'http://localhost:9092'
+  const openMemoryUrl = process.env.CYBERMEM_URL || 'http://localhost:8626'
+  const vectorUrl = process.env.VECTOR_URL // Vector is optional
 
-  const services = await Promise.all([
+  const checks: Promise<ServiceStatus>[] = [
     checkService('OpenMemory API', `${openMemoryUrl}/health`),
     checkService('Prometheus', `${prometheusUrl}/-/ready`),
-    checkService('Vector', `${vectorUrl}/health`),
-  ])
+  ]
+
+  // Only check Vector if configured
+  if (vectorUrl) {
+    checks.push(checkService('Vector', `${vectorUrl}/health`))
+  }
+
+  const services = await Promise.all(checks)
 
   // Determine overall status
   const hasError = services.some(s => s.status === 'error')
