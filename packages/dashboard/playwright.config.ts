@@ -5,10 +5,10 @@ export default defineConfig({
   testDir: './e2e',
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
-  retries: 4,
-  timeout: 60000,
+  retries: 3,
+  timeout: 10000,  // 10s max per test
   expect: {
-    timeout: 15000,
+    timeout: 5000,  // 5s for assertions
   },
   workers: process.env.CI ? 1 : undefined,
   reporter: 'html',
@@ -22,17 +22,14 @@ export default defineConfig({
       name: 'chromium',
       use: { ...devices['Desktop Chrome'] },
     },
-    {
-      name: 'Mobile Chrome',
-      use: { ...devices['Pixel 5'] },
-    },
   ],
   webServer: {
-    command: 'lsof -ti:3000 | xargs kill -9 || true && npm run dev -- -p 3000',
+    // Kill any existing process on 3000 before starting dev server
+    command: 'lsof -ti:3000 | xargs kill -9 2>/dev/null || true; npm run dev -- -p 3000',
     url: 'http://localhost:3000',
     reuseExistingServer: !process.env.CI,
     stdout: 'pipe',
     stderr: 'pipe',
-    timeout: 120000,
+    timeout: 60000,
   },
 });

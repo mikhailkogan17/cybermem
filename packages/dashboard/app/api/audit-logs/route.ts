@@ -2,6 +2,9 @@ import { NextResponse } from 'next/server'
 
 export const dynamic = 'force-dynamic'
 
+// Use env var for db-exporter URL (Docker internal vs local dev)
+const DB_EXPORTER_URL = process.env.DB_EXPORTER_URL || 'http://localhost:8000'
+
 const CLIENTS = ["Claude Code", "v0", "Cursor", "GitHub Copilot", "Windsurf"]
 const OPERATIONS = ["Read", "Write", "Update", "Delete", "Create"]
 const STATUSES = ["Success", "Success", "Success", "Warning", "Error"]
@@ -18,7 +21,7 @@ export async function GET(request: Request) {
     const controller = new AbortController()
     const timeoutId = setTimeout(() => controller.abort(), 2000)
 
-    const res = await fetch('http://db-exporter:8000/api/logs?limit=100', {
+    const res = await fetch(`${DB_EXPORTER_URL}/api/logs?limit=100`, {
       signal: controller.signal,
       cache: 'no-store'
     })

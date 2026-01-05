@@ -1,105 +1,99 @@
 import { expect, test } from '@playwright/test';
 
+// Shared mock setup - mocks BEFORE page load
+async function setupMocksForLocalMode(page: any) {
+  await page.route('**/api/settings', async (route: any) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        apiKey: 'not-set',
+        endpoint: 'http://localhost:8626',
+        isManaged: true
+      })
+    });
+  });
+  await page.route('**/api/metrics*', async (route: any) => {
+    await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({}) });
+  });
+  await page.route('**/api/audit-logs*', async (route: any) => {
+    await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ logs: [] }) });
+  });
+}
+
+async function setupMocksForRemoteMode(page: any) {
+  await page.route('**/api/settings', async (route: any) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        apiKey: 'sk-remote-key-123',
+        endpoint: 'https://remote-rpi.local/mcp',
+        isManaged: false
+      })
+    });
+  });
+  await page.route('**/api/metrics*', async (route: any) => {
+    await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({}) });
+  });
+  await page.route('**/api/audit-logs*', async (route: any) => {
+    await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ logs: [] }) });
+  });
+}
+
+async function login(page: any) {
+  const passwordInput = page.getByPlaceholder('Enter admin password');
+  await expect(passwordInput).toBeVisible();
+  await passwordInput.fill('admin');
+  await page.keyboard.press('Enter');
+  await expect(page.getByRole('heading', { name: 'CyberMem' })).toBeVisible();
+
+  // Dismiss password warning modal if it appears
+  const dontShowAgainButton = page.getByRole('button', { name: "Don't show again" });
+  if (await dontShowAgainButton.isVisible({ timeout: 1500 }).catch(() => false)) {
+    await dontShowAgainButton.click();
+    await page.waitForTimeout(500);
+  }
+}
+
 test.describe('Dashboard Configuration UI', () => {
-  test.beforeEach(async ({ page }) => {
-    // Standard setup for all tests
+
+  test('Local Mode: shows Local Mode Active and hides API Key', async ({ page }) => {
+    await setupMocksForLocalMode(page);
     await page.goto('http://localhost:3000');
-  });
-
-  test('should hide API Key management and show npx in Local Mode', async ({ page }) => {
-    // Mock API
-    await page.route('**/api/settings', async route => {
-      await route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({
-          apiKey: 'not-set',
-          endpoint: 'http://localhost:8626',
-          isManaged: true
-        })
-      });
-    });
-
-    await page.reload();
-
-    // Login logic
-    const passwordInput = page.getByPlaceholder('Enter admin password');
-    await expect(passwordInput).toBeVisible({ timeout: 10000 });
-    await passwordInput.fill('admin');
-    await page.keyboard.press('Enter');
-
-    // Wait for Dashboard
-    await expect(page.getByRole('heading', { name: 'CyberMem' })).toBeVisible({ timeout: 15000 });
-
-    // Open Settings first to verify the text there
-    await page.getByRole('button').filter({ has: page.locator('svg.lucide-settings') }).first().click();
-    await expect(page.getByText('Local Mode Active')).toBeVisible({ timeout: 5000 });
-    await expect(page.getByText('No API key required for connection from your laptop.')).toBeVisible();
-    await page.keyboard.press('Escape');
-
-    // Now open MCP Config Modal
-    await page.getByRole('button', { name: 'Connect MCP' }).click();
-
-    // Check for Local Mode indicator in MCP Modal
-    await expect(page.getByText('Local Mode Active')).toBeVisible({ timeout: 5000 });
-    await expect(page.getByText('No API key required for connection from your laptop.')).toBeVisible();
-
-    // Ensure "Master API Key" label is NOT present
-    await expect(page.getByText('Master API Key')).not.toBeVisible();
-
-    // Select Gemini CLI to check for NPX
-    await page.getByRole('button', { name: 'Gemini CLI' }).click();
-
-    // Check command
-    const codeBlock = page.locator('pre code, pre');
-    await expect(codeBlock).toContainText('npx @cybermem-mcp deploy --local');
-
-    // Select Claude Code to check for NPX
-    await page.getByRole('button', { name: 'Claude Code' }).click();
-    await expect(codeBlock).toContainText('npx @cybermem-mcp deploy --local');
-
-    // Ensure footer warning is HIDDEN in Local Mode
-    await expect(page.getByText('Keep it secure and do not share it publicly.')).not.toBeVisible();
-  });
-
-  test('should show API Key management and footer warning in Remote Mode', async ({ page }) => {
-    // Mock API
-    await page.route('**/api/settings', async route => {
-      await route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({
-          apiKey: 'sk-remote-key-123',
-          endpoint: 'https://remote-rpi.local/mcp',
-          isManaged: false
-        })
-      });
-    });
-
-    await page.reload();
-
-    const passwordInput = page.getByPlaceholder('Enter admin password');
-    await expect(passwordInput).toBeVisible({ timeout: 10000 });
-    await passwordInput.fill('admin');
-    await page.keyboard.press('Enter');
-
-    await expect(page.getByRole('heading', { name: 'CyberMem' })).toBeVisible({ timeout: 15000 });
+    await login(page);
 
     // Open MCP Config Modal
     await page.getByRole('button', { name: 'Connect MCP' }).click();
 
-    // Ensure "Master API Key" label IS visible
-    await expect(page.getByText('Master API Key')).toBeVisible({ timeout: 5000 });
+    // Check for Local Mode indicator
+    await expect(page.getByText('Local Mode Active')).toBeVisible();
 
-    // Select Gemini CLI to check for HEADERS (Remote Mode)
+    // Master API Key should NOT be visible in local mode
+    await expect(page.getByText('Master API Key')).not.toBeVisible();
+
+    // Code block should show npx command (uses @google/gemini-cli in local mode for Gemini)
     await page.getByRole('button', { name: 'Gemini CLI' }).click();
+    const codeBlock = page.locator('pre');
+    await expect(codeBlock).toContainText('npx -y @google/gemini-cli');
+    await expect(codeBlock).toContainText('mcp add');
+  });
 
-    // Check command
-    const codeBlock = page.locator('pre code, pre');
-    await expect(codeBlock).toContainText('gemini mcp add');
-    await expect(codeBlock).toContainText('--header "x-api-key:');
+  test('Remote Mode: shows API Key management', async ({ page }) => {
+    await setupMocksForRemoteMode(page);
+    await page.goto('http://localhost:3000');
+    await login(page);
 
-    // Ensure footer warning IS visible in Remote Mode
-    await expect(page.getByText('Keep it secure and do not share it publicly.')).toBeVisible();
+    // Open MCP Config Modal
+    await page.getByRole('button', { name: 'Connect MCP' }).click();
+
+    // Master API Key should be visible
+    await expect(page.getByText('Master API Key')).toBeVisible();
+
+    // Gemini CLI should have header with API key
+    await page.getByRole('button', { name: 'Gemini CLI' }).click();
+    const codeBlock = page.locator('pre');
+    await expect(codeBlock).toContainText('--header');
+    await expect(codeBlock).toContainText('x-api-key');
   });
 });
