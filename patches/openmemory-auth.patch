@@ -1,0 +1,57 @@
+diff --git a/packages/openmemory-js/src/server/middleware/auth.ts b/packages/openmemory-js/src/server/middleware/auth.ts
+index XXXXXXX..XXXXXXX 100644
+--- a/packages/openmemory-js/src/server/middleware/auth.ts
++++ b/packages/openmemory-js/src/server/middleware/auth.ts
+@@ -10,6 +10,13 @@ function is_public_endpoint(path: string): boolean {
+     return public_endpoints.some(prefix => path.startsWith(prefix));
+ }
+
++function is_localhost_request(req: any) {
++    const remoteAddr = req.socket.remoteAddress;
++    // Check for localhost variants: 127.0.0.1, ::1, ::ffff:127.0.0.1
++    return (
++        remoteAddr === "127.0.0.1" ||
++        remoteAddr === "::1" ||
++        remoteAddr === "::ffff:127.0.0.1" ||
++        remoteAddr === "localhost"
++    );
++}
++
+ export function authenticate_api_request(req: any, res: any, next: any) {
+     const path = req.path || req.url;
+     if (is_public_endpoint(path)) return next();
+-    if (!auth_config.api_key || auth_config.api_key === "") {
+-        console.warn("[AUTH] No API key configured");
+-        return next();
++
++    // Check if we're in "local mode" (no CYBERMEM_URL means self-hosted local)
++    const isLocalMode = !process.env.CYBERMEM_URL;
++    const hasApiKeyConfigured = auth_config.api_key && auth_config.api_key !== "";
++
++    // If no API key configured and in local mode, allow only localhost
++    if (!hasApiKeyConfigured && isLocalMode) {
++        if (is_localhost_request(req)) {
++            // Allow localhost access without API key in local mode
++            return next();
++        }
++        // Block non-localhost requests when API key not configured
++        console.warn("[AUTH] Blocking non-localhost request - no API key configured in local mode");
++        return res.status(401).json({
++            error: "authentication_required",
++            message: "API key required for non-localhost access. Configure OM_API_KEY or access from localhost.",
++        });
++    }
++
++    // If no API key configured but CYBERMEM_URL is set (remote deployment),
++    // this is a misconfiguration - require key
++    if (!hasApiKeyConfigured) {
++        console.warn("[AUTH] No API key configured for remote deployment");
++        return res.status(401).json({
++            error: "authentication_required",
++            message: "API key required for remote deployments",
++        });
+     }
++
+     const provided = extract_api_key(req);
+     if (!provided)
+         return res

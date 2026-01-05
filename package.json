@@ -12,7 +12,8 @@
     "cli": "npm run start -w @cybermem/cli",
     "dashboard:dev": "npm run dev -w @cybermem/dashboard",
     "mcp:dev": "npm run dev -w @cybermem/mcp",
-    "release": "./tools/release.sh"
+    "release": "./tools/release.sh",
+    "postinstall": "cd external/openmemory && git apply ../../patches/openmemory-auth.patch || echo 'Warning: OpenMemory patch failed (might be already applied)'"
   },
   "devDependencies": {
     "typescript": "^5.0.0"
