@@ -2,7 +2,7 @@
 <div align="center">
   <p>
     <a href="https://github.com/mikhailkogan17/cybermem/actions/workflows/ci.yml"><img src="https://github.com/mikhailkogan17/cybermem/actions/workflows/ci.yml/badge.svg" alt="CI Status"></a>
-    <img src="https://img.shields.io/badge/version-1.0.0-%23099270" alt="Version">
+    <a href="https://www.npmjs.com/package/@cybermem/mcp-server"><img src="https://img.shields.io/npm/v/@cybermem/mcp-server?color=%23099270&label=version" alt="Version"></a>
     <img src="https://img.shields.io/badge/MCP-Ready-%23099270?logo=modelcontextprotocol" alt="MCP Ready">
     <img src="https://img.shields.io/badge/license-MIT-%23099270" alt="License">
   </p>
