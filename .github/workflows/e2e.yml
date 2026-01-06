@@ -21,8 +21,16 @@ jobs:
         with:
           node-version: "18"
 
+      - name: Setup Environment
+        run: |
+          mkdir -p ~/.cybermem
+          echo "OPENAI_API_KEY=test" > ~/.cybermem/.env
+          echo "OM_API_KEY=test-key" >> ~/.cybermem/.env
+
       - name: Start Docker Stack (Local Simulation)
         working-directory: packages/cli/templates
+        env:
+          CYBERMEM_ENV_PATH: ~/.cybermem/.env
         run: |
           docker compose up -d
           sleep 30 # Wait for services to be ready
