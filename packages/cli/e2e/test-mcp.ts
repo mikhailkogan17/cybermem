@@ -48,7 +48,10 @@ const TARGETS = {
         headers: {
             'Content-Type': 'application/json',
             'Accept': 'application/json, text/event-stream',
-            // 'x-api-key': getLocalApiKey(), // PATCHED: Keyless access for localhost
+            // Use API key if provided via env (CI) or discovered from docker/file
+            ...(process.env.OM_API_KEY || getLocalApiKey()
+                ? { 'x-api-key': process.env.OM_API_KEY || getLocalApiKey() }
+                : {}),
              'User-Agent': 'CyberMem-CLI/1.0.0'
         }
     },
@@ -288,9 +291,10 @@ async function main() {
         // Reset Before (ensures container is up)
         await resetDB();
 
-        // Refresh API Key after reset/ensure up
-        // TARGETS.local.headers['x-api-key'] = getLocalApiKey();
-        console.log(`   🔑 API Key configured: SKIPPED (Testing Keyless Localhost)`);
+        // Log API key status
+        const apiKey = process.env.OM_API_KEY || getLocalApiKey();
+        console.log(`   🔑 API Key configured: ${apiKey ? 'YES (from env/docker)' : 'SKIPPED (Keyless Localhost)'}`);
+
 
         if (!await runTest('local', TARGETS.local)) success = false;
 
