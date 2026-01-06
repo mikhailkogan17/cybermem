@@ -161,9 +161,6 @@
       "yzhang.markdown-all-in-one",
       "bierner.markdown-mermaid",
 
-      // Git
-      "eamodio.gitlens",
-
       // Terraform (future)
       "hashicorp.terraform",
 
@@ -173,6 +170,9 @@
 
       // Metrics & Monitoring
       "prometheus-io.promql",
+
+      // Antigravity
+      "n2ns.antigravity-panel",
     ],
   },
   "launch": {

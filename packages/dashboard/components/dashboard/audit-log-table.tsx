@@ -1,5 +1,6 @@
 "use client"
 
+import { useDashboard } from "@/lib/data/dashboard-context"
 import { ArrowDown, ArrowUp, ArrowUpDown, ChevronDown, ChevronLeft, ChevronRight, Download, RefreshCw } from "lucide-react"
 import { useState } from "react"
 
@@ -41,6 +42,18 @@ export default function AuditLogTable({
 }: AuditLogTableProps) {
   const [period, setPeriod] = useState("all")
   const [showExportMenu, setShowExportMenu] = useState(false)
+  const { clientConfigs } = useDashboard()
+
+  const getClientConfig = (rawName: string) => {
+    if (!rawName) return undefined
+    const nameLower = rawName.toLowerCase()
+    return clientConfigs.find((c: any) => nameLower.includes(c.match))
+  }
+
+  const getClientDisplayName = (rawName: string) => {
+    const config = getClientConfig(rawName)
+    return config ? config.name : rawName
+  }
 
   const exportToCSV = () => {
     const headers = ['Timestamp', 'Client', 'Operation', 'Status', 'Description']
@@ -48,7 +61,7 @@ export default function AuditLogTable({
       headers.join(','),
       ...logs.map(log => [
         `"${log.date}"`,
-        `"${log.client}"`,
+        `"${getClientDisplayName(log.client)}"`,
         `"${log.operation}"`,
         `"${log.status}"`,
         `"${log.description}"`
@@ -68,7 +81,7 @@ export default function AuditLogTable({
   const exportToJSON = () => {
     const jsonContent = JSON.stringify(logs.map(log => ({
       timestamp: log.date,
-      client: log.client,
+      client: getClientDisplayName(log.client),
       operation: log.operation,
       status: log.status,
       description: log.description
@@ -178,10 +191,19 @@ export default function AuditLogTable({
               ) : (
                 logs.map((log) => {
                     const config = statusConfig[log.status] || statusConfig.Success
+                    const clientConf = getClientConfig(log.client)
+                    const displayName = clientConf ? clientConf.name : log.client
+                    const icon = clientConf?.icon
+
                     return (
                         <tr key={log.id} className="border-b border-white/5 hover:bg-white/10 transition-colors even:bg-white/[0.02] group/row">
                             <td className="py-4 px-4 text-neutral-300 group-hover/row:text-white transition-colors">{log.date}</td>
-                            <td className="py-4 px-4 text-white font-medium">{log.client}</td>
+                            <td className="py-4 px-4 text-white font-medium">
+                              <div className="flex items-center gap-2">
+                                {icon && <img src={icon} alt={displayName} className="w-5 h-5 object-contain" />}
+                                <span>{displayName}</span>
+                              </div>
+                            </td>
                             <td className="py-4 px-4 text-neutral-300">{log.operation}</td>
                             <td className="py-4 px-4">
                             <span

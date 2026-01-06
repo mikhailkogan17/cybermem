@@ -3,7 +3,7 @@ import time
 import requests
 
 # Configuration
-API_URL = "http://localhost:80/memory"
+API_URL = "http://localhost:8626/memory"
 # Using X-Client-Name to simulate different clients
 CLIENT_NAME = "Antigravity LoadTest"
 API_KEY = "dev-secret-key"

@@ -1,5 +1,5 @@
-#!/usr/bin/env node
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
+import { SSEServerTransport } from "@modelcontextprotocol/sdk/server/sse.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import {
     CallToolRequestSchema,
@@ -7,7 +7,9 @@ import {
     Tool
 } from "@modelcontextprotocol/sdk/types.js";
 import axios from "axios";
+import cors from "cors";
 import dotenv from "dotenv";
+import express from "express";
 
 dotenv.config();
 
@@ -15,10 +17,16 @@ dotenv.config();
 const API_URL = process.env.CYBERMEM_URL || "http://localhost:8626/memory";
 const API_KEY = process.env.CYBERMEM_API_KEY || "";
 
+// Track client name per session
+// Since we don't have a built-in session ID in the request context easily,
+// we'll use a global fallback and allow updating it.
+// For SSE, we can extract it from the HTTP request.
+let currentClientName = "cybermem-mcp";
+
 const server = new Server(
   {
     name: "cybermem-mcp",
-    version: "0.1.0",
+    version: "0.2.0",
   },
   {
     capabilities: {
@@ -94,42 +102,55 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
   tools,
 }));
 
+// Create axios instance
+const apiClient = axios.create({
+  baseURL: API_URL,
+  headers: {
+    "Authorization": `Bearer ${API_KEY}`,
+  },
+});
+
+// Helper to get client with context
+function getClient(customHeaders: Record<string, string> = {}) {
+    // Identity is taken from currentClientName which is updated per-request in SSE mode
+    const clientName = customHeaders["X-Client-Name"] || currentClientName;
+
+    return {
+        ...apiClient,
+        get: (url: string, config?: any) => apiClient.get(url, { ...config, headers: { "X-Client-Name": clientName, ...config?.headers } }),
+        post: (url: string, data?: any, config?: any) => apiClient.post(url, data, { ...config, headers: { "X-Client-Name": clientName, ...config?.headers } }),
+        put: (url: string, data?: any, config?: any) => apiClient.put(url, data, { ...config, headers: { "X-Client-Name": clientName, ...config?.headers } }),
+        patch: (url: string, data?: any, config?: any) => apiClient.patch(url, data, { ...config, headers: { "X-Client-Name": clientName, ...config?.headers } }),
+        delete: (url: string, config?: any) => apiClient.delete(url, { ...config, headers: { "X-Client-Name": clientName, ...config?.headers } }),
+    }
+}
+
 server.setRequestHandler(CallToolRequestSchema, async (request) => {
   const { name, arguments: args } = request.params;
 
   try {
     switch (name) {
       case "add_memory": {
-        const response = await axios.post(`${API_URL}/add`, args, {
-          headers: { "Authorization": `Bearer ${API_KEY}` }
-        });
+        const response = await getClient().post("/add", args);
         return { content: [{ type: "text", text: JSON.stringify(response.data) }] };
       }
       case "query_memory": {
-        const response = await axios.post(`${API_URL}/query`, args, {
-          headers: { "Authorization": `Bearer ${API_KEY}` }
-        });
+        const response = await getClient().post("/query", args);
         return { content: [{ type: "text", text: JSON.stringify(response.data) }] };
       }
       case "list_memories": {
         const limit = args?.limit || 10;
-        const response = await axios.get(`${API_URL}/all?l=${limit}`, {
-          headers: { "Authorization": `Bearer ${API_KEY}` }
-        });
+        const response = await getClient().get(`/all?l=${limit}`);
         return { content: [{ type: "text", text: JSON.stringify(response.data) }] };
       }
       case "delete_memory": {
         const { id } = args as { id: string };
-        await axios.delete(`${API_URL}/${id}`, {
-          headers: { "Authorization": `Bearer ${API_KEY}` }
-        });
+        await getClient().delete(`/${id}`);
         return { content: [{ type: "text", text: `Memory ${id} deleted` }] };
       }
       case "update_memory": {
         const { id, ...updates } = args as { id: string; [key: string]: any };
-        const response = await axios.patch(`${API_URL}/${id}`, updates, {
-          headers: { "Authorization": `Bearer ${API_KEY}` }
-        });
+        const response = await getClient().patch(`/${id}`, updates);
         return { content: [{ type: "text", text: JSON.stringify(response.data) }] };
       }
       default:
@@ -144,9 +165,51 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 });
 
 async function run() {
-  const transport = new StdioServerTransport();
-  await server.connect(transport);
-  console.error("CyberMem MCP Server running on stdio");
+  const isSse = process.argv.includes("--sse") || !!process.env.PORT;
+
+  if (isSse) {
+    const app = express();
+    app.use(cors());
+    const port = process.env.PORT || 8627;
+
+    let transport: SSEServerTransport | null = null;
+
+    app.get("/sse", async (req, res) => {
+      // Extract client name from header
+      const clientName = req.headers["x-client-name"] as string;
+      if (clientName) {
+        currentClientName = clientName;
+      }
+
+      transport = new SSEServerTransport("/messages", res);
+      await server.connect(transport);
+    });
+
+    app.post("/messages", async (req, res) => {
+      // Also check headers on messages
+      const clientName = req.headers["x-client-name"] as string;
+      if (clientName) {
+        currentClientName = clientName;
+      }
+
+      if (transport) {
+        await transport.handlePostMessage(req, res);
+      } else {
+        res.status(400).send("Session not established");
+      }
+    });
+
+    app.listen(port, () => {
+      console.error(`CyberMem MCP Server running on SSE at http://localhost:${port}`);
+      console.error(`  - SSE endpoint: http://localhost:${port}/sse`);
+      console.error(`  - Message endpoint: http://localhost:${port}/messages`);
+    });
+
+  } else {
+    const transport = new StdioServerTransport();
+    await server.connect(transport);
+    console.error("CyberMem MCP Server running on stdio");
+  }
 }
 
 run().catch((error) => {

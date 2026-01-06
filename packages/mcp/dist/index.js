@@ -1,21 +1,28 @@
-#!/usr/bin/env node
 "use strict";
 var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 const index_js_1 = require("@modelcontextprotocol/sdk/server/index.js");
+const sse_js_1 = require("@modelcontextprotocol/sdk/server/sse.js");
 const stdio_js_1 = require("@modelcontextprotocol/sdk/server/stdio.js");
 const types_js_1 = require("@modelcontextprotocol/sdk/types.js");
 const axios_1 = __importDefault(require("axios"));
+const cors_1 = __importDefault(require("cors"));
 const dotenv_1 = __importDefault(require("dotenv"));
+const express_1 = __importDefault(require("express"));
 dotenv_1.default.config();
 // Default to local CyberMem backend (via Traefik on port 8626)
 const API_URL = process.env.CYBERMEM_URL || "http://localhost:8626/memory";
 const API_KEY = process.env.CYBERMEM_API_KEY || "";
+// Track client name per session
+// Since we don't have a built-in session ID in the request context easily,
+// we'll use a global fallback and allow updating it.
+// For SSE, we can extract it from the HTTP request.
+let currentClientName = "cybermem-mcp";
 const server = new index_js_1.Server({
     name: "cybermem-mcp",
-    version: "0.1.0",
+    version: "0.2.0",
 }, {
     capabilities: {
         tools: {},
@@ -86,41 +93,51 @@ const tools = [
 server.setRequestHandler(types_js_1.ListToolsRequestSchema, async () => ({
     tools,
 }));
+// Create axios instance
+const apiClient = axios_1.default.create({
+    baseURL: API_URL,
+    headers: {
+        "Authorization": `Bearer ${API_KEY}`,
+    },
+});
+// Helper to get client with context
+function getClient(customHeaders = {}) {
+    // Identity is taken from currentClientName which is updated per-request in SSE mode
+    const clientName = customHeaders["X-Client-Name"] || currentClientName;
+    return {
+        ...apiClient,
+        get: (url, config) => apiClient.get(url, { ...config, headers: { "X-Client-Name": clientName, ...config?.headers } }),
+        post: (url, data, config) => apiClient.post(url, data, { ...config, headers: { "X-Client-Name": clientName, ...config?.headers } }),
+        put: (url, data, config) => apiClient.put(url, data, { ...config, headers: { "X-Client-Name": clientName, ...config?.headers } }),
+        patch: (url, data, config) => apiClient.patch(url, data, { ...config, headers: { "X-Client-Name": clientName, ...config?.headers } }),
+        delete: (url, config) => apiClient.delete(url, { ...config, headers: { "X-Client-Name": clientName, ...config?.headers } }),
+    };
+}
 server.setRequestHandler(types_js_1.CallToolRequestSchema, async (request) => {
     const { name, arguments: args } = request.params;
     try {
         switch (name) {
             case "add_memory": {
-                const response = await axios_1.default.post(`${API_URL}/add`, args, {
-                    headers: { "Authorization": `Bearer ${API_KEY}` }
-                });
+                const response = await getClient().post("/add", args);
                 return { content: [{ type: "text", text: JSON.stringify(response.data) }] };
             }
             case "query_memory": {
-                const response = await axios_1.default.post(`${API_URL}/query`, args, {
-                    headers: { "Authorization": `Bearer ${API_KEY}` }
-                });
+                const response = await getClient().post("/query", args);
                 return { content: [{ type: "text", text: JSON.stringify(response.data) }] };
             }
             case "list_memories": {
                 const limit = args?.limit || 10;
-                const response = await axios_1.default.get(`${API_URL}/all?l=${limit}`, {
-                    headers: { "Authorization": `Bearer ${API_KEY}` }
-                });
+                const response = await getClient().get(`/all?l=${limit}`);
                 return { content: [{ type: "text", text: JSON.stringify(response.data) }] };
             }
             case "delete_memory": {
                 const { id } = args;
-                await axios_1.default.delete(`${API_URL}/${id}`, {
-                    headers: { "Authorization": `Bearer ${API_KEY}` }
-                });
+                await getClient().delete(`/${id}`);
                 return { content: [{ type: "text", text: `Memory ${id} deleted` }] };
             }
             case "update_memory": {
                 const { id, ...updates } = args;
-                const response = await axios_1.default.patch(`${API_URL}/${id}`, updates, {
-                    headers: { "Authorization": `Bearer ${API_KEY}` }
-                });
+                const response = await getClient().patch(`/${id}`, updates);
                 return { content: [{ type: "text", text: JSON.stringify(response.data) }] };
             }
             default:
@@ -135,9 +152,45 @@ server.setRequestHandler(types_js_1.CallToolRequestSchema, async (request) => {
     }
 });
 async function run() {
-    const transport = new stdio_js_1.StdioServerTransport();
-    await server.connect(transport);
-    console.error("CyberMem MCP Server running on stdio");
+    const isSse = process.argv.includes("--sse") || !!process.env.PORT;
+    if (isSse) {
+        const app = (0, express_1.default)();
+        app.use((0, cors_1.default)());
+        const port = process.env.PORT || 8627;
+        let transport = null;
+        app.get("/sse", async (req, res) => {
+            // Extract client name from header
+            const clientName = req.headers["x-client-name"];
+            if (clientName) {
+                currentClientName = clientName;
+            }
+            transport = new sse_js_1.SSEServerTransport("/messages", res);
+            await server.connect(transport);
+        });
+        app.post("/messages", async (req, res) => {
+            // Also check headers on messages
+            const clientName = req.headers["x-client-name"];
+            if (clientName) {
+                currentClientName = clientName;
+            }
+            if (transport) {
+                await transport.handlePostMessage(req, res);
+            }
+            else {
+                res.status(400).send("Session not established");
+            }
+        });
+        app.listen(port, () => {
+            console.error(`CyberMem MCP Server running on SSE at http://localhost:${port}`);
+            console.error(`  - SSE endpoint: http://localhost:${port}/sse`);
+            console.error(`  - Message endpoint: http://localhost:${port}/messages`);
+        });
+    }
+    else {
+        const transport = new stdio_js_1.StdioServerTransport();
+        await server.connect(transport);
+        console.error("CyberMem MCP Server running on stdio");
+    }
 }
 run().catch((error) => {
     console.error("Fatal error running server:", error);

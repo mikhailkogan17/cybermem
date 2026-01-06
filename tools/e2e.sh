@@ -3,7 +3,7 @@ set -e
 
 # Configuration
 DASHBOARD_URL="http://localhost:3000"
-API_URL="http://localhost:8080"
+API_URL="http://localhost:8626"
 PROMETHEUS_URL="http://localhost:9092"
 METRICS_URL="${PROMETHEUS_URL}/federate?match[]={__name__=~\".+\"}"
 

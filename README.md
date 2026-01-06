@@ -8,9 +8,9 @@
   </p>
   
   <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="README_assets/images/logo-dark.svg">
-    <source media="(prefers-color-scheme: light)" srcset="README_assets/images/logo-light.svg">
-    <img alt="CyberMem Logo" src="README_assets/images/logo-light.svg" width="600">
+    <source media="(prefers-color-scheme: dark)" srcset="README_assets/logo-dark.svg">
+    <source media="(prefers-color-scheme: light)" srcset="README_assets/logo-light.svg">
+    <img alt="CyberMem Logo" src="README_assets/logo-light.svg" width="600">
   </picture>
 
   <p><strong>Universal Long-Term Memory for any AI Agent.</strong></p>

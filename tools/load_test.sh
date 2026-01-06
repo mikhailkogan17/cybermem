@@ -1,5 +1,5 @@
 #!/bin/bash
-API_URL=${1:-"http://localhost:80/memory"}
+API_URL=${1:-"http://localhost:8626/memory"}
 API_KEY=${2:-"dev-secret-key"}
 
 echo "Starting Load Test..."

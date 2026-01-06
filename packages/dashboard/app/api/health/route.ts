@@ -24,7 +24,10 @@ async function checkService(name: string, url: string, timeout = 3000): Promise<
 
     const res = await fetch(url, {
       signal: controller.signal,
-      cache: 'no-store'
+      cache: 'no-store',
+      headers: {
+        'X-Client-Name': 'CyberMem-Dashboard'
+      }
     })
     clearTimeout(timeoutId)
 

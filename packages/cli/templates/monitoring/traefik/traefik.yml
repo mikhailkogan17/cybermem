@@ -29,4 +29,4 @@ providers:
 
 entryPoints:
   web:
-    address: ":8088"
+    address: ":8626"
