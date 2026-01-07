@@ -11,7 +11,7 @@ import path from 'path';
 const program = new Command();
 
 program
-  .name('cybermem')
+  .name('mcp')
   .description('CyberMem - Deploy your AI memory server in one command')
   .version('1.0.0')
   .option('--rpi', 'Deploy to Raspberry Pi (default: local)')

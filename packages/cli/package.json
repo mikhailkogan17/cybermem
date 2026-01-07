@@ -3,7 +3,7 @@
   "version": "0.2.0",
   "description": "CyberMem Management CLI",
   "bin": {
-    "cybermem-cli": "./dist/index.js"
+    "mcp": "./dist/index.js"
   },
   "files": [
     "dist",
