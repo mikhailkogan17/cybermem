@@ -13,12 +13,13 @@ on:
           - minor
           - major
 
+permissions:
+  id-token: write # Required for npm OIDC trusted publishers
+  contents: write
+
 jobs:
   release:
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
-      packages: write
 
     steps:
       - uses: actions/checkout@v4
@@ -29,7 +30,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: "18"
+          node-version: "20"
           registry-url: "https://registry.npmjs.org"
 
       - name: Configure Git
@@ -69,9 +70,7 @@ jobs:
 
       - name: Publish to npm
         working-directory: packages/mcp
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-        run: npm publish --access public
+        run: npm publish --access public --provenance
 
       - name: Create GitHub Release
         env:
