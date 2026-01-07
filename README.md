@@ -24,7 +24,6 @@
 ## Features
 
 |                            |                                                                                |
-| :------------------------- | :----------------------------------------------------------------------------- |
 | **MCP Protocol**           | Native Model Context Protocol support for Claude, Cursor, and other AI clients |
 | **Multi-Platform**         | Deploy on Mac, Raspberry Pi, or Cloud VPS with one command                     |
 | **Infrastructure as Code** | Production-ready Docker Compose, Helm Charts, Ansible Playbooks                |
@@ -65,12 +64,11 @@ cybermem/
 Full documentation available at **[cybermem.dev/docs](https://cybermem.dev/docs)**
 
 |                                                     |                                   |
-| :-------------------------------------------------- | :-------------------------------- |
-| [Quick Start](https://cybermem.dev/docs/quickstart) | Get running in 5 minutes          |
-| [Local Setup](https://cybermem.dev/docs/local)      | Mac/Linux development environment |
-| [Raspberry Pi](https://cybermem.dev/docs/rpi)       | Edge deployment with Tailscale    |
-| [Cloud/VPS](https://cybermem.dev/docs/vps)          | Production Kubernetes deployment  |
-| [MCP Integration](https://cybermem.dev/docs/mcp)    | Connect Claude, Cursor, and more  |
+| [Quick Start](https://github.com/mikhailkogan17/cybermem/blob/main/docs/quickstart.md) | Get running in 5 minutes          |
+| [Local Setup](https://github.com/mikhailkogan17/cybermem/blob/main/docs/local.md)      | Mac/Linux development environment |
+| [Raspberry Pi](https://github.com/mikhailkogan17/cybermem/blob/main/docs/rpi.md)       | Edge deployment with Tailscale    |
+| [Cloud/VPS](https://github.com/mikhailkogan17/cybermem/blob/main/docs/vps.md)          | Production Kubernetes deployment  |
+| [MCP Integration](https://github.com/mikhailkogan17/cybermem/blob/main/docs/mcp.md)    | Connect Claude, Cursor, and more  |
 
 ## License
 
