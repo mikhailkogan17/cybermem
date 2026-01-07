@@ -4,12 +4,12 @@ description: Create a new release - bump version, tag, npm publish, GitHub relea
 
 # Release Workflow
 
-Creates a new release with:
+Creates a new release via GitHub Actions with:
 - Version bump (patch by default)
 - Git tag
-- npm publish
+- npm publish (OIDC trusted publishers)
 - GitHub release
-- Post-release version bump with commit
+- Post-release version bump
 
 ## Usage
 
@@ -22,77 +22,38 @@ Creates a new release with:
 ## Steps
 
 ### 1. Ensure clean working directory
+// turbo
 ```bash
 cd /Users/mikhailkogan/cybermem
 git status
 ```
-Verify no uncommitted changes.
+Verify `nothing to commit, working tree clean`.
 
-### 2. Bump version in packages/mcp
+### 2. Trigger GitHub Actions release workflow
+```bash
+gh workflow run release.yml --field version_type=${VERSION_TYPE:-patch}
+```
+
+### 3. Monitor workflow progress
 // turbo
 ```bash
-cd packages/mcp && npm version ${VERSION_TYPE:-patch} --no-git-tag-version
+sleep 10 && gh run list --workflow="release.yml" --limit 1 --json status,conclusion,databaseId
 ```
 
-### 3. Build the package
-// turbo
+### 4. Wait for completion and check result
 ```bash
-npm run build 2>/dev/null || echo "No build step"
+gh run view $(gh run list --workflow="release.yml" --limit 1 --json databaseId --jq '.[0].databaseId') --watch
 ```
 
-### 4. Get the new version
-// turbo
-```bash
-NEW_VERSION=$(node -p "require('./package.json').version")
-echo "New version: $NEW_VERSION"
-```
-
-### 5. Commit version bump
-```bash
-cd /Users/mikhailkogan/cybermem
-git add packages/mcp/package.json packages/mcp/dist/
-git commit -m "release: @cybermem/mcp-server v$NEW_VERSION"
-```
-
-### 6. Create git tag
-```bash
-git tag -a "v$NEW_VERSION" -m "Release v$NEW_VERSION"
-```
-
-### 7. Push commit and tag
-```bash
-git push && git push --tags
-```
-
-### 8. Publish to npm
-```bash
-cd packages/mcp && npm publish --access public
-```
-
-### 9. Create GitHub release
-```bash
-cd /Users/mikhailkogan/cybermem
-gh release create "v$NEW_VERSION" --title "v$NEW_VERSION" --generate-notes
-```
-
-### 10. Post-release: Bump to next dev version
-// turbo
-```bash
-cd packages/mcp && npm version patch --no-git-tag-version
-NEXT_VERSION=$(node -p "require('./package.json').version")
-```
-
-### 11. Commit next dev version
-```bash
-cd /Users/mikhailkogan/cybermem
-git add packages/mcp/package.json
-git commit -m "chore: bump to v$NEXT_VERSION for development"
-git push
-```
-
-### 12. Verify
+### 5. Verify release
 // turbo
 ```bash
 npm view @cybermem/mcp-server version
 gh release list --limit 1
+```
+
+### 6. Pull remote changes (workflow commits version bumps)
+// turbo
+```bash
+git pull
 ```
