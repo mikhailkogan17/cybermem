@@ -11,8 +11,14 @@
     "start": "node dist/index.js",
     "dev": "ts-node src/index.ts"
   },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/mikhailkogan17/cybermem.git",
+    "directory": "packages/mcp"
+  },
   "publishConfig": {
-    "access": "public"
+    "access": "public",
+    "provenance": true
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.0.0",
