@@ -14,21 +14,23 @@
   </picture>
 
   <h3>Universal Long-Term Memory for AI Agents</h3>
-  <p>Production-grade <strong>MCP Server</strong> • <strong>Docker Compose</strong> • <strong>Helm Charts</strong> • <strong>Prometheus</strong> • <strong>Traefik</strong></p>
-  <p>Based on <a href="https://github.com/CaviraOSS/OpenMemory">OpenMemory</a></p>
+  <p><strong>Production-grade MCP Server</strong><br>
+  Docker Compose • Helm Charts • Prometheus • Traefik • Based on <a href="https://github.com/CaviraOSS/OpenMemory">OpenMemory</a></p>
 </div>
 
 ## Features
 
-| Feature                    | Description                                                                    |
-| :------------------------- | :----------------------------------------------------------------------------- |
-| **MCP Protocol**           | Native Model Context Protocol support for Claude, Cursor, and other AI clients |
-| **Multi-Platform**         | Deploy on Mac, Raspberry Pi, or Cloud VPS with one command                     |
-| **Infrastructure as Code** | Production-ready Docker Compose, Helm Charts, Ansible Playbooks                |
-| **Observability**          | Built-in Prometheus metrics, Grafana dashboards, audit logs                    |
-| **Security**               | Traefik reverse proxy, Tailscale Funnel for zero-config HTTPS                  |
+**Model Context Protocol**: Native Model Context Protocol support for Claude, Cursor, and other AI clients
 
-## Try It Out
+**Multi-Platform**: Deploy on Mac, Raspberry Pi, or Cloud VPS with one command
+
+**Infrastructure as Code**: Production-ready Docker Compose, Helm Charts, Ansible Playbooks
+
+**Observability**: Built-in Prometheus metrics, Grafana dashboards, audit logs
+
+**Security**: Traefik reverse proxy, Tailscale Funnel for zero-config HTTPS
+
+## Try It Out!
 
 To try CyberMem on your local machine, run:
 ```bash
@@ -36,7 +38,7 @@ npx @cybermem/mcp
 ```
 and follow the instructions in terminal.
 
-**Full Quick Start guide for every platform is available at [cybermem.dev/#quickstart](https://cybermem.dev/#quickstart)**
+**Full Quick Start guide for every platform is available at [cybermem.dev/#quickstart](https://cybermem.dev/#quickstart).**
 
 ## Architecture
 
@@ -74,6 +76,10 @@ Full documentation available at **[cybermem.dev/docs](https://cybermem.dev/docs)
 | [Raspberry Pi](https://github.com/mikhailkogan17/cybermem/blob/main/docs/rpi.md)    | Edge deployment with Tailscale    |
 | [Cloud/VPS](https://github.com/mikhailkogan17/cybermem/blob/main/docs/vps.md)       | Production Kubernetes deployment  |
 | [MCP Integration](https://github.com/mikhailkogan17/cybermem/blob/main/docs/mcp.md) | Connect Claude, Cursor, and more  |
+
+## Contributing
+
+Feel free to ...
 
 ## License
 
