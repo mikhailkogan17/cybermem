@@ -10,10 +10,10 @@ Get CyberMem running in under 5 minutes.
 
 ## Installation
 
-### One-Liner
+### One-Liner (Local)
 
 ```bash
-npx @cybermem/cli deploy
+npx @cybermem/mcp
 ```
 
 This will:
@@ -21,17 +21,18 @@ This will:
 2. Start OpenMemory, Traefik, Prometheus, and Dashboard
 3. Display access URLs
 
-### Manual Steps
+### Other Platforms
 
 ```bash
-# Install CLI globally (optional)
-npm install -g @cybermem/cli
+# Raspberry Pi (run ON the Pi via SSH)
+ssh pi@raspberrypi.local
+npx @cybermem/mcp --rpi
 
-# Initialize configuration
-cybermem-cli init
+# With HTTPS remote access
+npx @cybermem/mcp --rpi --remote-access
 
-# Start services
-cybermem-cli up
+# VPS (SSH into your server first)
+npx @cybermem/mcp --vps
 ```
 
 ## Access Points

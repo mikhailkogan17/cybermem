@@ -20,13 +20,10 @@ Local deployment uses:
 ## Quick Setup
 
 ```bash
-# Deploy local stack
-npx @cybermem/cli deploy --target local
-
-# Or step by step
-npx @cybermem/cli init
-npx @cybermem/cli up
+npx @cybermem/mcp
 ```
+
+That's it! The CLI handles everything automatically.
 
 ## Architecture
 
@@ -71,16 +68,16 @@ OLLAMA_URL=http://ollama:11434
 
 ```bash
 # Start services
-cybermem-cli up
+npx @cybermem/mcp
 
 # Stop services
-cybermem-cli down
+cd ~/.cybermem && docker-compose down
 
 # View logs
-cybermem-cli logs
+cd ~/.cybermem && docker-compose logs -f
 
 # Reset database
-cybermem-cli reset
+rm -rf ~/.cybermem/data && npx @cybermem/mcp
 ```
 
 ## Troubleshooting

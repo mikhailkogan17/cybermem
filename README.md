@@ -18,7 +18,7 @@
   ---
 
   <p><strong>Production-grade MCP Server</strong><br>
-  Docker Compose • Helm Charts • Prometheus • Traefik • Based on <a href="https://github.com/CaviraOSS/OpenMemory">OpenMemory</a></p>
+  Docker Compose • Helm Charts • Ansible Playbooks • Prometheus • Traefik • Based on <a href="https://github.com/CaviraOSS/OpenMemory">CaviraOSS/OpenMemory</a></p>
 </div>
 
 ## Features
@@ -45,15 +45,49 @@ and follow the instructions in terminal.
 
 ## Architecture
 
+> **What makes CyberMem different?** It wraps [OpenMemory](https://github.com/CaviraOSS/OpenMemory) with production infrastructure — per-client audit logging, observability, and multi-platform deployment. No code changes to OpenMemory required.
+
 ```mermaid
-graph TD
-    Client -->|MCP| Traefik
-    Traefik --> API
-    API --> DB
+graph LR
+    subgraph Clients["🤖 AI Clients"]
+        Claude["Claude"]
+        Cursor["Cursor"]
+        Antigravity["Antigravity"]
+    end
+
+    subgraph Infra["⚙️ CyberMem Infrastructure"]
+        Traefik["🔀 Traefik<br/>Auth + Routing"]
+        Vector["📊 Vector<br/>Log Parsing"]
+        Prometheus["📈 Prometheus<br/>Metrics"]
+    end
+
+    subgraph Core["🧠 Memory Engine"]
+        OpenMemory["OpenMemory<br/>Graph + Embeddings"]
+        DB["💾 SQLite/Postgres"]
+    end
+
+    subgraph UI["📱 Dashboard"]
+        Dashboard["Monitoring<br/>Audit Logs"]
+    end
+
+    Claude -->|MCP| Traefik
+    Cursor -->|MCP| Traefik
+    Antigravity -->|MCP| Traefik
+    
+    Traefik --> OpenMemory
     Traefik --> Vector
+    OpenMemory --> DB
     Vector --> Prometheus
     Prometheus --> Dashboard
 ```
+
+| Component      | Purpose                                                 |
+| -------------- | ------------------------------------------------------- |
+| **OpenMemory** | Graph-based memory engine with Ollama/OpenAI embeddings |
+| **Traefik**    | Reverse proxy with auth extraction and access logging   |
+| **Vector**     | Parses Traefik logs into per-client metrics             |
+| **Prometheus** | Time-series storage for audit and observability         |
+| **Dashboard**  | Real-time monitoring, client activity, audit logs       |
 
 ## Repository Structure
 
@@ -82,7 +116,7 @@ Full documentation available at **[cybermem.dev/docs](https://cybermem.dev/docs)
 
 ## Contributing
 
-Feel free to ...
+Contributions are welcome! See [CONTRIBUTING.md](CONTRIBUTING.md) for development setup and guidelines.
 
 ## License
 

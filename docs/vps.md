@@ -13,8 +13,11 @@ Cloud deployment features:
 ## VPS Quick Deploy
 
 ```bash
-# Deploy to VPS with PostgreSQL
-npx @cybermem/cli deploy --target vps
+# SSH into your VPS
+ssh user@your-vps-ip
+
+# Run on the VPS
+npx @cybermem/mcp --vps
 ```
 
 ## Kubernetes (Helm)

@@ -23,8 +23,11 @@ RPi deployment features:
 # SSH into your Pi
 ssh pi@raspberrypi.local
 
-# Deploy with remote access
-npx @cybermem/cli deploy --target rpi --remote-access
+# Run on the Pi
+npx @cybermem/mcp --rpi
+
+# Or with HTTPS remote access
+npx @cybermem/mcp --rpi --remote-access
 ```
 
 ## Tailscale Setup
