@@ -41,6 +41,20 @@ and follow the instructions in terminal.
 
 **Full Quick Start guide for every platform is available at [cybermem.dev/#quickstart](https://cybermem.dev/#quickstart).**
 
+## Why CyberMem?
+
+> **Problem:** Your AI tools (Claude, Cursor, Antigravity) don't share memory. Each session starts fresh.
+>
+> **Solution:** CyberMem gives them a shared, persistent memory layer.
+
+| Without CyberMem                      | With CyberMem                        |
+| ------------------------------------- | ------------------------------------ |
+| Claude forgets your project context   | All tools remember your preferences  |
+| Cursor doesn't know your coding style | Context persists across sessions     |
+| Each tool has separate knowledge      | One unified memory for all AI agents |
+
+**For Platform Engineers:** CyberMem also demonstrates Infrastructure as Code practices — CLI generates Docker Compose, Ansible Playbooks, or Helm Charts depending on your target platform.
+
 ## Architecture Overview
 
 ```mermaid
