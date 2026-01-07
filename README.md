@@ -45,27 +45,38 @@ and follow the instructions in terminal.
 
 ```mermaid
 graph TD
-    User[User: npx @cybermem/mcp] --> CLI
-    
-    subgraph CLI ["Platform Engineering Engine"]
-        Logic[CLI Logic]
-        Templates[Infrastructure Templates]
-        Logic --> Templates
+    subgraph Gen["🏗️ Platform Engineering Engine"]
+        CLI["**CLI**"]
+        Templates["**Infrastructure Templates**"]
+        CLI --> Templates
+        
+        Compose["**Docker Compose**<br/>(Local)"]
+        Ansible["**Ansible**<br/>(IoT/Edge)"]
+        Helm["**Helm Charts**<br/>(Cloud/K8s)"]
+        
+        Templates --> Compose
+        Templates --> Ansible
+        Templates --> Helm
     end
-    
-    CLI --> Docker["Docker Compose<br>(Local Dev)"]
-    CLI --> K8s["K8s Manifests<br>(Production)"]
-    CLI --> ECS["AWS ECS Task Def<br>(Cloud)"]
-    
-    Docker --> Server[CyberMem Server]
-    K8s --> Server
-    ECS --> Server
-    
-    subgraph ServerBox [Runtime]
-        Server
-        Persistence[SQLite/Postgres]
-        MCP[MCP Interface]
+
+    subgraph Runtime["⚙️ CyberMem Runtime"]
+        Traefik["**Traefik**<br/>(Reverse Proxy)"]
+        Vector["**Vector**<br/>(Log Parsing)"]
+        Prom["**Prometheus**<br/>(Metrics)"]
+        Dash["**Dashboard**<br/>(Monitoring UI)"]
+        OM["**OpenMemory**<br/>(AI Memory Engine)"]
+        DB["**SQLite / Postgres**<br/>(Persistence)"]
+        
+        Traefik -->|Logs| Vector
+        Traefik -->|API| OM
+        OM --> DB
+        Vector --> Prom
+        Prom --> Dash
     end
+
+    Compose -.-> Traefik
+    Ansible -.-> Traefik
+    Helm -.-> Traefik
 ```
 
 ## Project Structure (Monorepo)
