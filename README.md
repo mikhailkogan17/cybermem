@@ -23,15 +23,13 @@
 
 ## Features
 
-**Model Context Protocol**: Native Model Context Protocol support for Claude, Cursor, and other AI clients
-
-**Multi-Platform**: Deploy on Mac, Raspberry Pi, or Cloud VPS with one command
-
-**Infrastructure as Code**: Production-ready Docker Compose, Helm Charts, Ansible Playbooks
-
-**Observability**: Built-in Prometheus metrics, Grafana dashboards, audit logs
-
-**Security**: Traefik reverse proxy, Tailscale Funnel for zero-config HTTPS
+| Feature                    | Description                                                                    |
+| -------------------------- | ------------------------------------------------------------------------------ |
+| **Model Context Protocol** | Native Model Context Protocol support for Claude, Cursor, and other AI clients |
+| **Multi-Platform**         | Deploy on Mac, Raspberry Pi, or Cloud VPS with one command                     |
+| **Infrastructure as Code** | Production-ready Docker Compose, Helm Charts, Ansible Playbooks                |
+| **Observability**          | Built-in Prometheus metrics, Grafana dashboards, audit logs                    |
+| **Security**               | Traefik reverse proxy, Tailscale Funnel for zero-config HTTPS                  |
 
 ## Try It Out!
 
