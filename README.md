@@ -8,12 +8,15 @@
   </p>
   
   <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="README_assets/logo-dark.svg">
-    <source media="(prefers-color-scheme: light)" srcset="README_assets/logo-light.svg">
-    <img alt="CyberMem Logo" src="README_assets/logo-light.svg" width="600">
+    <source media="(prefers-color-scheme: dark)" srcset="README_assets/logo-dark.svg" width="490">
+    <source media="(prefers-color-scheme: light)" srcset="README_assets/logo-light.svg" width="490">
+    <img alt="CyberMem Logo" src="README_assets/logo-light.svg" width="490">
   </picture>
 
   <h3>Universal Long-Term Memory for AI Agents</h3>
+
+  ---
+
   <p><strong>Production-grade MCP Server</strong><br>
   Docker Compose • Helm Charts • Prometheus • Traefik • Based on <a href="https://github.com/CaviraOSS/OpenMemory">OpenMemory</a></p>
 </div>
