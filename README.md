@@ -1,7 +1,7 @@
 <div align="center">
   <p>
     <a href="https://cybermem.dev"><img src="https://img.shields.io/badge/website-cybermem.dev-10b981?&logoColor=white" alt="website"></a>
-    <a href="https://cybermem.dev/docs"><img src="https://img.shields.io/badge/docs-read_now-10b981" alt="docs"></a>
+    <a href="https://docs.cybermem.dev"><img src="https://img.shields.io/badge/docs-read_now-10b981" alt="docs"></a>
     <a href="https://www.npmjs.com/package/@cybermem/mcp-server"><img src="https://img.shields.io/npm/v/@cybermem/mcp-server?color=10b981&label=npm&" alt="npm"></a>
     <a href="https://github.com/mikhailkogan17/cybermem/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/mikhailkogan17/cybermem/ci.yml?label=CI&color=10b981" alt="CI"></a>
     <img src="https://img.shields.io/badge/license-MIT-10b981" alt="license">
@@ -103,14 +103,14 @@ cybermem/
 
 ## Documentation
 
-Full documentation available at **[cybermem.dev/docs](https://cybermem.dev/docs)** (or browse links below):
+Full documentation available at **[docs.cybermem.dev](https://docs.cybermem.dev)**:
 
-| Guide                                                                               | Description                       |
-| :---------------------------------------------------------------------------------- | :-------------------------------- |
-| [Local Setup](https://github.com/mikhailkogan17/cybermem/blob/main/docs/local.md)   | Mac/Linux development environment |
-| [Raspberry Pi](https://github.com/mikhailkogan17/cybermem/blob/main/docs/rpi.md)    | Edge deployment with Tailscale    |
-| [Cloud/VPS](https://github.com/mikhailkogan17/cybermem/blob/main/docs/vps.md)       | Production Kubernetes deployment  |
-| [MCP Integration](https://github.com/mikhailkogan17/cybermem/blob/main/docs/mcp.md) | Connect Claude, Cursor, and more  |
+| Guide                                            | Description                       |
+| :----------------------------------------------- | :-------------------------------- |
+| [Local Setup](https://docs.cybermem.dev/local)   | Mac/Linux development environment |
+| [Raspberry Pi](https://docs.cybermem.dev/rpi)    | Edge deployment with Tailscale    |
+| [Cloud/VPS](https://docs.cybermem.dev/vps)       | Production Kubernetes deployment  |
+| [MCP Integration](https://docs.cybermem.dev/mcp) | Connect Claude, Cursor, and more  |
 
 ## Contributing
 
