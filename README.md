@@ -1,121 +1,189 @@
-<div align="center">
-  <p>
-    <a href="https://cybermem.dev"><img src="https://img.shields.io/badge/website-cybermem.dev-10b981?&logoColor=white" alt="website"></a>
-    <a href="https://docs.cybermem.dev"><img src="https://img.shields.io/badge/docs-read_now-10b981" alt="docs"></a>
-    <a href="https://www.npmjs.com/package/@cybermem/mcp-server"><img src="https://img.shields.io/npm/v/@cybermem/mcp-server?color=10b981&label=npm&" alt="npm"></a>
-    <a href="https://github.com/mikhailkogan17/cybermem/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/mikhailkogan17/cybermem/ci.yml?label=CI&color=10b981" alt="CI"></a>
-    <img src="https://img.shields.io/badge/license-MIT-10b981" alt="license">
-  </p>
-  
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="README_assets/logo-dark.svg" width="490">
-    <source media="(prefers-color-scheme: light)" srcset="README_assets/logo-light.svg" width="490">
-    <img alt="CyberMem Logo" src="README_assets/logo-light.svg" width="490">
-  </picture>
+# CyberMem
 
-  <h3>Universal Long-Term Memory for AI Agents</h3>
+> **AI Memory Infrastructure** + **Platform Engineering Template Generator**
 
-  ---
+Single unified memory layer for AI agents, deployable anywhere.
 
-  <p><strong>Production-grade MCP Server</strong><br>
-  Docker Compose • Helm Charts • Ansible Playbooks • Prometheus • Traefik • Based on <a href="https://github.com/CaviraOSS/OpenMemory">CaviraOSS/OpenMemory</a></p>
-</div>
+---
 
-## Features
+## What's Included?
 
-| Feature                    | Description                                                                    |
-| -------------------------- | ------------------------------------------------------------------------------ |
-| **Model Context Protocol** | Native Model Context Protocol support for Claude, Cursor, and other AI clients |
-| **Multi-Platform**         | Deploy on Mac, Raspberry Pi, or Cloud VPS with one command                     |
-| **Infrastructure as Code** | Production-ready Docker Compose, Helm Charts, Ansible Playbooks                |
-| **Observability**          | Built-in Prometheus metrics, Grafana dashboards, audit logs                    |
-| **Security**               | Traefik reverse proxy, Tailscale Funnel for zero-config HTTPS                  |
+### Core Features
+- Self-hosted AI persistent memory (MCP-native)
+- Multi-platform deployment (Docker, K8s, AWS ECS, Raspberry Pi, VPS)
+- Built-in monitoring & observability (Prometheus metrics)
 
-## Try It Out!
+### Platform Engineering (The Secret Sauce)
+- **Monorepo structure** with packages for CLI, templates, and core
+- **Infrastructure templates** auto-generated for any environment
+- **E2E testing** across deployment platforms
+- **Production-hardened** security defaults
 
-To try CyberMem on your local machine, run:
+---
+
+## Architecture Overview
+
+```mermaid
+graph TD
+    User[User: npx @cybermem/mcp] --> CLI
+    
+    subgraph CLI ["Platform Engineering Engine"]
+        Logic[CLI Logic]
+        Templates[Infrastructure Templates]
+        Logic --> Templates
+    end
+    
+    CLI --> Docker[Docker Compose\n(Local Dev)]
+    CLI --> K8s[K8s Manifests\n(Production)]
+    CLI --> ECS[AWS ECS Task Def\n(Cloud)]
+    
+    Docker --> Server[CyberMem Server]
+    K8s --> Server
+    ECS --> Server
+    
+    subgraph ServerBox [Runtime]
+        Server
+        Persistence[SQLite/Postgres]
+        MCP[MCP Interface]
+    end
+```
+
+---
+
+## How It Works
+
+### 1. Installation (One-liner)
 ```bash
 npx @cybermem/mcp
 ```
-and follow the instructions in terminal.
 
-**Full Quick Start guide for every platform is available at [cybermem.dev/#quickstart](https://cybermem.dev/#quickstart).**
+### 2. CLI Auto-Generates Infrastructure
+The CLI intelligently generates deployment configs based on your target platform:
 
-## Architecture
-
-> **What makes CyberMem different?** It wraps [OpenMemory](https://github.com/CaviraOSS/OpenMemory) with production infrastructure — per-client audit logging, observability, and multi-platform deployment. No code changes to OpenMemory required.
-
-```mermaid
-graph LR
-    subgraph Clients["🤖 AI Clients"]
-        Claude["Claude"]
-        Cursor["Cursor"]
-        Antigravity["Antigravity"]
-    end
-
-    subgraph Infra["⚙️ CyberMem Infrastructure"]
-        Traefik["🔀 Traefik<br/>Auth + Routing"]
-        Vector["📊 Vector<br/>Log Parsing"]
-        Prometheus["📈 Prometheus<br/>Metrics"]
-    end
-
-    subgraph Core["🧠 Memory Engine"]
-        OpenMemory["OpenMemory<br/>Graph + Embeddings"]
-        DB["💾 SQLite/Postgres"]
-    end
-
-    subgraph UI["📱 Dashboard"]
-        Dashboard["Monitoring<br/>Audit Logs"]
-    end
-
-    Claude -->|MCP| Traefik
-    Cursor -->|MCP| Traefik
-    Antigravity -->|MCP| Traefik
-    
-    Traefik --> OpenMemory
-    Traefik --> Vector
-    OpenMemory --> DB
-    Vector --> Prometheus
-    Prometheus --> Dashboard
+```bash
+npx @cybermem/mcp --target docker-compose   # Creates docker-compose.yml
+npx @cybermem/mcp --target k8s              # Creates Kubernetes manifests (v0.3.0)
+npx @cybermem/mcp --target aws-ecs          # Creates ECS task definition (v0.3.0)
 ```
 
-| Component      | Purpose                                                 |
-| -------------- | ------------------------------------------------------- |
-| **OpenMemory** | Graph-based memory engine with Ollama/OpenAI embeddings |
-| **Traefik**    | Reverse proxy with auth extraction and access logging   |
-| **Vector**     | Parses Traefik logs into per-client metrics             |
-| **Prometheus** | Time-series storage for audit and observability         |
-| **Dashboard**  | Real-time monitoring, client activity, audit logs       |
+**Under the hood** (in `packages/cli/templates`):
+- Reads environment variables
+- Generates optimized YAML/JSON from templates
+- Validates configuration
+- Runs E2E tests to ensure deployment works
 
-## Repository Structure
+### 3. Deploy Anywhere
+- **Local:** `docker-compose up`
+- **Kubernetes:** `kubectl apply -f manifests/`
+- **AWS:** `aws ecs register-task-definition`
+- **Raspberry Pi:** Single binary, no dependencies
+
+---
+
+## Project Structure (Monorepo)
 
 ```
 cybermem/
 ├── packages/
-│   ├── cli/          # @cybermem/cli - Deployment CLI
-│   ├── mcp/          # @cybermem/mcp-server - MCP Server
-│   └── dashboard/    # @cybermem/dashboard - Monitoring UI
-├── docs/             # Documentation
-├── external/
-│   └── openmemory/   # OpenMemory submodule
-└── patches/          # OpenMemory customizations
+│   ├── core/                 # AI memory engine (Node.js)
+│   │   ├── src/
+│   │   └── __tests__/
+│   ├── cli/                  # Command-line tool (TypeScript)
+│   │   ├── src/              # CLI logic
+│   │   ├── templates/        # ⭐ Infrastructure templates
+│   │   │   ├── docker-compose.yml
+│   │   │   ├── k8s/
+│   │   │   │   ├── deployment.yaml
+│   │   │   │   ├── service.yaml
+│   │   │   │   └── ingress.yaml
+│   │   │   └── aws/
+│   │   │       └── ecs-task-def.json
+│   │   └── e2e/              # ⭐ End-to-end tests
+│   │       ├── basic.test.ts         # Smoke test
+│   │       ├── k8s.test.ts           # K8s deployment test
+│   │       └── docker.test.ts        # Docker test
+│   └── docs/                 # Documentation site
+├── .github/
+│   └── workflows/            # ⭐ CI/CD pipelines
+│       ├── test.yml          # Run tests on every PR
+│       ├── publish.yml       # Auto-publish on release
+│       └── e2e.yml           # E2E tests in CI
+└── README.md
 ```
+
+**Key innovation:** `packages/cli/templates/` contains the **infrastructure-as-code templates**. 
+The CLI reads these, interpolates variables, and generates production configs.
+
+---
+
+## Platform Engineering Highlights
+
+| Aspect                     | Details                                                     |
+| -------------------------- | ----------------------------------------------------------- |
+| **Infrastructure as Code** | Templated YAML/JSON auto-generated by CLI                   |
+| **Multi-platform**         | Works on Docker, K8s, AWS ECS, Raspberry Pi, VPS            |
+| **Testing**                | E2E tests validate each deployment platform                 |
+| **Security**               | Hardened defaults (no root, health checks, resource limits) |
+| **Observability**          | Prometheus metrics, request audit logs per client           |
+| **DevEx**                  | Single command deploys to any platform                      |
+
+---
 
 ## Documentation
 
-Full documentation available at **[docs.cybermem.dev](https://docs.cybermem.dev)**:
+[![](https://img.shields.io/badge/docs-cybermem.dev-10b981?style=for-the-badge&logo=bookstack&logoColor=white)](https://docs.cybermem.dev)
 
-| Guide                                            | Description                       |
-| :----------------------------------------------- | :-------------------------------- |
-| [Local Setup](https://docs.cybermem.dev/local)   | Mac/Linux development environment |
-| [Raspberry Pi](https://docs.cybermem.dev/rpi)    | Edge deployment with Tailscale    |
-| [Cloud/VPS](https://docs.cybermem.dev/vps)       | Production Kubernetes deployment  |
-| [MCP Integration](https://docs.cybermem.dev/mcp) | Connect Claude, Cursor, and more  |
+Detailed guides for every platform:
 
-## Contributing
+| Platform  | Best For   | Link                                                |
+| --------- | ---------- | --------------------------------------------------- |
+| **Local** | Developers | [Local Guide](https://docs.cybermem.dev/local)      |
+| **RPi**   | Home Lab   | [Raspberry Pi Guide](https://docs.cybermem.dev/rpi) |
+| **Cloud** | Production | [VPS/Cloud Guide](https://docs.cybermem.dev/vps)    |
 
-Contributions are welcome! See [CONTRIBUTING.md](CONTRIBUTING.md) for development setup and guidelines.
+---
+
+## Getting Started
+
+### For Developers
+```bash
+git clone https://github.com/mikhailkogan17/cybermem
+cd cybermem
+npm install
+npm run build
+npm run test:e2e
+```
+
+---
+
+## Why This Matters
+
+CyberMem isn't just "another DevOps tool". It's **Platform Engineering in practice**:
+- **Reduces friction** for AI developers (1-command deploy)
+- **Standardizes infrastructure** across teams (templates)
+- **Validates deployments** automatically (E2E tests)
+- **Works anywhere** (cloud-agnostic)
+
+This is the infrastructure pattern used by **Vercel** (for Next.js), **Render** (for app deployment), 
+and **Replit** (for cloud IDE). You're building at that level.
+
+---
+
+## Releases
+
+- **v0.3.0** (Jan 2026) — Kubernetes support, E2E testing framework
+- **v0.2.0** — Docker Compose generation, basic templates
+- **v0.1.0** — Core AI memory engine, MCP integration
+
+---
+
+## Contributing & Community
+
+- Issues: [GitHub Issues](https://github.com/mikhailkogan17/cybermem/issues)
+- Docs: [docs.cybermem.dev](https://docs.cybermem.dev)
+
+---
 
 ## License
 
-MIT © [Mikhail Kogan](https://github.com/mikhailkogan17)
+MIT
