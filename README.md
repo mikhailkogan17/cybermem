@@ -33,9 +33,9 @@ graph TD
         Logic --> Templates
     end
     
-    CLI --> Docker[Docker Compose\n(Local Dev)]
-    CLI --> K8s[K8s Manifests\n(Production)]
-    CLI --> ECS[AWS ECS Task Def\n(Cloud)]
+    CLI --> Docker["Docker Compose<br>(Local Dev)"]
+    CLI --> K8s["K8s Manifests<br>(Production)"]
+    CLI --> ECS["AWS ECS Task Def<br>(Cloud)"]
     
     Docker --> Server[CyberMem Server]
     K8s --> Server
