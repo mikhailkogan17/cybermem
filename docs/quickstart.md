@@ -28,10 +28,10 @@ This will:
 npm install -g @cybermem/cli
 
 # Initialize configuration
-cybermem init
+cybermem-cli init
 
 # Start services
-cybermem up
+cybermem-cli up
 ```
 
 ## Access Points

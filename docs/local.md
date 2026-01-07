@@ -71,16 +71,16 @@ OLLAMA_URL=http://ollama:11434
 
 ```bash
 # Start services
-cybermem up
+cybermem-cli up
 
 # Stop services
-cybermem down
+cybermem-cli down
 
 # View logs
-cybermem logs
+cybermem-cli logs
 
 # Reset database
-cybermem reset
+cybermem-cli reset
 ```
 
 ## Troubleshooting
