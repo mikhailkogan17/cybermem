@@ -1,4 +1,20 @@
-# CyberMem
+<div align="center">
+  <img src="https://cybermem.dev/web-app-manifest-192x192.png" width="120" height="120" alt="CyberMem Logo" />
+  <h1>CyberMem</h1>
+  <p>Two-tier memory Service (Active Context + Long-term Archival) for AI Agents</p>
+
+  <a href="https://docs.cybermem.dev">
+    <img src="https://img.shields.io/badge/docs-cybermem.dev-10b981?style=for-the-badge&logo=bookstack&logoColor=white" alt="Docs" />
+  </a>
+  <a href="https://github.com/mikhailkogan17/cybermem/pkgs/container/cybermem">
+    <img src="https://img.shields.io/github/v/release/mikhailkogan17/cybermem?style=for-the-badge&color=10b981" alt="Release" />
+  </a>
+   <a href="https://github.com/mikhailkogan17/cybermem/blob/main/LICENSE">
+    <img src="https://img.shields.io/github/license/mikhailkogan17/cybermem?style=for-the-badge&color=blue" alt="License" />
+  </a>
+</div>
+
+<br/>
 
 > **AI Memory Infrastructure** + **Platform Engineering Template Generator**
 
@@ -130,8 +146,6 @@ The CLI reads these, interpolates variables, and generates production configs.
 ---
 
 ## Documentation
-
-[![](https://img.shields.io/badge/docs-cybermem.dev-10b981?style=for-the-badge&logo=bookstack&logoColor=white)](https://docs.cybermem.dev)
 
 Detailed guides for every platform:
 
