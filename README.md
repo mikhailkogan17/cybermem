@@ -1,9 +1,9 @@
 
 <div align="center">
   <p>
-    <a href="https://github.com/mikhailkogan17/cybermem/actions/workflows/ci.yml"><img src="https://github.com/mikhailkogan17/cybermem/actions/workflows/ci.yml/badge.svg" alt="CI Status"></a>
-    <a href="https://www.npmjs.com/package/@cybermem/mcp-server"><img src="https://img.shields.io/npm/v/@cybermem/mcp-server?color=%23099270&label=version" alt="Version"></a>
-    <img src="https://img.shields.io/badge/MCP-Ready-%23099270?logo=modelcontextprotocol" alt="MCP Ready">
+    <a href="https://cybermem.dev"><img src="https://img.shields.io/badge/docs-cybermem.dev-%23099270" alt="Documentation"></a>
+    <a href="https://www.npmjs.com/package/@cybermem/mcp-server"><img src="https://img.shields.io/npm/v/@cybermem/mcp-server?color=%23099270&label=npm" alt="npm"></a>
+    <a href="https://github.com/mikhailkogan17/cybermem/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/mikhailkogan17/cybermem/ci.yml?label=CI" alt="CI"></a>
     <img src="https://img.shields.io/badge/license-MIT-%23099270" alt="License">
   </p>
   
@@ -13,106 +13,108 @@
     <img alt="CyberMem Logo" src="README_assets/logo-light.svg" width="600">
   </picture>
 
-  <p><strong>Universal Long-Term Memory for any AI Agent.</strong></p>
-  <p>Based on <a href="https://github.com/CaviraOSS/OpenMemory">OpenMemory</a>.</p>
+  <h3>Universal Long-Term Memory for AI Agents</h3>
+  <p>Production-grade <strong>MCP Server</strong> • <strong>Docker Compose</strong> • <strong>Helm Charts</strong> • <strong>Prometheus</strong> • <strong>Traefik</strong></p>
+  <p>Based on <a href="https://github.com/CaviraOSS/OpenMemory">OpenMemory</a></p>
+  
+  <a href="https://cybermem.dev/docs/quickstart"><strong>📖 Quick Start →</strong></a>
 </div>
 
-## Why CyberMem?
+---
 
-- **Easy to Install**: Get started in seconds with a single command. No complex setup required.
-- **Universal**: Runs smoothly on your Mac, Raspberry Pi, or high-performance Cloud VPS.
-- **Infrastructure as Code**: Production-grade templates (Helm Charts, Ansible Playbooks, Docker Compose) built into the CLI.
-- **Secure & Controlled**: Enterprise-grade monitoring and full sovereignty over your memory data.
+## Features
 
-## 🚀 Installation
+| Feature                    | Description                                                                    |
+| -------------------------- | ------------------------------------------------------------------------------ |
+| **MCP Protocol**           | Native Model Context Protocol support for Claude, Cursor, and other AI clients |
+| **Multi-Platform**         | Deploy on Mac, Raspberry Pi, or Cloud VPS with one command                     |
+| **Infrastructure as Code** | Production-ready Docker Compose, Helm Charts, Ansible Playbooks                |
+| **Observability**          | Built-in Prometheus metrics, Grafana dashboards, audit logs                    |
+| **Security**               | Traefik reverse proxy, Tailscale Funnel for zero-config HTTPS                  |
 
-### Quick Start
-```bash
-# Install and deploy in one command
-npm install -g @cybermem/cli && cybermem deploy
-```
-
-For advanced deployments (Raspberry Pi, Cloud VPS), see our [Documentation](https://cybermem.dev/docs).
-
-## � Security
-
-CyberMem adapts security to your deployment environment:
-
-| Environment      | HTTPS                          | Auth                                |
-| ---------------- | ------------------------------ | ----------------------------------- |
-| **Local**        | Not needed (localhost only)    | Optional — keyless localhost access |
-| **Raspberry Pi** | Tailscale Funnel (zero-config) | API key required for remote         |
-| **Cloud/VPS**    | Caddy/Traefik auto-cert        | API key always required             |
+## Quick Start
 
 ```bash
-# RPi with Tailscale remote access
-cybermem deploy --target rpi --remote-access
-
-# Cloud with auto-SSL via Caddy
-cybermem deploy --target vps
+npx @cybermem/cli deploy
 ```
 
-### Quick Access (Local)
+<details>
+<summary><strong>🍎 Local (Mac/Linux)</strong></summary>
 
-After installation, access your CyberMem instance:
+```bash
+# One-liner installation
+npx @cybermem/cli deploy --target local
 
-- **Dashboard**: [http://localhost:3000](http://localhost:3000) (password: `admin`)
-- **MCP API**: `http://localhost:8626/mcp` (for AI clients)
-- **Prometheus**: [http://localhost:9092](http://localhost:9092) (metrics)
+# Access points
+# Dashboard: http://localhost:3000
+# MCP API:   http://localhost:8626/mcp
+```
+</details>
 
+<details>
+<summary><strong>🍓 Raspberry Pi</strong></summary>
 
-## �📊 Dashboard
+```bash
+# Deploy with Tailscale for remote access
+npx @cybermem/cli deploy --target rpi --remote-access
 
-Manage your agents' memories with a beautiful, real-time interface.
+# Features: SQLite, Ollama embeddings, zero-config HTTPS via Tailscale Funnel
+```
+</details>
 
-<!--
-<img src="README_assets/dashboard1.png" width="49%"></img>
-<img src="README_assets/dashboard2.png" width="49%"></img>
-<img src="README_assets/dashboard3.png" width="49%"></img>
-<img src="README_assets/dashboard4.png" width="49%"></img>
--->
+<details>
+<summary><strong>☁️ Cloud/VPS</strong></summary>
 
-- **Real-time Metrics**: Throughput, latency, and error rates.
-- **Memory Inspector**: View and edit stored memories.
+```bash
+# Deploy with PostgreSQL and auto-SSL
+npx @cybermem/cli deploy --target vps
 
-## 📚 Documentation
+# Features: PostgreSQL, OpenAI embeddings, Traefik auto-cert
+```
+</details>
 
-Visit [cybermem.dev/docs](https://cybermem.dev/docs) for full guides.
-
-## 🏗 Architecture
+## Architecture
 
 ```mermaid
-graph TD
-    Client["Client (Claude/Cursor)"] -->|MCP Protocol| Traefik
-    Tailscale["Tailscale Funnel"] -.->|Public HTTPS| Traefik
-    Traefik -->|Load Balance| OM[OpenMemory API]
-    Traefik -->|Logs| Vector
-    OM -->|Store| DB[(PostgreSQL/SQLite)]
-    Vector -->|Metrics| Prometheus
-    Prometheus -->|Data| Grafana
-    Prometheus -->|Data| Dashboard
+graph LR
+    Client[AI Client] -->|MCP| Traefik
+    Traefik --> API[OpenMemory API]
+    API --> DB[(SQLite/PostgreSQL)]
+    Traefik --> Vector[Log Exporter]
+    Vector --> Prometheus
+    Prometheus --> Dashboard
 ```
 
-## 📦 CLI Templates
+## Repository Structure
 
-The `@cybermem/cli` includes production-ready deployment templates:
+```
+cybermem/
+├── packages/
+│   ├── cli/          # @cybermem/cli - Deployment CLI
+│   ├── mcp/          # @cybermem/mcp-server - MCP Server
+│   └── dashboard/    # @cybermem/dashboard - Monitoring UI
+├── docs/             # Documentation
+├── external/
+│   └── openmemory/   # OpenMemory submodule
+└── patches/          # OpenMemory customizations
+```
 
-| Template              | Use Case                 | Location                       |
-| --------------------- | ------------------------ | ------------------------------ |
-| **Docker Compose**    | Local & RPi deployment   | `templates/docker-compose.yml` |
-| **Helm Charts**       | Kubernetes (K8s/K3s)     | `templates/charts/cybermem/`   |
-| **Ansible Playbooks** | RPi fleet automation     | `templates/ansible/`           |
-| **Monitoring Stack**  | Grafana + Prometheus     | `templates/monitoring/`        |
-| **Tailscale Funnel**  | Zero-config public HTTPS | Built into `--remote-access`   |
+## Documentation
 
-See [`packages/cli/templates/`](packages/cli/templates/) for all configurations.
+Full documentation available at **[cybermem.dev/docs](https://cybermem.dev/docs)**
 
-## 🤝 Community & Contributing
+| Guide                                               | Description                       |
+| --------------------------------------------------- | --------------------------------- |
+| [Quick Start](https://cybermem.dev/docs/quickstart) | Get running in 5 minutes          |
+| [Local Setup](https://cybermem.dev/docs/local)      | Mac/Linux development environment |
+| [Raspberry Pi](https://cybermem.dev/docs/rpi)       | Edge deployment with Tailscale    |
+| [Cloud/VPS](https://cybermem.dev/docs/vps)          | Production Kubernetes deployment  |
+| [MCP Integration](https://cybermem.dev/docs/mcp)    | Connect Claude, Cursor, and more  |
 
-We welcome contributions! Please see our [CONTRIBUTING.md](CONTRIBUTING.md) for details on how to get started, development workflow, and code standards.
+## Contributing
+
+We welcome contributions! See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 
 ## License
 
 MIT © [Mikhail Kogan](https://github.com/mikhailkogan17)
-
-

@@ -34,10 +34,29 @@
   - `templates/`: Production-ready configurations (Docker Compose, Helm Charts, Ansible Playbooks, Terraform Modules, Tailscale Funnel).
 - `packages/dashboard/`: Monitoring UI (metrics, audit logs) — NOT the public landing page.
 - `packages/mcp/`: MCP Server (TypeScript, published as @cybermem/mcp-server).
+- `docs/`: **All documentation** (quickstart, local, rpi, vps, mcp guides).
 - `external/openmemory/`: OpenMemory submodule.
 - `tools/`: Utility scripts (load_test.sh, e2e tests).
 - `README_assets/`: Assets for project documentation.
 - `patches/`: OpenMemory patches for customization without modifying submodule.
+
+## 3.1 Documentation Rules
+
+> [!CAUTION]
+> **ALL new markdown documentation MUST be placed in `/docs/`.**
+> 
+> Allowed `.md` files outside `/docs/`:
+> - `README.md` (project root only)
+> - `CONTRIBUTING.md`
+> - `GEMINI.md`
+> - `.agent/workflows/*.md` (agent workflows)
+> 
+> DO NOT create new `.md` files in:
+> - `packages/*/` (except package README.md)
+> - Root directory (except allowed files above)
+> - Any other location
+>
+> Documentation on cybermem.dev/docs is generated from `/docs/` via submodule.
 
 ---
 
