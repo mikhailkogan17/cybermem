@@ -1,6 +1,6 @@
 {
   "name": "@cybermem/mcp-server",
-  "version": "0.2.3",
+  "version": "0.2.7",
   "description": "CyberMem MCP Server (TypeScript)",
   "main": "dist/index.js",
   "bin": {
