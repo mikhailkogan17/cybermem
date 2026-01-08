@@ -59,6 +59,12 @@ and follow the instructions in terminal.
 ## Architecture Overview
 
 ```mermaid
+---
+config:
+  theme: base
+  wrappingWidth: 290
+  fontSize: 11
+---
 graph TD
     subgraph Gen["🏗️ Platform Engineering Engine"]
         CLI["**CLI**"]
