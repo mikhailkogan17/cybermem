@@ -17,5 +17,8 @@
   },
   "devDependencies": {
     "typescript": "^5.0.0"
+  },
+  "dependencies": {
+    "@icons-pack/react-simple-icons": "^13.8.0"
   }
 }

@@ -13,12 +13,13 @@
     <img alt="CyberMem Logo" src="README_assets/logo-light.svg" width="490">
   </picture>
 
-  <h3>Universal Long-Term Memory for AI Agents</h3>
+  <h3>Your AI Memory — Deploy Anywhere</h3>
+  <p><em>Platform Engineering MCP Server for DevOps & AI Teams</em></p>
 
   ---
 
   <p><strong>Production-grade MCP Server</strong><br>
-  Docker Compose • Helm Charts • Ansible Playbooks • Prometheus • Traefik • Based on <a href="https://github.com/CaviraOSS/OpenMemory">CaviraOSS/OpenMemory</a></p>
+  <strong>Docker Compose</strong> • <strong>Helm Charts</strong> • <strong>Ansible Playbooks</strong> • <strong>Prometheus</strong> • <strong>Traefik</strong> • Based on <a href="https://github.com/CaviraOSS/OpenMemory">CaviraOSS/OpenMemory</a></p>
 </div>
 
 ## Features
@@ -27,7 +28,7 @@
 | -------------------------- | ------------------------------------------------------------------------------ |
 | **Model Context Protocol** | Native Model Context Protocol support for Claude, Cursor, and other AI clients |
 | **Multi-Platform**         | Deploy on Mac, Raspberry Pi, or Cloud VPS with one command                     |
-| **Infrastructure as Code** | Production-ready Docker Compose, Helm Charts, Ansible Playbooks                |
+| **Infrastructure as Code** | Production-ready **Docker Compose**, **Helm Charts**, **Ansible Playbooks**    |
 | **Observability**          | Built-in Prometheus metrics, Grafana dashboards, audit logs                    |
 | **Security**               | Traefik reverse proxy, Tailscale Funnel for zero-config HTTPS                  |
 
