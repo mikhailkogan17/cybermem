@@ -11,12 +11,12 @@ services:
       - --api.insecure=true
       - --providers.docker=true
       - --providers.docker.exposedbydefault=false
-      - --entrypoints.web.address=:8088
+      - --entrypoints.web.address=:8626
       - --accesslog=true
       - --accesslog.filepath=/var/log/traefik/access.log
       - --accesslog.format=json
     ports:
-      - "8088:8088"
+      - "8626:8626"
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - ./monitoring/traefik/traefik.yml:/etc/traefik/traefik.yml:ro
@@ -28,8 +28,7 @@ services:
   openmemory:
     image: ghcr.io/mikhailkogan17/cybermem-openmemory:latest
     container_name: cybermem-openmemory
-    ports:
-      - "8626:8080" # Direct MCP access (8626 = MCP mnemonic)
+    ports: [] # Access via Traefik on 8626
     volumes:
       - openmemory-data:/data
       - ${CYBERMEM_ENV_PATH}:/.env
@@ -63,7 +62,7 @@ services:
     labels:
       - traefik.enable=true
       - traefik.http.routers.openmemory.entrypoints=web
-      - traefik.http.routers.openmemory.rule=PathPrefix(`/memory`) || PathPrefix(`/health`) || PathPrefix(`/v1`) || PathPrefix(`/api`) || PathPrefix(`/all`) || PathPrefix(`/add`)
+      - traefik.http.routers.openmemory.rule=PathPrefix(`/memory`) || PathPrefix(`/health`) || PathPrefix(`/v1`) || PathPrefix(`/api`) || PathPrefix(`/all`) || PathPrefix(`/add`) || PathPrefix(`/mcp`) || PathPrefix(`/sse`)
       - traefik.http.services.openmemory.loadbalancer.server.port=8080
     healthcheck:
       test:
@@ -109,6 +108,7 @@ services:
     volumes:
       - traefik-logs:/var/log/traefik:ro
       - openmemory-data:/data
+      - ./monitoring/log_exporter/exporter.py:/app/exporter.py:ro
     restart: unless-stopped
     depends_on:
       - traefik

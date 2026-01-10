@@ -217,6 +217,8 @@ def parse_and_export():
                 operation = "update"
             elif endpoint.startswith("/memory/") and method == "DELETE":
                 operation = "delete"
+            elif endpoint.startswith("/mcp"):
+                operation = "create"  # MCP operations are typically POST
             else:
                 operation = "other"
 
@@ -228,8 +230,9 @@ def parse_and_export():
             ):
                 endpoint = "/memory/:id"
 
-            # Only track requests to OpenMemory API (skip health checks, etc.)
-            if endpoint.startswith("/memory") or endpoint.startswith("/health"):
+            # Only track requests to OpenMemory API (/memory/* and /mcp endpoints)
+            # Exclude /health checks - they pollute Top/Last Reader metrics
+            if endpoint.startswith("/memory") or endpoint.startswith("/mcp"):
                 # Check if it's an error (4xx or 5xx)
                 is_error = status.startswith("4") or status.startswith("5")
 
