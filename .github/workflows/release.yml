@@ -41,23 +41,33 @@ jobs:
       - name: Install Dependencies
         run: npm ci
 
-      - name: Bump Version
+      - name: Bump Versions (all packages)
         id: version
-        working-directory: packages/mcp
         run: |
-          npm version ${{ inputs.version_type }} --no-git-tag-version
-          NEW_VERSION=$(node -p "require('./package.json').version")
+          # Bump version in all packages
+          for pkg in packages/cli packages/mcp packages/dashboard; do
+            cd $pkg
+            npm version ${{ inputs.version_type }} --no-git-tag-version
+            cd ../..
+          done
+
+          # Get version from mcp (entry point)
+          NEW_VERSION=$(node -p "require('./packages/cli/package.json').version")
           echo "version=$NEW_VERSION" >> $GITHUB_OUTPUT
           echo "New version: $NEW_VERSION"
 
-      - name: Build Package
-        working-directory: packages/mcp
-        run: npm run build 2>/dev/null || echo "No build step"
+      - name: Build Packages
+        run: |
+          cd packages/cli && npm run build 2>/dev/null || echo "No build step"
+          cd ../..
+          cd packages/mcp && npm run build 2>/dev/null || echo "No build step"
+          cd ../..
+          cd packages/dashboard && npm run build 2>/dev/null || echo "No build step"
 
       - name: Commit Version Bump
         run: |
-          git add packages/mcp/package.json packages/mcp/dist/
-          git commit -m "release: @cybermem/mcp-server v${{ steps.version.outputs.version }}"
+          git add packages/*/package.json packages/*/dist/
+          git commit -m "release: v${{ steps.version.outputs.version }}"
 
       - name: Create Tag
         run: |
@@ -68,8 +78,16 @@ jobs:
           git push
           git push --tags
 
-      - name: Publish to npm
+      - name: Publish @cybermem/mcp (entry point)
+        working-directory: packages/cli
+        run: npm publish --access public --provenance
+
+      - name: Publish @cybermem/mcp-core
         working-directory: packages/mcp
+        run: npm publish --access public --provenance
+
+      - name: Publish @cybermem/dashboard
+        working-directory: packages/dashboard
         run: npm publish --access public --provenance
 
       - name: Create GitHub Release
@@ -81,14 +99,17 @@ jobs:
             --generate-notes
 
       - name: Post-Release Version Bump
-        working-directory: packages/mcp
         run: |
-          npm version patch --no-git-tag-version
-          NEXT_VERSION=$(node -p "require('./package.json').version")
+          for pkg in packages/cli packages/mcp packages/dashboard; do
+            cd $pkg
+            npm version patch --no-git-tag-version
+            cd ../..
+          done
+          NEXT_VERSION=$(node -p "require('./packages/cli/package.json').version")
           echo "Next dev version: $NEXT_VERSION"
 
       - name: Commit Dev Version
         run: |
-          git add packages/mcp/package.json
-          git commit -m "chore: bump to v$(node -p "require('./packages/mcp/package.json').version") for development"
+          git add packages/*/package.json
+          git commit -m "chore: bump to v$(node -p "require('./packages/cli/package.json').version") for development"
           git push

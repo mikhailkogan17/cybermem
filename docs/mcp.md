@@ -28,7 +28,7 @@ Add to `~/.config/claude/mcp.json` or Cursor MCP settings:
   "mcpServers": {
     "cybermem": {
       "command": "npx",
-      "args": ["-y", "@cybermem/mcp-server"]
+      "args": ["-y", "@cybermem/mcp-core"]
     }
   }
 }
@@ -43,7 +43,7 @@ Install the CyberMem extension or configure manually:
   "mcp.servers": {
     "cybermem": {
       "command": "npx",
-      "args": ["-y", "@cybermem/mcp-server"]
+      "args": ["-y", "@cybermem/mcp-core"]
     }
   }
 }
@@ -85,7 +85,7 @@ Then configure:
   "mcpServers": {
     "cybermem": {
       "command": "npx",
-      "args": ["-y", "@cybermem/mcp-server"],
+      "args": ["-y", "@cybermem/mcp-core"],
       "env": {
         "CYBERMEM_URL": "${CYBERMEM_URL}",
         "CYBERMEM_API_KEY": "${CYBERMEM_API_KEY}"

@@ -107,7 +107,7 @@
       "The server will be available in all Claude Code sessions"
     ],
     "configType": "command",
-    "localCommand": "claude mcp add cybermem npx @cybermem/mcp-server",
+    "localCommand": "claude mcp add cybermem npx @cybermem/mcp-core",
     "remoteCommand": "claude mcp add --transport sse cybermem {{ENDPOINT}}"
   },
   {
@@ -170,7 +170,7 @@
       "The server persists across sessions"
     ],
     "configType": "cmd",
-    "localCommand": "gemini mcp add cybermem npx @cybermem/mcp-server",
+    "localCommand": "gemini mcp add cybermem npx @cybermem/mcp-core",
     "remoteCommand": "gemini mcp add --transport sse cybermem {{ENDPOINT}}"
   },
   {

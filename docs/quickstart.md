@@ -56,7 +56,7 @@ Add to your MCP configuration:
   "mcpServers": {
     "cybermem": {
       "command": "npx",
-      "args": ["-y", "@cybermem/mcp-server"]
+      "args": ["-y", "@cybermem/mcp-core"]
     }
   }
 }

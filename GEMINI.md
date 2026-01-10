@@ -27,13 +27,13 @@
   - **Embeddings**: OpenAI (VPS) or Ollama (Local/RPi).
   - **Orchestration**: Docker Compose (Local) -> converted to Helm charts via `kompose` (VPS).
 - **Monorepo Architecture**:
-  - **NPM Workspaces**: Manages `@cybermem/cli`, `@cybermem/dashboard`, and `@cybermem/mcp-server`.
+  - **NPM Workspaces**: Manages `@cybermem/cli`, `@cybermem/dashboard`, and `@cybermem/mcp-core`.
 
 ## 3. Directory Map
 - `packages/cli/`: Management CLI (@cybermem/cli)
   - `templates/`: Production-ready configurations (Docker Compose, Helm Charts, Ansible Playbooks, Terraform Modules, Tailscale Funnel).
 - `packages/dashboard/`: Monitoring UI (metrics, audit logs) — NOT the public landing page.
-- `packages/mcp/`: MCP Server (TypeScript, published as @cybermem/mcp-server).
+- `packages/mcp/`: MCP Server (TypeScript, published as @cybermem/mcp-core).
 - `docs/`: **All documentation** (quickstart, local, rpi, vps, mcp guides).
 - `external/openmemory/`: OpenMemory submodule.
 - `tools/`: Utility scripts (load_test.sh, e2e tests).
@@ -94,7 +94,7 @@
   "mcpServers": {
     "cybermem": {
       "command": "npx",
-      "args": ["-y", "@cybermem/mcp-server"]
+      "args": ["-y", "@cybermem/mcp-core"]
     }
   }
 }
@@ -113,7 +113,7 @@
 }
 ```
 > [!IMPORTANT]
-> Run the server with `PORT=8627 npx @cybermem/mcp-server --sse` to enable SSE. This allows console utilities to pass `X-Client-Name` as an HTTP header.
+> Run the server with `PORT=8627 npx @cybermem/mcp-core --sse` to enable SSE. This allows console utilities to pass `X-Client-Name` as an HTTP header.
 
 **Remote Mode (SSE):**
 ```json
