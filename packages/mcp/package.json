@@ -16,6 +16,21 @@
     "url": "https://github.com/mikhailkogan17/cybermem.git",
     "directory": "packages/mcp"
   },
+  "homepage": "https://cybermem.dev",
+  "bugs": {
+    "url": "https://github.com/mikhailkogan17/cybermem/issues"
+  },
+  "keywords": [
+    "mcp",
+    "ai-memory",
+    "claude",
+    "cursor",
+    "antigravity",
+    "openmemory",
+    "llm"
+  ],
+  "author": "Mikhail Kogan <mikhailkogan17@gmail.com>",
+  "license": "MIT",
   "publishConfig": {
     "access": "public",
     "provenance": true
