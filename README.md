@@ -1,5 +1,6 @@
 # CyberMem
-👤 **Created by [Mikhail Kogan](https://github.com/mikhailkogan17) | [LinkedIn](https://linkedin.com/in/mikhail-kogan-platform) | [CV](https://github.com/mikhailkogan17/docs/blob/main/cv/Mikhail_Kogan_Platform_Jan26_Int.pdf)**
+👤 **Created by [Mikhail Kogan](https://github.com/mikhailkogan17) | [LinkedIn](https://linkedin.com/in/mikhail-kogan-platform) | [CV](https://github.com/mikhailkogan17/docs/blob/main/cv/CV_Mikhail_Kogan_Platform_Jan26_Glob.pdf)**
+
 
 <div align="center">
   <p>
@@ -17,18 +18,26 @@
   </picture>
 
 
+
+
   <h3>Your AI Memory — Deploy Anywhere</h3>
   <p><em>Platform Engineering MCP Server for DevOps & AI Teams</em></p>
 
 
+
+
   ---
+
+
 
 
   <p><strong>Production-grade MCP Server</strong><br>
   <strong>Docker Compose</strong> • <strong>Helm Charts</strong> • <strong>Ansible Playbooks</strong> • <strong>Prometheus</strong> • <strong>Traefik</strong> • Based on <a href="https://github.com/CaviraOSS/OpenMemory">CaviraOSS/OpenMemory</a></p>
 </div>
 
+
 ## Features
+
 
 | Feature                    | Description                                                                    |
 | -------------------------- | ------------------------------------------------------------------------------ |
@@ -38,10 +47,13 @@
 | **Observability**          | Built-in Prometheus metrics, Grafana dashboards, audit logs                    |
 | **Security**               | Traefik reverse proxy, Tailscale Funnel for zero-config HTTPS                  |
 
+
 ## Try It Out!
+
 
 To try CyberMem on your local machine, run:
 ```bash
 npx @cybermem/mcp
 ```
 and follow the instructions in terminal.
+
