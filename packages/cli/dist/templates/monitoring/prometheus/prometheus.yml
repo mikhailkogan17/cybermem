@@ -3,19 +3,20 @@ global:
 
 scrape_configs:
   # Main metrics source: Database Exporter (memory state)
-  - job_name: 'db-exporter'
+  - job_name: "db-exporter"
     static_configs:
-      - targets: ['db-exporter:8000']
+      - targets: ["db-exporter:8000"]
 
   # Request logs from Traefik access log
-  - job_name: 'log-exporter'
-    static_configs:
-      - targets: ['log-exporter:8001']
+  # Request logs from Traefik access log -> written to DB -> exported by db-exporter
+  # - job_name: 'log-exporter'
+  #   static_configs:
+  #     - targets: ['log-exporter:8001']
 
-  - job_name: 'postgres'
+  - job_name: "postgres"
     static_configs:
-      - targets: ['postgres_exporter:9187']
+      - targets: ["postgres_exporter:9187"]
 
-  - job_name: 'prometheus'
+  - job_name: "prometheus"
     static_configs:
-      - targets: ['localhost:9090']
+      - targets: ["localhost:9090"]
