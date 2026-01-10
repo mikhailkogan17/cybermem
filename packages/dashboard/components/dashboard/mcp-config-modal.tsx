@@ -92,7 +92,7 @@ export default function MCPConfigModal({ onClose }: { onClose: () => void }) {
         mcpServers: {
           cybermem: {
             command: "npx",
-            args: ["@cybermem/mcp-server"]
+            args: ["@cybermem/mcp-core"]
           }
         }
       }
@@ -119,7 +119,7 @@ export default function MCPConfigModal({ onClose }: { onClose: () => void }) {
     // Handle TOML config (Codex)
     if (config?.configType === 'toml') {
       if (isManaged) {
-        return `# CyberMem Configuration (Local Mode)\n[mcp]\ncommand = "npx"\nargs = ["@cybermem/mcp-server"]`;
+        return `# CyberMem Configuration (Local Mode)\n[mcp]\ncommand = "npx"\nargs = ["@cybermem/mcp-core"]`;
       }
       return `# CyberMem Configuration\n[mcp]\nserver_url = "${baseUrl}/mcp"\napi_key = "${maskKey ? displayKey : actualKey}"`;
     }

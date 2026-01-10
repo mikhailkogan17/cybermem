@@ -3,7 +3,7 @@
     <a href="https://cybermem.dev"><img src="https://img.shields.io/badge/website-cybermem.dev-10b981?&logoColor=white" alt="website"></a>
     <a href="https://docs.cybermem.dev"><img src="https://img.shields.io/badge/docs-read_now-10b981" alt="docs"></a>
     <a href="https://github.com/mikhailkogan17/cybermem/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/mikhailkogan17/cybermem/ci.yml?label=CI" alt="CI"></a>
-    <a href="https://www.npmjs.com/package/@cybermem/mcp-server"><img src="https://img.shields.io/npm/v/@cybermem/mcp-server?color=10b981&label=npm&" alt="npm"></a>
+    <a href="https://www.npmjs.com/package/@cybermem/mcp-core"><img src="https://img.shields.io/npm/v/@cybermem/mcp-core?color=10b981&label=npm&" alt="npm"></a>
     <img src="https://img.shields.io/badge/license-MIT-10b981" alt="license">
   </p>
   
