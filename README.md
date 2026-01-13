@@ -19,7 +19,8 @@
   ---
 
   <p><strong>Production-grade MCP Server</strong><br>
-  <strong>Docker Compose</strong> • <strong>Helm Charts</strong> • <strong>Ansible Playbooks</strong> • <strong>Prometheus</strong> • <strong>Traefik</strong> • Based on <a href="https://github.com/CaviraOSS/OpenMemory">CaviraOSS/OpenMemory</a></p>
+  <strong>Docker Compose</strong> • <strong>Helm Charts</strong> • <strong>Ansible Playbooks</strong> • <strong>Prometheus</strong> • <strong>Traefik</strong><br>
+  Based on <a href="https://github.com/CaviraOSS/OpenMemory">CaviraOSS/OpenMemory</a></p>
 </div>
 
 ## Features
@@ -153,6 +154,6 @@ Contributions are welcome! See [CONTRIBUTING.md](CONTRIBUTING.md) for developmen
 
 MIT
 
-**Created by [Mikhail Kogan](https://github.com/mikhailkogan17) | [LinkedIn](https://linkedin.com/in/mikhail-kogan-platform)
+Created by [Mikhail Kogan](https://github.com/mikhailkogan17) | [LinkedIn](https://linkedin.com/in/mikhail-kogan-platform)
 
 
