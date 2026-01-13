@@ -39,8 +39,9 @@ Creates timestamped archive: `cybermem-backup-YYYY-MM-DD-HHMM.tar.gz`
 npx @cybermem/mcp restore ./cybermem-backup-2026-01-13-1430.tar.gz
 ```
 
-> [!WARNING]
-> Restore **overwrites** existing data. Backup the target first if needed.
+:::warning
+Restore **overwrites** existing data. Backup the target first if needed.
+:::
 
 ---
 
@@ -131,8 +132,10 @@ crontab -e
 0 3 * * * cd ~/.cybermem && tar czf ~/backups/cybermem-$(date +%Y-%m-%d).tar.gz data/
 ```
 
-> [!NOTE]
-> In crontab, `%` has special meaning. If pasting directly, escape as `\%Y-\%m-\%d`.
+:::note
+In crontab, `%` has special meaning. If pasting directly, escape as `\%Y-\%m-\%d`.
+:::
 
-> [!TIP]
-> Keep last 7 backups: `find ~/backups -name "cybermem-*.tar.gz" -mtime +7 -delete`
+:::tip
+Keep last 7 backups: `find ~/backups -name "cybermem-*.tar.gz" -mtime +7 -delete`
+:::

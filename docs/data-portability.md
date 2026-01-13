@@ -19,8 +19,9 @@ This file contains:
 - 📊 **Audit Logs**: History of all requests (for the Dashboard).
 - ⚙️ **Vector Data**: If using default SQLite vector store.
 
-> [!NOTE]
-> Metrics history (CPU usage, request rates) is stored separately in Prometheus and is not included in the standard backup to keep it lightweight.
+:::note
+Metrics history (CPU usage, request rates) is stored separately in Prometheus and is not included in the standard backup to keep it lightweight.
+:::
 
 ---
 
@@ -61,8 +62,9 @@ This will:
 3. **Fix permissions** automatically.
 4. **Restart** the service.
 
-> [!WARNING]
-> Restore will **overwrite** any existing data on the target machine. Make sure to backup the target first if it has important data.
+:::warning
+Restore will **overwrite** any existing data on the target machine. Make sure to backup the target first if it has important data.
+:::
 
 ---
 
