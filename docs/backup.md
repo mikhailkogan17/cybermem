@@ -128,8 +128,11 @@ Add to crontab for daily backups:
 crontab -e
 
 # Add line (daily at 3am)
-0 3 * * * cd ~/.cybermem && tar czf ~/backups/cybermem-$(date +\%Y-\%m-\%d).tar.gz data/
+0 3 * * * cd ~/.cybermem && tar czf ~/backups/cybermem-$(date +%Y-%m-%d).tar.gz data/
 ```
+
+> [!NOTE]
+> In crontab, `%` has special meaning. If pasting directly, escape as `\%Y-\%m-\%d`.
 
 > [!TIP]
 > Keep last 7 backups: `find ~/backups -name "cybermem-*.tar.gz" -mtime +7 -delete`
