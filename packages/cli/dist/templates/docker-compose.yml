@@ -20,6 +20,7 @@ services:
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - ./monitoring/traefik/traefik.yml:/etc/traefik/traefik.yml:ro
+      - ./monitoring/traefik/dynamic:/etc/traefik/dynamic:ro
       - traefik-logs:/var/log/traefik
     labels:
       - traefik.enable=true
