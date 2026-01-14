@@ -101,6 +101,39 @@ async function deploy(options) {
             console.log(chalk_1.default.blue(`Remote deploying to ${sshHost}...`));
             // 1. Create remote directory
             await (0, execa_1.default)('ssh', [sshHost, 'mkdir -p ~/.cybermem/data']);
+            // 1.5 Check and fix Docker architecture (64-bit kernel with 32-bit Docker)
+            console.log(chalk_1.default.blue('Checking Docker architecture...'));
+            try {
+                const { stdout: kernelArch } = await (0, execa_1.default)('ssh', [sshHost, 'uname -m']);
+                const { stdout: dockerArch } = await (0, execa_1.default)('ssh', [sshHost, 'docker version --format "{{.Server.Arch}}" 2>/dev/null || echo "unknown"']);
+                if (kernelArch.trim() === 'aarch64' && dockerArch.trim() !== 'arm64') {
+                    console.log(chalk_1.default.yellow(`⚠️  Docker is ${dockerArch.trim()}, kernel is aarch64. Installing arm64 Docker...`));
+                    const installCmd = `
+                        sudo systemctl stop docker docker.socket 2>/dev/null || true
+                        curl -fsSL https://download.docker.com/linux/static/stable/aarch64/docker-27.5.1.tgz -o /tmp/docker.tgz
+                        sudo tar -xzf /tmp/docker.tgz -C /usr/local/bin --strip-components=1
+                        sudo /usr/local/bin/dockerd &
+                        sleep 5
+                        docker version --format "{{.Server.Arch}}"
+                    `;
+                    const { stdout } = await (0, execa_1.default)('ssh', [sshHost, installCmd], { shell: true });
+                    if (stdout.includes('arm64')) {
+                        console.log(chalk_1.default.green('✅ Docker arm64 installed successfully'));
+                    }
+                    else {
+                        console.log(chalk_1.default.yellow('⚠️  Docker arm64 install may need manual verification'));
+                    }
+                }
+                else if (dockerArch.trim() === 'arm64') {
+                    console.log(chalk_1.default.green(`✅ Docker is already arm64`));
+                }
+                else {
+                    console.log(chalk_1.default.gray(`Docker arch: ${dockerArch.trim()}, kernel: ${kernelArch.trim()}`));
+                }
+            }
+            catch (e) {
+                console.log(chalk_1.default.yellow(`⚠️  Docker arch check skipped: ${e.message}`));
+            }
             // 2. Initial Env Setup (if missing)
             try {
                 await (0, execa_1.default)('ssh', [sshHost, '[ -f ~/.cybermem/.env ]']);
