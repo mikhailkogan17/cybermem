@@ -119,12 +119,31 @@ Access dashboard via Tailscale:
 
 ### Container Crashes (Exit 159)
 
-Platform mismatch. Update docker-compose:
-```yaml
-services:
-  traefik:
-    image: traefik:v2.11  # Use v2.11, not v3
+Platform mismatch — 32-bit Docker cannot run arm64 images.
+
+:::caution 32-bit Userspace with 64-bit Kernel
+
+If your kernel is aarch64 but Docker shows `linux/arm`, install 64-bit Docker static binary:
+
+```bash
+# Stop 32-bit Docker
+sudo systemctl stop docker docker.socket
+
+# Download arm64 Docker
+curl -fsSL https://download.docker.com/linux/static/stable/aarch64/docker-27.5.1.tgz -o /tmp/docker.tgz
+
+# Install to /usr/local/bin
+sudo tar -xzf /tmp/docker.tgz -C /usr/local/bin --strip-components=1
+
+# Start with new binary
+sudo /usr/local/bin/dockerd &
+
+# Verify
+docker version  # Should show OS/Arch: linux/arm64
 ```
+
+**Note**: After reboot, Docker will use 32-bit version again. Make permanent by updating systemd service.
+:::
 
 ### Slow Embeddings
 

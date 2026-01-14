@@ -34,7 +34,7 @@ const getLocalApiKey = () => {
 
     // Option 3: Process Env / Local .env (gitignored)
     // We add .env to .gitignore to properly handle secret storage locally without commiting it.
-    return process.env.CYBERMEM_API_KEY || '';
+    return process.env.OM_API_KEY || '';
 };
 
 // Helper for Remote RPi Key

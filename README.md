@@ -155,5 +155,3 @@ Contributions are welcome! See [CONTRIBUTING.md](CONTRIBUTING.md) for developmen
 MIT
 
 Created by [Mikhail Kogan](https://github.com/mikhailkogan17) | [LinkedIn](https://linkedin.com/in/mikhail-kogan-platform)
-
-

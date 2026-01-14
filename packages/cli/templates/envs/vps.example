@@ -17,7 +17,7 @@ PG_USER=openmemory
 PG_PASSWORD=change-me-in-production-use-secrets
 
 # OpenMemory
-CYBERMEM_API_KEY=change-me-in-production-use-secrets
+OM_API_KEY=change-me-in-production-use-secrets
 
 # Monitoring
 PROM_RETENTION=30d

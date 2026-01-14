@@ -19,7 +19,7 @@ PG_USER=openmemory
 PG_PASSWORD=change-me
 
 # OpenMemory API key (Optional for local mode)
-# CYBERMEM_API_KEY=
+# OM_API_KEY=
 
 # Monitoring
 PROM_RETENTION=7d

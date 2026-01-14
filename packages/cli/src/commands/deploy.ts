@@ -75,7 +75,7 @@ export async function deploy(options: any) {
                     ...process.env,
                     DATA_DIR: dataDir,
                     CYBERMEM_ENV_PATH: envFile,
-                    CYBERMEM_API_KEY: ''
+                    OM_API_KEY: ''
                 }
             });
 
@@ -118,8 +118,11 @@ export async function deploy(options: any) {
                 let envContent = fs.readFileSync(internalEnvExample, 'utf-8');
                 const newKey = `sk-${crypto.randomBytes(16).toString('hex')}`;
 
-                if(envContent.includes('CYBERMEM_API_KEY=')) {
-                    envContent = envContent.replace(/CYBERMEM_API_KEY=.*/, `CYBERMEM_API_KEY=${newKey}`);
+                // Replace OM_API_KEY with generated key
+                if(envContent.includes('OM_API_KEY=')) {
+                    envContent = envContent.replace(/OM_API_KEY=.*/, `OM_API_KEY=${newKey}`);
+                } else {
+                    envContent += `\nOM_API_KEY=${newKey}\n`;
                 }
 
                 const tempEnv = path.join(os.tmpdir(), 'cybermem-rpi.env');

@@ -19,7 +19,7 @@ PG_USER=openmemory
 PG_PASSWORD=not-used
 
 # OpenMemory
-CYBERMEM_API_KEY=key-change-me
+OM_API_KEY=key-change-me
 
 # Monitoring (short retention for disk space)
 PROM_RETENTION=3d
