@@ -1,3 +1,4 @@
 [submodule "external/openmemory"]
 	path = external/openmemory
 	url = https://github.com/CaviraOSS/OpenMemory.git
+	update = none
