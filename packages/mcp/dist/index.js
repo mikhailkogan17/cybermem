@@ -14,7 +14,7 @@ const express_1 = __importDefault(require("express"));
 dotenv_1.default.config();
 // Default to local CyberMem backend (via Traefik on port 8626)
 const API_URL = process.env.CYBERMEM_URL || "http://localhost:8626/memory";
-const API_KEY = process.env.CYBERMEM_API_KEY || "";
+const API_KEY = process.env.OM_API_KEY || "";
 // Track client name per session
 // Since we don't have a built-in session ID in the request context easily,
 // we'll use a global fallback and allow updating it.
