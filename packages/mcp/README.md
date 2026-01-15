@@ -1,5 +1,5 @@
-# @cybermem/mcp-core
+# @cybermem/mcp
 
-Core MCP server for CyberMem.
+CyberMem MCP Server — AI Memory via Model Context Protocol.
 
 🌐 [cybermem.dev](https://cybermem.dev) · 📖 [Docs](https://docs.cybermem.dev) · 📦 [GitHub](https://github.com/mikhailkogan17/cybermem)
