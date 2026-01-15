@@ -78,11 +78,11 @@ jobs:
           git push
           git push --tags
 
-      - name: Publish @cybermem/mcp (entry point)
+      - name: Publish @cybermem/cli
         working-directory: packages/cli
         run: npm publish --access public --provenance
 
-      - name: Publish @cybermem/mcp-core
+      - name: Publish @cybermem/mcp
         working-directory: packages/mcp
         run: npm publish --access public --provenance
 

@@ -13,7 +13,7 @@ Get CyberMem running in under 5 minutes.
 ### One-Liner (Local)
 
 ```bash
-npx @cybermem/mcp
+npx @cybermem/cli init
 ```
 
 This will:
@@ -26,13 +26,13 @@ This will:
 ```bash
 # Raspberry Pi (run ON the Pi via SSH)
 ssh pi@raspberrypi.local
-npx @cybermem/mcp --rpi
+npx @cybermem/cli init --rpi
 
 # With HTTPS remote access
-npx @cybermem/mcp --rpi --remote-access
+npx @cybermem/cli init --rpi --remote-access
 
 # VPS (SSH into your server first)
-npx @cybermem/mcp --vps
+npx @cybermem/cli init --vps
 ```
 
 ## Access Points
@@ -56,7 +56,7 @@ Add to your MCP configuration:
   "mcpServers": {
     "cybermem": {
       "command": "npx",
-      "args": ["-y", "@cybermem/mcp-core"]
+      "args": ["-y", "@cybermem/mcp"]
     }
   }
 }

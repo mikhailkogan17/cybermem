@@ -17,7 +17,7 @@ Cloud deployment features:
 ssh user@your-vps-ip
 
 # Run on the VPS
-npx @cybermem/mcp --vps
+npx @cybermem/cli init --vps
 ```
 
 ## Kubernetes (Helm)

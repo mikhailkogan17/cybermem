@@ -20,7 +20,7 @@ Local deployment uses:
 ## Quick Setup
 
 ```bash
-npx @cybermem/mcp
+npx @cybermem/cli init
 ```
 
 That's it! The CLI handles everything automatically.
@@ -68,7 +68,7 @@ OLLAMA_URL=http://ollama:11434
 
 ```bash
 # Start services
-npx @cybermem/mcp
+npx @cybermem/cli init
 
 # Stop services
 cd ~/.cybermem && docker-compose down
@@ -77,7 +77,7 @@ cd ~/.cybermem && docker-compose down
 cd ~/.cybermem && docker-compose logs -f
 
 # Reset database
-rm -rf ~/.cybermem/data && npx @cybermem/mcp
+rm -rf ~/.cybermem/data && npx @cybermem/cli init
 ```
 
 ## Troubleshooting

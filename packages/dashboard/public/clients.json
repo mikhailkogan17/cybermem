@@ -27,8 +27,8 @@
       "Navigate to **Features** > **MCP**",
       "Click **Add New MCP Server**",
       "Enter Name: `cybermem`",
-      "Enter Type: `SSE`",
-      "Enter the URL from the config below"
+      "Enter Type: `Command`",
+      "Copy the configuration from below"
     ],
     "configType": "json"
   },
@@ -38,13 +38,13 @@
     "match": "antigravity",
     "color": "#d946ef",
     "icon": "/icons/antigravity.png",
-    "description": "Antigravity supports MCP via raw JSON configuration. Note: uses 'serverUrl' instead of 'url'.",
+    "description": "Antigravity supports MCP via raw JSON configuration.",
     "steps": [
       "Open Antigravity and go to the **Agents** tab",
       "Click on the three dots menu and select **MCP Servers**",
       "Click **Manage MCP Servers**",
       "Click **View RAW Config**",
-      "Paste the configuration block below (note: uses `serverUrl` key)"
+      "Paste the configuration block below"
     ],
     "configType": "json"
   },
@@ -107,8 +107,8 @@
       "The server will be available in all Claude Code sessions"
     ],
     "configType": "command",
-    "localCommand": "claude mcp add cybermem npx @cybermem/mcp-core",
-    "remoteCommand": "claude mcp add --transport sse cybermem {{ENDPOINT}}"
+    "localCommand": "claude mcp add cybermem npx @cybermem/mcp",
+    "remoteCommand": "claude mcp add cybermem -- npx @cybermem/mcp --url {{ENDPOINT}} --api-key {{API_KEY}}"
   },
   {
     "id": "chatgpt",
@@ -170,8 +170,8 @@
       "The server persists across sessions"
     ],
     "configType": "cmd",
-    "localCommand": "gemini mcp add cybermem npx @cybermem/mcp-core",
-    "remoteCommand": "gemini mcp add --transport sse cybermem {{ENDPOINT}}"
+    "localCommand": "gemini mcp add cybermem npx @cybermem/mcp",
+    "remoteCommand": "gemini mcp add cybermem -- npx @cybermem/mcp --url {{ENDPOINT}} --api-key {{API_KEY}}"
   },
   {
     "id": "other",
@@ -181,9 +181,8 @@
     "icon": null,
     "description": "For any other MCP-compliant client, use the following connection details:",
     "steps": [
-      "**Transport**: SSE (Server-Sent Events)",
-      "**Endpoint URL**: See config below",
-      "**Authentication**: `x-api-key` header (if required)",
+      "**Transport**: stdio (via npx command)",
+      "**Command**: `npx @cybermem/mcp` with `--url` and `--api-key` args",
       "Refer to your client's documentation for config file location"
     ],
     "configType": "json"

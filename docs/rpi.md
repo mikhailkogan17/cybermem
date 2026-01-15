@@ -24,10 +24,10 @@ RPi deployment features:
 ssh pi@raspberrypi.local
 
 # Run on the Pi
-npx @cybermem/mcp --rpi
+npx @cybermem/cli init --rpi
 
 # Or with HTTPS remote access
-npx @cybermem/mcp --rpi --remote-access
+npx @cybermem/cli init --rpi --remote-access
 ```
 
 ## Tailscale Setup
@@ -89,11 +89,13 @@ For AI clients connecting to your RPi:
 {
   "mcpServers": {
     "cybermem-rpi": {
-      "url": "https://your-rpi.ts.net:8088/mcp",
-      "transport": "sse",
-      "headers": {
-        "x-api-key": "sk-your-api-key"
-      }
+      "command": "npx",
+      "args": [
+        "-y", "@cybermem/mcp",
+        "--url", "https://your-rpi.ts.net:8088",
+        "--api-key", "sk-your-api-key",
+        "--client-name", "cursor"
+      ]
     }
   }
 }

@@ -28,7 +28,7 @@ Add to `~/.config/claude/mcp.json` or Cursor MCP settings:
   "mcpServers": {
     "cybermem": {
       "command": "npx",
-      "args": ["-y", "@cybermem/mcp-core"]
+      "args": ["-y", "@cybermem/mcp"]
     }
   }
 }
@@ -43,7 +43,7 @@ Install the CyberMem extension or configure manually:
   "mcp.servers": {
     "cybermem": {
       "command": "npx",
-      "args": ["-y", "@cybermem/mcp-core"]
+      "args": ["-y", "@cybermem/mcp"]
     }
   }
 }
@@ -53,47 +53,33 @@ Install the CyberMem extension or configure manually:
 
 For remote CyberMem (RPi, VPS):
 
-### SSE Transport
+### Stdio with URL (Recommended)
+
+Universal configuration that works with all MCP clients:
 
 ```json
 {
   "mcpServers": {
     "cybermem-remote": {
-      "url": "https://your-server.com:8626/mcp",
-      "transport": "sse",
-      "headers": {
-        "x-api-key": "sk-your-api-key"
-      }
-    }
-  }
-}
-```
-
-### Environment Variables
-
-Alternatively, use environment variables:
-
-```bash
-export CYBERMEM_URL=https://your-server.com:8626
-export CYBERMEM_API_KEY=sk-your-api-key
-```
-
-Then configure:
-
-```json
-{
-  "mcpServers": {
-    "cybermem": {
       "command": "npx",
-      "args": ["-y", "@cybermem/mcp-core"],
-      "env": {
-        "CYBERMEM_URL": "${CYBERMEM_URL}",
-        "CYBERMEM_API_KEY": "${CYBERMEM_API_KEY}"
-      }
+      "args": [
+        "-y", "@cybermem/mcp",
+        "--url", "https://your-server.com:8626",
+        "--api-key", "sk-your-api-key",
+        "--client-name", "cursor"
+      ]
     }
   }
 }
 ```
+
+### CLI Arguments
+
+| Argument        | Description                                    |
+| --------------- | ---------------------------------------------- |
+| `--url`         | Remote CyberMem endpoint (required for remote) |
+| `--api-key`     | API key for authentication                     |
+| `--client-name` | Client identifier for dashboard tracking       |
 
 ## Available Tools
 

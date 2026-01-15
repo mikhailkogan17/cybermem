@@ -10,11 +10,11 @@ Your memories live on **your** infrastructure. This guide covers backup and rest
 
 ## Data Location
 
-| Environment | Data Path | Volume |
-|-------------|-----------|--------|
-| **Local/Mac** | `~/.cybermem/data/` | `cybermem-openmemory-data` |
-| **Raspberry Pi** | `~/.cybermem/data/` | `cybermem-openmemory-data` |
-| **VPS/Cloud** | `/data/openmemory.sqlite` | Kubernetes PVC |
+| Environment      | Data Path                 | Volume                     |
+| ---------------- | ------------------------- | -------------------------- |
+| **Local/Mac**    | `~/.cybermem/data/`       | `cybermem-openmemory-data` |
+| **Raspberry Pi** | `~/.cybermem/data/`       | `cybermem-openmemory-data` |
+| **VPS/Cloud**    | `/data/openmemory.sqlite` | Kubernetes PVC             |
 
 The SQLite file contains:
 - 🧠 **Memories** — facts and context stored by AI clients
@@ -28,7 +28,7 @@ The SQLite file contains:
 ### Create Backup
 
 ```bash
-npx @cybermem/mcp backup
+npx @cybermem/cli backup
 ```
 
 Creates timestamped archive: `cybermem-backup-YYYY-MM-DD-HHMM.tar.gz`
@@ -36,7 +36,7 @@ Creates timestamped archive: `cybermem-backup-YYYY-MM-DD-HHMM.tar.gz`
 ### Restore from Backup
 
 ```bash
-npx @cybermem/mcp restore ./cybermem-backup-2026-01-13-1430.tar.gz
+npx @cybermem/cli restore ./cybermem-backup-2026-01-13-1430.tar.gz
 ```
 
 :::warning
@@ -52,7 +52,7 @@ Restore **overwrites** existing data. Backup the target first if needed.
 **Backup:**
 ```bash
 # Using CLI
-npx @cybermem/mcp backup
+npx @cybermem/cli backup
 
 # Or manually
 cd ~/.cybermem && tar czf ~/backup.tar.gz data/
@@ -61,7 +61,7 @@ cd ~/.cybermem && tar czf ~/backup.tar.gz data/
 **Restore:**
 ```bash
 # Using CLI
-npx @cybermem/mcp restore ./backup.tar.gz
+npx @cybermem/cli restore ./backup.tar.gz
 
 # Or manually
 cd ~/.cybermem && rm -rf data && tar xzf ~/backup.tar.gz
@@ -75,7 +75,7 @@ SSH into your Pi first:
 ssh pi@<rpi-ip>
 
 # Backup
-npx @cybermem/mcp backup
+npx @cybermem/cli backup
 
 # Copy to Mac
 scp pi@<rpi-ip>:~/cybermem-backup-*.tar.gz ./
@@ -85,7 +85,7 @@ scp pi@<rpi-ip>:~/cybermem-backup-*.tar.gz ./
 ```bash
 scp ./cybermem-backup.tar.gz pi@<rpi-ip>:~/
 ssh pi@<rpi-ip>
-npx @cybermem/mcp restore ./cybermem-backup.tar.gz
+npx @cybermem/cli restore ./cybermem-backup.tar.gz
 ```
 
 ### VPS / Cloud (Docker)

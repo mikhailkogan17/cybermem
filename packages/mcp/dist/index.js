@@ -12,14 +12,21 @@ const cors_1 = __importDefault(require("cors"));
 const dotenv_1 = __importDefault(require("dotenv"));
 const express_1 = __importDefault(require("express"));
 dotenv_1.default.config();
+// Parse CLI args for remote mode
+const args = process.argv.slice(2);
+const getArg = (name) => {
+    const idx = args.indexOf(name);
+    return idx !== -1 && args[idx + 1] ? args[idx + 1] : undefined;
+};
+const cliUrl = getArg('--url');
+const cliApiKey = getArg('--api-key');
+const cliClientName = getArg('--client-name');
+// Use CLI args first, then env, then defaults
 // Default to local CyberMem backend (via Traefik on port 8626)
-const API_URL = process.env.CYBERMEM_URL || "http://localhost:8626/memory";
-const API_KEY = process.env.OM_API_KEY || "";
+const API_URL = cliUrl || process.env.CYBERMEM_URL || "http://localhost:8626/memory";
+const API_KEY = cliApiKey || process.env.OM_API_KEY || "";
 // Track client name per session
-// Since we don't have a built-in session ID in the request context easily,
-// we'll use a global fallback and allow updating it.
-// For SSE, we can extract it from the HTTP request.
-let currentClientName = "cybermem-mcp";
+let currentClientName = cliClientName || "cybermem-mcp";
 const server = new index_js_1.Server({
     name: "cybermem-mcp",
     version: "0.2.0",

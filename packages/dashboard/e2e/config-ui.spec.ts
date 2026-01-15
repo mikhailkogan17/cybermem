@@ -72,10 +72,10 @@ test.describe('Dashboard Configuration UI', () => {
     // Master API Key should NOT be visible in local mode
     await expect(page.getByText('Master API Key')).not.toBeVisible();
 
-    // Code block should show stdio command with npx @cybermem/mcp-core
+    // Code block should show stdio command with npx @cybermem/mcp
     await page.getByRole('button', { name: 'Gemini CLI' }).click();
     const codeBlock = page.locator('pre');
-    await expect(codeBlock).toContainText('gemini mcp add cybermem npx @cybermem/mcp-core');
+    await expect(codeBlock).toContainText('gemini mcp add cybermem npx @cybermem/mcp');
   });
 
   test('Remote Mode: shows API Key management', async ({ page }) => {
@@ -89,10 +89,10 @@ test.describe('Dashboard Configuration UI', () => {
     // Master API Key should be visible
     await expect(page.getByText('Master API Key')).toBeVisible();
 
-    // Gemini CLI should have header with API key
+    // Gemini CLI should have --url and --api-key args (universal stdio transport)
     await page.getByRole('button', { name: 'Gemini CLI' }).click();
     const codeBlock = page.locator('pre');
-    await expect(codeBlock).toContainText('--header');
-    await expect(codeBlock).toContainText('x-api-key');
+    await expect(codeBlock).toContainText('--url');
+    await expect(codeBlock).toContainText('--api-key');
   });
 });

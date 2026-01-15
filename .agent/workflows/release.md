@@ -48,7 +48,7 @@ gh run view $(gh run list --workflow="release.yml" --limit 1 --json databaseId -
 ### 5. Verify release
 // turbo
 ```bash
-npm view @cybermem/mcp-core version
+npm view @cybermem/mcp version
 gh release list --limit 1
 ```
 

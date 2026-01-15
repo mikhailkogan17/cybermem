@@ -83,29 +83,28 @@ export default function MCPConfigModal({ onClose }: { onClose: () => void }) {
   }
 
   const getMcpConfig = (clientId: string) => {
-    const isAntigravity = clientId === 'antigravity'
-    const urlKey = isAntigravity ? 'serverUrl' : 'url'
-
     // Local mode: use stdio (command-based) - no server needed, runs via npx
     if (isManaged) {
       return {
         mcpServers: {
           cybermem: {
             command: "npx",
-            args: ["@cybermem/mcp-core"]
+            args: ["@cybermem/mcp"]
           }
         }
       }
     }
 
-    // Remote mode: use SSE URL with API key header
+    // Remote mode: use stdio with --url and --api-key args (universal for all clients)
     return {
       mcpServers: {
         cybermem: {
-          [urlKey]: `${baseUrl}/mcp`,
-          "headers": {
-            "x-api-key": apiKey || "sk-your-generated-key"
-          }
+          command: "npx",
+          args: [
+            "-y", "@cybermem/mcp",
+            "--url", baseUrl,
+            "--api-key", apiKey || "sk-your-generated-key"
+          ]
         }
       }
     }
@@ -119,9 +118,9 @@ export default function MCPConfigModal({ onClose }: { onClose: () => void }) {
     // Handle TOML config (Codex)
     if (config?.configType === 'toml') {
       if (isManaged) {
-        return `# CyberMem Configuration (Local Mode)\n[mcp]\ncommand = "npx"\nargs = ["@cybermem/mcp-core"]`;
+        return `# CyberMem Configuration (Local Mode)\n[mcp]\ncommand = "npx"\nargs = ["@cybermem/mcp"]`;
       }
-      return `# CyberMem Configuration\n[mcp]\nserver_url = "${baseUrl}/mcp"\napi_key = "${maskKey ? displayKey : actualKey}"`;
+      return `# CyberMem Configuration (Remote Mode)\n[mcp]\ncommand = "npx"\nargs = ["@cybermem/mcp", "--url", "${baseUrl}", "--api-key", "${maskKey ? displayKey : actualKey}"]`;
     }
 
     // Handle command-based configs (Claude Code, Gemini CLI, etc.)
@@ -134,16 +133,9 @@ export default function MCPConfigModal({ onClose }: { onClose: () => void }) {
         cmd = config?.command?.replace("http://localhost:8080", baseUrl) || '';
       }
 
-      // Substitute {{ENDPOINT}} placeholder with actual endpoint
-      cmd = cmd.replace('{{ENDPOINT}}', `${baseUrl}/mcp`);
-
-      // Remote mode - inject API key for SSE transport commands
-      if (!isManaged && cmd.includes('--transport sse')) {
-        const headerPart = `--header "x-api-key: ${maskKey ? displayKey : actualKey}"`;
-        if (!cmd.includes('x-api-key')) {
-          cmd = cmd.replace('mcp add', `mcp add ${headerPart}`);
-        }
-      }
+      // Substitute placeholders with actual values
+      cmd = cmd.replace('{{ENDPOINT}}', baseUrl);
+      cmd = cmd.replace('{{API_KEY}}', maskKey ? displayKey : actualKey);
 
       return cmd;
     }
@@ -151,7 +143,12 @@ export default function MCPConfigModal({ onClose }: { onClose: () => void }) {
     // Default to JSON config
     const jsonConfig = getMcpConfig(selectedClient);
     if (!isManaged && maskKey) {
-      (jsonConfig.mcpServers.cybermem as any).headers["x-api-key"] = displayKey;
+      // Mask the API key in args array
+      const args = (jsonConfig.mcpServers.cybermem as any).args;
+      const apiKeyIdx = args.indexOf('--api-key');
+      if (apiKeyIdx !== -1 && args[apiKeyIdx + 1]) {
+        args[apiKeyIdx + 1] = displayKey;
+      }
     }
     return JSON.stringify(jsonConfig, null, 2);
   }

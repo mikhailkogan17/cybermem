@@ -27,13 +27,13 @@
   - **Embeddings**: OpenAI (VPS) or Ollama (Local/RPi).
   - **Orchestration**: Docker Compose (Local) -> converted to Helm charts via `kompose` (VPS).
 - **Monorepo Architecture**:
-  - **NPM Workspaces**: Manages `@cybermem/cli`, `@cybermem/dashboard`, and `@cybermem/mcp-core`.
+  - **NPM Workspaces**: Manages `@cybermem/cli`, `@cybermem/dashboard`, and `@cybermem/mcp`.
 
 ## 3. Directory Map
 - `packages/cli/`: Management CLI (@cybermem/cli)
   - `templates/`: Production-ready configurations (Docker Compose, Helm Charts, Ansible Playbooks, Terraform Modules, Tailscale Funnel).
 - `packages/dashboard/`: Monitoring UI (metrics, audit logs) — NOT the public landing page.
-- `packages/mcp/`: MCP Server (TypeScript, published as @cybermem/mcp-core).
+- `packages/mcp/`: MCP Server (TypeScript, published as @cybermem/mcp).
 - `docs/`: **All documentation** (quickstart, local, rpi, vps, mcp guides).
 - `external/openmemory/`: OpenMemory submodule.
 - `tools/`: Utility scripts (load_test.sh, e2e tests).
@@ -86,7 +86,7 @@
 
 ### MCP Server Configuration
 > [!CAUTION]
-> **Use `npx` for local MCP, direct SSE for remote.**
+> **Use `npx` for all MCP modes (local and remote).**
 
 **Local Mode (npx):**
 ```json
@@ -94,44 +94,37 @@
   "mcpServers": {
     "cybermem": {
       "command": "npx",
-      "args": ["-y", "@cybermem/mcp-core"]
+      "args": ["-y", "@cybermem/mcp"]
     }
   }
 }
 ```
-- No `CYBERMEM_URL` = local mode = keyless auth
+- No `--url` arg = local mode = keyless auth
 
-**Experimental: SSE Local Mode (for custom headers)**
-```json
-{
-  "mcpServers": {
-    "cybermem-sse": {
-      "url": "http://localhost:8627/sse",
-      "transport": "sse"
-    }
-  }
-}
-```
-> [!IMPORTANT]
-> Run the server with `PORT=8627 npx @cybermem/mcp-core --sse` to enable SSE. This allows console utilities to pass `X-Client-Name` as an HTTP header.
-
-**Remote Mode (SSE):**
+**Remote Mode (stdio with args):**
 ```json
 {
   "mcpServers": {
     "cybermem-remote": {
-      "url": "http://<your-rpi-or-vps>:8626/mcp",
-      "transport": "sse",
-      "headers": {
-        "x-api-key": "your-api-key"
-      },
-      "env": {
-        "CYBERMEM_URL": "http://<your-rpi-or-vps>:8626"
-      }
+      "command": "npx",
+      "args": [
+        "-y", "@cybermem/mcp",
+        "--url", "https://your-rpi-or-vps:8626",
+        "--api-key", "your-api-key",
+        "--client-name", "cursor"
+      ]
     }
   }
 }
 ```
+
+**CLI Arguments:**
+
+| Argument        | Description                                    |
+| --------------- | ---------------------------------------------- |
+| `--url`         | Remote CyberMem endpoint (required for remote) |
+| `--api-key`     | API key for authentication                     |
+| `--client-name` | Client identifier for dashboard tracking       |
 
 ### MCP client names
 > [!CAUTION]

@@ -1,6 +1,6 @@
 {
-  "name": "@cybermem/mcp",
-  "version": "0.5.4",
+  "name": "@cybermem/cli",
+  "version": "0.6.0",
   "description": "CyberMem — Universal Long-Term Memory for AI Agents",
   "homepage": "https://cybermem.dev",
   "repository": {
@@ -9,7 +9,7 @@
     "directory": "packages/cli"
   },
   "bin": {
-    "mcp": "./dist/index.js"
+    "cybermem-cli": "./dist/index.js"
   },
   "files": [
     "dist",
