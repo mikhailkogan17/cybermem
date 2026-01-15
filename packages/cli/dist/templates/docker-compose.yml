@@ -27,7 +27,9 @@ services:
     restart: unless-stopped
 
   openmemory:
-    image: ghcr.io/mikhailkogan17/cybermem-openmemory:latest
+    build:
+      context: ./openmemory
+      dockerfile: Dockerfile
     container_name: cybermem-openmemory
     ports: [] # Access via Traefik on 8626
     volumes:
