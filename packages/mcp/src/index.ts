@@ -1,10 +1,11 @@
+#!/usr/bin/env node
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { SSEServerTransport } from "@modelcontextprotocol/sdk/server/sse.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import {
-    CallToolRequestSchema,
-    ListToolsRequestSchema,
-    Tool
+  CallToolRequestSchema,
+  ListToolsRequestSchema,
+  Tool
 } from "@modelcontextprotocol/sdk/types.js";
 import axios from "axios";
 import cors from "cors";
