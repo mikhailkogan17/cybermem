@@ -3,9 +3,9 @@ import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { SSEServerTransport } from "@modelcontextprotocol/sdk/server/sse.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import {
-  CallToolRequestSchema,
-  ListToolsRequestSchema,
-  Tool
+    CallToolRequestSchema,
+    ListToolsRequestSchema,
+    Tool
 } from "@modelcontextprotocol/sdk/types.js";
 import axios from "axios";
 import cors from "cors";
@@ -122,8 +122,9 @@ const apiClient = axios.create({
 
 // Helper to get client with context
 function getClient(customHeaders: Record<string, string> = {}) {
-    // Identity is taken from currentClientName which is updated per-request in SSE mode
-    const clientName = customHeaders["X-Client-Name"] || currentClientName;
+    // Get client name from MCP protocol (sent during initialize) or fallback to CLI arg
+    const clientVersion = server.getClientVersion();
+    const clientName = customHeaders["X-Client-Name"] || clientVersion?.name || currentClientName;
 
     return {
         ...apiClient,

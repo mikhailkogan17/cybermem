@@ -110,8 +110,9 @@ const apiClient = axios_1.default.create({
 });
 // Helper to get client with context
 function getClient(customHeaders = {}) {
-    // Identity is taken from currentClientName which is updated per-request in SSE mode
-    const clientName = customHeaders["X-Client-Name"] || currentClientName;
+    // Get client name from MCP protocol (sent during initialize) or fallback to CLI arg
+    const clientVersion = server.getClientVersion();
+    const clientName = customHeaders["X-Client-Name"] || clientVersion?.name || currentClientName;
     return {
         ...apiClient,
         get: (url, config) => apiClient.get(url, { ...config, headers: { "X-Client-Name": clientName, ...config?.headers } }),
