@@ -1,3 +1,4 @@
+#!/usr/bin/env node
 import { Command } from 'commander';
 import { backup } from './commands/backup';
 import { deploy } from './commands/deploy';
@@ -16,7 +17,6 @@ program
   .description('Deploy CyberMem (Default)')
   .option('--rpi', 'Deploy to Raspberry Pi (default: local)')
   .option('--vps', 'Deploy to VPS/Cloud server')
-  .option('-h, --host <host>', 'SSH Host (user@ip) for remote deployment')
   .option('--remote-access', 'Enable Tailscale Funnel for HTTPS remote access')
   .action(deploy);
 

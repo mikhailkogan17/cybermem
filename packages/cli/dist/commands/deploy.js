@@ -86,18 +86,15 @@ async function deploy(options) {
         else if (target === 'rpi') {
             const composeFile = path_1.default.join(templateDir, 'docker-compose.yml');
             const internalEnvExample = path_1.default.join(templateDir, 'envs/rpi.example');
-            let sshHost = options.host;
-            if (!sshHost) {
-                const answers = await inquirer_1.default.prompt([
-                    {
-                        type: 'input',
-                        name: 'host',
-                        message: 'Enter SSH Host (e.g. pi@raspberrypi.local):',
-                        validate: (input) => input.includes('@') ? true : 'Format must be user@host'
-                    }
-                ]);
-                sshHost = answers.host;
-            }
+            const answers = await inquirer_1.default.prompt([
+                {
+                    type: 'input',
+                    name: 'host',
+                    message: 'Enter SSH Host (e.g. pi@raspberrypi.local):',
+                    validate: (input) => input.includes('@') ? true : 'Format must be user@host'
+                }
+            ]);
+            const sshHost = answers.host;
             console.log(chalk_1.default.blue(`Remote deploying to ${sshHost}...`));
             // 1. Create remote directory
             await (0, execa_1.default)('ssh', [sshHost, 'mkdir -p ~/.cybermem/data']);
@@ -211,13 +208,13 @@ async function deploy(options) {
                 }
             }
             else {
-                console.log(chalk_1.default.gray('\n💡 For remote access, re-run with: npx @cybermem/mcp --rpi --remote-access'));
+                console.log(chalk_1.default.gray('\n💡 For remote access, re-run with: npx @cybermem/cli --rpi --remote-access'));
             }
         }
         else if (target === 'vps') {
             console.log(chalk_1.default.yellow('VPS deployment is similar to RPi.'));
             console.log(chalk_1.default.blue('\n📋 VPS Deployment Steps:'));
-            console.log('1. Run: npx @cybermem/mcp --rpi --host user@your-vps-ip');
+            console.log('1. Run: npx @cybermem/cli --rpi pi@your-vps-ip');
             console.log('2. For HTTPS, choose one of:');
             console.log(chalk_1.default.gray('   a) Tailscale Funnel: --remote-access flag'));
             console.log(chalk_1.default.gray('   b) Caddy (recommended for public VPS):'));

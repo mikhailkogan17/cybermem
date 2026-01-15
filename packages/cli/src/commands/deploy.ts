@@ -91,18 +91,15 @@ export async function deploy(options: any) {
             const composeFile = path.join(templateDir, 'docker-compose.yml');
             const internalEnvExample = path.join(templateDir, 'envs/rpi.example');
 
-            let sshHost = options.host;
-            if (!sshHost) {
-                const answers = await inquirer.prompt([
-                    {
-                        type: 'input',
-                        name: 'host',
-                        message: 'Enter SSH Host (e.g. pi@raspberrypi.local):',
-                        validate: (input) => input.includes('@') ? true : 'Format must be user@host'
-                    }
-                ]);
-                sshHost = answers.host;
-            }
+            const answers = await inquirer.prompt([
+                {
+                    type: 'input',
+                    name: 'host',
+                    message: 'Enter SSH Host (e.g. pi@raspberrypi.local):',
+                    validate: (input) => input.includes('@') ? true : 'Format must be user@host'
+                }
+            ]);
+            const sshHost = answers.host;
 
             console.log(chalk.blue(`Remote deploying to ${sshHost}...`));
 
@@ -114,10 +111,10 @@ export async function deploy(options: any) {
             try {
                 const { stdout: kernelArch } = await execa('ssh', [sshHost, 'uname -m']);
                 const { stdout: dockerArch } = await execa('ssh', [sshHost, 'docker version --format "{{.Server.Arch}}" 2>/dev/null || echo "unknown"']);
-                
+
                 if (kernelArch.trim() === 'aarch64' && dockerArch.trim() !== 'arm64') {
                     console.log(chalk.yellow(`⚠️  Docker is ${dockerArch.trim()}, kernel is aarch64. Installing arm64 Docker...`));
-                    
+
                     const installCmd = `
                         sudo systemctl stop docker docker.socket 2>/dev/null || true
                         curl -fsSL https://download.docker.com/linux/static/stable/aarch64/docker-27.5.1.tgz -o /tmp/docker.tgz
@@ -126,7 +123,7 @@ export async function deploy(options: any) {
                         sleep 5
                         docker version --format "{{.Server.Arch}}"
                     `;
-                    
+
                     const { stdout } = await execa('ssh', [sshHost, installCmd], { shell: true });
                     if (stdout.includes('arm64')) {
                         console.log(chalk.green('✅ Docker arm64 installed successfully'));
@@ -226,13 +223,13 @@ export async function deploy(options: any) {
                     console.log(chalk.gray('Manual setup: curl -fsSL https://tailscale.com/install.sh | sh && sudo tailscale up'));
                 }
             } else {
-                console.log(chalk.gray('\n💡 For remote access, re-run with: npx @cybermem/mcp --rpi --remote-access'));
+                console.log(chalk.gray('\n💡 For remote access, re-run with: npx @cybermem/cli --rpi --remote-access'));
             }
         }
         else if (target === 'vps') {
             console.log(chalk.yellow('VPS deployment is similar to RPi.'));
             console.log(chalk.blue('\n📋 VPS Deployment Steps:'));
-            console.log('1. Run: npx @cybermem/mcp --rpi --host user@your-vps-ip');
+            console.log('1. Run: npx @cybermem/cli --rpi pi@your-vps-ip');
             console.log('2. For HTTPS, choose one of:');
             console.log(chalk.gray('   a) Tailscale Funnel: --remote-access flag'));
             console.log(chalk.gray('   b) Caddy (recommended for public VPS):'));
