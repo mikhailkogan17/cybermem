@@ -26,6 +26,20 @@ services:
       - traefik.enable=true
     restart: unless-stopped
 
+  # Workaround: responds 200 on GET /mcp for Perplexity validation
+  mcp-responder:
+    build:
+      context: ./mcp-responder
+      dockerfile: Dockerfile
+    container_name: cybermem-mcp-responder
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.mcp-get.entrypoints=web
+      - traefik.http.routers.mcp-get.rule=Method(`GET`) && Path(`/mcp`)
+      - traefik.http.routers.mcp-get.priority=200
+      - traefik.http.services.mcp-get.loadbalancer.server.port=8081
+    restart: unless-stopped
+
   openmemory:
     build:
       context: ./openmemory
