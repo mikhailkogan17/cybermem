@@ -192,6 +192,12 @@ Use ONLY mcp-cli or Antigravity.
 Always use `npx` to install or run the server.
 Do NOT use prometheus mocks, stubs
 
+### NPM Publishing
+> [!CAUTION]
+> **NEVER use `npm publish` directly from terminal.**
+> Always use GitHub Actions `release.yml` workflow for npm publish — it uses OIDC authentication (no 2FA required).
+> Use `/release` workflow to trigger.
+
 ### Traefik
 > [!CAUTION] 
 > All requests go through Traefik. Do not bypass it.
