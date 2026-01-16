@@ -10,57 +10,98 @@ description: Run Playwright E2E tests for local environment (localhost:3000 dash
 
 Ensure the local stack is running (use `/stack-local` workflow).
 
-## Run All E2E Tests
+---
 
-1. [!IMPORTANT] [!REQUIRED] MANUAL HAPPY PATH ON PROD:
-(0) ask user to add cybermem-rpi server in Antigravity config.
-Provide a valid JSON file WITHOUT ANY API TOKEN, OR write it yourself.
-Wait for the user to refresh.
-(1) Wipe the local OpenMemory database
-(1) Add CRUD with MCP
+## Step 0: Config Validation (MANDATORY)
+
+> [!CAUTION]
+> **DO NOT SKIP THIS STEP.** Validate before any happy path testing.
+
+### 0.1 Check MCP Server Availability
+```bash
+# Must return {"ok":true,...}
+curl -s http://localhost:8626/health | jq '.ok'
+```
+**Expected:** `true`
+
+### 0.2 Check Dashboard API
+```bash
+# Must return memoryRecords (number, can be 0)
+curl -s http://localhost:3000/api/metrics | jq '.stats.memoryRecords'
+```
+**Expected:** Number (0 or more)
+
+### 0.3 Check db-exporter
+```bash
+# Must NOT return 404 or error
+curl -s http://localhost:8000/api/stats | jq '.memoryRecords'
+```
+**Expected:** Number (0 or more)
+
+### 0.4 Run Playwright Infrastructure Check (RECOMMENDED)
+```bash
+cd /Users/mikhailkogan/cybermem/packages/dashboard
+npm run test:e2e -- infra-check.spec.ts
+```
+**Expected:** 7 tests pass
+
+### 0.5 Verify Antigravity MCP Config
+The `cybermem-local` MCP server in Antigravity must be configured. Use `mcp_cybermem-local_list_memories` to test.
+
+**If any check fails:** Fix the issue before proceeding. Common fixes:
+- `docker restart cybermem-openmemory cybermem-db-exporter cybermem-log-exporter`
+- Check `/stack-local` workflow
+
+---
+
+## Step 1: Happy Path Test
+
+### 1.1 Wipe Database (Clean Slate)
+```bash
+docker exec cybermem-openmemory sh -c 'rm -f /data/openmemory.sqlite*'
+docker run --rm -v cybermem-openmemory-data:/data alpine sh -c 'chown -R 1001:1001 /data && chmod 777 /data'
+docker restart cybermem-openmemory
+# Wait for health
+for i in {1..30}; do curl -s http://localhost:8626/health | grep -q ok && break || sleep 2; done
+docker restart cybermem-log-exporter cybermem-db-exporter
+sleep 5
+```
+
+### 1.2 MCP CRUD via Antigravity
+
+> [!CAUTION]
+> **FORBIDDEN TO USE CURL.** Use only Antigravity MCP tools.
+
+1. **CREATE:** Use `mcp_cybermem-local_add_memory` to add 3 memories
+2. **READ:** Use `mcp_cybermem-local_query_memory` to search
+
+### 1.3 Verify Dashboard
+
+Check API response:
+```bash
+curl -s http://localhost:3000/api/metrics | jq '.stats'
+```
+
+**Required assertions:**
+
+| Metric            | Expected                 |
+| ----------------- | ------------------------ |
+| `topWriter.name`  | "Antigravity"            |
+| `topReader.name`  | "Antigravity"            |
+| `lastWriter.name` | "Antigravity"            |
+| `lastReader.name` | "Antigravity"            |
+| `memoryRecords`   | 3 (or number of created) |
+
 > [!ATTENTION]
-> FORBIDDEN TO USE CURL IN HAPPY PATH FLOW. Use it ONLY to debug.
-(2) CHECK DASHBOARD:
-- Antigravity should be the last reader, the last writer, the top reader, and the top writer. NOT OTHER CLIENTS, NOT N/A.
-- All 4 time series should contain "Antigravity" line WITH NONNULL DATA.
-- Audit log should be valid and non-empty
-> [!ATTENTION]
-> Everywhere should be only ONE single name: "Antigravity". NOT "cybermem", "test", "npm", "bash", "node", "curl", "Mozilla", "antigravity", "N/A".
+> **Only "Antigravity"** should appear. NOT: "cybermem", "curl", "node", "N/A", "antigravity-client"
 
-2. Run all playwright tests with Chromium:
-```bash
-npm run test:e2e -- --project=chromium
-```
+---
 
-## Run Specific Test Suites
+## Step 2: Playwright Tests (Optional)
 
 ```bash
-# CRUD Happy Path with X-Client-Name verification
-npm run test:e2e -- crud-happy-path.spec.ts
-
-# Metrics & Visualization
-npm run test:e2e -- metrics.spec.ts
-
-# Audit Log Export
-npm run test:e2e -- audit-export.spec.ts
-
-# Authentication
-npm run test:e2e -- auth.spec.ts
-
-# Config UI
-npm run test:e2e -- config-ui.spec.ts
-```
-
-## Run with UI (Debug Mode)
-
-```bash
-npx playwright test --ui
-```
-
-## View Last Report
-
-```bash
-npx playwright show-report
+cd /Users/mikhailkogan/cybermem/packages/dashboard
+SKIP_DB_RESET=true npm run test:e2e -- --project=chromium
 ```
 
 ## Environment Variables
