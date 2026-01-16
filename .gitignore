@@ -83,3 +83,4 @@ docs/.vitepress/build
 # Generated Documentation
 dashboard/public/docs/
 private-context.md
+cybermem-backup-*.tar.gz

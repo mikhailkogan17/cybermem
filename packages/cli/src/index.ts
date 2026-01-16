@@ -2,6 +2,7 @@
 import { Command } from 'commander';
 import { backup } from './commands/backup';
 import { deploy } from './commands/deploy';
+import { reset } from './commands/reset';
 import { restore } from './commands/restore';
 
 const program = new Command();
@@ -31,4 +32,10 @@ program
   .argument('<file>', 'Backup file to restore')
   .action(restore);
 
+program
+  .command('reset')
+  .description('Reset (wipe) the CyberMem database - DESTRUCTIVE!')
+  .action(reset);
+
 program.parse(process.argv);
+
