@@ -1,10 +1,10 @@
-import { exec } from 'child_process'
+import { readdirSync, statSync, unlinkSync } from 'fs'
 import { NextRequest, NextResponse } from 'next/server'
-import { promisify } from 'util'
+import { join } from 'path'
 
 export const dynamic = 'force-dynamic'
 
-const execAsync = promisify(exec)
+const DATA_DIR = process.env.DATA_DIR || '/data'
 
 /**
  * POST /api/reset
@@ -24,52 +24,38 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Wipe database via docker exec
-    const containerName = process.env.OPENMEMORY_CONTAINER || 'cybermem-openmemory'
-
+    // Remove SQLite files directly via volume mount
     try {
-      // Remove SQLite files
-      await execAsync(
-        `docker exec ${containerName} sh -c 'rm -f /data/openmemory.sqlite*'`
-      )
+      const files = readdirSync(DATA_DIR)
+      let deletedCount = 0
 
-      // Restart container to reinitialize
-      await execAsync(`docker restart ${containerName}`)
-
-      // Wait for health
-      let healthy = false
-      for (let i = 0; i < 30; i++) {
-        await new Promise(r => setTimeout(r, 2000))
-        try {
-          const healthUrl = process.env.CYBERMEM_URL || 'http://localhost:8626'
-          const res = await fetch(`${healthUrl}/health`, { cache: 'no-store' })
-          if (res.ok) {
-            healthy = true
-            break
+      for (const file of files) {
+        if (file.startsWith('openmemory.sqlite')) {
+          const filePath = join(DATA_DIR, file)
+          try {
+            const stat = statSync(filePath)
+            if (stat.isFile()) {
+              unlinkSync(filePath)
+              deletedCount++
+            }
+          } catch {
+            // File may already be deleted
           }
-        } catch {
-          // Still starting up
         }
       }
 
-      if (!healthy) {
-        return NextResponse.json(
-          { error: 'Database reset but container failed to become healthy' },
-          { status: 500 }
-        )
-      }
-
-      // Restart log-exporter and db-exporter
-      await execAsync('docker restart cybermem-log-exporter cybermem-db-exporter').catch(() => {})
-
+      // Notify user that container restart is needed
       return NextResponse.json({
         success: true,
-        message: 'Database reset successfully'
+        message: `Deleted ${deletedCount} database files. Restart openmemory container to reinitialize.`,
+        deletedCount,
+        restartRequired: true,
+        restartCommand: 'docker restart cybermem-openmemory'
       })
 
-    } catch (dockerError: any) {
+    } catch (fsError: any) {
       return NextResponse.json(
-        { error: `Docker command failed: ${dockerError.message}` },
+        { error: `File operation failed: ${fsError.message}` },
         { status: 500 }
       )
     }

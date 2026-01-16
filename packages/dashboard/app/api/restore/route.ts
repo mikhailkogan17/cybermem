@@ -1,13 +1,12 @@
-import { exec } from 'child_process'
-import { unlinkSync, writeFileSync } from 'fs'
+import { execSync } from 'child_process'
+import { readdirSync, rmSync, unlinkSync, writeFileSync } from 'fs'
 import { NextRequest, NextResponse } from 'next/server'
 import { tmpdir } from 'os'
 import { join } from 'path'
-import { promisify } from 'util'
 
 export const dynamic = 'force-dynamic'
 
-const execAsync = promisify(exec)
+const DATA_DIR = process.env.DATA_DIR || '/data'
 
 /**
  * POST /api/restore
@@ -35,7 +34,6 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const containerName = process.env.OPENMEMORY_CONTAINER || 'cybermem-openmemory'
     const tmpPath = join(tmpdir(), `restore-${Date.now()}.tar.gz`)
 
     try {
@@ -43,51 +41,33 @@ export async function POST(request: NextRequest) {
       const buffer = Buffer.from(await file.arrayBuffer())
       writeFileSync(tmpPath, buffer)
 
-      // Stop container
-      await execAsync(`docker stop ${containerName}`)
+      // Remove existing database files
+      const existingFiles = readdirSync(DATA_DIR)
+      for (const f of existingFiles) {
+        if (f.startsWith('openmemory.sqlite')) {
+          try { rmSync(join(DATA_DIR, f)) } catch {}
+        }
+      }
 
-      // Extract backup to container volume
-      await execAsync(
-        `gunzip -c "${tmpPath}" | docker cp - ${containerName}:/`
-      )
+      // Extract backup to data directory
+      execSync(`tar -xzf "${tmpPath}" -C "${DATA_DIR}"`, { stdio: 'pipe' })
 
       // Clean up temp file
       unlinkSync(tmpPath)
 
-      // Start container
-      await execAsync(`docker start ${containerName}`)
-
-      // Wait for health
-      let healthy = false
-      for (let i = 0; i < 30; i++) {
-        await new Promise(r => setTimeout(r, 2000))
-        try {
-          const healthUrl = process.env.CYBERMEM_URL || 'http://localhost:8626'
-          const res = await fetch(`${healthUrl}/health`, { cache: 'no-store' })
-          if (res.ok) {
-            healthy = true
-            break
-          }
-        } catch {
-          // Still starting up
-        }
-      }
-
-      // Restart exporters
-      await execAsync('docker restart cybermem-log-exporter cybermem-db-exporter').catch(() => {})
-
       return NextResponse.json({
         success: true,
-        message: 'Database restored successfully',
-        healthy
+        message: 'Database restored successfully. Restart openmemory container to apply.',
+        restartRequired: true,
+        restartCommand: 'docker restart cybermem-openmemory'
       })
 
-    } catch (dockerError: any) {
+    } catch (restoreError: any) {
       // Clean up temp file on error
       try { unlinkSync(tmpPath) } catch {}
 
       return NextResponse.json(
-        { error: `Restore failed: ${dockerError.message}` },
+        { error: `Restore failed: ${restoreError.message}` },
         { status: 500 }
       )
     }

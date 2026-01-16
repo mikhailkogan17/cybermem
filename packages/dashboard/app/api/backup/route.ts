@@ -1,13 +1,12 @@
-import { exec } from 'child_process'
-import { createReadStream, statSync } from 'fs'
+import { execSync } from 'child_process'
+import { createReadStream, rmSync, statSync } from 'fs'
 import { NextResponse } from 'next/server'
 import { tmpdir } from 'os'
 import { join } from 'path'
-import { promisify } from 'util'
 
 export const dynamic = 'force-dynamic'
 
-const execAsync = promisify(exec)
+const DATA_DIR = process.env.DATA_DIR || '/data'
 
 /**
  * GET /api/backup
@@ -19,14 +18,9 @@ export async function GET() {
     const backupName = `cybermem-backup-${timestamp}.tar.gz`
     const tmpPath = join(tmpdir(), backupName)
 
-    // Create backup via docker
-    const containerName = process.env.OPENMEMORY_CONTAINER || 'cybermem-openmemory'
-
     try {
-      // Copy data from container to temp location
-      await execAsync(
-        `docker cp ${containerName}:/data - | gzip > "${tmpPath}"`
-      )
+      // Create backup via tar command (available in Node alpine image)
+      execSync(`tar -czf "${tmpPath}" -C "${DATA_DIR}" .`, { stdio: 'pipe' })
 
       // Get file stats
       const stats = statSync(tmpPath)
@@ -38,7 +32,11 @@ export async function GET() {
       const webStream = new ReadableStream({
         start(controller) {
           stream.on('data', (chunk) => controller.enqueue(chunk))
-          stream.on('end', () => controller.close())
+          stream.on('end', () => {
+            controller.close()
+            // Clean up temp file after streaming
+            try { rmSync(tmpPath) } catch {}
+          })
           stream.on('error', (err) => controller.error(err))
         }
       })
@@ -51,9 +49,9 @@ export async function GET() {
         }
       })
 
-    } catch (dockerError: any) {
+    } catch (tarError: any) {
       return NextResponse.json(
-        { error: `Backup failed: ${dockerError.message}` },
+        { error: `Backup failed: ${tarError.message}` },
         { status: 500 }
       )
     }
