@@ -209,16 +209,20 @@ def parse_and_export():
             endpoint = path.split("?")[0]
 
             # Determine operation type from endpoint BEFORE normalization
-            if endpoint == "/memory/add":
+            if endpoint == "/memory/add" or endpoint == "/add":
                 operation = "create"
-            elif endpoint == "/memory/query":
+            elif endpoint == "/memory/query" or endpoint == "/query":
                 operation = "read"
+            elif endpoint == "/memory/all" or endpoint == "/all":
+                operation = "read"  # list_memories
+            elif endpoint.startswith("/memory/") and method == "GET":
+                operation = "read"  # get by ID
             elif endpoint.startswith("/memory/") and method == "PATCH":
                 operation = "update"
             elif endpoint.startswith("/memory/") and method == "DELETE":
                 operation = "delete"
             elif endpoint.startswith("/mcp"):
-                operation = "create"  # MCP operations are typically POST
+                operation = "mcp"  # MCP operations tracked separately
             else:
                 operation = "other"
 

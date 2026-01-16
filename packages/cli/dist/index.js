@@ -4,6 +4,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const commander_1 = require("commander");
 const backup_1 = require("./commands/backup");
 const deploy_1 = require("./commands/deploy");
+const reset_1 = require("./commands/reset");
 const restore_1 = require("./commands/restore");
 const program = new commander_1.Command();
 program
@@ -27,4 +28,8 @@ program
     .description('Restore CyberMem data from a backup file')
     .argument('<file>', 'Backup file to restore')
     .action(restore_1.restore);
+program
+    .command('reset')
+    .description('Reset (wipe) the CyberMem database - DESTRUCTIVE!')
+    .action(reset_1.reset);
 program.parse(process.argv);
