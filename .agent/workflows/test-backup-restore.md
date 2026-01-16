@@ -6,118 +6,80 @@ description: Run happy path manual test for backup-restore flow
 
 // turbo-all
 
----
-
-## Step 0: Config Validation (MANDATORY)
-
-> [!CAUTION]
-> **RUN BOTH VALIDATIONS BEFORE PROCEEDING**
-
-### 0.1 Validate Local (run /test-local Step 0)
-```bash
-curl -s http://localhost:8626/health | jq '.ok'  # → true
-curl -s http://localhost:8000/api/stats | jq '.memoryRecords'  # → number
-```
-
-### 0.2 Validate RPi (run /test-rpi Step 0)
-```bash
-ssh pi@raspberrypi.local 'curl -s http://localhost:8626/health | jq .ok'  # → true
-ssh pi@raspberrypi.local 'curl -s http://localhost:8000/api/stats | jq .memoryRecords'  # → number
-```
-
-### 0.3 Verify Both MCP Servers in Antigravity
-- `mcp_cybermem-local_list_memories` → Should work
-- `mcp_cybermem-rpi_list_memories` → Should work (NOT 404)
-
-**If RPi returns 404:** Fix Antigravity config URL/API key first!
+> [!IMPORTANT]
+> **Direction: RPi → Local** (not Local → RPi)
+> RPi is production. Local is test environment.
 
 ---
 
-## Step 1: Prepare Local Environment
+## Step 0: Backup RPi Production Data
 
-### 1.1 Wipe Local Database
+### 0.1 Create Backup on RPi
 ```bash
-docker exec cybermem-openmemory sh -c 'rm -f /data/openmemory.sqlite*'
-docker run --rm -v cybermem-openmemory-data:/data alpine sh -c 'chown -R 1001:1001 /data && chmod 777 /data'
-docker restart cybermem-openmemory
-for i in {1..30}; do curl -s http://localhost:8626/health | grep -q ok && break || sleep 2; done
-docker restart cybermem-log-exporter cybermem-db-exporter
-sleep 5
+ssh pi@raspberrypi.local 'cd ~/.cybermem && tar -czf ~/cybermem-backup-$(date +%Y%m%d-%H%M%S).tar.gz data/'
 ```
 
-### 1.2 Create Test Memories via MCP
-Use `mcp_cybermem-local_add_memory` to create 3 distinct memories:
-- Memory 1: "Backup-restore test: Important note about project X"
-- Memory 2: "Backup-restore test: Configuration details for system Y"
-- Memory 3: "Backup-restore test: Meeting notes from date Z"
-
-### 1.3 Verify Local Dashboard
+### 0.2 Copy to Local
 ```bash
-curl -s http://localhost:3000/api/metrics | jq '.stats'
+scp pi@raspberrypi.local:~/cybermem-backup-*.tar.gz ~/cybermem/
+ls -la ~/cybermem/cybermem-backup-*.tar.gz
 ```
-**Expected:** `memoryRecords: 3`, all names = "Antigravity"
 
-### 1.4 Screenshot Local Dashboard
-Take screenshot of dashboard showing:
-- Memory Records: 3
-- Top Writer: Antigravity
-- Last Writer: Antigravity
+### 0.3 Record RPi Stats (Before)
+```bash
+ssh pi@raspberrypi.local 'curl -s http://localhost:8000/api/stats | jq .memoryRecords'
+```
 
 ---
 
-## Step 2: Backup
+## Step 1: Restore to Local
 
+### 1.1 Stop Local OpenMemory
 ```bash
-cd /Users/mikhailkogan/cybermem
-npx @cybermem/cli backup
+cd ~/.cybermem && export CYBERMEM_ENV_PATH=~/.cybermem/.env
+docker-compose -p cybermem stop openmemory
 ```
 
-Backup file created in current directory (e.g., `cybermem-backup-YYYYMMDD-HHMMSS.tar.gz`)
-
----
-
-## Step 3: Restore to RPi
-
-### 3.1 Copy Backup to RPi
+### 1.2 Extract Backup
 ```bash
-scp cybermem-backup-*.tar.gz pi@raspberrypi.local:~/.cybermem/
-```
-
-### 3.2 SSH to RPi and Restore
-```bash
-ssh pi@raspberrypi.local
 cd ~/.cybermem
-npx @cybermem/cli restore cybermem-backup-*.tar.gz
+tar -xzf ~/cybermem/cybermem-backup-YYYYMMDD-HHMMSS.tar.gz
 ```
 
-### 3.3 Restart RPi Services
+### 1.3 Fix Permissions
 ```bash
-ssh pi@raspberrypi.local 'docker restart cybermem-openmemory cybermem-log-exporter cybermem-db-exporter'
+docker run --rm -v cybermem-openmemory-data:/data alpine sh -c 'chown -R 1001:1001 /data && chmod 777 /data'
+```
+
+### 1.4 Restart Stack
+```bash
+docker-compose -p cybermem up -d openmemory log-exporter db-exporter
+sleep 15
 ```
 
 ---
 
-## Step 4: Verify RPi After Restore
+## Step 2: Verify Local
 
-### 4.1 Check Stats
+### 2.1 Check Local Stats
 ```bash
-ssh pi@raspberrypi.local 'curl -s http://localhost:8000/api/stats' | jq '.'
+curl -s http://localhost:8000/api/stats | jq '.memoryRecords'
+# Should match RPi count
 ```
-**Expected:** `memoryRecords: 3`
 
-### 4.2 Query via MCP
-Use `mcp_cybermem-rpi_query_memory` to search for "Backup-restore test"
-**Expected:** All 3 memories found
-
-### 4.3 Screenshot RPi Dashboard (if available)
+### 2.2 Query via MCP
+```
+mcp_cybermem_query_memory(query: "user context profile", k: 5)
+```
+**Expected:** Same memories as RPi
 
 ---
 
-## Step 5: Compare Results
+## Step 3: Compare
 
-| Metric         | Local | RPi |
-| -------------- | ----- | --- |
-| Memory Records | 3     | 3   |
-| Content Match  | ✓     | ✓   |
+| Metric        | RPi | Local |
+| ------------- | --- | ----- |
+| memoryRecords | ?   | ?     |
+| Content Match | ✓   | ✓     |
 
-**PASS** if both have identical memory content after restore.
+**PASS** if both have identical memory count and content.
