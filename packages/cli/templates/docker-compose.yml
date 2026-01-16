@@ -48,18 +48,17 @@ services:
     container_name: cybermem-instructions-injector
     environment:
       UPSTREAM_URL: http://openmemory:8080
-      PORT: "8082"
+      PORT: "8081"
     labels:
       - traefik.enable=true
       # Route POST /mcp through injector (higher priority than openmemory)
       - traefik.http.routers.mcp-inject.entrypoints=web
       - traefik.http.routers.mcp-inject.rule=Method(`POST`) && Path(`/mcp`)
       - traefik.http.routers.mcp-inject.priority=150
-      - traefik.http.services.mcp-inject.loadbalancer.server.port=8082
+      - traefik.http.services.mcp-inject.loadbalancer.server.port=8081
     restart: unless-stopped
     depends_on:
       - openmemory
-
 
   openmemory:
     build:
@@ -100,7 +99,7 @@ services:
     labels:
       - traefik.enable=true
       - traefik.http.routers.openmemory.entrypoints=web
-      - traefik.http.routers.openmemory.rule=PathPrefix(`/memory`) || PathPrefix(`/health`) || PathPrefix(`/v1`) || PathPrefix(`/api`) || PathPrefix(`/all`) || PathPrefix(`/add`) || PathPrefix(`/mcp`) || PathPrefix(`/sse`)
+      - traefik.http.routers.openmemory.rule=PathPrefix(`/memory`) || PathPrefix(`/health`) || PathPrefix(`/v1`) || PathPrefix(`/api`) || PathPrefix(`/all`) || PathPrefix(`/add`) || PathPrefix(`/sse`)
       - traefik.http.services.openmemory.loadbalancer.server.port=8080
     healthcheck:
       test:
