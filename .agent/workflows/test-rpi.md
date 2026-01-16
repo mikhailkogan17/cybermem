@@ -51,12 +51,30 @@ Test that `cybermem-rpi` MCP server is reachable:
 # Should return memories array, NOT 404
 ```
 
-**If 404:** Check Antigravity config:
-- URL should be `https://raspberrypi.local:8626` (with HTTPS) or Tailscale URL
-- API key must be set if remote mode
+**MCP Config Location:** `~/.gemini/antigravity/mcp_config.json`
 
-**Common fixes:**
-- Update db-exporter: `scp exporter.py pi@raspberrypi.local:/tmp/ && ssh pi 'docker cp /tmp/exporter.py cybermem-db-exporter:/app/exporter.py && docker restart cybermem-db-exporter'`
+**Correct URL Format:**
+```json
+{
+  "cybermem-rpi": {
+    "command": "npx",
+    "args": [
+      "-y", "@cybermem/mcp@latest",
+      "--url", "https://raspberrypi.tail<YOUR-TAILNET>.ts.net/cybermem/memory",
+      "--api-key", "<YOUR-API-KEY>"
+    ]
+  }
+}
+```
+
+> [!IMPORTANT]
+> - URL must end with `/memory` (NOT `/mcp`) — MCP package appends `/add`, `/query`, `/all`
+> - After changing config, **MUST refresh Antigravity** (Cmd+Shift+P → Reload)
+
+**If 404:** Check:
+1. URL ends with `/cybermem/memory`
+2. User refreshed Antigravity after config change
+3. Tailscale Funnel is running on RPi
 
 ---
 

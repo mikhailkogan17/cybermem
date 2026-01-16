@@ -108,8 +108,8 @@
     "cybermem-remote": {
       "command": "npx",
       "args": [
-        "-y", "@cybermem/mcp",
-        "--url", "https://your-rpi-or-vps:8626",
+        "-y", "@cybermem/mcp@latest",
+        "--url", "https://your-rpi.tailnet.ts.net/cybermem/memory",
         "--api-key", "your-api-key",
         "--client-name", "cursor"
       ]
@@ -117,6 +117,11 @@
   }
 }
 ```
+
+> [!IMPORTANT]
+> **Antigravity Config Path:** `~/.gemini/antigravity/mcp_config.json`
+> - URL must end with `/memory` (NOT `/mcp`) — package appends `/add`, `/query`, `/all`
+> - After changing config, **MUST refresh Antigravity** (Cmd+Shift+P → Reload)
 
 **CLI Arguments:**
 
