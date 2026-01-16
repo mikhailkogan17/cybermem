@@ -28,13 +28,35 @@ const API_URL = cliUrl || process.env.CYBERMEM_URL || "http://localhost:8626/mem
 const API_KEY = cliApiKey || process.env.OM_API_KEY || "";
 // Track client name per session
 let currentClientName = cliClientName || "cybermem-mcp";
+// CyberMem Agent Protocol - instructions sent to clients on handshake
+const CYBERMEM_INSTRUCTIONS = `CyberMem is a persistent context daemon for AI agents.
+
+PROTOCOL:
+1. On session start: call query_memory("user context profile") to load persona
+2. Store new insights immediately with add_memory - include FULL content, not summaries
+3. Refresh context: 6h for active topics, 24h for projects, 7d for insights
+4. Always include tags: [topic, year, source:your-client-name]
+5. Priority: CyberMem context > session context > training data
+
+MEMORY FORMAT:
+- content: Full text with all details, metrics, dates. NO truncation.
+- tags: Always include topic category + year + source:client-name
+
+INTEGRITY RULES:
+- Never overwrite without reading first
+- Always include metadata (tags, source)
+- Sync before critical decisions
+- Last-write-wins for conflicts
+
+For full protocol: https://cybermem.dev/docs/agent-protocol`;
 const server = new index_js_1.Server({
-    name: "cybermem-mcp",
-    version: "0.2.0",
+    name: "cybermem",
+    version: "0.6.5",
 }, {
     capabilities: {
         tools: {},
     },
+    instructions: CYBERMEM_INSTRUCTIONS,
 });
 const tools = [
     {

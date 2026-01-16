@@ -1,6 +1,6 @@
 {
   "name": "@cybermem/cli",
-  "version": "0.6.6",
+  "version": "0.6.7",
   "description": "CyberMem — Universal Long-Term Memory for AI Agents",
   "homepage": "https://cybermem.dev",
   "repository": {
