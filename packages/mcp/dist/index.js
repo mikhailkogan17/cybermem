@@ -19,9 +19,9 @@ const getArg = (name) => {
     const idx = args.indexOf(name);
     return idx !== -1 && args[idx + 1] ? args[idx + 1] : undefined;
 };
-const cliUrl = getArg('--url');
-const cliApiKey = getArg('--api-key');
-const cliClientName = getArg('--client-name');
+const cliUrl = getArg("--url");
+const cliApiKey = getArg("--api-key");
+const cliClientName = getArg("--client-name");
 // Use CLI args first, then env, then defaults
 // Default to local CyberMem backend (via Traefik on port 8626)
 const API_URL = cliUrl || process.env.CYBERMEM_URL || "http://localhost:8626/memory";
@@ -49,32 +49,67 @@ INTEGRITY RULES:
 - Last-write-wins for conflicts
 
 For full protocol: https://cybermem.dev/docs/agent-protocol`;
+// Short protocol reminder for tool descriptions (derived from main instructions)
+const PROTOCOL_REMINDER = "CyberMem Protocol: Store FULL content (no summaries), always include tags [topic, year, source:client-name]. Query 'user context profile' on session start.";
 const server = new index_js_1.Server({
     name: "cybermem",
-    version: "0.6.5",
+    version: "0.6.8",
 }, {
     capabilities: {
         tools: {},
+        resources: {}, // Enable resources for protocol document
     },
     instructions: CYBERMEM_INSTRUCTIONS,
+});
+// Register resources handler for protocol document
+server.setRequestHandler(types_js_1.ListResourcesRequestSchema, async () => ({
+    resources: [
+        {
+            uri: "cybermem://protocol",
+            name: "CyberMem Agent Protocol",
+            description: "Instructions for AI agents using CyberMem memory system",
+            mimeType: "text/plain",
+        },
+    ],
+}));
+server.setRequestHandler(types_js_1.ReadResourceRequestSchema, async (request) => {
+    if (request.params.uri === "cybermem://protocol") {
+        return {
+            contents: [
+                {
+                    uri: "cybermem://protocol",
+                    mimeType: "text/plain",
+                    text: CYBERMEM_INSTRUCTIONS,
+                },
+            ],
+        };
+    }
+    throw new Error(`Unknown resource: ${request.params.uri}`);
 });
 const tools = [
     {
         name: "add_memory",
-        description: "Store a new memory in CyberMem",
+        description: `Store a new memory in CyberMem. ${PROTOCOL_REMINDER}`,
         inputSchema: {
             type: "object",
             properties: {
-                content: { type: "string" },
+                content: {
+                    type: "string",
+                    description: "Full content with all details - NO truncation or summarization",
+                },
                 user_id: { type: "string" },
-                tags: { type: "array", items: { type: "string" } },
+                tags: {
+                    type: "array",
+                    items: { type: "string" },
+                    description: "Always include [topic, year, source:your-client-name]",
+                },
             },
             required: ["content"],
         },
     },
     {
         name: "query_memory",
-        description: "Search for relevant memories",
+        description: `Search for relevant memories. On session start, call query_memory("user context profile") first.`,
         inputSchema: {
             type: "object",
             properties: {
@@ -118,7 +153,7 @@ const tools = [
             },
             required: ["id"],
         },
-    }
+    },
 ];
 server.setRequestHandler(types_js_1.ListToolsRequestSchema, async () => ({
     tools,
@@ -127,7 +162,7 @@ server.setRequestHandler(types_js_1.ListToolsRequestSchema, async () => ({
 const apiClient = axios_1.default.create({
     baseURL: API_URL,
     headers: {
-        "Authorization": `Bearer ${API_KEY}`,
+        Authorization: `Bearer ${API_KEY}`,
     },
 });
 // Helper to get client with context
@@ -137,11 +172,26 @@ function getClient(customHeaders = {}) {
     const clientName = customHeaders["X-Client-Name"] || clientVersion?.name || currentClientName;
     return {
         ...apiClient,
-        get: (url, config) => apiClient.get(url, { ...config, headers: { "X-Client-Name": clientName, ...config?.headers } }),
-        post: (url, data, config) => apiClient.post(url, data, { ...config, headers: { "X-Client-Name": clientName, ...config?.headers } }),
-        put: (url, data, config) => apiClient.put(url, data, { ...config, headers: { "X-Client-Name": clientName, ...config?.headers } }),
-        patch: (url, data, config) => apiClient.patch(url, data, { ...config, headers: { "X-Client-Name": clientName, ...config?.headers } }),
-        delete: (url, config) => apiClient.delete(url, { ...config, headers: { "X-Client-Name": clientName, ...config?.headers } }),
+        get: (url, config) => apiClient.get(url, {
+            ...config,
+            headers: { "X-Client-Name": clientName, ...config?.headers },
+        }),
+        post: (url, data, config) => apiClient.post(url, data, {
+            ...config,
+            headers: { "X-Client-Name": clientName, ...config?.headers },
+        }),
+        put: (url, data, config) => apiClient.put(url, data, {
+            ...config,
+            headers: { "X-Client-Name": clientName, ...config?.headers },
+        }),
+        patch: (url, data, config) => apiClient.patch(url, data, {
+            ...config,
+            headers: { "X-Client-Name": clientName, ...config?.headers },
+        }),
+        delete: (url, config) => apiClient.delete(url, {
+            ...config,
+            headers: { "X-Client-Name": clientName, ...config?.headers },
+        }),
     };
 }
 server.setRequestHandler(types_js_1.CallToolRequestSchema, async (request) => {
@@ -150,16 +200,22 @@ server.setRequestHandler(types_js_1.CallToolRequestSchema, async (request) => {
         switch (name) {
             case "add_memory": {
                 const response = await getClient().post("/add", args);
-                return { content: [{ type: "text", text: JSON.stringify(response.data) }] };
+                return {
+                    content: [{ type: "text", text: JSON.stringify(response.data) }],
+                };
             }
             case "query_memory": {
                 const response = await getClient().post("/query", args);
-                return { content: [{ type: "text", text: JSON.stringify(response.data) }] };
+                return {
+                    content: [{ type: "text", text: JSON.stringify(response.data) }],
+                };
             }
             case "list_memories": {
                 const limit = args?.limit || 10;
                 const response = await getClient().get(`/all?l=${limit}`);
-                return { content: [{ type: "text", text: JSON.stringify(response.data) }] };
+                return {
+                    content: [{ type: "text", text: JSON.stringify(response.data) }],
+                };
             }
             case "delete_memory": {
                 const { id } = args;
@@ -169,7 +225,9 @@ server.setRequestHandler(types_js_1.CallToolRequestSchema, async (request) => {
             case "update_memory": {
                 const { id, ...updates } = args;
                 const response = await getClient().patch(`/${id}`, updates);
-                return { content: [{ type: "text", text: JSON.stringify(response.data) }] };
+                return {
+                    content: [{ type: "text", text: JSON.stringify(response.data) }],
+                };
             }
             default:
                 throw new Error(`Unknown tool: ${name}`);
