@@ -210,6 +210,14 @@ services:
       - openmemory-data:/data
       - /var/run/docker.sock:/var/run/docker.sock
       - ${CYBERMEM_ENV_PATH}:/app/shared.env
+    labels:
+      - traefik.enable=true
+      # Dashboard route: /cybermem -> dashboard on port 3000
+      - traefik.http.routers.dashboard.entrypoints=web
+      - traefik.http.routers.dashboard.rule=PathPrefix(`/cybermem`)
+      - traefik.http.routers.dashboard.middlewares=strip-cybermem
+      - traefik.http.middlewares.strip-cybermem.stripprefix.prefixes=/cybermem
+      - traefik.http.services.dashboard.loadbalancer.server.port=3000
     restart: unless-stopped
     depends_on:
       - prometheus

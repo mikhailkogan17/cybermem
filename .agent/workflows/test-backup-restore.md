@@ -36,25 +36,26 @@ ssh pi@raspberrypi.local 'curl -s http://localhost:8000/api/stats | jq .memoryRe
 
 ### 1.1 Stop Local OpenMemory
 ```bash
-cd ~/.cybermem && export CYBERMEM_ENV_PATH=~/.cybermem/.env
-docker-compose -p cybermem stop openmemory
+docker stop cybermem-openmemory
 ```
 
-### 1.2 Extract Backup
+### 1.2 Extract Backup to Docker Volume
+> [!IMPORTANT]
+> Backup must be copied directly to Docker volume, not host path.
+
 ```bash
-cd ~/.cybermem
-tar -xzf ~/cybermem/cybermem-backup-YYYYMMDD-HHMMSS.tar.gz
+docker run --rm \
+  -v cybermem-openmemory-data:/data \
+  -v ~/cybermem:/backup \
+  alpine sh -c 'rm -f /data/openmemory.sqlite*; cd /data && tar -xzf /backup/cybermem-backup-YYYYMMDD-HHMMSS.tar.gz --strip-components=1'
 ```
 
-### 1.3 Fix Permissions
+### 1.3 Restart Stack
 ```bash
-docker run --rm -v cybermem-openmemory-data:/data alpine sh -c 'chown -R 1001:1001 /data && chmod 777 /data'
-```
-
-### 1.4 Restart Stack
-```bash
-docker-compose -p cybermem up -d openmemory log-exporter db-exporter
+docker start cybermem-openmemory
 sleep 15
+docker restart cybermem-log-exporter cybermem-db-exporter
+sleep 5
 ```
 
 ---
