@@ -2,58 +2,55 @@
 description: Run Playwright E2E tests for RPi environment (raspberrypi.local)
 ---
 
-# RPi Environment Playwright Tests
+# RPi Environment Happy Path Test
 
 // turbo-all
 
-## Prerequisites
+---
 
-1. RPi accessible at `raspberrypi.local` (or via Tailscale)
-2. CyberMem stack running on RPi
-3. SSH access configured
+## Quick Reference
+
+| Service     | Local Port | Tailscale URL Pattern                                  |
+| ----------- | ---------- | ------------------------------------------------------ |
+| MCP/API     | 8626       | `https://raspberrypi.tail<NET>.ts.net/cybermem/memory` |
+| db-exporter | 8000       | N/A (SSH only)                                         |
+
+**Antigravity Config:** `~/.gemini/antigravity/mcp_config.json`
 
 ---
 
 ## Step 0: Config Validation (MANDATORY)
 
-> [!CAUTION]
-> **DO NOT SKIP THIS STEP.** Validate before any happy path testing.
-
-### 0.1 Check RPi SSH
+### 0.1 SSH Access
 ```bash
 ssh pi@raspberrypi.local 'echo "SSH OK"'
+# → SSH OK
 ```
-**Expected:** `SSH OK`
 
 ### 0.2 Check RPi Containers
 ```bash
-ssh pi@raspberrypi.local 'docker ps --format "{{.Names}}: {{.Status}}" | grep -E "openmemory|traefik|db-exporter"'
+ssh pi@raspberrypi.local 'docker ps --format "{{.Names}}: {{.Status}}" | grep cybermem'
+# → All containers Up
 ```
-**Expected:** All containers Up and healthy
 
-### 0.3 Check RPi Health Endpoint
+### 0.3 Check Health (via SSH)
 ```bash
 ssh pi@raspberrypi.local 'curl -s http://localhost:8626/health | jq .ok'
+# → true
 ```
-**Expected:** `true`
 
-### 0.4 Check RPi db-exporter
+### 0.4 Check db-exporter
 ```bash
 ssh pi@raspberrypi.local 'curl -s http://localhost:8000/api/stats | jq .memoryRecords'
+# → number (0 or more)
 ```
-**Expected:** Number (0 or more). If 404 → db-exporter needs updated exporter.py
+**If 404:** Update db-exporter on RPi (see Common Issues)
 
-### 0.5 Verify Antigravity MCP Config for RPi
+### 0.5 Verify Antigravity MCP for RPi
 
-Test that `cybermem-rpi` MCP server is reachable:
-```bash
-# Use Antigravity MCP tool: mcp_cybermem-rpi_list_memories
-# Should return memories array, NOT 404
-```
+**Config Location:** `~/.gemini/antigravity/mcp_config.json`
 
-**MCP Config Location:** `~/.gemini/antigravity/mcp_config.json`
-
-**Correct URL Format:**
+**Correct Format:**
 ```json
 {
   "cybermem-rpi": {
@@ -68,13 +65,11 @@ Test that `cybermem-rpi` MCP server is reachable:
 ```
 
 > [!IMPORTANT]
-> - URL must end with `/memory` (NOT `/mcp`) — MCP package appends `/add`, `/query`, `/all`
-> - After changing config, **MUST refresh Antigravity** (Cmd+Shift+P → Reload)
+> - URL must end with `/cybermem/memory` (NOT `/mcp`)
+> - MCP package appends `/add`, `/query`, `/all` to this URL
+> - After config change: **MUST refresh Antigravity** (Cmd+Shift+P → Reload)
 
-**If 404:** Check:
-1. URL ends with `/cybermem/memory`
-2. User refreshed Antigravity after config change
-3. Tailscale Funnel is running on RPi
+**Test:** `mcp_cybermem-rpi_list_memories` — should return memories, NOT 404
 
 ---
 
@@ -82,12 +77,16 @@ Test that `cybermem-rpi` MCP server is reachable:
 
 ### 1.1 Wipe RPi Database
 ```bash
-ssh pi@raspberrypi.local 'docker exec cybermem-openmemory sh -c "rm -f /data/openmemory.sqlite*"; docker restart cybermem-openmemory cybermem-log-exporter; sleep 10; docker restart cybermem-db-exporter'
+ssh pi@raspberrypi.local 'docker exec cybermem-openmemory sh -c "rm -f /data/openmemory.sqlite*"'
+ssh pi@raspberrypi.local 'docker restart cybermem-openmemory cybermem-log-exporter'
+sleep 10
+ssh pi@raspberrypi.local 'docker restart cybermem-db-exporter'
 ```
 
 ### 1.2 Wait for Health
 ```bash
 ssh pi@raspberrypi.local 'for i in $(seq 1 30); do curl -s http://localhost:8626/health | grep -q ok && echo "Health OK" && break || sleep 2; done'
+# → Health OK
 ```
 
 ### 1.3 MCP CRUD via Antigravity
@@ -95,29 +94,47 @@ ssh pi@raspberrypi.local 'for i in $(seq 1 30); do curl -s http://localhost:8626
 > [!CAUTION]
 > **FORBIDDEN TO USE CURL.** Use only Antigravity MCP tools.
 
-1. **CREATE:** Use `mcp_cybermem-rpi_add_memory` to add 3 memories
-2. **READ:** Use `mcp_cybermem-rpi_query_memory` to search
+**CREATE (3 memories):**
+```
+mcp_cybermem-rpi_add_memory(content: "RPi Happy Path Test #1", tags: ["happy-path", "rpi"])
+mcp_cybermem-rpi_add_memory(content: "RPi Happy Path Test #2", tags: ["happy-path", "rpi"])
+mcp_cybermem-rpi_add_memory(content: "RPi Happy Path Test #3", tags: ["happy-path", "rpi"])
+```
 
-### 1.4 Verify Dashboard
+**READ:**
+```
+mcp_cybermem-rpi_query_memory(query: "RPi Happy Path", k: 3)
+```
 
+### 1.4 Verify RPi Stats
 ```bash
 ssh pi@raspberrypi.local 'curl -s http://localhost:8000/api/stats' | jq '.'
 ```
 
-**Required assertions:**
+**Required Results:**
 
-| Metric            | Expected                                              |
-| ----------------- | ----------------------------------------------------- |
-| `topWriter.name`  | Contains "antigravity" (raw, normalized on dashboard) |
-| `lastWriter.name` | Contains "antigravity"                                |
-| `memoryRecords`   | 3 (or number of created)                              |
+| Metric            | Expected                   |
+| ----------------- | -------------------------- |
+| `memoryRecords`   | 3                          |
+| `topWriter.name`  | "antigravity-client" (raw) |
+| `lastWriter.name` | "antigravity-client" (raw) |
+
+> [!NOTE]
+> RPi db-exporter returns raw names. Dashboard API normalizes "antigravity-client" → "Antigravity"
 
 ---
 
-## Environment Variables
+## Common Issues
 
-| Variable      | Example                            | Description      |
-| ------------- | ---------------------------------- | ---------------- |
-| `RPI_URL`     | https://raspberrypi.local:8626/mcp | MCP endpoint     |
-| `RPI_API_KEY` | your-api-key                       | API key for auth |
-| `RPI_HOST`    | pi@raspberrypi.local               | SSH host         |
+| Issue           | Fix                                                                                |
+| --------------- | ---------------------------------------------------------------------------------- |
+| MCP 404         | 1. URL must end with `/cybermem/memory` 2. Refresh Antigravity after config change |
+| db-exporter 404 | Update exporter.py on RPi (see below)                                              |
+| ETIMEDOUT       | Tailscale not connected, check `tailscale status`                                  |
+| Container busy  | Stop container first, then cp: `docker stop X && docker cp ... && docker start X`  |
+
+### Update db-exporter on RPi
+```bash
+scp /Users/mikhailkogan/cybermem/packages/cli/templates/monitoring/db_exporter/exporter.py pi@raspberrypi.local:/tmp/
+ssh pi@raspberrypi.local 'docker stop cybermem-db-exporter && docker cp /tmp/exporter.py cybermem-db-exporter:/app/exporter.py && docker start cybermem-db-exporter'
+```
