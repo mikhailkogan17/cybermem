@@ -35,7 +35,7 @@
   {
     "id": "antigravity",
     "name": "Antigravity",
-    "match": "antigravity",
+    "match": "antigravity|antigravity-client",
     "color": "#d946ef",
     "icon": "/icons/antigravity.png",
     "description": "Antigravity supports MCP via raw JSON configuration.",

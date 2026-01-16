@@ -86,9 +86,9 @@ export default function MetricsChart({
             )}
             {isMultiSeries ? (
                 clientNames.map((client, i) => {
-                    // Find matching config
+                    // Find matching config using regex
                     const keyLower = client.toLowerCase()
-                    const config = clientConfigs.find((c: any) => keyLower.includes(c.match))
+                    const config = clientConfigs.find((c: any) => new RegExp(c.match, 'i').test(keyLower))
 
                     // Use config if found, otherwise fallback
                     const name = config?.name || client

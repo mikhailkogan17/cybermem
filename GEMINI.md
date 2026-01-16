@@ -208,22 +208,26 @@ Traefik entry point: `http://localhost:8626`
 - Local: needs to run happy path tests for LOCAL and for https://raspberrypi.local (if available)
 
 ### Dashboard
-The dashboard tracks MCP client activity through Traefik. 
+The dashboard tracks MCP client activity through db-exporter (SQLite).
 
-Metrics from Prometheus+Traefik:
-- **Last Reader / Last Writer** — Most recent client activity with timestamp
-- **Top Reader / Top Writer** — Client with highest operation count
-- **4 Time Series Charts:** Creates, Reads, Updates, Deletes
-- **Audit Logs** — All operations with timestamps
+> [!IMPORTANT]
+> **Dashboard uses SQLite as single source of truth** (not Prometheus).
+> Prometheus remains in stack for Grafana/alerting but is not used by dashboard.
 
-Metrics from Openmemory directly (4 top metrics):
-- **Memory Records**
-- **Total Clients**
-- **Success Rate**
-- **Total Requests**
+**All metrics from db-exporter (SQLite):**
+- **Memory Records** — Count from `memories` table
+- **Total Clients** — Unique clients from `memories` table
+- **Success Rate** — Calculated from `cybermem_stats` table
+- **Total Requests** — Sum from `cybermem_stats` table
+- **Top Writer / Top Reader** — Aggregated from `cybermem_stats` table
+- **Last Writer / Last Reader** — Most recent from `cybermem_access_log` table
+- **Time Series Charts** — Bucketed counts from `cybermem_access_log` table
+- **Audit Logs** — From `cybermem_access_log` table
+
+**Client name normalization** happens on backend via `clients.json` regex matching.
 
 > [!CAUTION]
-> Always check Metrics from Openmemory (4 top) in the **LAST** priority. Use Top Reader / Top Writer / Last Reader / Last Writer for happy path. Use Time Series Charts for regression testing.
+> Always check Top Reader / Top Writer / Last Reader / Last Writer for happy path. Use Time Series Charts for regression testing.
 
 ---
 
@@ -237,7 +241,8 @@ sequenceDiagram
     participant Traefik as Traefik:8626
     participant OM as OpenMemory
     participant LE as Log Exporter
-    participant Prom as Prometheus
+    participant DB as SQLite
+    participant DBE as db-exporter
     participant Dash as Dashboard
 
     Test->>Traefik: POST /mcp (X-Client-Name: e2e-crud-xxx)
@@ -245,10 +250,11 @@ sequenceDiagram
     OM-->>Traefik: Response (CRUD result)
     Traefik-->>Test: HTTP 200
     Traefik->>LE: Access log entry
-    LE->>LE: Parse client_name from log
-    LE->>Prom: Expose metrics (openmemory_requests_total)
-    Dash->>Prom: Query metrics
-    Dash-->>Test: Display "Last Writer: e2e-crud-xxx"
+    LE->>DB: Store to cybermem_access_log
+    Dash->>DBE: GET /api/stats
+    DBE->>DB: Query SQLite
+    DBE-->>Dash: Return normalized stats
+    Dash-->>Test: Display "Last Writer: Antigravity"
 ```
 
 ### Test Execution Order
@@ -263,11 +269,11 @@ sequenceDiagram
 
 ### Key Assertions
 
-| Assertion                 | Location   | Method                                               |
-| ------------------------- | ---------- | ---------------------------------------------------- |
-| Client tracked in metrics | Prometheus | Query `openmemory_requests_total{client_name="..."}` |
-| Client visible in UI      | Dashboard  | Check "Last Writer" / "Last Reader" cards            |
-| Operations logged         | Audit Log  | Scroll to table, verify client name column           |
+| Assertion                 | Location    | Method                                     |
+| ------------------------- | ----------- | ------------------------------------------ |
+| Client tracked in metrics | db-exporter | Query `/api/stats` for client names        |
+| Client visible in UI      | Dashboard   | Check "Last Writer" / "Last Reader" cards  |
+| Operations logged         | Audit Log   | Scroll to table, verify client name column |
 
 ### Running the Tests
 

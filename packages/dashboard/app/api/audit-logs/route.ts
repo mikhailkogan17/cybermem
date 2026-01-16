@@ -1,9 +1,34 @@
+import fs from 'fs'
 import { NextResponse } from 'next/server'
+import path from 'path'
 
 export const dynamic = 'force-dynamic'
 
 // Use env var for db-exporter URL (Docker internal vs local dev)
 const DB_EXPORTER_URL = process.env.DB_EXPORTER_URL || 'http://localhost:8000'
+
+// Load clients config for name normalization
+let clientsConfig: any[] = []
+try {
+  const configPath = path.join(process.cwd(), 'public', 'clients.json')
+  clientsConfig = JSON.parse(fs.readFileSync(configPath, 'utf-8'))
+} catch (e) {
+  console.error('Failed to load clients.json:', e)
+}
+
+// Normalize raw client name (e.g. "antigravity-client") to friendly name (e.g. "Antigravity")
+function normalizeClientName(rawName: string): string {
+  if (!rawName) return 'Unknown'
+  const nameLower = rawName.toLowerCase()
+  const client = clientsConfig.find((c: any) => {
+    try {
+      return new RegExp(c.match, 'i').test(nameLower)
+    } catch {
+      return nameLower.includes(c.match)
+    }
+  })
+  return client?.name || rawName
+}
 
 const CLIENTS = ["Claude Code", "v0", "Cursor", "GitHub Copilot", "Windsurf"]
 const OPERATIONS = ["Read", "Write", "Update", "Delete", "Create"]
@@ -45,7 +70,7 @@ export async function GET(request: Request) {
 
         return {
             timestamp: log.timestamp,
-            client: log.client_name || "Unknown",
+            client: normalizeClientName(log.client_name),
             operation: operation,
             status: status,
             method: log.method,

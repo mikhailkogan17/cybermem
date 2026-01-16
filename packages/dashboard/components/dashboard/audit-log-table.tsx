@@ -47,7 +47,7 @@ export default function AuditLogTable({
   const getClientConfig = (rawName: string) => {
     if (!rawName) return undefined
     const nameLower = rawName.toLowerCase()
-    return clientConfigs.find((c: any) => nameLower.includes(c.match))
+    return clientConfigs.find((c: any) => new RegExp(c.match, 'i').test(nameLower))
   }
 
   const getClientDisplayName = (rawName: string) => {
