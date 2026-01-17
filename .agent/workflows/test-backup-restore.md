@@ -18,17 +18,20 @@ description: Run happy path manual test for backup-restore flow
 
 ## Step 0: Backup RPi Production Data (READ-ONLY)
 
-### 0.1 Create Backup on RPi
+### 0.1 Create Backup from Docker Volume
+
+> [!IMPORTANT]
+> Data lives in Docker volume `cybermem-openmemory-data`, NOT host path.
 
 ```bash
-ssh pi@raspberrypi.local 'cd ~/.cybermem && tar -czf ~/cybermem-backup-$(date +%Y%m%d-%H%M%S).tar.gz data/'
+ssh pi@raspberrypi.local 'docker run --rm -v cybermem-openmemory-data:/data -v /home/pi:/backup alpine sh -c "cd /data && tar -czf /backup/cybermem-backup-$(date +%Y%m%d-%H%M%S).tar.gz ."'
 ```
 
 ### 0.2 Copy to Local
 
 ```bash
-scp pi@raspberrypi.local:~/cybermem-backup-*.tar.gz ~/cybermem/
-ls -la ~/cybermem/cybermem-backup-*.tar.gz
+scp 'pi@raspberrypi.local:/home/pi/cybermem-backup-*.tar.gz' ~/cybermem/
+ls -la ~/cybermem/cybermem-backup-*.tar.gz | tail -3
 ```
 
 ### 0.3 Record RPi Stats (READ-ONLY)
@@ -60,7 +63,7 @@ echo "Restoring from: $BACKUP"
 docker run --rm \
   -v cybermem-openmemory-data:/data \
   -v ~/cybermem:/backup \
-  alpine sh -c "rm -f /data/openmemory.sqlite*; cd /data && tar -xzf /backup/$(basename $BACKUP) --strip-components=1"
+  alpine sh -c "rm -f /data/openmemory.sqlite*; cd /data && tar -xzf /backup/$(basename $BACKUP)"
 ```
 
 ### 1.3 Restart Local Stack
@@ -101,7 +104,7 @@ mcp_cybermem_query_memory(query: "user context profile", k: 5)
 | topWriter     | ?              | ?                |
 | lastWriter    | ?              | ?                |
 
-**PASS** if Local matches RPi.
+**PASS** if Local matches RPi (memory count within ±2 due to timing).
 
 ---
 
@@ -111,4 +114,5 @@ Remove old backups:
 
 ```bash
 rm ~/cybermem/cybermem-backup-*.tar.gz
+ssh pi@raspberrypi.local 'rm ~/cybermem-backup-*.tar.gz'
 ```
