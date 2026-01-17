@@ -16,7 +16,7 @@ Welcome to CyberMem documentation.
 - [Agent Protocol](./agent-protocol.md) - Deep dive into memory standard
 - [Security](./security.md) - Authentication & data protection
 - [Backup & Restore](./backup.md) - Data management guide
-- [Contributing](../CONTRIBUTING.md) - Development guidelines
+- [Contributing](https://github.com/mikhailkogan17/cybermem/blob/main/CONTRIBUTING.md) - Development guidelines
 
 ## Support
 
