@@ -1,19 +1,23 @@
 # CyberMem Project Context
 
 ## 1. CyberMem Project Overview
+
 **CyberMem** is a production-grade AI memory system wrapping [OpenMemory](https://github.com/CaviraOSS/OpenMemory) with specific DevOps infrastructure.
 
 **Goal**: Provide monitoring, observability, and multi-platform support (Local, RPi, VPS) without modifying OpenMemory code.
+
 > [!CAUTION]
 > **Core Principle**: "No code modifications to OpenMemory" (it's a git submodule). Logic is implemented via sidecars (Vector, Traefik) and database exporters.
 
 ### Landing and Documentation
+
 - **Landing**: [https://cybermem.dev](https://cybermem.dev)
 - **Documentation**: [https://cybermem.dev/docs](https://cybermem.dev/docs)
 - **Source Code**: [https://github.com/mikhailkogan17/cybermem](https://github.com/mikhailkogan17/cybermem)
 - **Readme**: [https://github.com/mikhailkogan17/cybermem/blob/main/README.md](https://github.com/mikhailkogan17/cybermem/blob/main/README.md)
 
 ## 2. Technology Stack & Architecture
+
 - **App Core**: OpenMemory (Python/FastAPI) as `external/openmemory` submodule.
 - **Infrastructure**:
   - **Networking**: Tailscale Funnel (zero-config public HTTPS for RPi/VPS).
@@ -30,6 +34,7 @@
   - **NPM Workspaces**: Manages `@cybermem/cli`, `@cybermem/dashboard`, and `@cybermem/mcp`.
 
 ## 3. Directory Map
+
 - `packages/cli/`: Management CLI (@cybermem/cli)
   - `templates/`: Production-ready configurations (Docker Compose, Helm Charts, Ansible Playbooks, Terraform Modules, Tailscale Funnel).
 - `packages/dashboard/`: Monitoring UI (metrics, audit logs) — NOT the public landing page.
@@ -44,14 +49,16 @@
 
 > [!CAUTION]
 > **ALL new markdown documentation MUST be placed in `/docs/`.**
-> 
+>
 > Allowed `.md` files outside `/docs/`:
+>
 > - `README.md` (project root only)
 > - `CONTRIBUTING.md`
 > - `GEMINI.md`
 > - `.agent/workflows/*.md` (agent workflows)
-> 
+>
 > DO NOT create new `.md` files in:
+>
 > - `packages/*/` (except package README.md)
 > - Root directory (except allowed files above)
 > - Any other location
@@ -60,11 +67,50 @@
 
 ---
 
+## ⚠️ Environment Classification (CRITICAL)
+
+> [!CAUTION]
+> **Local = DEV, RPi = PROD**
+>
+> | Environment           | Type | Data Safety                  |
+> | --------------------- | ---- | ---------------------------- |
+> | **localhost**         | DEV  | Can wipe, reset, test freely |
+> | **raspberrypi.local** | PROD | **READ-ONLY**. Never modify. |
+>
+> **FORBIDDEN on RPi:**
+>
+> - Wiping database
+> - Resetting containers with data loss
+> - Running destructive tests
+> - `docker rm`, `docker-compose down -v`
+> - Any operation that deletes memories or metrics
+>
+> **ALLOWED on RPi:**
+>
+> - Backups (tar/copy)
+> - Read-only queries (`curl`, `mcp query`)
+> - Container restarts (without volume deletion)
+> - Pulling new images
+> - Health checks
+
+### Test Workflow Rules
+
+| Workflow               | Local                 | RPi                     |
+| ---------------------- | --------------------- | ----------------------- |
+| `/test-local`          | ✅ Full CRUD + DB wipe | ❌ Never run             |
+| `/test-rpi`            | ❌ N/A                 | ✅ Read-only checks only |
+| `/test-backup-restore` | ✅ Restore TO local    | ❌ Backup FROM RPi only  |
+| `/sync-from-rpi`       | ✅ Receive data        | ❌ Source only (read)    |
+
+---
+
 ## ⚠️ IMPORTANT: Local Development Configuration
 
 ### Port Configuration
+
 > [!IMPORTANT]
 > **Port 8626** is the canonical MCP endpoint for local development.
+>
 > - Traefik listens on `8626` and routes to OpenMemory internally.
 > - Dashboard health checks use `localhost:8626/health`.
 > - MCP Server defaults to `localhost:8626/memory`.
@@ -77,18 +123,22 @@
 | **Dashboard**         | 3000       | Monitoring UI                 |
 
 ### Authentication Bypass (Local Mode)
+
 > [!CAUTION]
 > **NO API KEY required for local development.**
-> 
+>
 > The auth bypass is implemented in `patches/openmemory-auth.patch`:
+>
 > - When `CYBERMEM_URL` env var is **NOT set** → Local mode → Auth bypassed
 > - When `CYBERMEM_URL` is set → Remote mode → API key required
 
 ### MCP Server Configuration
+
 > [!CAUTION]
 > **Use `npx` for all MCP modes (local and remote).**
 
 **Local Mode (npx):**
+
 ```json
 {
   "mcpServers": {
@@ -99,19 +149,25 @@
   }
 }
 ```
+
 - No `--url` arg = local mode = keyless auth
 
 **Remote Mode (stdio with args):**
+
 ```json
 {
   "mcpServers": {
     "cybermem-remote": {
       "command": "npx",
       "args": [
-        "-y", "@cybermem/mcp@latest",
-        "--url", "https://your-rpi.tailnet.ts.net/cybermem/memory",
-        "--api-key", "your-api-key",
-        "--client-name", "cursor"
+        "-y",
+        "@cybermem/mcp@latest",
+        "--url",
+        "https://your-rpi.tailnet.ts.net/cybermem/memory",
+        "--api-key",
+        "your-api-key",
+        "--client-name",
+        "cursor"
       ]
     }
   }
@@ -120,6 +176,7 @@
 
 > [!IMPORTANT]
 > **Antigravity Config Path:** `~/.gemini/antigravity/mcp_config.json`
+>
 > - URL must end with `/memory` (NOT `/mcp`) — package appends `/add`, `/query`, `/all`
 > - After changing config, **MUST refresh Antigravity** (Cmd+Shift+P → Reload)
 
@@ -132,11 +189,13 @@
 | `--client-name` | Client identifier for dashboard tracking       |
 
 ### MCP client names
+
 > [!CAUTION]
 > ALWAYS use `X-Client-Name` HTTP header to identify the client IN DASHBOARD. Do NOT use environment variables, hardcoded values, or other means.
-There is NO server-side environment variable override for client identity in the MCP server code AND DO NOT ADD IT.
+> There is NO server-side environment variable override for client identity in the MCP server code AND DO NOT ADD IT.
 
 Names to avoid:
+
 > - `cybermem`
 > - `cybermem-remote`
 > - `cybermem-mcp`
@@ -149,14 +208,16 @@ Names to avoid:
 > - `axios`
 > - `unknown`
 > - `generic`
-> etc.
+>   etc.
 
 > - Dashboard maps raw header values (e.g. `antigravity-client`) to display names (e.g. "Antigravity") via `clients.json`.
 > - If no match is found, the raw header value is displayed.
 
 ### Coding Standards
+
 > [!IMPORTANT]
 > **No Hardcoded Client Identity in Shared Libraries:**
+>
 > - Do NOT hardcode `X-Client-Name` and do not add comments like "<Value> Identifies the client".
 > - Transport layers must facilitate identity propagation, not mask it.
 > - Default values must be clearly identified as fallbacks, not fixed identities.
@@ -173,6 +234,7 @@ Names to avoid:
 | `OLLAMA_URL`       | `http://ollama:11434`   | Local embeddings               |
 
 ## 5. Quick Start Commands
+
 ```bash
 # Start local stack
 npx @cybermem/cli init
@@ -186,33 +248,41 @@ cd packages/dashboard && npm run dev
 ```
 
 ## 6. Testing
+
 ### CRUD
-For happy path do NOT use curl, mocking, etc. 
+
+For happy path do NOT use curl, mocking, etc.
 Use ONLY mcp-cli or Antigravity.
-> [!CAUTION] 
+
+> [!CAUTION]
 > **CURL ALLOWED ONLY FOR DEBUGGING.**
 > ALWAYS use `npx` in your MCPs JSON config.
 
 ### Installation
+
 Always use `npx` to install or run the server.
 Do NOT use prometheus mocks, stubs
 
 ### NPM Publishing
+
 > [!CAUTION]
 > **NEVER use `npm publish` directly from terminal.**
 > Always use GitHub Actions `release.yml` workflow for npm publish — it uses OIDC authentication (no 2FA required).
 > Use `/release` workflow to trigger.
 
 ### Traefik
-> [!CAUTION] 
+
+> [!CAUTION]
 > All requests go through Traefik. Do not bypass it.
-Traefik entry point: `http://localhost:8626`
+> Traefik entry point: `http://localhost:8626`
 
 ### UI/Unit Testing (playwright)
-- CI/CD: needs to run all the tests only 
+
+- CI/CD: needs to run all the tests only
 - Local: needs to run happy path tests for LOCAL and for https://raspberrypi.local (if available)
 
 ### Dashboard
+
 The dashboard tracks MCP client activity through db-exporter (SQLite).
 
 > [!IMPORTANT]
@@ -220,6 +290,7 @@ The dashboard tracks MCP client activity through db-exporter (SQLite).
 > Prometheus remains in stack for Grafana/alerting but is not used by dashboard.
 
 **All metrics from db-exporter (SQLite):**
+
 - **Memory Records** — Count from `memories` table
 - **Total Clients** — Unique clients from `memories` table
 - **Success Rate** — Calculated from `cybermem_stats` table
@@ -302,6 +373,7 @@ SKIP_DB_RESET=true npm run test:e2e -- crud-happy-path.spec.ts
 > The `resetDB()` function in tests removes SQLite files. After container restart, ensure file permissions are correct or the container will crash with `SQLITE_READONLY`.
 
 **Manual fix if container crashes:**
+
 ```bash
 # Fix permissions on data volume
 docker run --rm -v cybermem-openmemory-data:/data alpine sh -c 'chown -R 1001:1001 /data && chmod 777 /data'

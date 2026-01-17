@@ -414,7 +414,7 @@ def api_stats():
 
 @app.route("/api/timeseries")
 def api_timeseries():
-    """Time series data for dashboard charts - bucketed by hour"""
+    """Time series data for dashboard charts - adaptive bucket sizes"""
     try:
         period = request.args.get("period", "24h")
 
@@ -423,10 +423,13 @@ def api_timeseries():
         period_seconds = period_map.get(period, 86400)
         start_ms = int((time.time() - period_seconds) * 1000)
 
-        # Bucket size: 1h for 24h, 6h for 7d, 1d for 30d
-        if period in ["1h", "24h"]:
+        # Bucket size: 5m for 1h, 1h for 24h, 6h for 7d, 1d for 30d
+        if period == "1h":
+            bucket_format = "%Y-%m-%d %H:%M"
+            bucket_seconds = 300  # 5 minutes
+        elif period == "24h":
             bucket_format = "%Y-%m-%d %H:00"
-            bucket_seconds = 3600
+            bucket_seconds = 3600  # 1 hour
         elif period == "7d":
             bucket_format = "%Y-%m-%d %H:00"
             bucket_seconds = 21600  # 6 hours
