@@ -40,6 +40,38 @@ services:
       - traefik.http.services.mcp-get.loadbalancer.server.port=8081
     restart: unless-stopped
 
+  # Auth sidecar for JWT/API key validation (ForwardAuth)
+  auth-sidecar:
+    build:
+      context: ./auth-sidecar
+      dockerfile: Dockerfile
+    container_name: cybermem-auth-sidecar
+    environment:
+      PORT: "3001"
+      JWT_SECRET: ${JWT_SECRET:-cybermem-dev-secret}
+      API_KEY_FILE: /.env
+    volumes:
+      - ${CYBERMEM_ENV_PATH}:/.env:ro
+    labels:
+      - traefik.enable=true
+      # ForwardAuth middleware
+      - traefik.http.middlewares.auth-check.forwardauth.address=http://auth-sidecar:3001/auth
+      - traefik.http.middlewares.auth-check.forwardauth.authResponseHeaders=X-User-Id,X-User-Email,X-User-Name,X-Auth-Method
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "wget",
+          "--quiet",
+          "--tries=1",
+          "--spider",
+          "http://localhost:3001/health",
+        ]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    restart: unless-stopped
+
   openmemory:
     build:
       context: ./openmemory
@@ -78,9 +110,16 @@ services:
 
     labels:
       - traefik.enable=true
+      # Main API routes (with auth)
       - traefik.http.routers.openmemory.entrypoints=web
-      - traefik.http.routers.openmemory.rule=PathPrefix(`/memory`) || PathPrefix(`/health`) || PathPrefix(`/v1`) || PathPrefix(`/api`) || PathPrefix(`/all`) || PathPrefix(`/add`) || PathPrefix(`/sse`)
+      - traefik.http.routers.openmemory.rule=PathPrefix(`/memory`) || PathPrefix(`/v1`) || PathPrefix(`/api`) || PathPrefix(`/all`) || PathPrefix(`/add`) || PathPrefix(`/sse`)
+      - traefik.http.routers.openmemory.middlewares=auth-check
       - traefik.http.services.openmemory.loadbalancer.server.port=8080
+      # Health check route (no auth)
+      - traefik.http.routers.openmemory-health.entrypoints=web
+      - traefik.http.routers.openmemory-health.rule=PathPrefix(`/health`)
+      - traefik.http.routers.openmemory-health.priority=100
+      - traefik.http.services.openmemory-health.loadbalancer.server.port=8080
     healthcheck:
       test:
         [
