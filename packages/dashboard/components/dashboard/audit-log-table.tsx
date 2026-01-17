@@ -195,16 +195,16 @@ export default function AuditLogTable({
             <thead>
               <tr className="border-b border-white/10">
                 {[
-                  { label: "Timestamp", key: "date", width: "w-[200px]" },
-                  { label: "Client", key: "client", width: "w-[260px]" },
-                  { label: "Operation", key: "operation", width: "w-[120px]" },
-                  { label: "Description", key: "description", width: "" },
-                  { label: "Status", key: "status", width: "w-[120px]" },
+                  { label: "Timestamp", key: "date", width: "w-[180px]" },
+                  { label: "Client", key: "client", width: "w-[200px]" },
+                  { label: "Operation", key: "operation", width: "w-[100px]" },
+                  { label: "Description", key: "description", width: "flex-1" },
+                  { label: "Status", key: "status", width: "w-[100px]" },
                 ].map((header) => (
                   <th
                     key={header.key}
                     onClick={() => onSort(header.key)}
-                    className={`text-left py-4 px-4 font-medium text-neutral-400 cursor-pointer hover:text-white transition-colors select-none group/th ${header.width}`}
+                    className={`text-left py-4 px-3 font-medium text-neutral-400 cursor-pointer hover:text-white transition-colors select-none group/th ${header.width}`}
                   >
                     <div className="flex items-center gap-2">
                       {header.label}
@@ -260,10 +260,10 @@ export default function AuditLogTable({
                         key={log.id}
                         className="border-b border-white/5 hover:bg-white/10 transition-colors even:bg-white/[0.02] group/row"
                       >
-                        <td className="py-4 px-4 text-neutral-300 group-hover/row:text-white transition-colors">
+                        <td className="py-4 px-3 text-neutral-300 group-hover/row:text-white transition-colors">
                           {log.date}
                         </td>
-                        <td className="py-4 px-4 text-white font-medium">
+                        <td className="py-4 px-3 text-white font-medium">
                           <div className="flex items-center gap-2">
                             {icon && (
                               <img
@@ -275,13 +275,13 @@ export default function AuditLogTable({
                             <span>{displayName}</span>
                           </div>
                         </td>
-                        <td className="py-4 px-4 text-neutral-300">
+                        <td className="py-4 px-3 text-neutral-300">
                           {log.operation}
                         </td>
-                        <td className="py-4 px-4 text-neutral-400">
+                        <td className="py-4 px-3 text-neutral-400">
                           {log.description}
                         </td>
-                        <td className="py-4 px-4">
+                        <td className="py-4 px-3">
                           <span
                             className={`px-3 py-1 rounded-full text-xs font-medium border ${config.bg} ${config.text} ${config.border}`}
                           >
