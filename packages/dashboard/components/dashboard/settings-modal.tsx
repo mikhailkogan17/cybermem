@@ -401,133 +401,114 @@ export default function SettingsModal({ onClose }: { onClose: () => void }) {
               <Database className="w-5 h-5" />
               Data Management
             </h3>
-            <div className="bg-white/5 border border-white/10 rounded-lg p-5 space-y-4 shadow-[inset_0_0_20px_rgba(255,255,255,0.02)] backdrop-blur-sm">
-              <div className="flex flex-wrap gap-3">
+            <div className="space-y-3">
+              <Button
+                variant="outline"
+                className="w-full justify-start bg-white/5 border-white/10 hover:bg-white/10 text-white h-11 px-4"
+                onClick={handleBackup}
+                disabled={isBackingUp}
+              >
+                {isBackingUp ? (
+                  <Loader2 className="w-4 h-4 mr-3 animate-spin" />
+                ) : (
+                  <Download className="w-4 h-4 mr-3" />
+                )}
+                <span className="font-medium">Backup Data</span>
+              </Button>
+
+              <div className="relative w-full">
+                <input
+                  type="file"
+                  id="restore-file"
+                  className="hidden"
+                  accept=".tar.gz,.tgz"
+                  onChange={handleRestore}
+                  disabled={isRestoring}
+                />
                 <Button
                   variant="outline"
-                  size="sm"
-                  className="bg-white/5 border-white/10 hover:bg-white/10 text-white"
-                  onClick={handleBackup}
-                  disabled={isBackingUp}
+                  className="w-full justify-start bg-white/5 border-white/10 hover:bg-white/10 text-white h-11 px-4"
+                  onClick={() =>
+                    document.getElementById("restore-file")?.click()
+                  }
+                  disabled={isRestoring}
                 >
-                  {isBackingUp ? (
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  {isRestoring ? (
+                    <Loader2 className="w-4 h-4 mr-3 animate-spin" />
                   ) : (
-                    <Download className="w-4 h-4 mr-2" />
+                    <Upload className="w-4 h-4 mr-3" />
                   )}
-                  Backup
-                </Button>
-
-                <div className="relative">
-                  <input
-                    type="file"
-                    id="restore-file"
-                    className="hidden"
-                    accept=".tar.gz,.tgz"
-                    onChange={handleRestore}
-                    disabled={isRestoring}
-                  />
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="bg-white/5 border-white/10 hover:bg-white/10 text-white"
-                    onClick={() =>
-                      document.getElementById("restore-file")?.click()
-                    }
-                    disabled={isRestoring}
-                  >
-                    {isRestoring ? (
-                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    ) : (
-                      <Upload className="w-4 h-4 mr-2" />
-                    )}
-                    Restore
-                  </Button>
-                </div>
-
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="bg-sky-500/10 border-sky-500/20 hover:bg-sky-500/20 text-sky-400"
-                  onClick={handleRestart}
-                  disabled={isRestarting}
-                >
-                  {isRestarting ? (
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  ) : (
-                    <RotateCcw className="w-4 h-4 mr-2" />
-                  )}
-                  Restart
-                </Button>
-
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="bg-red-500/10 border-red-500/20 hover:bg-red-500/20 text-red-400"
-                  onClick={() => setShowResetConfirm(true)}
-                  disabled={isResetting}
-                >
-                  <Trash2 className="w-4 h-4 mr-2" />
-                  Reset DB
+                  <span className="font-medium">Restore from Backup</span>
                 </Button>
               </div>
 
+              <Button
+                variant="outline"
+                className="w-full justify-start bg-red-500/10 border-red-500/20 hover:bg-red-500/20 text-red-400 h-11 px-4"
+                onClick={() => setShowResetConfirm(true)}
+                disabled={isResetting}
+              >
+                <Trash2 className="w-4 h-4 mr-3" />
+                <span className="font-medium">Reset Database</span>
+              </Button>
+
               {showResetConfirm && (
-                <div className="mt-4 p-4 bg-red-500/10 border border-red-500/20 rounded-lg space-y-3">
-                  <p className="text-xs text-red-300 font-medium uppercase tracking-tight">
+                <div className="p-4 bg-red-500/10 border border-red-500/20 rounded-xl space-y-4">
+                  <p className="text-xs text-red-300 font-bold uppercase tracking-wider text-center">
                     Danger Zone: This will permanently delete all memories!
                   </p>
-                  <div className="flex items-center gap-2">
+                  <div className="flex flex-col gap-3">
                     <Input
                       value={resetConfirmText}
                       onChange={(e) => setResetConfirmText(e.target.value)}
                       placeholder="Type 'RESET' to confirm"
-                      className="h-9 bg-black/40 border-red-500/30 text-white placeholder:text-red-500/30"
+                      className="h-10 bg-black/40 border-red-500/30 text-white placeholder:text-red-500/20 text-center font-mono"
                     />
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      onClick={() => {
-                        setShowResetConfirm(false);
-                        setResetConfirmText("");
-                      }}
-                    >
-                      Cancel
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="destructive"
-                      disabled={resetConfirmText !== "RESET" || isResetting}
-                      onClick={handleReset}
-                    >
-                      {isResetting && (
-                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                      )}
-                      Confirm Reset
-                    </Button>
+                    <div className="flex gap-2">
+                      <Button
+                        className="flex-1"
+                        variant="ghost"
+                        onClick={() => {
+                          setShowResetConfirm(false);
+                          setResetConfirmText("");
+                        }}
+                      >
+                        Cancel
+                      </Button>
+                      <Button
+                        className="flex-1 bg-red-500 hover:bg-red-600 text-white"
+                        disabled={resetConfirmText !== "RESET" || isResetting}
+                        onClick={handleReset}
+                      >
+                        {isResetting && (
+                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        )}
+                        Confirm Reset
+                      </Button>
+                    </div>
                   </div>
                 </div>
               )}
 
               {operationStatus && (
                 <div
-                  className={`mt-2 p-2 rounded text-xs flex items-center gap-2 ${
+                  className={`p-3 rounded-lg text-sm flex items-center gap-3 ${
                     operationStatus.type === "success"
-                      ? "bg-emerald-500/10 text-emerald-400"
-                      : "bg-red-500/10 text-red-400"
+                      ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
+                      : "bg-red-500/10 text-red-400 border border-red-500/20"
                   }`}
                 >
                   {operationStatus.type === "success" ? (
-                    <Check className="w-3 h-3" />
+                    <Check className="w-4 h-4" />
                   ) : (
-                    <div className="w-1.5 h-1.5 rounded-full bg-red-400" />
+                    <X className="w-4 h-4" />
                   )}
-                  {operationStatus.message}
+                  <span className="flex-1">{operationStatus.message}</span>
                   <button
                     onClick={() => setOperationStatus(null)}
-                    className="ml-auto opacity-50 hover:opacity-100"
+                    className="opacity-50 hover:opacity-100 p-1"
                   >
-                    <X className="w-3 h-3" />
+                    <X className="w-4 h-4" />
                   </button>
                 </div>
               )}
@@ -536,20 +517,36 @@ export default function SettingsModal({ onClose }: { onClose: () => void }) {
 
           {/* System Info */}
           <section>
-            <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
-              <Server className="w-5 h-5" />
-              System
-            </h3>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-white flex items-center gap-2">
+                <Server className="w-5 h-5" />
+                System
+              </h3>
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-8 bg-sky-500/10 border-sky-500/20 hover:bg-sky-500/20 text-sky-400 px-3"
+                onClick={handleRestart}
+                disabled={isRestarting}
+              >
+                {isRestarting ? (
+                  <Loader2 className="w-3.5 h-3.5 mr-2 animate-spin" />
+                ) : (
+                  <RotateCcw className="w-3.5 h-3.5 mr-2" />
+                )}
+                Restart
+              </Button>
+            </div>
             <div className="bg-white/5 border border-white/10 rounded-lg p-5 shadow-[inset_0_0_20px_rgba(255,255,255,0.02)] backdrop-blur-sm">
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <span className="text-xs uppercase text-neutral-500 font-semibold">
+                  <span className="text-xs uppercase text-neutral-500 font-semibold tracking-wider">
                     Version
                   </span>
                   <p className="text-neutral-200 font-mono mt-1">v0.2.0</p>
                 </div>
                 <div>
-                  <span className="text-xs uppercase text-neutral-500 font-semibold">
+                  <span className="text-xs uppercase text-neutral-500 font-semibold tracking-wider">
                     Environment
                   </span>
                   <p className="text-emerald-400 font-mono mt-1">Production</p>
