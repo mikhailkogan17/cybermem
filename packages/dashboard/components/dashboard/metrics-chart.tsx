@@ -125,12 +125,14 @@ export default function MetricsChart({
             return (
               <Area
                 key={client}
-                type="stepAfter"
+                type="monotone"
                 dataKey={client}
+                stackId="1"
+                isAnimationActive={false}
                 name={name}
                 stroke={color}
                 strokeWidth={isHovered ? 2.5 : 1.5}
-                fillOpacity={isHovered ? 0.4 : isAnyHovered ? 0.05 : 0.15}
+                fillOpacity={isHovered ? 0.6 : isAnyHovered ? 0.1 : 0.4}
                 fill={color}
                 activeDot={{ r: 4, strokeWidth: 0 }}
                 dot={false}
@@ -147,6 +149,7 @@ export default function MetricsChart({
             strokeWidth={1.5}
             fillOpacity={0.2}
             fill="#10b981"
+            isAnimationActive={false}
             activeDot={{ r: 3, strokeWidth: 0 }}
             dot={false}
             // No hover effect needed for single series as there's nothing to distinguish from
