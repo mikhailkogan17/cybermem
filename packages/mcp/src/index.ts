@@ -55,7 +55,7 @@ INTEGRITY RULES:
 - Sync before critical decisions
 - Last-write-wins for conflicts
 
-For full protocol: https://cybermem.dev/docs/agent-protocol`;
+For full protocol: https://docs.cybermem.dev/agent-protocol`;
 
 // Short protocol reminder for tool descriptions (derived from main instructions)
 const PROTOCOL_REMINDER =

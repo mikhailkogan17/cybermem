@@ -13,7 +13,7 @@ Welcome to CyberMem documentation.
 ## Reference
 
 - [HTTPS Setup](./https-setup.md) - SSL/TLS configuration
-- [API Reference](https://cybermem.dev/docs/api) - REST API docs
+- [API Reference](https://docs.cybermem.dev/api) - REST API docs
 - [Contributing](../CONTRIBUTING.md) - Development guidelines
 
 ## Support

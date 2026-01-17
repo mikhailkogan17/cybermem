@@ -12,7 +12,7 @@
 ### Landing and Documentation
 
 - **Landing**: [https://cybermem.dev](https://cybermem.dev)
-- **Documentation**: [https://cybermem.dev/docs](https://cybermem.dev/docs)
+- **Documentation**: [https://docs.cybermem.dev](https://docs.cybermem.dev)
 - **Source Code**: [https://github.com/mikhailkogan17/cybermem](https://github.com/mikhailkogan17/cybermem)
 - **Readme**: [https://github.com/mikhailkogan17/cybermem/blob/main/README.md](https://github.com/mikhailkogan17/cybermem/blob/main/README.md)
 
@@ -63,7 +63,7 @@
 > - Root directory (except allowed files above)
 > - Any other location
 >
-> Documentation on cybermem.dev/docs is generated from `/docs/` via submodule.
+> Documentation on docs.cybermem.dev is generated from `/docs/` via submodule.
 
 ---
 

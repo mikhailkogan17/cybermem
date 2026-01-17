@@ -423,7 +423,7 @@ export default function MCPConfigModal({ onClose }: { onClose: () => void }) {
             variant="ghost"
             className="bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/20 text-emerald-400 hover:text-emerald-300 mr-auto"
           >
-            <a href="https://cybermem.dev/docs" target="_blank">Read Documentation</a>
+            <a href="https://docs.cybermem.dev" target="_blank">Read Documentation</a>
           </Button>
           <Button
             onClick={onClose}
