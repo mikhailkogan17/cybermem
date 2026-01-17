@@ -270,6 +270,70 @@ export default function SettingsModal({ onClose }: { onClose: () => void }) {
                   </button>
                 </div>
               </div>
+
+              {/* Authentication Status */}
+              <div className="space-y-2 pt-4 border-t border-white/10">
+                <Label>Authentication Method</Label>
+                <div className="flex items-center gap-3 p-3 bg-black/20 rounded-lg border border-white/5">
+                  {/* Show different states based on auth method */}
+                  {isManaged ? (
+                    <>
+                      <div className="w-2 h-2 bg-emerald-400 rounded-full animate-pulse" />
+                      <div className="flex-1">
+                        <p className="text-sm text-emerald-300 font-medium">
+                          Local Mode
+                        </p>
+                        <p className="text-xs text-neutral-500">
+                          No authentication required for localhost
+                        </p>
+                      </div>
+                    </>
+                  ) : apiKey ? (
+                    <>
+                      <div className="w-2 h-2 bg-yellow-400 rounded-full" />
+                      <div className="flex-1">
+                        <p className="text-sm text-yellow-300 font-medium">
+                          API Key
+                        </p>
+                        <p className="text-xs text-neutral-500">
+                          Using legacy API key authentication
+                          <span className="text-yellow-500 ml-1">
+                            (deprecated)
+                          </span>
+                        </p>
+                      </div>
+                      <a
+                        href="https://cybermem.dev/auth/signin"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="px-3 py-1.5 text-xs bg-white/10 hover:bg-white/20 rounded-lg text-white transition-colors"
+                      >
+                        Upgrade to OAuth
+                      </a>
+                    </>
+                  ) : (
+                    <>
+                      <div className="w-2 h-2 bg-neutral-400 rounded-full" />
+                      <div className="flex-1">
+                        <p className="text-sm text-neutral-300 font-medium">
+                          Not Configured
+                        </p>
+                        <p className="text-xs text-neutral-500">
+                          Connect with GitHub for secure access
+                        </p>
+                      </div>
+                      <a
+                        href="https://cybermem.dev/auth/signin"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="px-3 py-1.5 text-xs bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500/20 rounded-lg text-emerald-400 transition-colors"
+                      >
+                        Connect GitHub
+                      </a>
+                    </>
+                  )}
+                </div>
+              </div>
             </div>
           </section>
 
