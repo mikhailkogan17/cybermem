@@ -462,63 +462,103 @@ def api_timeseries():
         db = get_db_connection()
         cursor = db.cursor()
 
-        # Get operations grouped by time bucket and client
+        # Get actual data from DB
         cursor.execute(
             """
             SELECT
-                datetime(timestamp/1000, 'unixepoch', 'localtime') as dt,
+                timestamp,
                 client_name,
                 operation,
                 COUNT(*) as count
             FROM cybermem_access_log
             WHERE timestamp >= ?
             GROUP BY strftime(?, datetime(timestamp/1000, 'unixepoch', 'localtime')), client_name, operation
-            ORDER BY dt
+            ORDER BY timestamp ASC
         """,
             [start_ms, bucket_format],
         )
 
-        # Organize by operation type
-        creates = {}
-        reads = {}
-        updates = {}
-        deletes = {}
+        db_rows = cursor.fetchall()
 
-        for row in cursor.fetchall():
-            dt = row["dt"]
+        # Step 1: Identify ALL unique clients that appear in the range
+        all_clients = set()
+        for row in db_rows:
+            all_clients.add(row["client_name"] or "unknown")
+
+        # Step 2: Generate all expected buckets
+        now_ts = int(time.time())
+        current_bucket = (now_ts // bucket_seconds) * bucket_seconds
+        expected_timestamps = []
+        t = current_bucket
+        while t >= (start_ms // 1000):
+            expected_timestamps.append(t)
+            t -= bucket_seconds
+
+        # Map actual data into buckets
+        def get_op_key(op):
+            if op == "create":
+                return "creates"
+            if op in ["read", "list", "query", "search", "other"]:
+                return "reads"
+            if op == "update":
+                return "updates"
+            if op == "delete":
+                return "deletes"
+            return None
+
+        # Step 3: Initialize results with all buckets, each having all clients at 0
+        results = {
+            "creates": {
+                ts: {"time": ts, **{c: 0 for c in all_clients}}
+                for ts in expected_timestamps
+            },
+            "reads": {
+                ts: {"time": ts, **{c: 0 for c in all_clients}}
+                for ts in expected_timestamps
+            },
+            "updates": {
+                ts: {"time": ts, **{c: 0 for c in all_clients}}
+                for ts in expected_timestamps
+            },
+            "deletes": {
+                ts: {"time": ts, **{c: 0 for c in all_clients}}
+                for ts in expected_timestamps
+            },
+        }
+
+        # Step 4: Map real counts into buckets
+        for row in db_rows:
+            # Round the row timestamp to its bucket
+            ts = row["timestamp"] // 1000
+            bucket_ts = (ts // bucket_seconds) * bucket_seconds
+
             client = row["client_name"] or "unknown"
             op = row["operation"]
             count = row["count"]
 
-            # Round to bucket
-            ts = int(time.mktime(time.strptime(dt, "%Y-%m-%d %H:%M:%S")))
-            bucket_ts = (ts // bucket_seconds) * bucket_seconds
-
-            if op == "create":
-                if bucket_ts not in creates:
-                    creates[bucket_ts] = {"time": bucket_ts}
-                creates[bucket_ts][client] = creates[bucket_ts].get(client, 0) + count
-            elif op in ["read", "list", "query", "search", "other"]:
-                if bucket_ts not in reads:
-                    reads[bucket_ts] = {"time": bucket_ts}
-                reads[bucket_ts][client] = reads[bucket_ts].get(client, 0) + count
-            elif op == "update":
-                if bucket_ts not in updates:
-                    updates[bucket_ts] = {"time": bucket_ts}
-                updates[bucket_ts][client] = updates[bucket_ts].get(client, 0) + count
-            elif op == "delete":
-                if bucket_ts not in deletes:
-                    deletes[bucket_ts] = {"time": bucket_ts}
-                deletes[bucket_ts][client] = deletes[bucket_ts].get(client, 0) + count
+            op_key = get_op_key(op)
+            if op_key and bucket_ts in results[op_key]:
+                results[op_key][bucket_ts][client] = (
+                    results[op_key][bucket_ts].get(client, 0) + count
+                )
 
         db.close()
 
+        # Sort results by time and return
         return jsonify(
             {
-                "creates": list(creates.values()),
-                "reads": list(reads.values()),
-                "updates": list(updates.values()),
-                "deletes": list(deletes.values()),
+                "creates": sorted(
+                    list(results["creates"].values()), key=lambda x: x["time"]
+                ),
+                "reads": sorted(
+                    list(results["reads"].values()), key=lambda x: x["time"]
+                ),
+                "updates": sorted(
+                    list(results["updates"].values()), key=lambda x: x["time"]
+                ),
+                "deletes": sorted(
+                    list(results["deletes"].values()), key=lambda x: x["time"]
+                ),
             }
         )
     except Exception as e:
