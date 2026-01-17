@@ -1,18 +1,19 @@
 #!/usr/bin/env node
-import { Server } from "@modelcontextprotocol/sdk/server/index.js";
-import { SSEServerTransport } from "@modelcontextprotocol/sdk/server/sse.js";
+/**
+ * CyberMem MCP Server
+ *
+ * STDIO→HTTP bridge for AI agents to interact with CyberMem memory system.
+ * Uses the new McpServer API (non-deprecated) and StreamableHTTPServerTransport.
+ */
+
+import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
-import {
-    CallToolRequestSchema,
-    ListResourcesRequestSchema,
-    ListToolsRequestSchema,
-    ReadResourceRequestSchema,
-    Tool,
-} from "@modelcontextprotocol/sdk/types.js";
+import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import axios from "axios";
 import cors from "cors";
 import dotenv from "dotenv";
 import express from "express";
+import { z } from "zod";
 
 dotenv.config();
 
@@ -28,13 +29,13 @@ const cliApiKey = getArg("--api-key");
 const cliClientName = getArg("--client-name");
 
 // Use CLI args first, then env, then defaults
-// Default to local CyberMem backend (via Traefik on port 8626)
 const API_URL =
   cliUrl || process.env.CYBERMEM_URL || "http://localhost:8626/memory";
 const API_KEY = cliApiKey || process.env.OM_API_KEY || "";
 
 // Track client name per session
 let currentClientName = cliClientName || "cybermem-mcp";
+
 // CyberMem Agent Protocol - instructions sent to clients on handshake
 const CYBERMEM_INSTRUCTIONS = `CyberMem is a persistent context daemon for AI agents.
 
@@ -57,127 +58,26 @@ INTEGRITY RULES:
 
 For full protocol: https://docs.cybermem.dev/agent-protocol`;
 
-// Short protocol reminder for tool descriptions (derived from main instructions)
+// Short protocol reminder for tool descriptions
 const PROTOCOL_REMINDER =
   "CyberMem Protocol: Store FULL content (no summaries), always include tags [topic, year, source:client-name]. Query 'user context profile' on session start.";
 
-const server = new Server(
+// Create McpServer instance (new API)
+const server = new McpServer(
   {
     name: "cybermem",
-    version: "0.6.8",
+    version: "0.7.0",
   },
   {
     capabilities: {
       tools: {},
-      resources: {}, // Enable resources for protocol document
+      resources: {},
     },
     instructions: CYBERMEM_INSTRUCTIONS,
   },
 );
 
-// Register resources handler for protocol document
-server.setRequestHandler(ListResourcesRequestSchema, async () => ({
-  resources: [
-    {
-      uri: "cybermem://protocol",
-      name: "CyberMem Agent Protocol",
-      description: "Instructions for AI agents using CyberMem memory system",
-      mimeType: "text/plain",
-    },
-  ],
-}));
-
-server.setRequestHandler(ReadResourceRequestSchema, async (request) => {
-  if (request.params.uri === "cybermem://protocol") {
-    return {
-      contents: [
-        {
-          uri: "cybermem://protocol",
-          mimeType: "text/plain",
-          text: CYBERMEM_INSTRUCTIONS,
-        },
-      ],
-    };
-  }
-  throw new Error(`Unknown resource: ${request.params.uri}`);
-});
-
-const tools: Tool[] = [
-  {
-    name: "add_memory",
-    description: `Store a new memory in CyberMem. ${PROTOCOL_REMINDER}`,
-    inputSchema: {
-      type: "object",
-      properties: {
-        content: {
-          type: "string",
-          description:
-            "Full content with all details - NO truncation or summarization",
-        },
-        user_id: { type: "string" },
-        tags: {
-          type: "array",
-          items: { type: "string" },
-          description: "Always include [topic, year, source:your-client-name]",
-        },
-      },
-      required: ["content"],
-    },
-  },
-  {
-    name: "query_memory",
-    description: `Search for relevant memories. On session start, call query_memory("user context profile") first.`,
-    inputSchema: {
-      type: "object",
-      properties: {
-        query: { type: "string" },
-        k: { type: "number", default: 5 },
-      },
-      required: ["query"],
-    },
-  },
-  {
-    name: "list_memories",
-    description: "List recent memories",
-    inputSchema: {
-      type: "object",
-      properties: {
-        limit: { type: "number", default: 10 },
-      },
-    },
-  },
-  {
-    name: "delete_memory",
-    description: "Delete a memory by ID",
-    inputSchema: {
-      type: "object",
-      properties: {
-        id: { type: "string" },
-      },
-      required: ["id"],
-    },
-  },
-  {
-    name: "update_memory",
-    description: "Update a memory by ID",
-    inputSchema: {
-      type: "object",
-      properties: {
-        id: { type: "string" },
-        content: { type: "string" },
-        tags: { type: "array", items: { type: "string" } },
-        metadata: { type: "object" },
-      },
-      required: ["id"],
-    },
-  },
-];
-
-server.setRequestHandler(ListToolsRequestSchema, async () => ({
-  tools,
-}));
-
-// Create axios instance
+// Create axios instance for API calls
 const apiClient = axios.create({
   baseURL: API_URL,
   headers: {
@@ -185,133 +85,180 @@ const apiClient = axios.create({
   },
 });
 
-// Helper to get client with context
-function getClient(customHeaders: Record<string, string> = {}) {
-  // Get client name from MCP protocol (sent during initialize) or fallback to CLI arg
-  const clientVersion = server.getClientVersion();
-  const clientName =
-    customHeaders["X-Client-Name"] || clientVersion?.name || currentClientName;
-
+// Helper to add client name header
+function getHeaders(customClientName?: string) {
   return {
-    ...apiClient,
-    get: (url: string, config?: any) =>
-      apiClient.get(url, {
-        ...config,
-        headers: { "X-Client-Name": clientName, ...config?.headers },
-      }),
-    post: (url: string, data?: any, config?: any) =>
-      apiClient.post(url, data, {
-        ...config,
-        headers: { "X-Client-Name": clientName, ...config?.headers },
-      }),
-    put: (url: string, data?: any, config?: any) =>
-      apiClient.put(url, data, {
-        ...config,
-        headers: { "X-Client-Name": clientName, ...config?.headers },
-      }),
-    patch: (url: string, data?: any, config?: any) =>
-      apiClient.patch(url, data, {
-        ...config,
-        headers: { "X-Client-Name": clientName, ...config?.headers },
-      }),
-    delete: (url: string, config?: any) =>
-      apiClient.delete(url, {
-        ...config,
-        headers: { "X-Client-Name": clientName, ...config?.headers },
-      }),
+    "X-Client-Name": customClientName || currentClientName,
   };
 }
 
-server.setRequestHandler(CallToolRequestSchema, async (request) => {
-  const { name, arguments: args } = request.params;
+// Register resources using new API
+server.registerResource(
+  "CyberMem Agent Protocol",
+  "cybermem://protocol",
+  {
+    description: "Instructions for AI agents using CyberMem memory system",
+    mimeType: "text/plain",
+  },
+  async () => ({
+    contents: [
+      {
+        uri: "cybermem://protocol",
+        mimeType: "text/plain",
+        text: CYBERMEM_INSTRUCTIONS,
+      },
+    ],
+  }),
+);
 
-  try {
-    switch (name) {
-      case "add_memory": {
-        const response = await getClient().post("/add", args);
-        return {
-          content: [{ type: "text", text: JSON.stringify(response.data) }],
-        };
-      }
-      case "query_memory": {
-        const response = await getClient().post("/query", args);
-        return {
-          content: [{ type: "text", text: JSON.stringify(response.data) }],
-        };
-      }
-      case "list_memories": {
-        const limit = args?.limit || 10;
-        const response = await getClient().get(`/all?l=${limit}`);
-        return {
-          content: [{ type: "text", text: JSON.stringify(response.data) }],
-        };
-      }
-      case "delete_memory": {
-        const { id } = args as { id: string };
-        await getClient().delete(`/${id}`);
-        return { content: [{ type: "text", text: `Memory ${id} deleted` }] };
-      }
-      case "update_memory": {
-        const { id, ...updates } = args as { id: string; [key: string]: any };
-        const response = await getClient().patch(`/${id}`, updates);
-        return {
-          content: [{ type: "text", text: JSON.stringify(response.data) }],
-        };
-      }
-      default:
-        throw new Error(`Unknown tool: ${name}`);
-    }
-  } catch (error: any) {
+// Register tools using new registerTool API
+server.registerTool(
+  "add_memory",
+  {
+    description: `Store a new memory in CyberMem. ${PROTOCOL_REMINDER}`,
+    inputSchema: z.object({
+      content: z
+        .string()
+        .describe(
+          "Full content with all details - NO truncation or summarization",
+        ),
+      user_id: z.string().optional(),
+      tags: z
+        .array(z.string())
+        .optional()
+        .describe("Always include [topic, year, source:your-client-name]"),
+    }),
+  },
+  async (args) => {
+    const response = await apiClient.post("/add", args, {
+      headers: getHeaders(),
+    });
     return {
-      content: [{ type: "text", text: `Error: ${error.message}` }],
-      isError: true,
+      content: [{ type: "text", text: JSON.stringify(response.data) }],
     };
-  }
-});
+  },
+);
+
+server.registerTool(
+  "query_memory",
+  {
+    description: `Search for relevant memories. On session start, call query_memory("user context profile") first.`,
+    inputSchema: z.object({
+      query: z.string(),
+      k: z.number().default(5),
+    }),
+  },
+  async (args) => {
+    const response = await apiClient.post("/query", args, {
+      headers: getHeaders(),
+    });
+    return {
+      content: [{ type: "text", text: JSON.stringify(response.data) }],
+    };
+  },
+);
+
+server.registerTool(
+  "list_memories",
+  {
+    description: "List recent memories",
+    inputSchema: z.object({
+      limit: z.number().default(10),
+    }),
+  },
+  async (args) => {
+    const limit = args?.limit || 10;
+    const response = await apiClient.get(`/all?l=${limit}`, {
+      headers: getHeaders(),
+    });
+    return {
+      content: [{ type: "text", text: JSON.stringify(response.data) }],
+    };
+  },
+);
+
+server.registerTool(
+  "delete_memory",
+  {
+    description: "Delete a memory by ID",
+    inputSchema: z.object({
+      id: z.string(),
+    }),
+  },
+  async (args) => {
+    await apiClient.delete(`/${args.id}`, {
+      headers: getHeaders(),
+    });
+    return {
+      content: [{ type: "text", text: `Memory ${args.id} deleted` }],
+    };
+  },
+);
+
+server.registerTool(
+  "update_memory",
+  {
+    description: "Update a memory by ID",
+    inputSchema: z.object({
+      id: z.string(),
+      content: z.string().optional(),
+      tags: z.array(z.string()).optional(),
+      metadata: z.record(z.unknown()).optional(),
+    }),
+  },
+  async (args) => {
+    const { id, ...updates } = args;
+    const response = await apiClient.patch(`/${id}`, updates, {
+      headers: getHeaders(),
+    });
+    return {
+      content: [{ type: "text", text: JSON.stringify(response.data) }],
+    };
+  },
+);
 
 async function run() {
   const isSse = process.argv.includes("--sse") || !!process.env.PORT;
 
   if (isSse) {
+    // HTTP/SSE mode using StreamableHTTPServerTransport
     const app = express();
     app.use(cors());
+    app.use(express.json());
     const port = process.env.PORT || 8627;
 
-    let transport: SSEServerTransport | null = null;
+    // Use the new StreamableHTTPServerTransport
+    const transport = new StreamableHTTPServerTransport({
+      sessionIdGenerator: () => crypto.randomUUID(),
+    });
 
-    app.get("/sse", async (req, res) => {
+    // Handle MCP requests
+    app.all("/mcp", async (req, res) => {
       // Extract client name from header
       const clientName = req.headers["x-client-name"] as string;
       if (clientName) {
         currentClientName = clientName;
       }
 
-      transport = new SSEServerTransport("/messages", res);
-      await server.connect(transport);
-    });
-
-    app.post("/messages", async (req, res) => {
-      // Also check headers on messages
-      const clientName = req.headers["x-client-name"] as string;
-      if (clientName) {
-        currentClientName = clientName;
-      }
-
-      if (transport) {
-        await transport.handlePostMessage(req, res);
-      } else {
-        res.status(400).send("Session not established");
+      try {
+        await transport.handleRequest(req, res);
+      } catch (error) {
+        console.error("MCP request error:", error);
+        res.status(500).json({ error: "Internal server error" });
       }
     });
+
+    // Connect server to transport
+    await server.connect(transport);
 
     app.listen(port, () => {
       console.error(
-        `CyberMem MCP Server running on SSE at http://localhost:${port}`,
+        `CyberMem MCP Server running on HTTP at http://localhost:${port}`,
       );
-      console.error(`  - SSE endpoint: http://localhost:${port}/sse`);
-      console.error(`  - Message endpoint: http://localhost:${port}/messages`);
+      console.error(`  - MCP endpoint: http://localhost:${port}/mcp`);
     });
   } else {
+    // STDIO mode (default for npx usage)
     const transport = new StdioServerTransport();
     await server.connect(transport);
     console.error("CyberMem MCP Server running on stdio");
