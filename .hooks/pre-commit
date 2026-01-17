@@ -1,0 +1,50 @@
+#!/bin/bash
+# CyberMem Pre-Commit Hook
+# Run linters and secrets check before every commit
+# Install: cp .hooks/pre-commit .git/hooks/pre-commit && chmod +x .git/hooks/pre-commit
+
+set -e
+
+echo "🔍 Running pre-commit checks..."
+
+# 1. Secrets Check (gitleaks)
+echo "📦 Checking for secrets..."
+if command -v gitleaks &> /dev/null; then
+    gitleaks detect --source . --no-git --redact --quiet 2>/dev/null || {
+        echo "❌ SECRETS DETECTED! Run 'gitleaks detect --source . --verbose' for details."
+        exit 1
+    }
+    echo "   ✅ No secrets found"
+else
+    echo "   ⚠️  gitleaks not installed (brew install gitleaks)"
+fi
+
+# 2. Dashboard Lint
+echo "📦 Linting dashboard..."
+if [ -d "packages/dashboard" ]; then
+    cd packages/dashboard
+    if npm run lint --silent 2>/dev/null; then
+        echo "   ✅ Dashboard lint passed"
+    else
+        echo "   ❌ Dashboard lint failed"
+        exit 1
+    fi
+    cd ../..
+fi
+
+# 3. TypeScript Check
+echo "📦 TypeScript check..."
+if [ -d "packages/dashboard" ]; then
+    cd packages/dashboard
+    if npx tsc --noEmit --skipLibCheck 2>/dev/null; then
+        echo "   ✅ TypeScript check passed"
+    else
+        echo "   ❌ TypeScript errors found"
+        exit 1
+    fi
+    cd ../..
+fi
+
+echo ""
+echo "✅ All pre-commit checks passed!"
+echo ""
