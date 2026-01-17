@@ -1,94 +1,105 @@
-import { checkRateLimit, rateLimitResponse } from '@/lib/rate-limit'
-import { NextRequest, NextResponse } from 'next/server'
+import { checkRateLimit, rateLimitResponse } from "@/lib/rate-limit";
+import { NextRequest, NextResponse } from "next/server";
 
-export const dynamic = 'force-dynamic'
+export const dynamic = "force-dynamic";
 
 interface ServiceStatus {
-  name: string
-  status: 'ok' | 'error' | 'warning'
-  message?: string
-  latencyMs?: number
+  name: string;
+  status: "ok" | "error" | "warning";
+  message?: string;
+  latencyMs?: number;
 }
 
 interface SystemHealth {
-  overall: 'ok' | 'degraded' | 'error'
-  services: ServiceStatus[]
-  timestamp: string
+  overall: "ok" | "degraded" | "error";
+  services: ServiceStatus[];
+  timestamp: string;
 }
 
-async function checkService(name: string, url: string, timeout = 3000): Promise<ServiceStatus> {
-  const start = Date.now()
+async function checkService(
+  name: string,
+  url: string,
+  timeout = 3000,
+): Promise<ServiceStatus> {
+  const start = Date.now();
   try {
-    const controller = new AbortController()
-    const timeoutId = setTimeout(() => controller.abort(), timeout)
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), timeout);
 
     const res = await fetch(url, {
       signal: controller.signal,
-      cache: 'no-store',
+      cache: "no-store",
       headers: {
-        'X-Client-Name': 'CyberMem-Dashboard'
-      }
-    })
-    clearTimeout(timeoutId)
+        "X-Client-Name": "CyberMem-Dashboard",
+      },
+    });
+    clearTimeout(timeoutId);
 
-    const latencyMs = Date.now() - start
+    const latencyMs = Date.now() - start;
 
     if (res.ok) {
-      return { name, status: 'ok', latencyMs }
+      return { name, status: "ok", latencyMs };
     }
     return {
       name,
-      status: 'warning',
+      status: "warning",
       message: `HTTP ${res.status}`,
-      latencyMs
-    }
+      latencyMs,
+    };
   } catch (error: any) {
     return {
       name,
-      status: 'error',
-      message: error.name === 'AbortError' ? 'Timeout' : (error.message || 'Connection failed')
-    }
+      status: "error",
+      message:
+        error.name === "AbortError"
+          ? "Timeout"
+          : error.message || "Connection failed",
+    };
   }
 }
 
 export async function GET(request: NextRequest) {
   // Rate limiting
-  const rateLimit = checkRateLimit(request)
+  const rateLimit = checkRateLimit(request);
   if (!rateLimit.allowed) {
-    return rateLimitResponse(rateLimit.resetIn)
+    return rateLimitResponse(rateLimit.resetIn);
   }
 
   // Use environment variables with sensible defaults for local Docker stack
-  const prometheusUrl = process.env.PROMETHEUS_URL || 'http://localhost:9092'
-  const openMemoryUrl = process.env.CYBERMEM_URL || 'http://localhost:8626'
-  const vectorUrl = process.env.VECTOR_URL // Vector is optional
+  const dbExporterUrl = process.env.DB_EXPORTER_URL || "http://localhost:8000";
+  // OpenMemory API accessed via Traefik (container name in Docker network)
+  const openMemoryUrl =
+    process.env.OPENMEMORY_URL ||
+    process.env.CYBERMEM_URL ||
+    "http://traefik:8626";
+  const vectorUrl = process.env.VECTOR_URL; // Vector is optional
 
   const checks: Promise<ServiceStatus>[] = [
-    checkService('OpenMemory API', `${openMemoryUrl}/health`),
-    checkService('Prometheus', `${prometheusUrl}/-/ready`),
-  ]
+    checkService("Database", `${dbExporterUrl}/health`),
+    checkService("OpenMemory API", `${openMemoryUrl}/health`),
+  ];
 
   // Only check Vector if configured
   if (vectorUrl) {
-    checks.push(checkService('Vector', `${vectorUrl}/health`))
+    checks.push(checkService("Vector", `${vectorUrl}/health`));
   }
 
-  const services = await Promise.all(checks)
+  const services = await Promise.all(checks);
 
   // Determine overall status
-  const hasError = services.some(s => s.status === 'error')
-  const hasWarning = services.some(s => s.status === 'warning')
+  const hasError = services.some((s) => s.status === "error");
+  const hasWarning = services.some((s) => s.status === "warning");
 
   const health: SystemHealth = {
-    overall: hasError ? 'error' : hasWarning ? 'degraded' : 'ok',
+    overall: hasError ? "error" : hasWarning ? "degraded" : "ok",
     services,
-    timestamp: new Date().toISOString()
-  }
+    timestamp: new Date().toISOString(),
+  };
 
   return NextResponse.json(health, {
     headers: {
-      'Cache-Control': 'no-cache, no-store, must-revalidate',
-      'X-RateLimit-Remaining': String(rateLimit.remaining)
-    }
-  })
+      "Cache-Control": "no-cache, no-store, must-revalidate",
+      "X-RateLimit-Remaining": String(rateLimit.remaining),
+    },
+  });
 }

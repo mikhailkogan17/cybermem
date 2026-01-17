@@ -280,6 +280,19 @@ def metrics():
     return Response(generate_latest(), mimetype=CONTENT_TYPE_LATEST)
 
 
+@app.route("/health")
+def health():
+    """Health check endpoint for dashboard"""
+    try:
+        db = get_db_connection()
+        cursor = db.cursor()
+        cursor.execute("SELECT 1")
+        db.close()
+        return jsonify({"status": "ok", "db": "connected"})
+    except Exception as e:
+        return jsonify({"status": "error", "error": str(e)}), 503
+
+
 @app.route("/api/logs")
 def api_logs():
     """Access logs API endpoint"""
