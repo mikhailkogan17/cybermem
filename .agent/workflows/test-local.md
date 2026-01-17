@@ -24,6 +24,7 @@ description: Run Playwright E2E tests for local environment (localhost:3000 dash
 > **DO NOT SKIP.** Run these checks first, fix any issues before proceeding.
 
 ### 0.1 Check All Services
+
 ```bash
 # All must return 200 OK
 curl -s http://localhost:8626/health | jq '.ok'  # → true
@@ -32,6 +33,7 @@ curl -s http://localhost:3000/api/metrics | jq '.stats.memoryRecords'  # → num
 ```
 
 ### 0.2 (Optional) Run Playwright Infra Check
+
 ```bash
 cd /Users/mikhailkogan/cybermem/packages/dashboard
 npm run test:e2e -- infra-check.spec.ts
@@ -39,9 +41,11 @@ npm run test:e2e -- infra-check.spec.ts
 ```
 
 ### 0.3 Verify Antigravity MCP
+
 Use `mcp_cybermem-local_list_memories` — should work without 404.
 
-**If fails:** 
+**If fails:**
+
 - Restart containers: `docker restart cybermem-openmemory cybermem-db-exporter cybermem-log-exporter`
 - Wait 30s, retry
 
@@ -50,6 +54,7 @@ Use `mcp_cybermem-local_list_memories` — should work without 404.
 ## Step 1: Happy Path Test
 
 ### 1.1 Wipe Database
+
 ```bash
 docker exec cybermem-openmemory sh -c 'rm -f /data/openmemory.sqlite*'
 docker run --rm -v cybermem-openmemory-data:/data alpine sh -c 'chown -R 1001:1001 /data && chmod 777 /data'
@@ -66,6 +71,7 @@ sleep 5
 > **FORBIDDEN TO USE CURL for CRUD.** Use only Antigravity MCP tools.
 
 **CREATE (3 memories):**
+
 ```
 mcp_cybermem-local_add_memory(content: "Happy Path Test #1 - verification", tags: ["happy-path", "local"])
 mcp_cybermem-local_add_memory(content: "Happy Path Test #2 - second entry", tags: ["happy-path", "local"])
@@ -73,11 +79,13 @@ mcp_cybermem-local_add_memory(content: "Happy Path Test #3 - final entry", tags:
 ```
 
 **READ:**
+
 ```
 mcp_cybermem-local_query_memory(query: "Happy Path Test", k: 3)
 ```
 
 ### 1.3 Verify Dashboard Metrics
+
 ```bash
 curl -s http://localhost:3000/api/metrics | jq '.stats'
 ```
@@ -98,7 +106,29 @@ curl -s http://localhost:3000/api/metrics | jq '.stats'
 
 ---
 
-## Step 2: Playwright Tests (Optional)
+## Step 2: UI Elements Validation (MANDATORY)
+
+> [!IMPORTANT]
+> **Run AFTER Step 1** to verify all UI components display correctly.
+
+```bash
+cd /Users/mikhailkogan/cybermem/packages/dashboard
+SKIP_DB_RESET=true npm run test:e2e -- ui-elements.spec.ts
+# Expected: 12 passed (visibility, functional, data)
+```
+
+**What it validates:**
+
+- Header: Logo, title, All Systems badge
+- MetricCards: All 4 numeric values visible
+- ClientCards: Top/Last Writer/Reader
+- ChartCards: All 4 charts with period selector
+- AuditLog: Table, sorting
+- Modals: Settings and MCP Config open correctly
+
+---
+
+## Step 3: Full E2E Suite (Optional)
 
 ```bash
 cd /Users/mikhailkogan/cybermem/packages/dashboard

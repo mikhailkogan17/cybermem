@@ -94,6 +94,24 @@ mcp_cybermem_query_memory(query: "user context profile", k: 5)
 
 **Expected:** Same memories as RPi
 
+### 2.3 UI Validation (Playwright)
+
+> [!IMPORTANT]
+> Verify dashboard displays restored data correctly.
+
+```bash
+cd /Users/mikhailkogan/cybermem/packages/dashboard
+SKIP_DB_RESET=true npm run test:e2e -- ui-elements.spec.ts --project=chromium
+# Expected: 12 passed
+```
+
+**Validates:**
+
+- All metric cards show restored values
+- ClientCards display correct writer/reader names
+- Charts render with restored history
+- Audit log shows restored entries
+
 ---
 
 ## Step 3: Compare
