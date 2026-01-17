@@ -5,8 +5,8 @@ on:
     branches: [main]
     paths:
       - "external/openmemory/**"
-      - "dashboard/**"
-      - "monitoring/**"
+      - "packages/dashboard/**"
+      - "packages/cli/templates/monitoring/**"
       - ".github/workflows/build-images.yml"
   workflow_dispatch:
 
@@ -97,7 +97,7 @@ jobs:
       - name: Build and push Dashboard image
         uses: docker/build-push-action@v5
         with:
-          context: ./dashboard
+          context: ./packages/dashboard
           target: production
           platforms: linux/amd64,linux/arm64
           push: true
@@ -145,7 +145,7 @@ jobs:
       - name: Build and push ${{ matrix.exporter }} image
         uses: docker/build-push-action@v5
         with:
-          context: ./monitoring/${{ matrix.exporter }}
+          context: ./packages/cli/templates/monitoring/${{ matrix.exporter }}
           platforms: linux/amd64,linux/arm64
           push: true
           tags: ${{ steps.meta.outputs.tags }}
