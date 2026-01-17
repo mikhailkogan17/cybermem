@@ -13,7 +13,9 @@ Welcome to CyberMem documentation.
 ## Reference
 
 - [HTTPS Setup](./https-setup.md) - SSL/TLS configuration
-- [API Reference](https://docs.cybermem.dev/api) - REST API docs
+- [Agent Protocol](./agent-protocol.md) - Deep dive into memory standard
+- [Security](./security.md) - Authentication & data protection
+- [Backup & Restore](./backup.md) - Data management guide
 - [Contributing](../CONTRIBUTING.md) - Development guidelines
 
 ## Support
