@@ -436,66 +436,37 @@ def api_stats():
 
 @app.route("/api/timeseries")
 def api_timeseries():
-    """Time series data for dashboard charts - adaptive bucket sizes"""
+    """Time series data for dashboard charts - cumulative totals with exact timestamps"""
     try:
         period = request.args.get("period", "24h")
 
-        # Parse period to milliseconds
+        # Parse period to seconds
         period_map = {"1h": 3600, "24h": 86400, "7d": 604800, "30d": 2592000}
         period_seconds = period_map.get(period, 86400)
         start_ms = int((time.time() - period_seconds) * 1000)
-
-        # Bucket size: 5m for 1h, 1h for 24h, 6h for 7d, 1d for 30d
-        if period == "1h":
-            bucket_format = "%Y-%m-%d %H:%M"
-            bucket_seconds = 300  # 5 minutes
-        elif period == "24h":
-            bucket_format = "%Y-%m-%d %H:00"
-            bucket_seconds = 3600  # 1 hour
-        elif period == "7d":
-            bucket_format = "%Y-%m-%d %H:00"
-            bucket_seconds = 21600  # 6 hours
-        else:
-            bucket_format = "%Y-%m-%d"
-            bucket_seconds = 86400
+        now_ms = int(time.time() * 1000)
 
         db = get_db_connection()
         cursor = db.cursor()
 
-        # Get actual data from DB
+        # Get all events in the period, ordered by timestamp
         cursor.execute(
             """
             SELECT
                 timestamp,
                 client_name,
-                operation,
-                COUNT(*) as count
+                operation
             FROM cybermem_access_log
             WHERE timestamp >= ?
-            GROUP BY strftime(?, datetime(timestamp/1000, 'unixepoch', 'localtime')), client_name, operation
             ORDER BY timestamp ASC
         """,
-            [start_ms, bucket_format],
+            [start_ms],
         )
 
-        db_rows = cursor.fetchall()
+        rows = cursor.fetchall()
+        db.close()
 
-        # Step 1: Identify ALL unique clients that appear in the range
-        all_clients = set()
-        for row in db_rows:
-            all_clients.add(row["client_name"] or "unknown")
-
-        # Step 2: Generate expected buckets (limit to prevent memory issues)
-        now_ts = int(time.time())
-        current_bucket = (now_ts // bucket_seconds) * bucket_seconds
-        expected_timestamps = []
-        t = current_bucket
-        max_buckets = 100  # Limit to prevent memory exhaustion on RPi
-        while t >= (start_ms // 1000) and len(expected_timestamps) < max_buckets:
-            expected_timestamps.append(t)
-            t -= bucket_seconds
-
-        # Map actual data into buckets
+        # Map operations to chart categories
         def get_op_key(op):
             if op == "create":
                 return "creates"
@@ -507,49 +478,50 @@ def api_timeseries():
                 return "deletes"
             return None
 
-        # Step 3: Initialize results with empty buckets (just time, no client keys)
-        results = {
-            "creates": {ts: {"time": ts} for ts in expected_timestamps},
-            "reads": {ts: {"time": ts} for ts in expected_timestamps},
-            "updates": {ts: {"time": ts} for ts in expected_timestamps},
-            "deletes": {ts: {"time": ts} for ts in expected_timestamps},
-        }
+        # Build cumulative data structures
+        # Each chart will have list of {time, client1: cumulative_count, client2: cumulative_count, ...}
+        results = {"creates": [], "reads": [], "updates": [], "deletes": []}
 
-        # Step 4: Map real counts into buckets
-        for row in db_rows:
-            # Round the row timestamp to its bucket
-            ts = row["timestamp"] // 1000
-            bucket_ts = (ts // bucket_seconds) * bucket_seconds
+        # Track running totals per client per operation type
+        running_totals = {"creates": {}, "reads": {}, "updates": {}, "deletes": {}}
 
+        # Add initial zero point at period start
+        start_ts = start_ms // 1000
+        for op_key in results:
+            results[op_key].append({"time": start_ts})
+
+        # Process each event and build cumulative series
+        for row in rows:
+            ts = row["timestamp"] // 1000  # Convert to seconds
             client = row["client_name"] or "unknown"
             op = row["operation"]
-            count = row["count"]
-
             op_key = get_op_key(op)
-            if op_key and bucket_ts in results[op_key]:
-                results[op_key][bucket_ts][client] = (
-                    results[op_key][bucket_ts].get(client, 0) + count
-                )
 
-        db.close()
+            if not op_key:
+                continue
 
-        # Sort results by time and return
-        return jsonify(
-            {
-                "creates": sorted(
-                    list(results["creates"].values()), key=lambda x: x["time"]
-                ),
-                "reads": sorted(
-                    list(results["reads"].values()), key=lambda x: x["time"]
-                ),
-                "updates": sorted(
-                    list(results["updates"].values()), key=lambda x: x["time"]
-                ),
-                "deletes": sorted(
-                    list(results["deletes"].values()), key=lambda x: x["time"]
-                ),
-            }
-        )
+            # Increment running total for this client
+            if client not in running_totals[op_key]:
+                running_totals[op_key][client] = 0
+            running_totals[op_key][client] += 1
+
+            # Create a data point with current cumulative state
+            point = {"time": ts}
+            for c, count in running_totals[op_key].items():
+                point[c] = count
+
+            results[op_key].append(point)
+
+        # Add final point at "now" with same totals
+        now_ts = now_ms // 1000
+        for op_key in results:
+            if running_totals[op_key]:
+                final_point = {"time": now_ts}
+                for c, count in running_totals[op_key].items():
+                    final_point[c] = count
+                results[op_key].append(final_point)
+
+        return jsonify(results)
     except Exception as e:
         logger.error(f"Error in /api/timeseries: {e}", exc_info=True)
         return jsonify({"error": str(e)}), 500
