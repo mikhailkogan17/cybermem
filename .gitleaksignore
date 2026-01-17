@@ -1,0 +1,15 @@
+# Gitleaks ignore file
+# False positives and mock/example values
+
+# Mock API key examples in dev tasks
+cybermem.code-workspace:generic-api-key
+
+# Mock API keys in dashboard_old (deprecated code)
+dashboard_old/app/api/config/route.ts:generic-api-key
+
+# Example curl command with placeholder auth
+cybermem.code-workspace:curl-auth-header
+
+# Historical commits (now fixed)
+717dffe190d8d85e1d53b526e54557b17c8263b6:packages/cli/e2e/flow-test.ts:generic-api-key:20
+717dffe190d8d85e1d53b526e54557b17c8263b6:packages/cli/e2e/flow-test.ts:generic-api-key:21
