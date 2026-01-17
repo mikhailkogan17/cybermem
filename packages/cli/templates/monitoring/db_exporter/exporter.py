@@ -485,12 +485,13 @@ def api_timeseries():
         for row in db_rows:
             all_clients.add(row["client_name"] or "unknown")
 
-        # Step 2: Generate all expected buckets
+        # Step 2: Generate expected buckets (limit to prevent memory issues)
         now_ts = int(time.time())
         current_bucket = (now_ts // bucket_seconds) * bucket_seconds
         expected_timestamps = []
         t = current_bucket
-        while t >= (start_ms // 1000):
+        max_buckets = 100  # Limit to prevent memory exhaustion on RPi
+        while t >= (start_ms // 1000) and len(expected_timestamps) < max_buckets:
             expected_timestamps.append(t)
             t -= bucket_seconds
 
@@ -506,24 +507,12 @@ def api_timeseries():
                 return "deletes"
             return None
 
-        # Step 3: Initialize results with all buckets, each having all clients at 0
+        # Step 3: Initialize results with empty buckets (just time, no client keys)
         results = {
-            "creates": {
-                ts: {"time": ts, **{c: 0 for c in all_clients}}
-                for ts in expected_timestamps
-            },
-            "reads": {
-                ts: {"time": ts, **{c: 0 for c in all_clients}}
-                for ts in expected_timestamps
-            },
-            "updates": {
-                ts: {"time": ts, **{c: 0 for c in all_clients}}
-                for ts in expected_timestamps
-            },
-            "deletes": {
-                ts: {"time": ts, **{c: 0 for c in all_clients}}
-                for ts in expected_timestamps
-            },
+            "creates": {ts: {"time": ts} for ts in expected_timestamps},
+            "reads": {ts: {"time": ts} for ts in expected_timestamps},
+            "updates": {ts: {"time": ts} for ts in expected_timestamps},
+            "deletes": {ts: {"time": ts} for ts in expected_timestamps},
         }
 
         # Step 4: Map real counts into buckets
