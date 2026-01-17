@@ -1,51 +1,102 @@
-"use client"
+"use client";
 
-import { Card, CardContent } from "@/components/ui/card"
-import MetricCard from "./metric-card"
+import { Card, CardContent } from "@/components/ui/card";
+import MetricCard from "./metric-card";
 
 // Types
 interface TrendState {
-  change: string
-  trend: "up" | "down" | "neutral"
-  hasData: boolean
+  change: string;
+  trend: "up" | "down" | "neutral";
+  hasData: boolean;
 }
 
 interface MetricsGridProps {
   stats: {
-    memoryRecords: number
-    totalClients: number
-    successRate: number
-    totalRequests: number
-    topWriter: { name: string; count: number }
-    topReader: { name: string; count: number }
-    lastWriter: { name: string; timestamp: number }
-    lastReader: { name: string; timestamp: number }
-  }
+    memoryRecords: number;
+    totalClients: number;
+    successRate: number;
+    totalRequests: number;
+    topWriter: { name: string; count: number };
+    topReader: { name: string; count: number };
+    lastWriter: { name: string; timestamp: number };
+    lastReader: { name: string; timestamp: number };
+  };
   trends: {
-    memory: TrendState
-    clients: TrendState
-    success: TrendState
-    requests: TrendState
-  }
+    memory: TrendState;
+    clients: TrendState;
+    success: TrendState;
+    requests: TrendState;
+  };
+  loading?: boolean;
 }
 
+// Client card skeleton component
+function ClientCardSkeleton({ label }: { label: string }) {
+  return (
+    <Card className="bg-white/5 border-white/10 backdrop-blur-md text-white shadow-lg overflow-hidden">
+      <CardContent className="pt-6 pb-6 relative">
+        <div className="text-sm font-medium text-slate-400 mb-2">{label}</div>
+        <div className="h-10 w-32 bg-white/10 rounded animate-pulse mb-2" />
+        <div className="h-5 w-20 bg-white/10 rounded animate-pulse" />
+      </CardContent>
+    </Card>
+  );
+}
 
-export default function MetricsGrid({ stats, trends }: MetricsGridProps) {
+// Client card with empty state
+function ClientCard({
+  label,
+  name,
+  subtitle,
+  isEmpty,
+}: {
+  label: string;
+  name: string;
+  subtitle: string;
+  isEmpty: boolean;
+}) {
+  return (
+    <Card
+      className={`bg-white/5 border-white/10 backdrop-blur-md text-white shadow-lg overflow-hidden ${isEmpty ? "opacity-60" : ""}`}
+    >
+      <CardContent className="pt-6 pb-6 relative">
+        <div className="text-sm font-medium text-slate-400 mb-2">{label}</div>
+        <div
+          className={`text-4xl font-bold mb-1 truncate ${isEmpty ? "text-slate-500" : "text-white"}`}
+        >
+          {name}
+        </div>
+        <div
+          className={`text-xl whitespace-nowrap ${isEmpty ? "text-slate-600" : "text-white/80"}`}
+        >
+          {subtitle}
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+export default function MetricsGrid({
+  stats,
+  trends,
+  loading = false,
+}: MetricsGridProps) {
   // Note: Client names are now normalized by backend API, no frontend transformation needed
 
   const formatTimestamp = (timestamp: number) => {
-    if (timestamp <= 0) return "No activity"
-    const date = new Date(timestamp)
-    const now = new Date()
-    const isToday = date.getDate() === now.getDate() &&
-                    date.getMonth() === now.getMonth() &&
-                    date.getFullYear() === now.getFullYear()
+    if (timestamp <= 0) return "No activity";
+    const date = new Date(timestamp);
+    const now = new Date();
+    const isToday =
+      date.getDate() === now.getDate() &&
+      date.getMonth() === now.getMonth() &&
+      date.getFullYear() === now.getFullYear();
 
     if (isToday) {
-      return date.toLocaleTimeString()
+      return date.toLocaleTimeString();
     }
-    return date.toLocaleString()
-  }
+    return date.toLocaleString();
+  };
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
@@ -56,6 +107,7 @@ export default function MetricsGrid({ stats, trends }: MetricsGridProps) {
         change={trends.memory.change}
         trend={trends.memory.trend}
         hasData={trends.memory.hasData}
+        loading={loading}
       />
 
       {/* 2. Total Clients */}
@@ -65,6 +117,7 @@ export default function MetricsGrid({ stats, trends }: MetricsGridProps) {
         change={trends.clients.change}
         trend={trends.clients.trend}
         hasData={trends.clients.hasData}
+        loading={loading}
       />
 
       {/* 3. Success Rate */}
@@ -74,6 +127,7 @@ export default function MetricsGrid({ stats, trends }: MetricsGridProps) {
         change={trends.success.change}
         trend={trends.success.trend} // Trend UP is good (green) for success rate
         hasData={trends.success.hasData}
+        loading={loading}
       />
 
       {/* 4. Total Requests */}
@@ -83,57 +137,68 @@ export default function MetricsGrid({ stats, trends }: MetricsGridProps) {
         change={trends.requests.change}
         trend={trends.requests.trend}
         hasData={trends.requests.hasData}
+        loading={loading}
       />
 
       {/* 5. Top Writer */}
-      <Card className="bg-white/5 border-white/10 backdrop-blur-md text-white shadow-lg overflow-hidden">
-        <CardContent className="pt-6 pb-6 relative">
-          <div className="text-sm font-medium text-slate-400 mb-2">Top Writer</div>
-          <div className="text-4xl font-bold text-white mb-1 truncate">{stats.topWriter.name}</div>
-          <div className="text-xl text-white/80 whitespace-nowrap">
-            {stats.topWriter.count > 0 ? `${stats.topWriter.count.toLocaleString()} writes` : ""}
-          </div>
-        </CardContent>
-      </Card>
+      {loading ? (
+        <ClientCardSkeleton label="Top Writer" />
+      ) : (
+        <ClientCard
+          label="Top Writer"
+          name={stats.topWriter.count > 0 ? stats.topWriter.name : "N/A"}
+          subtitle={
+            stats.topWriter.count > 0
+              ? `${stats.topWriter.count.toLocaleString()} writes`
+              : ""
+          }
+          isEmpty={stats.topWriter.count <= 0}
+        />
+      )}
 
       {/* 6. Top Reader */}
-      <Card className="bg-white/5 border-white/10 backdrop-blur-md text-white shadow-lg overflow-hidden">
-        <CardContent className="pt-6 pb-6 relative">
-          <div className="text-sm font-medium text-slate-400 mb-2">Top Reader</div>
-          <div className="text-4xl font-bold text-white mb-1 truncate">
-            {stats.topReader.count > 0 ? stats.topReader.name : "N/A"}
-          </div>
-          <div className="text-xl text-white/80 whitespace-nowrap">
-            {stats.topReader.count > 0 ? `${stats.topReader.count.toLocaleString()} reads` : ""}
-          </div>
-        </CardContent>
-      </Card>
+      {loading ? (
+        <ClientCardSkeleton label="Top Reader" />
+      ) : (
+        <ClientCard
+          label="Top Reader"
+          name={stats.topReader.count > 0 ? stats.topReader.name : "N/A"}
+          subtitle={
+            stats.topReader.count > 0
+              ? `${stats.topReader.count.toLocaleString()} reads`
+              : ""
+          }
+          isEmpty={stats.topReader.count <= 0}
+        />
+      )}
 
       {/* 7. Last Writer */}
-      <Card className="bg-white/5 border-white/10 backdrop-blur-md text-white shadow-lg overflow-hidden">
-        <CardContent className="pt-6 pb-6 relative">
-          <div className="text-sm font-medium text-slate-400 mb-2">Last Writer</div>
-          <div className="text-4xl font-bold text-white mb-1 truncate">
-            {stats.lastWriter.name !== "N/A" ? stats.lastWriter.name : "N/A"}
-          </div>
-          <div className="text-xl text-white/80 whitespace-nowrap">
-            {stats.lastWriter.timestamp > 0 ? formatTimestamp(stats.lastWriter.timestamp) : "No activity"}
-          </div>
-        </CardContent>
-      </Card>
+      {loading ? (
+        <ClientCardSkeleton label="Last Writer" />
+      ) : (
+        <ClientCard
+          label="Last Writer"
+          name={stats.lastWriter.name !== "N/A" ? stats.lastWriter.name : "N/A"}
+          subtitle={formatTimestamp(stats.lastWriter.timestamp)}
+          isEmpty={
+            stats.lastWriter.name === "N/A" || stats.lastWriter.timestamp <= 0
+          }
+        />
+      )}
 
       {/* 8. Last Reader */}
-      <Card className="bg-white/5 border-white/10 backdrop-blur-md text-white shadow-lg overflow-hidden">
-        <CardContent className="pt-6 pb-6 relative">
-          <div className="text-sm font-medium text-slate-400 mb-2">Last Reader</div>
-          <div className="text-4xl font-bold text-white mb-1 truncate">
-            {stats.lastReader.name !== "N/A" ? stats.lastReader.name : "N/A"}
-          </div>
-          <div className="text-xl text-white/80 whitespace-nowrap">
-            {stats.lastReader.timestamp > 0 ? formatTimestamp(stats.lastReader.timestamp) : "No activity"}
-          </div>
-        </CardContent>
-      </Card>
+      {loading ? (
+        <ClientCardSkeleton label="Last Reader" />
+      ) : (
+        <ClientCard
+          label="Last Reader"
+          name={stats.lastReader.name !== "N/A" ? stats.lastReader.name : "N/A"}
+          subtitle={formatTimestamp(stats.lastReader.timestamp)}
+          isEmpty={
+            stats.lastReader.name === "N/A" || stats.lastReader.timestamp <= 0
+          }
+        />
+      )}
     </div>
-  )
+  );
 }
