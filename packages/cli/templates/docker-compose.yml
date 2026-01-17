@@ -200,6 +200,7 @@ services:
     image: ghcr.io/mikhailkogan17/cybermem-dashboard:latest
     container_name: cybermem-dashboard
     environment:
+      DB_EXPORTER_URL: http://db-exporter:8000
       NEXT_PUBLIC_PROMETHEUS_URL: http://prometheus:9090
       PROMETHEUS_URL: http://prometheus:9090
       OM_API_KEY: ${OM_API_KEY:-dev-secret-key}
@@ -221,6 +222,7 @@ services:
     restart: unless-stopped
     depends_on:
       - prometheus
+      - db-exporter
 
 volumes:
   openmemory-data:
