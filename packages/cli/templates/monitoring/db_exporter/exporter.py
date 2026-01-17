@@ -78,15 +78,37 @@ success_rate_aggregate = Gauge(
 )
 
 
-def get_db_connection():
-    """Get SQLite database connection."""
+def get_db_connection(readonly=True):
+    """Get SQLite database connection.
+
+    For WAL mode databases, we need read-write access to perform checkpoint
+    and see the latest data.
+    """
     try:
-        conn = sqlite3.connect(DB_PATH)
+        if readonly:
+            # Read-only mode for metrics queries
+            conn = sqlite3.connect(f"file:{DB_PATH}?mode=ro", uri=True, timeout=10.0)
+        else:
+            # Read-write mode for checkpoint operations
+            conn = sqlite3.connect(DB_PATH, timeout=10.0)
         conn.row_factory = sqlite3.Row
         return conn
     except Exception as e:
         logger.error(f"Failed to connect to database: {e}")
         raise
+
+
+def do_wal_checkpoint():
+    """Perform WAL checkpoint to flush data to main database file."""
+    try:
+        conn = get_db_connection(readonly=False)
+        result = conn.execute("PRAGMA wal_checkpoint(PASSIVE)").fetchone()
+        conn.close()
+        logger.debug(f"WAL checkpoint result: {result}")
+        return True
+    except Exception as e:
+        logger.warning(f"WAL checkpoint failed (read-only volume?): {e}")
+        return False
 
 
 def collect_metrics():
@@ -509,6 +531,8 @@ def metrics_collection_loop():
     logger.info("Starting metrics collection loop")
     while True:
         try:
+            # Checkpoint WAL to ensure we see latest data
+            do_wal_checkpoint()
             collect_metrics()
             time.sleep(SCRAPE_INTERVAL)
         except Exception as e:
