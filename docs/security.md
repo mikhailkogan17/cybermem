@@ -30,24 +30,47 @@ API keys for LLM providers (OpenAI, Anthropic, etc.) are stored in your local `.
 
 ## Authentication Flow
 
+### OAuth (Recommended - v0.7.0+)
+
+CyberMem uses GitHub OAuth for secure, passwordless authentication.
+
 ```
-┌─────────────┐     ┌─────────────┐     ┌─────────────┐
-│  AI Client  │────▶│   Traefik   │────▶│ OpenMemory  │
-│ (Claude,    │     │  (Auth +    │     │  (Memory    │
-│  Cursor)    │     │  Logging)   │     │   API)      │
-└─────────────┘     └─────────────┘     └─────────────┘
-       │                   │
-       │ X-Client-Name     │ Access Logs
-       │ X-API-Key         │
-       ▼                   ▼
-                    ┌─────────────┐
-                    │ Prometheus  │
-                    │  (Metrics)  │
-                    └─────────────┘
+┌─────────────┐     ┌──────────────────┐     ┌─────────────┐
+│  MCP Client │────▶│  cybermem.dev    │────▶│   GitHub    │
+│  (Cursor)   │◀────│  /api/auth       │◀────│   OAuth     │
+└─────────────┘     └──────────────────┘     └─────────────┘
+       │
+       │ JWT Token
+       ▼
+┌─────────────┐     ┌──────────────────┐
+│   Traefik   │────▶│  auth-sidecar    │
+│  (Gateway)  │◀────│  (ForwardAuth)   │
+└─────────────┘     └──────────────────┘
+       │
+       ▼
+┌─────────────┐
+│ OpenMemory  │
+└─────────────┘
 ```
 
+**CLI Commands:**
+
+```bash
+npx @cybermem/mcp --login   # Open browser for GitHub OAuth
+npx @cybermem/mcp --status  # Check auth status
+npx @cybermem/mcp --logout  # Clear stored token
+```
+
+**Token storage:** `~/.cybermem/token.json`
+
+### API Key (Deprecated)
+
+> [!WARNING]
+> API keys are deprecated as of v0.7.0 and will be removed in v0.8.0.
+> Run `npx @cybermem/mcp --login` to switch to OAuth.
+
 - **Local mode**: No API key required. Traefik accepts all localhost connections.
-- **Remote mode**: API key validated by Traefik middleware before forwarding.
+- **Remote mode**: API key or JWT validated by auth-sidecar before forwarding.
 
 ## Common Questions
 
@@ -59,7 +82,14 @@ No. CyberMem is a self-hosted infrastructure component. We have no access to you
 
 Even when deployed to a cloud VPS (AWS, DigitalOcean), you control the instance. We provide the Docker image; you run it. We do not offer a managed SaaS version.
 
-### How do I rotate API keys?
+### How do I rotate my OAuth token?
+
+```bash
+npx @cybermem/mcp --logout
+npx @cybermem/mcp --login
+```
+
+### How do I rotate API keys (deprecated)?
 
 ```bash
 # Generate new key

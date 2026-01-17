@@ -17,9 +17,15 @@ npx @cybermem/cli init
 ```
 
 This will:
+
 1. Download and configure Docker containers
 2. Start OpenMemory, Traefik, Prometheus, and Dashboard
-3. Display access URLs
+3. **Open browser for GitHub login (first time)**
+4. Display access URLs
+
+> [!NOTE]
+> First-time setup opens your browser for GitHub authentication.
+> After login, your token is saved locally — no more API key management!
 
 ### Other Platforms
 
@@ -62,9 +68,28 @@ Add to your MCP configuration:
 }
 ```
 
+For remote access (e.g., RPi), add the `--url` parameter:
+
+```json
+{
+  "mcpServers": {
+    "cybermem": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@cybermem/mcp",
+        "--url",
+        "https://your-rpi.tailnet.ts.net/cybermem/memory"
+      ]
+    }
+  }
+}
+```
+
 ### Verify Connection
 
 After connecting, your AI client can use these tools:
+
 - `add_memory` - Store new memories
 - `query_memory` - Semantic search
 - `list_memories` - Recent memories
@@ -76,3 +101,4 @@ After connecting, your AI client can use these tools:
 - [Raspberry Pi](./rpi.md) - Edge deployment
 - [Cloud/VPS](./vps.md) - Production deployment
 - [MCP Integration](./mcp.md) - Advanced client configuration
+- [Security](./security.md) - Authentication and token management
