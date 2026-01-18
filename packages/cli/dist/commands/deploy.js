@@ -229,7 +229,7 @@ async function deploy(options) {
         }
       `));
             console.log(chalk_1.default.gray('      - Restart: sudo systemctl restart caddy'));
-            console.log(chalk_1.default.green('\n📚 Full docs: https://cybermem.dev/docs#https'));
+            console.log(chalk_1.default.green('\n📚 Full docs: https://docs.cybermem.dev#https'));
         }
     }
     catch (error) {

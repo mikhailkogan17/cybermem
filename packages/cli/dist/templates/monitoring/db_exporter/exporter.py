@@ -78,15 +78,37 @@ success_rate_aggregate = Gauge(
 )
 
 
-def get_db_connection():
-    """Get SQLite database connection."""
+def get_db_connection(readonly=True):
+    """Get SQLite database connection.
+
+    For WAL mode databases, we need read-write access to perform checkpoint
+    and see the latest data.
+    """
     try:
-        conn = sqlite3.connect(DB_PATH)
+        if readonly:
+            # Read-only mode for metrics queries
+            conn = sqlite3.connect(f"file:{DB_PATH}?mode=ro", uri=True, timeout=10.0)
+        else:
+            # Read-write mode for checkpoint operations
+            conn = sqlite3.connect(DB_PATH, timeout=10.0)
         conn.row_factory = sqlite3.Row
         return conn
     except Exception as e:
         logger.error(f"Failed to connect to database: {e}")
         raise
+
+
+def do_wal_checkpoint():
+    """Perform WAL checkpoint to flush data to main database file."""
+    try:
+        conn = get_db_connection(readonly=False)
+        result = conn.execute("PRAGMA wal_checkpoint(PASSIVE)").fetchone()
+        conn.close()
+        logger.debug(f"WAL checkpoint result: {result}")
+        return True
+    except Exception as e:
+        logger.warning(f"WAL checkpoint failed (read-only volume?): {e}")
+        return False
 
 
 def collect_metrics():
@@ -280,6 +302,19 @@ def metrics():
     return Response(generate_latest(), mimetype=CONTENT_TYPE_LATEST)
 
 
+@app.route("/health")
+def health():
+    """Health check endpoint for dashboard"""
+    try:
+        db = get_db_connection()
+        cursor = db.cursor()
+        cursor.execute("SELECT 1")
+        db.close()
+        return jsonify({"status": "ok", "db": "connected"})
+    except Exception as e:
+        return jsonify({"status": "error", "error": str(e)}), 503
+
+
 @app.route("/api/logs")
 def api_logs():
     """Access logs API endpoint"""
@@ -401,88 +436,92 @@ def api_stats():
 
 @app.route("/api/timeseries")
 def api_timeseries():
-    """Time series data for dashboard charts - bucketed by hour"""
+    """Time series data for dashboard charts - cumulative totals with exact timestamps"""
     try:
         period = request.args.get("period", "24h")
 
-        # Parse period to milliseconds
+        # Parse period to seconds
         period_map = {"1h": 3600, "24h": 86400, "7d": 604800, "30d": 2592000}
         period_seconds = period_map.get(period, 86400)
         start_ms = int((time.time() - period_seconds) * 1000)
-
-        # Bucket size: 1h for 24h, 6h for 7d, 1d for 30d
-        if period in ["1h", "24h"]:
-            bucket_format = "%Y-%m-%d %H:00"
-            bucket_seconds = 3600
-        elif period == "7d":
-            bucket_format = "%Y-%m-%d %H:00"
-            bucket_seconds = 21600  # 6 hours
-        else:
-            bucket_format = "%Y-%m-%d"
-            bucket_seconds = 86400
+        now_ms = int(time.time() * 1000)
 
         db = get_db_connection()
         cursor = db.cursor()
 
-        # Get operations grouped by time bucket and client
+        # Get all events in the period, ordered by timestamp
         cursor.execute(
             """
             SELECT
-                datetime(timestamp/1000, 'unixepoch', 'localtime') as dt,
+                timestamp,
                 client_name,
-                operation,
-                COUNT(*) as count
+                operation
             FROM cybermem_access_log
             WHERE timestamp >= ?
-            GROUP BY strftime(?, datetime(timestamp/1000, 'unixepoch', 'localtime')), client_name, operation
-            ORDER BY dt
+            ORDER BY timestamp ASC
         """,
-            [start_ms, bucket_format],
+            [start_ms],
         )
 
-        # Organize by operation type
-        creates = {}
-        reads = {}
-        updates = {}
-        deletes = {}
-
-        for row in cursor.fetchall():
-            dt = row["dt"]
-            client = row["client_name"] or "unknown"
-            op = row["operation"]
-            count = row["count"]
-
-            # Round to bucket
-            ts = int(time.mktime(time.strptime(dt, "%Y-%m-%d %H:%M:%S")))
-            bucket_ts = (ts // bucket_seconds) * bucket_seconds
-
-            if op == "create":
-                if bucket_ts not in creates:
-                    creates[bucket_ts] = {"time": bucket_ts}
-                creates[bucket_ts][client] = creates[bucket_ts].get(client, 0) + count
-            elif op in ["read", "list", "query", "search", "other"]:
-                if bucket_ts not in reads:
-                    reads[bucket_ts] = {"time": bucket_ts}
-                reads[bucket_ts][client] = reads[bucket_ts].get(client, 0) + count
-            elif op == "update":
-                if bucket_ts not in updates:
-                    updates[bucket_ts] = {"time": bucket_ts}
-                updates[bucket_ts][client] = updates[bucket_ts].get(client, 0) + count
-            elif op == "delete":
-                if bucket_ts not in deletes:
-                    deletes[bucket_ts] = {"time": bucket_ts}
-                deletes[bucket_ts][client] = deletes[bucket_ts].get(client, 0) + count
-
+        rows = cursor.fetchall()
         db.close()
 
-        return jsonify(
-            {
-                "creates": list(creates.values()),
-                "reads": list(reads.values()),
-                "updates": list(updates.values()),
-                "deletes": list(deletes.values()),
-            }
-        )
+        # Map operations to chart categories
+        def get_op_key(op):
+            if op == "create":
+                return "creates"
+            if op in ["read", "list", "query", "search", "other"]:
+                return "reads"
+            if op == "update":
+                return "updates"
+            if op == "delete":
+                return "deletes"
+            return None
+
+        # Build cumulative data structures
+        # Each chart will have list of {time, client1: cumulative_count, client2: cumulative_count, ...}
+        results = {"creates": [], "reads": [], "updates": [], "deletes": []}
+
+        # Track running totals per client per operation type
+        running_totals = {"creates": {}, "reads": {}, "updates": {}, "deletes": {}}
+
+        # Add initial zero point at period start
+        start_ts = start_ms // 1000
+        for op_key in results:
+            results[op_key].append({"time": start_ts})
+
+        # Process each event and build cumulative series
+        for row in rows:
+            ts = row["timestamp"] // 1000  # Convert to seconds
+            client = row["client_name"] or "unknown"
+            op = row["operation"]
+            op_key = get_op_key(op)
+
+            if not op_key:
+                continue
+
+            # Increment running total for this client
+            if client not in running_totals[op_key]:
+                running_totals[op_key][client] = 0
+            running_totals[op_key][client] += 1
+
+            # Create a data point with current cumulative state
+            point = {"time": ts}
+            for c, count in running_totals[op_key].items():
+                point[c] = count
+
+            results[op_key].append(point)
+
+        # Add final point at "now" with same totals
+        now_ts = now_ms // 1000
+        for op_key in results:
+            if running_totals[op_key]:
+                final_point = {"time": now_ts}
+                for c, count in running_totals[op_key].items():
+                    final_point[c] = count
+                results[op_key].append(final_point)
+
+        return jsonify(results)
     except Exception as e:
         logger.error(f"Error in /api/timeseries: {e}", exc_info=True)
         return jsonify({"error": str(e)}), 500
@@ -493,6 +532,8 @@ def metrics_collection_loop():
     logger.info("Starting metrics collection loop")
     while True:
         try:
+            # Checkpoint WAL to ensure we see latest data
+            do_wal_checkpoint()
             collect_metrics()
             time.sleep(SCRAPE_INTERVAL)
         except Exception as e:

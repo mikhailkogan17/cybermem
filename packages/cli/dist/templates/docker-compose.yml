@@ -40,47 +40,20 @@ services:
       - traefik.http.services.mcp-get.loadbalancer.server.port=8081
     restart: unless-stopped
 
-  openmemory:
-    build:
-      context: ./openmemory
-      dockerfile: Dockerfile
-    container_name: cybermem-openmemory
-    ports: [] # Access via Traefik on 8626
-    volumes:
-      - openmemory-data:/data
-      - ${CYBERMEM_ENV_PATH}:/.env
+  # Auth sidecar for JWT/API key validation (ForwardAuth)
+  auth-sidecar:
+    image: ghcr.io/mikhailkogan17/cybermem-auth-sidecar:latest
+    container_name: cybermem-auth-sidecar
     environment:
-      # Core settings
-      OM_PORT: "8080"
-      OM_TIER: "deep"
-      # API Key is loaded from /.env file
-
-      # Embeddings (local dev uses Ollama)
-      OM_EMBEDDINGS: ${EMBEDDINGS_PROVIDER:-ollama}
-      OLLAMA_URL: ${OLLAMA_URL:-http://ollama:11434}
-      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
-
-      # Database (local dev uses SQLite)
-      OM_METADATA_BACKEND: ${DB_BACKEND:-sqlite}
-      OM_DB_PATH: ${DB_PATH:-/data/openmemory.sqlite}
-      OM_VECTOR_BACKEND: ${VECTOR_BACKEND:-sqlite}
-
-      # PostgreSQL (for production/testing)
-      OM_PG_HOST: ${PG_HOST:-postgres}
-      OM_PG_PORT: ${PG_PORT:-5432}
-      OM_PG_DB: ${PG_DB:-openmemory}
-      OM_PG_USER: ${PG_USER:-openmemory}
-      OM_PG_PASSWORD: ${PG_PASSWORD:-}
-
-      # Performance
-      OM_RATE_LIMIT_ENABLED: "true"
-      OM_RATE_LIMIT_MAX_REQUESTS: "1000"
-
+      PORT: "3001"
+      API_KEY_FILE: /.env
+    volumes:
+      - ${CYBERMEM_ENV_PATH}:/.env:ro
     labels:
       - traefik.enable=true
-      - traefik.http.routers.openmemory.entrypoints=web
-      - traefik.http.routers.openmemory.rule=PathPrefix(`/memory`) || PathPrefix(`/health`) || PathPrefix(`/v1`) || PathPrefix(`/api`) || PathPrefix(`/all`) || PathPrefix(`/add`) || PathPrefix(`/sse`)
-      - traefik.http.services.openmemory.loadbalancer.server.port=8080
+      # ForwardAuth middleware
+      - traefik.http.middlewares.auth-check.forwardauth.address=http://auth-sidecar:3001/auth
+      - traefik.http.middlewares.auth-check.forwardauth.authResponseHeaders=X-User-Id,X-User-Email,X-User-Name,X-Auth-Method
     healthcheck:
       test:
         [
@@ -89,15 +62,16 @@ services:
           "--quiet",
           "--tries=1",
           "--spider",
-          "http://localhost:8080/health",
+          "http://localhost:3001/health",
         ]
       interval: 30s
-      timeout: 10s
+      timeout: 5s
       retries: 3
-      start_period: 40s
     restart: unless-stopped
-    depends_on:
-      - traefik
+
+  # NOTE: openmemory container REMOVED
+  # Memory now handled by @cybermem/mcp with embedded openmemory-js SDK
+  # SQLite stored at ~/.cybermem/data/openmemory.sqlite
 
   db-exporter:
     image: ghcr.io/mikhailkogan17/cybermem-db_exporter:latest
@@ -109,10 +83,9 @@ services:
     ports:
       - "8000:8000"
     volumes:
-      - openmemory-data:/data:ro
+      # Mount host openmemory data dir (created by SDK)
+      - ${HOME}/.cybermem/data:/data:ro
     restart: unless-stopped
-    depends_on:
-      - openmemory
 
   log-exporter:
     image: ghcr.io/mikhailkogan17/cybermem-log_exporter:latest
@@ -124,12 +97,11 @@ services:
       DB_PATH: /data/openmemory.sqlite
     volumes:
       - traefik-logs:/var/log/traefik:ro
-      - openmemory-data:/data
+      - ${HOME}/.cybermem/data:/data:ro
       - ./monitoring/log_exporter/exporter.py:/app/exporter.py:ro
     restart: unless-stopped
     depends_on:
       - traefik
-      - openmemory
 
   postgres:
     image: postgres:15-alpine
@@ -200,6 +172,7 @@ services:
     image: ghcr.io/mikhailkogan17/cybermem-dashboard:latest
     container_name: cybermem-dashboard
     environment:
+      DB_EXPORTER_URL: http://db-exporter:8000
       NEXT_PUBLIC_PROMETHEUS_URL: http://prometheus:9090
       PROMETHEUS_URL: http://prometheus:9090
       OM_API_KEY: ${OM_API_KEY:-dev-secret-key}
@@ -221,6 +194,7 @@ services:
     restart: unless-stopped
     depends_on:
       - prometheus
+      - db-exporter
 
 volumes:
   openmemory-data:
