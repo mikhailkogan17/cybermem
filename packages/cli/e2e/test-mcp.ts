@@ -54,7 +54,7 @@ const TARGETS = {
         ? { "x-api-key": process.env.OM_API_KEY || getLocalApiKey() }
         : {}),
       "User-Agent": "CyberMem-CLI/1.0.0",
-      "X-Client-Name": "mcp-e2e-tester", // Explicit client name
+      "X-Client-Name": "antigravity-client", // Explicit client name
     },
   },
   rpi: {

@@ -51,7 +51,7 @@
   {
     "id": "vscode",
     "name": "VS Code",
-    "match": "vscode",
+    "match": "vscode|copilot",
     "color": "#23a9f2",
     "icon": "/icons/vscode.png",
     "description": "VS Code requires the MCP Servers extension for MCP support.",
@@ -123,20 +123,6 @@
       "Navigate to **MCP** section",
       "Click **Add Custom Server**",
       "Paste the configuration below"
-    ],
-    "configType": "json"
-  },
-  {
-    "id": "copilot",
-    "name": "GitHub Copilot",
-    "match": "copilot",
-    "color": "#171717",
-    "icon": "/icons/github.png",
-    "description": "GitHub Copilot supports MCP via the Chat interface.",
-    "steps": [
-      "Open VS Code Settings",
-      "Navigate to **Extensions** > **Copilot**",
-      "Add the configuration block below to `mcp-servers`"
     ],
     "configType": "json"
   },
