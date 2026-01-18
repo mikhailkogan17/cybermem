@@ -5,21 +5,21 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useDashboard } from "@/lib/data/dashboard-context";
 import {
-  Check,
-  Copy,
-  Database,
-  Download,
-  Eye,
-  EyeOff,
-  Key,
-  Loader2,
-  RotateCcw,
-  Server,
-  Settings,
-  Shield,
-  Trash2,
-  Upload,
-  X,
+    Check,
+    Copy,
+    Database,
+    Download,
+    Eye,
+    EyeOff,
+    Key,
+    Loader2,
+    RotateCcw,
+    Server,
+    Settings,
+    Shield,
+    Trash2,
+    Upload,
+    X,
 } from "lucide-react";
 import { useEffect, useState } from "react";
 
@@ -478,7 +478,7 @@ export default function SettingsModal({ onClose }: { onClose: () => void }) {
 
                 <Button
                   variant="outline"
-                  className="flex-1 justify-center bg-white/5 border-red-500/10 hover:bg-red-500/10 hover:border-red-500/30 text-red-400 h-11 px-6 transition-all"
+                  className="flex-1 justify-center bg-red-500/5 border-red-500/10 hover:bg-red-500/10 hover:border-red-500/30 text-red-400 hover:text-red-300 h-11 px-6 transition-all"
                   onClick={() => setShowResetConfirm(true)}
                   disabled={isResetting}
                 >
@@ -579,7 +579,7 @@ export default function SettingsModal({ onClose }: { onClose: () => void }) {
               <div className="pt-2 border-t border-white/5">
                 <Button
                   variant="outline"
-                  className="w-full bg-sky-500/5 border-sky-500/10 hover:bg-sky-500/10 hover:border-sky-500/30 text-sky-400 h-10 transition-all font-medium flex items-center justify-center gap-2 group"
+                  className="w-full bg-sky-500/5 border-sky-500/10 hover:bg-sky-500/10 hover:border-sky-500/30 text-sky-400 hover:text-sky-300 h-10 transition-all font-medium flex items-center justify-center gap-2 group"
                   onClick={handleRestart}
                   disabled={isRestarting}
                 >
@@ -597,7 +597,11 @@ export default function SettingsModal({ onClose }: { onClose: () => void }) {
 
         {/* Footer */}
         <div className="sticky bottom-0 bg-[#0B1116]/80 backdrop-blur-md border-t border-emerald-500/20 px-6 py-4 flex justify-end gap-3 z-10">
-          <Button onClick={onClose} variant="ghost">
+          <Button
+            onClick={onClose}
+            variant="ghost"
+            className="text-neutral-400 hover:text-white hover:bg-white/5"
+          >
             Cancel
           </Button>
           <Button
