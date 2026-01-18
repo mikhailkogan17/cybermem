@@ -23,12 +23,12 @@ import { headers } from "next/headers";
 
 // ... imports ...
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  const headersList = headers();
+  const headersList = await headers();
   const userId = headersList.get("x-user-id");
   const initialAuth = !!userId;
 
