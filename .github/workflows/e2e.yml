@@ -28,6 +28,13 @@ jobs:
           echo "OPENAI_API_KEY=sk-test-key-for-ci" > ~/.cybermem/.env # gitleaks:allow
           echo "OM_API_KEY=sk-test-key-for-ci" >> ~/.cybermem/.env # gitleaks:allow
 
+      - name: Log in to the Container registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Start Docker Stack (Local Simulation)
         working-directory: packages/cli/templates
         run: |
