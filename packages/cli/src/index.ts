@@ -25,9 +25,14 @@ program
 // Command: Upgrade
 program
   .command("upgrade")
-  .description("Upgrade CyberMem (Update Images & Config)")
-  .option("--rpi", "Target Raspberry Pi")
-  .option("--vps", "Target VPS")
+  .description("Upgrade CyberMem instance (pull latest images)")
+  .option("--local", "Upgrade local instance (default)")
+  .option("--rpi", "Upgrade remote RPi")
+  .option("--vps", "Upgrade remote VPS")
+  .option(
+    "--host <host>",
+    "SSH host for remote upgrade (e.g. pi@raspberrypi.local)",
+  )
   .action(upgrade);
 
 program

@@ -16,7 +16,20 @@
 - **Source Code**: [https://github.com/mikhailkogan17/cybermem](https://github.com/mikhailkogan17/cybermem)
 - **Readme**: [https://github.com/mikhailkogan17/cybermem/blob/main/README.md](https://github.com/mikhailkogan17/cybermem/blob/main/README.md)
 
-## 2. Technology Stack & Architecture
+> [!CAUTION]
+> **It is FORBIDDEN to:**
+>
+> - Ignore linting rules
+> - Ignore GEMINI.md rules
+> - Skip workflow steps and/or required Playwright runs
+> - Force a commit without fixing a cause (linting, gitleaks, etc)
+>
+> **For Gitleaks:**
+>
+> - If you're SURE that the alert is a false positive, just ignore it in `.gitleaksconfig`.
+> - **Better:** Run `bfs` or `reflog` to clean history instead of triggering pre-commit checks every time.
+
+## 2. Terminology Stack & Architecture
 
 - **App Core**: OpenMemory (Python/FastAPI) as `external/openmemory` submodule.
 - **Infrastructure**:

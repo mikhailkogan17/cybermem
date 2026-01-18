@@ -91,15 +91,18 @@ async function upgrade(options) {
         }
         else if (target === "rpi" || target === "vps") {
             // Remote upgrade
-            const answers = await inquirer_1.default.prompt([
-                {
-                    type: "input",
-                    name: "host",
-                    message: "Enter SSH Host (e.g. pi@raspberrypi.local):",
-                    validate: (input) => input.includes("@") ? true : "Format must be user@host",
-                },
-            ]);
-            const sshHost = answers.host;
+            let sshHost = options.host;
+            if (!sshHost) {
+                const answers = await inquirer_1.default.prompt([
+                    {
+                        type: "input",
+                        name: "host",
+                        message: "Enter SSH Host (e.g. pi@raspberrypi.local):",
+                        validate: (input) => input.includes("@") ? true : "Format must be user@host",
+                    },
+                ]);
+                sshHost = answers.host;
+            }
             console.log(chalk_1.default.blue(`Upgrading remote host ${sshHost}...`));
             // 1. Upload NEW docker-compose.yml (from this CLI version)
             // Resolve Template Directory

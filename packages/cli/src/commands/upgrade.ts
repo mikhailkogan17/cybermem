@@ -101,16 +101,19 @@ export async function upgrade(options: any) {
       console.log(chalk.green("✅ Upgrade complete!"));
     } else if (target === "rpi" || target === "vps") {
       // Remote upgrade
-      const answers = await inquirer.prompt([
-        {
-          type: "input",
-          name: "host",
-          message: "Enter SSH Host (e.g. pi@raspberrypi.local):",
-          validate: (input) =>
-            input.includes("@") ? true : "Format must be user@host",
-        },
-      ]);
-      const sshHost = answers.host;
+      let sshHost = options.host;
+      if (!sshHost) {
+        const answers = await inquirer.prompt([
+          {
+            type: "input",
+            name: "host",
+            message: "Enter SSH Host (e.g. pi@raspberrypi.local):",
+            validate: (input: string) =>
+              input.includes("@") ? true : "Format must be user@host",
+          },
+        ]);
+        sshHost = answers.host;
+      }
 
       console.log(chalk.blue(`Upgrading remote host ${sshHost}...`));
 
