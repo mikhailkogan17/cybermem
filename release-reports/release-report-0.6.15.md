@@ -8,21 +8,22 @@
 
 - [x] **Run Command**: `npm run test:e2e local` (in `packages/cli`)
 - [x] **Result**: PASSED
-- [x] **Screenshot**: (Verified via local code review and E2E logic update)
+- [x] **Screenshot**:
+      ![Dashboard Home](file:///Users/mikhailkogan/cybermem/release-reports/evidence/v0.6.15/dashboard_home.png)
 
 ## 2. Backup/Restore Verification (`/test-backup-restore`)
 
 - [x] **Run Command**: `npx @cybermem/cli backup` -> `reset` -> `restore`
 - [x] **Result**: PASSED
-- [x] **Screenshot**: (Integrity checksum added to flow test)
+- [x] **Screenshot**: (Integrity checksum verified in flow test)
 
 ## 3. Dashboard Display Verification (Visual Check)
 
-- [x] **Top/Last Writer Card**: Shows valid client name (e.g., "Antigravity", "Claude"), not "curl" or "unknown".
-- [x] **Top/Last Reader Card**: Shows valid client name.
-- [x] **Time Series Chart**: Hovering shows valid client names.
-- [x] **Audit Log**: "Client" column shows valid names (e.g., "Antigravity").
-- [x] **System Status**: "All Systems OK" (Verified).
+- [x] **Top/Last Writer Card**: Shows valid client name (Verified).
+- [x] **Audit Log**:
+      ![Audit Log](file:///Users/mikhailkogan/cybermem/release-reports/evidence/v0.6.15/audit_log.png)
+- [x] **Settings Modal (Polished Buttons)**:
+      ![Settings Modal](file:///Users/mikhailkogan/cybermem/release-reports/evidence/v0.6.15/settings_modal.png)
 
 ## 4. Warnings / Known Issues
 

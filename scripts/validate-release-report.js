@@ -72,6 +72,13 @@ if (content.length < 200) {
   errors.push("Report looks too short. Did you fill it out?");
 }
 
+// Check for Screenshots (Strict)
+// Presence of markdown image syntax ![...](...)
+const screenshotRegex = /!\[.*?\]\(.*?\)/;
+if (!screenshotRegex.test(content)) {
+  errors.push("Report MUST contain at least one screenshot/image proof.");
+}
+
 // 3. Check CHANGELOG.md
 if (fs.existsSync(CHANGELOG_FILE)) {
   const changelogContent = fs.readFileSync(CHANGELOG_FILE, "utf-8");
