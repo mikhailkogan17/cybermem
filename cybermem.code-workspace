@@ -273,11 +273,6 @@
         },
       },
       {
-        "label": "Test: Metrics Pipeline",
-        "type": "shell",
-        "command": "curl -X POST http://localhost:8080/api/store -H 'Authorization: Bearer client_123.secret' -H 'Content-Type: application/json' -d '{\"content\": \"test\", \"userId\": \"client_123\"}' && sleep 2 && curl http://localhost:9091/metrics | grep openmemory",
-      },
-      {
         "label": "Validate: docker-compose.yml",
         "type": "shell",
         "command": "docker-compose config",
