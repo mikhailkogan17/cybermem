@@ -48,7 +48,7 @@ services:
       PORT: "3001"
       API_KEY_FILE: /.env
     volumes:
-      - ${CYBERMEM_ENV_PATH}:/.env:ro
+      - ${CYBERMEM_ENV_PATH:-${HOME}/.cybermem/.env}:/.env:ro
     labels:
       - traefik.enable=true
       # ForwardAuth middleware
@@ -182,7 +182,7 @@ services:
     volumes:
       - openmemory-data:/data
       - /var/run/docker.sock:/var/run/docker.sock
-      - ${CYBERMEM_ENV_PATH}:/app/shared.env
+      - ${CYBERMEM_ENV_PATH:-${HOME}/.cybermem/.env}:/app/shared.env
     labels:
       - traefik.enable=true
       # Dashboard route: /cybermem -> dashboard on port 3000
