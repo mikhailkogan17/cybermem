@@ -42,13 +42,10 @@ services:
 
   # Auth sidecar for JWT/API key validation (ForwardAuth)
   auth-sidecar:
-    build:
-      context: ./auth-sidecar
-      dockerfile: Dockerfile
+    image: ghcr.io/mikhailkogan17/cybermem-auth-sidecar:latest
     container_name: cybermem-auth-sidecar
     environment:
       PORT: "3001"
-      JWT_SECRET: ${JWT_SECRET:-cybermem-dev-secret}
       API_KEY_FILE: /.env
     volumes:
       - ${CYBERMEM_ENV_PATH}:/.env:ro
