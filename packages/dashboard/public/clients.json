@@ -127,6 +127,20 @@
     "configType": "json"
   },
   {
+    "id": "copilot",
+    "name": "GitHub Copilot",
+    "match": "copilot",
+    "color": "#171717",
+    "icon": "/icons/github.png",
+    "description": "GitHub Copilot supports MCP via the Chat interface.",
+    "steps": [
+      "Open VS Code Settings",
+      "Navigate to **Extensions** > **Copilot**",
+      "Add the configuration block below to `mcp-servers`"
+    ],
+    "configType": "json"
+  },
+  {
     "id": "codex",
     "name": "Codex",
     "match": "codex",
