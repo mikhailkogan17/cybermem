@@ -38,7 +38,6 @@ async function init(options) {
         }
         if (target === "local") {
             const composeFile = path_1.default.join(templateDir, "docker-compose.yml");
-            const internalEnvExample = path_1.default.join(templateDir, "envs/local.example");
             if (!fs_1.default.existsSync(composeFile)) {
                 console.error(chalk_1.default.red(`Internal Error: Template not found at ${composeFile}`));
                 process.exit(1);
@@ -53,10 +52,11 @@ async function init(options) {
                 fs_1.default.mkdirSync(configDir, { recursive: true });
                 fs_1.default.mkdirSync(dataDir, { recursive: true });
             }
-            // 2. Local Mode: Simplified setup without mandatory API key
+            // 2. Local Mode
             if (!fs_1.default.existsSync(envFile)) {
                 console.log(chalk_1.default.yellow(`Initializing local configuration in ${configDir}...`));
-                const envContent = fs_1.default.readFileSync(internalEnvExample, "utf-8");
+                const templateEnv = path_1.default.join(templateDir, "envs/local.env");
+                const envContent = fs_1.default.readFileSync(templateEnv, "utf-8");
                 fs_1.default.writeFileSync(envFile, envContent);
                 console.log(chalk_1.default.green(`Created .env at ${envFile}`));
             }
@@ -88,9 +88,8 @@ async function init(options) {
             console.log("");
             console.log(chalk_1.default.dim("Local mode is active: No API key required for connections from this laptop."));
         }
-        else if (target === "rpi") {
+        else if (target === "rpi" || target === "vps") {
             const composeFile = path_1.default.join(templateDir, "docker-compose.yml");
-            const internalEnvExample = path_1.default.join(templateDir, "envs/rpi.example");
             const answers = await inquirer_1.default.prompt([
                 {
                     type: "input",
@@ -151,23 +150,23 @@ async function init(options) {
             }
             catch (e) {
                 console.log(chalk_1.default.yellow("Generating remote configuration..."));
-                let envContent = fs_1.default.readFileSync(internalEnvExample, "utf-8");
-                const newKey = `sk-${crypto_1.default.randomBytes(16).toString("hex")}`;
-                // Replace OM_API_KEY with generated key (Internal Use Only)
+                let templateName = "rpi.env";
+                if (target === "vps")
+                    templateName = "vps.env";
+                else if (useTailscale)
+                    templateName = "rpi-tailscale.env";
+                const templateEnv = path_1.default.join(templateDir, "envs", templateName);
+                let envContent = fs_1.default.readFileSync(templateEnv, "utf-8");
+                const newKey = `cm-${crypto_1.default.randomBytes(16).toString("hex")}`;
+                // Replace OM_API_KEY with generated key
                 if (envContent.includes("OM_API_KEY=")) {
                     envContent = envContent.replace(/OM_API_KEY=.*/, `OM_API_KEY=${newKey}`);
                 }
-                else {
-                    envContent += `\nOM_API_KEY=${newKey}\n`;
-                }
-                // Add INTERNAL comment
-                envContent +=
-                    "\n# INTERNAL KEY - DO NOT EXPOSE. Use OAuth for client access.\n";
-                const tempEnv = path_1.default.join(os_1.default.tmpdir(), "cybermem-rpi.env");
+                const tempEnv = path_1.default.join(os_1.default.tmpdir(), "cybermem-remote.env");
                 fs_1.default.writeFileSync(tempEnv, envContent);
                 await (0, execa_1.default)("scp", [tempEnv, `${sshHost}:~/.cybermem/.env`]);
                 fs_1.default.unlinkSync(tempEnv);
-                console.log(chalk_1.default.green("✅ Security configuration generated."));
+                console.log(chalk_1.default.green(`✅ Security configuration generated (${templateName}).`));
             }
             // 3. Copy Docker Compose
             console.log(chalk_1.default.blue("Uploading templates..."));
@@ -241,26 +240,6 @@ async function init(options) {
             else {
                 console.log(chalk_1.default.gray("\n💡 For remote access, re-run with: npx @cybermem/cli --rpi --remote-access"));
             }
-        }
-        else if (target === "vps") {
-            console.log(chalk_1.default.yellow("VPS deployment is similar to RPi."));
-            console.log(chalk_1.default.blue("\n📋 VPS Deployment Steps:"));
-            console.log("1. Run: npx @cybermem/cli --rpi pi@your-vps-ip");
-            console.log("2. For HTTPS, choose one of:");
-            console.log(chalk_1.default.gray("   a) Tailscale Funnel: --remote-access flag"));
-            console.log(chalk_1.default.gray("   b) Caddy (recommended for public VPS):"));
-            console.log(chalk_1.default.gray("      - Install Caddy: sudo apt install caddy"));
-            console.log(chalk_1.default.gray("      - Configure /etc/caddy/Caddyfile:"));
-            console.log(chalk_1.default.cyan(`
-        cybermem.yourdomain.com {
-            reverse_proxy localhost:3000
-        }
-        api.cybermem.yourdomain.com {
-            reverse_proxy localhost:8080
-        }
-      `));
-            console.log(chalk_1.default.gray("      - Restart: sudo systemctl restart caddy"));
-            console.log(chalk_1.default.green("\n📚 Full docs: https://docs.cybermem.dev#https"));
         }
     }
     catch (error) {

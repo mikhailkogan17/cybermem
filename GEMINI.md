@@ -23,6 +23,7 @@
 > - Ignore GEMINI.md rules
 > - Skip workflow steps and/or required Playwright runs
 > - Force a commit without fixing a cause (linting, gitleaks, etc)
+> - **Commit without running local tests first (`npm run test:e2e local`)**
 >
 > **For Gitleaks:**
 >

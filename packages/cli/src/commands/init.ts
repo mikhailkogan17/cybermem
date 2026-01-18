@@ -37,7 +37,6 @@ export async function init(options: any) {
 
     if (target === "local") {
       const composeFile = path.join(templateDir, "docker-compose.yml");
-      const internalEnvExample = path.join(templateDir, "envs/local.example");
 
       if (!fs.existsSync(composeFile)) {
         console.error(
@@ -58,12 +57,13 @@ export async function init(options: any) {
         fs.mkdirSync(dataDir, { recursive: true });
       }
 
-      // 2. Local Mode: Simplified setup without mandatory API key
+      // 2. Local Mode
       if (!fs.existsSync(envFile)) {
         console.log(
           chalk.yellow(`Initializing local configuration in ${configDir}...`),
         );
-        const envContent = fs.readFileSync(internalEnvExample, "utf-8");
+        const templateEnv = path.join(templateDir, "envs/local.env");
+        const envContent = fs.readFileSync(templateEnv, "utf-8");
         fs.writeFileSync(envFile, envContent);
         console.log(chalk.green(`Created .env at ${envFile}`));
       }
@@ -109,9 +109,8 @@ export async function init(options: any) {
           "Local mode is active: No API key required for connections from this laptop.",
         ),
       );
-    } else if (target === "rpi") {
+    } else if (target === "rpi" || target === "vps") {
       const composeFile = path.join(templateDir, "docker-compose.yml");
-      const internalEnvExample = path.join(templateDir, "envs/rpi.example");
 
       const answers = await inquirer.prompt([
         {
@@ -190,28 +189,30 @@ export async function init(options: any) {
         console.log(chalk.gray("Remote .env exists, skipping generation."));
       } catch (e) {
         console.log(chalk.yellow("Generating remote configuration..."));
-        let envContent = fs.readFileSync(internalEnvExample, "utf-8");
-        const newKey = `sk-${crypto.randomBytes(16).toString("hex")}`;
 
-        // Replace OM_API_KEY with generated key (Internal Use Only)
+        let templateName = "rpi.env";
+        if (target === "vps") templateName = "vps.env";
+        else if (useTailscale) templateName = "rpi-tailscale.env";
+
+        const templateEnv = path.join(templateDir, "envs", templateName);
+        let envContent = fs.readFileSync(templateEnv, "utf-8");
+        const newKey = `cm-${crypto.randomBytes(16).toString("hex")}`;
+
+        // Replace OM_API_KEY with generated key
         if (envContent.includes("OM_API_KEY=")) {
           envContent = envContent.replace(
             /OM_API_KEY=.*/,
             `OM_API_KEY=${newKey}`,
           );
-        } else {
-          envContent += `\nOM_API_KEY=${newKey}\n`;
         }
 
-        // Add INTERNAL comment
-        envContent +=
-          "\n# INTERNAL KEY - DO NOT EXPOSE. Use OAuth for client access.\n";
-
-        const tempEnv = path.join(os.tmpdir(), "cybermem-rpi.env");
+        const tempEnv = path.join(os.tmpdir(), "cybermem-remote.env");
         fs.writeFileSync(tempEnv, envContent);
         await execa("scp", [tempEnv, `${sshHost}:~/.cybermem/.env`]);
         fs.unlinkSync(tempEnv);
-        console.log(chalk.green("✅ Security configuration generated."));
+        console.log(
+          chalk.green(`✅ Security configuration generated (${templateName}).`),
+        );
       }
 
       // 3. Copy Docker Compose
@@ -334,29 +335,6 @@ export async function init(options: any) {
           ),
         );
       }
-    } else if (target === "vps") {
-      console.log(chalk.yellow("VPS deployment is similar to RPi."));
-      console.log(chalk.blue("\n📋 VPS Deployment Steps:"));
-      console.log("1. Run: npx @cybermem/cli --rpi pi@your-vps-ip");
-      console.log("2. For HTTPS, choose one of:");
-      console.log(chalk.gray("   a) Tailscale Funnel: --remote-access flag"));
-      console.log(chalk.gray("   b) Caddy (recommended for public VPS):"));
-      console.log(chalk.gray("      - Install Caddy: sudo apt install caddy"));
-      console.log(chalk.gray("      - Configure /etc/caddy/Caddyfile:"));
-      console.log(
-        chalk.cyan(`
-        cybermem.yourdomain.com {
-            reverse_proxy localhost:3000
-        }
-        api.cybermem.yourdomain.com {
-            reverse_proxy localhost:8080
-        }
-      `),
-      );
-      console.log(chalk.gray("      - Restart: sudo systemctl restart caddy"));
-      console.log(
-        chalk.green("\n📚 Full docs: https://docs.cybermem.dev#https"),
-      );
     }
   } catch (error) {
     console.error(chalk.red("Deployment failed:"), error);
