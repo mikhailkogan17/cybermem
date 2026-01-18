@@ -42,7 +42,7 @@ else {
     // Continue with MCP server startup
     startServer();
 }
-function startServer() {
+async function startServer() {
     // Parse CLI args
     const getArg = (name) => {
         const idx = args.indexOf(name);
@@ -51,6 +51,17 @@ function startServer() {
     const cliClientName = getArg("--client-name");
     // Track client name per session (used in tags)
     const currentClientName = cliClientName || "cybermem-mcp";
+    // Configure openmemory-js SDK data path
+    // Use ~/.cybermem/data/ so db-exporter can mount it
+    const homedir = process.env.HOME || process.env.USERPROFILE || "";
+    const dataDir = `${homedir}/.cybermem/data`;
+    process.env.OM_DB_PATH = `${dataDir}/openmemory.sqlite`;
+    // Ensure data directory exists
+    const fs = require("fs");
+    try {
+        fs.mkdirSync(dataDir, { recursive: true });
+    }
+    catch { }
     // Initialize openmemory-js SDK (embedded SQLite)
     const memory = new openmemory_js_1.Memory();
     // CyberMem Agent Protocol - instructions sent to clients on handshake

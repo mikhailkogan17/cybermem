@@ -71,7 +71,7 @@ services:
 
   # NOTE: openmemory container REMOVED
   # Memory now handled by @cybermem/mcp with embedded openmemory-js SDK
-  # SQLite stored at ~/.openmemory/data/openmemory.sqlite
+  # SQLite stored at ~/.cybermem/data/openmemory.sqlite
 
   db-exporter:
     image: ghcr.io/mikhailkogan17/cybermem-db_exporter:latest
@@ -84,7 +84,7 @@ services:
       - "8000:8000"
     volumes:
       # Mount host openmemory data dir (created by SDK)
-      - ${HOME}/.openmemory/data:/data:ro
+      - ${HOME}/.cybermem/data:/data:ro
     restart: unless-stopped
 
   log-exporter:
@@ -97,7 +97,7 @@ services:
       DB_PATH: /data/openmemory.sqlite
     volumes:
       - traefik-logs:/var/log/traefik:ro
-      - ${HOME}/.openmemory/data:/data:ro
+      - ${HOME}/.cybermem/data:/data:ro
       - ./monitoring/log_exporter/exporter.py:/app/exporter.py:ro
     restart: unless-stopped
     depends_on:
