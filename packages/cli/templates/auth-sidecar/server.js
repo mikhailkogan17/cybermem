@@ -1,22 +1,33 @@
 /**
  * CyberMem Auth Sidecar
  *
- * Simple ForwardAuth service for Traefik that validates:
- * 1. JWT tokens from OAuth (Bearer token)
+ * ForwardAuth service for Traefik that validates:
+ * 1. JWT tokens (RS256) with embedded public key
  * 2. API keys (X-API-Key header) - deprecated fallback
  * 3. Local requests (localhost bypass)
+ *
+ * NO SECRETS REQUIRED - public key is embedded.
  */
 
 const http = require("http");
 const fs = require("fs");
 const crypto = require("crypto");
 
-// Config from environment
 const PORT = process.env.PORT || 3001;
-const JWT_SECRET = process.env.JWT_SECRET || "cybermem-dev-secret";
 const API_KEY_FILE = process.env.API_KEY_FILE || "/.env";
 
-// Load API key from file
+// RSA Public Key for JWT verification (embedded - no secrets!)
+const PUBLIC_KEY = `-----BEGIN PUBLIC KEY-----
+MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAkrWPslHt+dcX/lckX4mw
+AaI4koCqn7NqEkTtuyJuzFv969Da0ghhWdTIRR6H8pYfsTtqtX2UAZox8i5IJ9t9
+JS8nBfbL2fFiuEz51LMNKMSLw7j2dJT/g5iIdT64LyJZ/9+kLMXC
+EBWPIyEvx4GMzKSf2L+jNaUY/0J8n/JNAbKtIplKtfOU/tNWuoZfcj3SnoxrmApN
+Xw+LsE26EM2Gq7MKLQf3r3GUIm2dBgs7XUNJRiezrPgFzekiaiDyFsNhhk1jkx2I
+ljQgSslGQ4dODE73KB07b0Qi7zPWAtGlCyDQD5RLICzht1mMENta7x+TlPJfDv8g
+XeEmW5ihAgMBAAE=
+-----END PUBLIC KEY-----`;
+
+// Load API key from file (deprecated fallback)
 function loadApiKey() {
   try {
     const content = fs.readFileSync(API_KEY_FILE, "utf-8");
@@ -27,7 +38,7 @@ function loadApiKey() {
   }
 }
 
-// Simple JWT validation (HS256 only)
+// RS256 JWT validation
 function validateJwt(token) {
   try {
     const parts = token.split(".");
@@ -35,15 +46,22 @@ function validateJwt(token) {
 
     const [headerB64, payloadB64, signatureB64] = parts;
 
-    // Verify signature
-    const data = `${headerB64}.${payloadB64}`;
-    const signature = crypto
-      .createHmac("sha256", JWT_SECRET)
-      .update(data)
-      .digest("base64url");
+    // Decode header to check algorithm
+    const header = JSON.parse(Buffer.from(headerB64, "base64url").toString());
+    if (header.alg !== "RS256") {
+      console.log("JWT: unsupported algorithm", header.alg);
+      return null;
+    }
 
-    if (signature !== signatureB64) {
-      console.log("JWT signature mismatch");
+    // Verify RS256 signature
+    const data = `${headerB64}.${payloadB64}`;
+    const signature = Buffer.from(signatureB64, "base64url");
+
+    const verify = crypto.createVerify("RSA-SHA256");
+    verify.update(data);
+
+    if (!verify.verify(PUBLIC_KEY, signature)) {
+      console.log("JWT: signature verification failed");
       return null;
     }
 
@@ -52,7 +70,13 @@ function validateJwt(token) {
 
     // Check expiration
     if (payload.exp && payload.exp < Date.now() / 1000) {
-      console.log("JWT expired");
+      console.log("JWT: token expired");
+      return null;
+    }
+
+    // Check issuer
+    if (payload.iss !== "cybermem.dev") {
+      console.log("JWT: invalid issuer", payload.iss);
       return null;
     }
 
@@ -81,7 +105,6 @@ const server = http.createServer((req, res) => {
     return;
   }
 
-  // ForwardAuth endpoint
   const authHeader = req.headers["authorization"];
   const apiKeyHeader = req.headers["x-api-key"];
 
@@ -103,7 +126,7 @@ const server = http.createServer((req, res) => {
     }
   }
 
-  // 2. Check API Key (X-API-Key header) - deprecated
+  // 2. Check API Key (deprecated fallback)
   const expectedKey = loadApiKey();
   if (apiKeyHeader && expectedKey && apiKeyHeader === expectedKey) {
     console.log("Auth OK: API Key (deprecated)");
@@ -132,5 +155,5 @@ const server = http.createServer((req, res) => {
 });
 
 server.listen(PORT, () => {
-  console.log(`Auth sidecar listening on port ${PORT}`);
+  console.log(`Auth sidecar (RS256) listening on port ${PORT}`);
 });
