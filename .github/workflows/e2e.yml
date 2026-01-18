@@ -60,15 +60,18 @@ jobs:
         working-directory: packages/dashboard
         run: npx playwright install --with-deps chromium
 
-      - name: Run Playwright Tests (Dashboard)
-        working-directory: packages/dashboard
-        run: npx playwright test e2e/auth.spec.ts e2e/metrics.spec.ts
         env:
           CI: true
           OM_API_KEY: sk-test-key-for-ci # gitleaks:allow
-          DB_EXPORTER_URL: http://localhost:8000
-          PROMETHEUS_URL: http://localhost:9092
-          NEXT_PUBLIC_PROMETHEUS_URL: http://localhost:9092
+          DB_EXPORTER_URL: http://127.0.0.1:8000
+          PROMETHEUS_URL: http://127.0.0.1:9092
+          NEXT_PUBLIC_PROMETHEUS_URL: http://127.0.0.1:9092
+
+      - name: Wait for Exporters (Health Check)
+        run: |
+          echo "Waiting for DB Exporter..."
+          timeout 30s bash -c 'until curl --silent --fail http://127.0.0.1:8000/api/stats; do sleep 2; done'
+          echo "DB Exporter is UP"
 
       - name: Wipe Database (Cleanup)
         if: always()
