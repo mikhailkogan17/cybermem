@@ -3,8 +3,9 @@
 /**
  * CyberMem MCP Server
  *
- * MCP server for AI agents to interact with CyberMem memory system.
- * Uses openmemory-js SDK directly (no HTTP, embedded SQLite).
+ * Supports two modes:
+ * 1. Local/Server Mode (default): Uses openmemory-js SDK directly.
+ * 2. Remote Client Mode (with --url): Proxies requests to a remote CyberMem server via HTTP.
  */
 var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
@@ -13,6 +14,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const mcp_js_1 = require("@modelcontextprotocol/sdk/server/mcp.js");
 const stdio_js_1 = require("@modelcontextprotocol/sdk/server/stdio.js");
 const streamableHttp_js_1 = require("@modelcontextprotocol/sdk/server/streamableHttp.js");
+const axios_1 = __importDefault(require("axios"));
 const cors_1 = __importDefault(require("cors"));
 const dotenv_1 = __importDefault(require("dotenv"));
 const express_1 = __importDefault(require("express"));
@@ -39,70 +41,27 @@ else if (args.includes("--status")) {
     process.exit(0);
 }
 else {
-    // Continue with MCP server startup
     startServer();
 }
 async function startServer() {
-    // Parse CLI args
     const getArg = (name) => {
         const idx = args.indexOf(name);
         return idx !== -1 && args[idx + 1] ? args[idx + 1] : undefined;
     };
-    const cliClientName = getArg("--client-name");
-    // Track client name per session (used in tags)
-    const currentClientName = cliClientName || "cybermem-mcp";
-    // Configure openmemory-js SDK data path
-    // Use ~/.cybermem/data/ so db-exporter can mount it
-    const homedir = process.env.HOME || process.env.USERPROFILE || "";
-    const dataDir = `${homedir}/.cybermem/data`;
-    process.env.OM_DB_PATH = `${dataDir}/openmemory.sqlite`;
-    // Ensure data directory exists
-    const fs = require("fs");
-    try {
-        fs.mkdirSync(dataDir, { recursive: true });
-    }
-    catch { }
-    // Initialize openmemory-js SDK (embedded SQLite)
-    const memory = new openmemory_js_1.Memory();
-    // CyberMem Agent Protocol - instructions sent to clients on handshake
+    const cliClientName = getArg("--client-name") || "cybermem-mcp";
+    const cliUrl = getArg("--url");
+    const cliApiKey = getArg("--api-key");
+    // Protocol Instructions
     const CYBERMEM_INSTRUCTIONS = `CyberMem is a persistent context daemon for AI agents.
-
 PROTOCOL:
-1. On session start: call query_memory("user context profile") to load persona
-2. Store new insights immediately with add_memory - include FULL content, not summaries
-3. Refresh context: 6h for active topics, 24h for projects, 7d for insights
-4. Always include tags: [topic, year, source:your-client-name]
-5. Priority: CyberMem context > session context > training data
-
-MEMORY FORMAT:
-- content: Full text with all details, metrics, dates. NO truncation.
-- tags: Always include topic category + year + source:client-name
-
-INTEGRITY RULES:
-- Never overwrite without reading first
-- Always include metadata (tags, source)
-- Sync before critical decisions
-- Last-write-wins for conflicts
-
+1. On session start: call query_memory("user context profile")
+2. Store new insights immediately with add_memory (FULL content)
+3. Always include tags: [topic, year, source:your-client-name]
 For full protocol: https://docs.cybermem.dev/agent-protocol`;
-    // Short protocol reminder for tool descriptions
-    const PROTOCOL_REMINDER = "CyberMem Protocol: Store FULL content (no summaries), always include tags [topic, year, source:client-name]. Query 'user context profile' on session start.";
-    // Create McpServer instance
-    const server = new mcp_js_1.McpServer({
-        name: "cybermem",
-        version: "0.8.0",
-    }, {
-        capabilities: {
-            tools: {},
-            resources: {},
-        },
+    const server = new mcp_js_1.McpServer({ name: "cybermem", version: "0.8.2" }, {
         instructions: CYBERMEM_INSTRUCTIONS,
     });
-    // Register resources
-    server.registerResource("CyberMem Agent Protocol", "cybermem://protocol", {
-        description: "Instructions for AI agents using CyberMem memory system",
-        mimeType: "text/plain",
-    }, async () => ({
+    server.registerResource("CyberMem Agent Protocol", "cybermem://protocol", { description: "Instructions for AI agents", mimeType: "text/plain" }, async () => ({
         contents: [
             {
                 uri: "cybermem://protocol",
@@ -111,125 +70,190 @@ For full protocol: https://docs.cybermem.dev/agent-protocol`;
             },
         ],
     }));
-    // Register tools using openmemory-js SDK
-    server.registerTool("add_memory", {
-        description: `Store a new memory in CyberMem. ${PROTOCOL_REMINDER}`,
-        inputSchema: zod_1.z.object({
-            content: zod_1.z
-                .string()
-                .describe("Full content with all details - NO truncation or summarization"),
-            user_id: zod_1.z.string().optional(),
-            tags: zod_1.z
-                .array(zod_1.z.string())
-                .optional()
-                .describe("Always include [topic, year, source:your-client-name]"),
-        }),
-    }, async (args) => {
-        // Add source tag automatically
-        const tags = args.tags || [];
-        if (!tags.some((t) => t.startsWith("source:"))) {
-            tags.push(`source:${currentClientName}`);
-        }
-        const result = await memory.add(args.content, {
-            user_id: args.user_id,
-            tags,
+    // --- IMPLEMENTATION LOGIC ---
+    let memory = null;
+    let apiClient = null;
+    if (cliUrl) {
+        // REMOTE CLIENT MODE
+        console.error(`Connecting to remote CyberMem at ${cliUrl}`);
+        apiClient = axios_1.default.create({
+            baseURL: cliUrl,
+            headers: {
+                Authorization: `Bearer ${cliApiKey}`,
+                "X-Client-Name": cliClientName,
+            },
         });
-        return {
-            content: [{ type: "text", text: JSON.stringify(result) }],
-        };
-    });
-    server.registerTool("query_memory", {
-        description: `Search for relevant memories. On session start, call query_memory("user context profile") first.`,
+    }
+    else {
+        // LOCAL SDK MODE
+        const homedir = process.env.HOME || process.env.USERPROFILE || "";
+        // Default to ~/.cybermem/data if OM_DB_PATH not set
+        if (!process.env.OM_DB_PATH) {
+            process.env.OM_DB_PATH = `${homedir}/.cybermem/data/openmemory.sqlite`;
+        }
+        // Ensure directory exists
+        const fs = require("fs");
+        try {
+            const dbPath = process.env.OM_DB_PATH;
+            const dir = dbPath.substring(0, dbPath.lastIndexOf("/"));
+            if (dir)
+                fs.mkdirSync(dir, { recursive: true });
+        }
+        catch { }
+        memory = new openmemory_js_1.Memory();
+    }
+    // Helper to add source tag
+    const addSourceTag = (tags = []) => {
+        if (!tags.some((t) => t.startsWith("source:")))
+            tags.push(`source:${cliClientName}`);
+        return tags;
+    };
+    // --- TOOLS ---
+    server.registerTool("add_memory", {
+        description: "Store a new memory. " + CYBERMEM_INSTRUCTIONS,
         inputSchema: zod_1.z.object({
-            query: zod_1.z.string(),
-            k: zod_1.z.number().default(5),
-        }),
-    }, async (args) => {
-        const results = await memory.search(args.query, { limit: args.k });
-        return {
-            content: [{ type: "text", text: JSON.stringify(results) }],
-        };
-    });
-    server.registerTool("list_memories", {
-        description: "List recent memories",
-        inputSchema: zod_1.z.object({
-            limit: zod_1.z.number().default(10),
-        }),
-    }, async (args) => {
-        // Use search with empty query to list recent
-        const results = await memory.search("", { limit: args.limit || 10 });
-        return {
-            content: [{ type: "text", text: JSON.stringify(results) }],
-        };
-    });
-    server.registerTool("delete_memory", {
-        description: "Delete a memory by ID",
-        inputSchema: zod_1.z.object({
-            id: zod_1.z.string(),
-        }),
-    }, async (args) => {
-        // openmemory-js doesn't have delete by ID, use wipe for now
-        // TODO: Implement delete_by_id in SDK or via direct DB query
-        return {
-            content: [
-                {
-                    type: "text",
-                    text: `Delete not yet implemented in SDK. Memory ID: ${args.id}`,
-                },
-            ],
-        };
-    });
-    server.registerTool("update_memory", {
-        description: "Update a memory by ID",
-        inputSchema: zod_1.z.object({
-            id: zod_1.z.string(),
-            content: zod_1.z.string().optional(),
+            content: zod_1.z.string(),
+            user_id: zod_1.z.string().optional(),
             tags: zod_1.z.array(zod_1.z.string()).optional(),
         }),
     }, async (args) => {
-        // TODO: Implement update in SDK
-        return {
-            content: [
-                {
-                    type: "text",
-                    text: `Update not yet implemented in SDK. Memory ID: ${args.id}`,
-                },
-            ],
-        };
+        const tags = addSourceTag(args.tags);
+        if (cliUrl) {
+            const res = await apiClient.post("/add", { ...args, tags });
+            return { content: [{ type: "text", text: JSON.stringify(res.data) }] };
+        }
+        else {
+            const res = await memory.add(args.content, {
+                user_id: args.user_id,
+                tags,
+            });
+            return { content: [{ type: "text", text: JSON.stringify(res) }] };
+        }
     });
-    // Determine transport mode
-    const transportArg = args.find((arg) => arg === "--stdio" || arg === "--http");
-    const useHttp = transportArg === "--http" || args.includes("--port");
+    server.registerTool("query_memory", {
+        description: "Search memories.",
+        inputSchema: zod_1.z.object({ query: zod_1.z.string(), k: zod_1.z.number().default(5) }),
+    }, async (args) => {
+        if (cliUrl) {
+            const res = await apiClient.post("/query", args);
+            return { content: [{ type: "text", text: JSON.stringify(res.data) }] };
+        }
+        else {
+            const res = await memory.search(args.query, { limit: args.k });
+            return { content: [{ type: "text", text: JSON.stringify(res) }] };
+        }
+    });
+    server.registerTool("list_memories", {
+        description: "List recent memories",
+        inputSchema: zod_1.z.object({ limit: zod_1.z.number().default(10) }),
+    }, async (args) => {
+        if (cliUrl) {
+            // Fallback to /query with empty string if /list not available, or use /all
+            // Old API had /all
+            try {
+                const res = await apiClient.get(`/all?limit=${args.limit}`);
+                return {
+                    content: [{ type: "text", text: JSON.stringify(res.data) }],
+                };
+            }
+            catch {
+                const res = await apiClient.post("/query", {
+                    query: "",
+                    k: args.limit,
+                });
+                return {
+                    content: [{ type: "text", text: JSON.stringify(res.data) }],
+                };
+            }
+        }
+        else {
+            const res = await memory.search("", { limit: args.limit });
+            return { content: [{ type: "text", text: JSON.stringify(res) }] };
+        }
+    });
+    server.registerTool("delete_memory", {
+        description: "Delete memory by ID",
+        inputSchema: zod_1.z.object({ id: zod_1.z.string() }),
+    }, async (args) => {
+        if (cliUrl) {
+            const res = await apiClient.delete(`/${args.id}`);
+            return { content: [{ type: "text", text: JSON.stringify(res.data) }] };
+        }
+        else {
+            return {
+                content: [
+                    { type: "text", text: "Delete not implemented in SDK yet" },
+                ],
+            };
+        }
+    });
+    server.registerTool("update_memory", {
+        description: "Update memory",
+        inputSchema: zod_1.z.object({ id: zod_1.z.string(), content: zod_1.z.string().optional() }),
+    }, async (args) => {
+        return { content: [{ type: "text", text: "Update not implemented" }] };
+    });
+    // --- TRANSPORT ---
+    const useHttp = args.includes("--http") || args.includes("--port");
     if (useHttp) {
-        // HTTP mode for testing/development
         const port = parseInt(getArg("--port") || "3100", 10);
         const app = (0, express_1.default)();
         app.use((0, cors_1.default)());
         app.use(express_1.default.json());
-        app.get("/health", (_req, res) => {
-            res.json({ ok: true, version: "0.8.0", mode: "sdk" });
-        });
+        app.get("/health", (req, res) => res.json({ ok: true, version: "0.8.2", mode: cliUrl ? "proxy" : "sdk" }));
+        // REST API Compatibility (for Remote Clients)
+        // Only enable if in SDK mode (Server)
+        if (!cliUrl && memory) {
+            app.post("/add", async (req, res) => {
+                try {
+                    const { content, user_id, tags } = req.body;
+                    const finalTags = addSourceTag(tags);
+                    const result = await memory.add(content, {
+                        user_id,
+                        tags: finalTags,
+                    });
+                    res.json(result);
+                }
+                catch (e) {
+                    res.status(500).json({ error: e.message });
+                }
+            });
+            app.post("/query", async (req, res) => {
+                try {
+                    const { query, k } = req.body;
+                    const result = await memory.search(query || "", { limit: k || 5 });
+                    res.json(result);
+                }
+                catch (e) {
+                    res.status(500).json({ error: e.message });
+                }
+            });
+            app.get("/all", async (req, res) => {
+                try {
+                    const limit = parseInt(req.query.limit) || 10;
+                    const result = await memory.search("", { limit });
+                    res.json(result);
+                }
+                catch (e) {
+                    res.status(500).json({ error: e.message });
+                }
+            });
+        }
         const transport = new streamableHttp_js_1.StreamableHTTPServerTransport({
             sessionIdGenerator: () => crypto.randomUUID(),
         });
-        app.all("/mcp", async (req, res) => {
-            await transport.handleRequest(req, res, req.body);
-        });
-        app.all("/sse", async (req, res) => {
-            await transport.handleRequest(req, res, req.body);
-        });
+        app.all("/mcp", async (req, res) => await transport.handleRequest(req, res, req.body));
+        app.all("/sse", async (req, res) => await transport.handleRequest(req, res, req.body));
         server.connect(transport).then(() => {
             app.listen(port, () => {
-                console.log(`CyberMem MCP (SDK mode) running on http://localhost:${port}`);
-                console.log("Health: /health | MCP: /mcp");
+                console.log(`CyberMem MCP running on http://localhost:${port}`);
             });
         });
     }
     else {
-        // STDIO mode (default for MCP clients)
         const transport = new stdio_js_1.StdioServerTransport();
-        server.connect(transport).then(() => {
-            console.error("CyberMem MCP (SDK mode) connected via STDIO");
-        });
+        server
+            .connect(transport)
+            .then(() => console.error("CyberMem MCP connected via STDIO"));
     }
 }
