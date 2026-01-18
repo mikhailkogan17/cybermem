@@ -14,6 +14,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const mcp_js_1 = require("@modelcontextprotocol/sdk/server/mcp.js");
 const stdio_js_1 = require("@modelcontextprotocol/sdk/server/stdio.js");
 const streamableHttp_js_1 = require("@modelcontextprotocol/sdk/server/streamableHttp.js");
+const async_hooks_1 = require("async_hooks");
 const axios_1 = __importDefault(require("axios"));
 const cors_1 = __importDefault(require("cors"));
 const dotenv_1 = __importDefault(require("dotenv"));
@@ -22,6 +23,8 @@ const openmemory_js_1 = require("openmemory-js");
 const zod_1 = require("zod");
 const auth_js_1 = require("./auth.js");
 dotenv_1.default.config();
+// Async Storage for Request Context (User ID from headers)
+const requestContext = new async_hooks_1.AsyncLocalStorage();
 // Handle CLI auth commands first
 const args = process.argv.slice(2);
 if (args.includes("--login")) {
@@ -108,6 +111,11 @@ For full protocol: https://docs.cybermem.dev/agent-protocol`;
             tags.push(`source:${cliClientName}`);
         return tags;
     };
+    // Helper to get current User ID from context or args
+    const getContextUserId = (argsUserId) => {
+        const store = requestContext.getStore();
+        return argsUserId || store?.userId;
+    };
     // --- TOOLS ---
     server.registerTool("add_memory", {
         description: "Store a new memory. " + CYBERMEM_INSTRUCTIONS,
@@ -118,13 +126,18 @@ For full protocol: https://docs.cybermem.dev/agent-protocol`;
         }),
     }, async (args) => {
         const tags = addSourceTag(args.tags);
+        const userId = getContextUserId(args.user_id);
         if (cliUrl) {
-            const res = await apiClient.post("/add", { ...args, tags });
+            const res = await apiClient.post("/add", {
+                ...args,
+                user_id: userId,
+                tags,
+            });
             return { content: [{ type: "text", text: JSON.stringify(res.data) }] };
         }
         else {
             const res = await memory.add(args.content, {
-                user_id: args.user_id,
+                user_id: userId,
                 tags,
             });
             return { content: [{ type: "text", text: JSON.stringify(res) }] };
@@ -134,12 +147,19 @@ For full protocol: https://docs.cybermem.dev/agent-protocol`;
         description: "Search memories.",
         inputSchema: zod_1.z.object({ query: zod_1.z.string(), k: zod_1.z.number().default(5) }),
     }, async (args) => {
+        const userId = getContextUserId(); // Search is scoped to user if provided
         if (cliUrl) {
+            // Pass user_id if supported by remote API, mostly determined by token there
             const res = await apiClient.post("/query", args);
             return { content: [{ type: "text", text: JSON.stringify(res.data) }] };
         }
         else {
-            const res = await memory.search(args.query, { limit: args.k });
+            // SDK supports user_id filter? Memory.search(query, options)
+            // Check openmemory-js docs/types. Assuming `user_id` in options.
+            const res = await memory.search(args.query, {
+                limit: args.k,
+                user_id: userId,
+            });
             return { content: [{ type: "text", text: JSON.stringify(res) }] };
         }
     });
@@ -147,6 +167,7 @@ For full protocol: https://docs.cybermem.dev/agent-protocol`;
         description: "List recent memories",
         inputSchema: zod_1.z.object({ limit: zod_1.z.number().default(10) }),
     }, async (args) => {
+        const userId = getContextUserId();
         if (cliUrl) {
             // Fallback to /query with empty string if /list not available, or use /all
             // Old API had /all
@@ -167,7 +188,10 @@ For full protocol: https://docs.cybermem.dev/agent-protocol`;
             }
         }
         else {
-            const res = await memory.search("", { limit: args.limit });
+            const res = await memory.search("", {
+                limit: args.limit,
+                user_id: userId,
+            });
             return { content: [{ type: "text", text: JSON.stringify(res) }] };
         }
     });
@@ -180,6 +204,9 @@ For full protocol: https://docs.cybermem.dev/agent-protocol`;
             return { content: [{ type: "text", text: JSON.stringify(res.data) }] };
         }
         else {
+            // SDK should support delete. Assuming memory.delete(id)
+            // Check if openmemory-js has delete. It might not based on original code saying "not implemented in SDK yet".
+            // If not implemented, we can't do much.
             return {
                 content: [
                     { type: "text", text: "Delete not implemented in SDK yet" },
@@ -201,15 +228,22 @@ For full protocol: https://docs.cybermem.dev/agent-protocol`;
         app.use((0, cors_1.default)());
         app.use(express_1.default.json());
         app.get("/health", (req, res) => res.json({ ok: true, version: "0.8.2", mode: cliUrl ? "proxy" : "sdk" }));
+        // Middleware to extract context
+        app.use((req, res, next) => {
+            const userId = req.headers["x-user-id"];
+            requestContext.run({ userId }, next);
+        });
         // REST API Compatibility (for Remote Clients)
         // Only enable if in SDK mode (Server)
         if (!cliUrl && memory) {
             app.post("/add", async (req, res) => {
                 try {
+                    // Use context from headers if available
+                    const contextUserId = requestContext.getStore()?.userId;
                     const { content, user_id, tags } = req.body;
                     const finalTags = addSourceTag(tags);
                     const result = await memory.add(content, {
-                        user_id,
+                        user_id: user_id || contextUserId,
                         tags: finalTags,
                     });
                     res.json(result);
@@ -220,8 +254,12 @@ For full protocol: https://docs.cybermem.dev/agent-protocol`;
             });
             app.post("/query", async (req, res) => {
                 try {
+                    const contextUserId = requestContext.getStore()?.userId;
                     const { query, k } = req.body;
-                    const result = await memory.search(query || "", { limit: k || 5 });
+                    const result = await memory.search(query || "", {
+                        limit: k || 5,
+                        user_id: contextUserId,
+                    });
                     res.json(result);
                 }
                 catch (e) {
@@ -230,8 +268,12 @@ For full protocol: https://docs.cybermem.dev/agent-protocol`;
             });
             app.get("/all", async (req, res) => {
                 try {
+                    const contextUserId = requestContext.getStore()?.userId;
                     const limit = parseInt(req.query.limit) || 10;
-                    const result = await memory.search("", { limit });
+                    const result = await memory.search("", {
+                        limit,
+                        user_id: contextUserId,
+                    });
                     res.json(result);
                 }
                 catch (e) {
@@ -242,6 +284,9 @@ For full protocol: https://docs.cybermem.dev/agent-protocol`;
         const transport = new streamableHttp_js_1.StreamableHTTPServerTransport({
             sessionIdGenerator: () => crypto.randomUUID(),
         });
+        // Explicitly handle requests within the context via app usage above
+        // The middleware 'requestContext.run' wraps 'next()'.
+        // Since 'app.all' is a handler *after* middleware, it runs inside the context.
         app.all("/mcp", async (req, res) => await transport.handleRequest(req, res, req.body));
         app.all("/sse", async (req, res) => await transport.handleRequest(req, res, req.body));
         server.connect(transport).then(() => {

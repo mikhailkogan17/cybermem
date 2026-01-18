@@ -75,13 +75,14 @@ jobs:
 
       - name: Run Playwright Tests (Dashboard)
         working-directory: packages/dashboard
-        run: npx playwright test e2e/auth.spec.ts e2e/metrics.spec.ts
+        run: npm run test:e2e -- e2e/auth.spec.ts e2e/metrics.spec.ts
         env:
           CI: true
           OM_API_KEY: sk-test-key-for-ci # gitleaks:allow
           DB_EXPORTER_URL: http://127.0.0.1:8000
           PROMETHEUS_URL: http://127.0.0.1:9092
           NEXT_PUBLIC_PROMETHEUS_URL: http://127.0.0.1:9092
+          BASE_URL: http://127.0.0.1:3000
 
       - name: Wipe Database (Cleanup)
         if: always()

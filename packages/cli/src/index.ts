@@ -13,6 +13,12 @@ program
   .description("CyberMem - Deploy your AI memory server in one command")
   .version("1.0.0");
 
+// Command: Login
+program
+  .command("login")
+  .description("Login to CyberMem via GitHub (OAuth)")
+  .action(login);
+
 // Command: Init (formerly deploy)
 program
   .command("init")

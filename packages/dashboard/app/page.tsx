@@ -1,138 +1,144 @@
-"use client"
+"use client";
 
-import AuditLogTable from "@/components/dashboard/audit-log-table"
-import ChartsSection from "@/components/dashboard/charts-section"
-import DashboardHeader from "@/components/dashboard/header"
-import LoginModal from "@/components/dashboard/login-modal"
-import MCPConfigModal from "@/components/dashboard/mcp-config-modal"
-import MetricsGrid from "@/components/dashboard/metrics-grid"
-import PasswordAlertModal from "@/components/dashboard/password-alert-modal"
-import SettingsModal from "@/components/dashboard/settings-modal"
-import { useDashboard } from "@/lib/data/dashboard-context"
-import { DashboardData } from "@/lib/data/types"
-import { useEffect, useState } from "react"
+import AuditLogTable from "@/components/dashboard/audit-log-table";
+import ChartsSection from "@/components/dashboard/charts-section";
+import DashboardHeader from "@/components/dashboard/header";
+import LoginModal from "@/components/dashboard/login-modal";
+import MCPConfigModal from "@/components/dashboard/mcp-config-modal";
+import MetricsGrid from "@/components/dashboard/metrics-grid";
+import PasswordAlertModal from "@/components/dashboard/password-alert-modal";
+import SettingsModal from "@/components/dashboard/settings-modal";
+import { useDashboard } from "@/lib/data/dashboard-context";
+import { DashboardData } from "@/lib/data/types";
+import { useEffect, useState } from "react";
 
 // Types (Ideally imported, but keeping for now if used elsewhere locally, though strategy returns properly typed data)
 // We use the types from lib/data/types.ts now
 
 export default function Dashboard() {
-  const { strategy, isDemo, toggleDemo, refreshSignal } = useDashboard()
+  const {
+    strategy,
+    isDemo,
+    toggleDemo,
+    refreshSignal,
+    isAuthenticated,
+    login,
+  } = useDashboard();
 
-  const [showMCPConfig, setShowMCPConfig] = useState(false)
-  const [showSettings, setShowSettings] = useState(false)
-  const [showPasswordAlert, setShowPasswordAlert] = useState(false)
-  const [focusPasswordField, setFocusPasswordField] = useState(false)
-  const [isAuthenticated, setIsAuthenticated] = useState(false)
+  const [showMCPConfig, setShowMCPConfig] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
+  const [showPasswordAlert, setShowPasswordAlert] = useState(false);
+  const [focusPasswordField, setFocusPasswordField] = useState(false);
 
   // Data State
   const [data, setData] = useState<DashboardData>({
-      stats: {
-        memoryRecords: 0,
-        totalClients: 0,
-        successRate: 0,
-        totalRequests: 0,
-        topWriter: { name: "N/A", count: 0 },
-        topReader: { name: "N/A", count: 0 },
-        lastWriter: { name: "N/A", timestamp: 0 },
-        lastReader: { name: "N/A", timestamp: 0 },
-      },
-      trends: {
-        memory: { change: "", trend: "neutral", hasData: false, data: [] },
-        clients: { change: "", trend: "neutral", hasData: false, data: [] },
-        success: { change: "", trend: "neutral", hasData: false, data: [] },
-        requests: { change: "", trend: "neutral", hasData: false, data: [] },
-      },
-      logs: []
-  })
+    stats: {
+      memoryRecords: 0,
+      totalClients: 0,
+      successRate: 0,
+      totalRequests: 0,
+      topWriter: { name: "N/A", count: 0 },
+      topReader: { name: "N/A", count: 0 },
+      lastWriter: { name: "N/A", timestamp: 0 },
+      lastReader: { name: "N/A", timestamp: 0 },
+    },
+    trends: {
+      memory: { change: "", trend: "neutral", hasData: false, data: [] },
+      clients: { change: "", trend: "neutral", hasData: false, data: [] },
+      success: { change: "", trend: "neutral", hasData: false, data: [] },
+      requests: { change: "", trend: "neutral", hasData: false, data: [] },
+    },
+    logs: [],
+  });
 
-  // Check authentication on mount
-  useEffect(() => {
-    const auth = sessionStorage.getItem("authenticated")
-    if (auth === "true") {
-      setIsAuthenticated(true)
-    }
-  }, [])
+  // Auth is handled by context (Layout passes initial state from headers)
 
   const handleLogin = (password: string) => {
-    sessionStorage.setItem("authenticated", "true")
-    setIsAuthenticated(true)
+    login();
 
     // Check if using default password and warning not dismissed
-    const hasCustomPassword = localStorage.getItem("adminPassword") !== null
-    const warningDismissed = localStorage.getItem("hidePasswordWarning") === "true"
+    const hasCustomPassword = localStorage.getItem("adminPassword") !== null;
+    const warningDismissed =
+      localStorage.getItem("hidePasswordWarning") === "true";
 
     if (!hasCustomPassword && !warningDismissed) {
-      setShowPasswordAlert(true)
+      setShowPasswordAlert(true);
     }
-  }
+  };
 
   const handlePasswordAlertChange = () => {
-    setShowPasswordAlert(false)
-    setFocusPasswordField(true)
-    setShowSettings(true)
-  }
+    setShowPasswordAlert(false);
+    setFocusPasswordField(true);
+    setShowSettings(true);
+  };
 
   const handlePasswordAlertDismiss = () => {
-    setShowPasswordAlert(false)
-  }
+    setShowPasswordAlert(false);
+  };
 
   // Fetch Data Effect - Reacts to strategy change or refresh signal
   useEffect(() => {
     async function updateData() {
-        try {
-            const potentialData = await strategy.fetchGlobalStats()
-            setData(potentialData)
-        } catch (e) {
-            console.error("Failed to fetch dashboard data:", e)
-        }
+      try {
+        const potentialData = await strategy.fetchGlobalStats();
+        setData(potentialData);
+      } catch (e) {
+        console.error("Failed to fetch dashboard data:", e);
+      }
     }
-    updateData()
-  }, [strategy, refreshSignal])
-
+    updateData();
+  }, [strategy, refreshSignal]);
 
   // Audit Log internal state for filtering/sorting (UI logic only)
-  const [searchTerm, setSearchTerm] = useState("")
-  const [currentPage, setCurrentPage] = useState(1)
-  const [sortField, setSortField] = useState<"date" | "client" | "operation" | "status">("date")
-  const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc")
-  const itemsPerPage = 10
+  const [searchTerm, setSearchTerm] = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
+  const [sortField, setSortField] = useState<
+    "date" | "client" | "operation" | "status"
+  >("date");
+  const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc");
+  const itemsPerPage = 10;
 
   const filteredLog = (data.logs || []).filter(
-      (log) =>
-        log.client.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        log.operation.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        log.status.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        log.description.toLowerCase().includes(searchTerm.toLowerCase()),
-    )
+    (log) =>
+      log.client.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      log.operation.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      log.status.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      log.description.toLowerCase().includes(searchTerm.toLowerCase()),
+  );
 
   const handleSort = (field: string) => {
     if (field === sortField) {
-      setSortDirection(prev => prev === "asc" ? "desc" : "asc")
+      setSortDirection((prev) => (prev === "asc" ? "desc" : "asc"));
     } else {
-      setSortField(field as any)
-      setSortDirection("asc")
+      setSortField(field as any);
+      setSortDirection("asc");
     }
-  }
+  };
 
   const sortedLog = [...filteredLog].sort((a, b) => {
-    const modifier = sortDirection === "asc" ? 1 : -1
+    const modifier = sortDirection === "asc" ? 1 : -1;
     if (sortField === "date") {
-      return (new Date(a.date).getTime() - new Date(b.date).getTime()) * modifier
+      return (
+        (new Date(a.date).getTime() - new Date(b.date).getTime()) * modifier
+      );
     }
-    const aValue = (a as any)[sortField] || ""
-    const bValue = (b as any)[sortField] || ""
+    const aValue = (a as any)[sortField] || "";
+    const bValue = (b as any)[sortField] || "";
     if (typeof aValue === "string" && typeof bValue === "string") {
-      return aValue.localeCompare(bValue) * modifier
+      return aValue.localeCompare(bValue) * modifier;
     }
-    return 0
-  })
+    return 0;
+  });
 
-  const paginatedLog = sortedLog.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage)
-  const totalPages = Math.ceil(sortedLog.length / itemsPerPage)
+  const paginatedLog = sortedLog.slice(
+    (currentPage - 1) * itemsPerPage,
+    currentPage * itemsPerPage,
+  );
+  const totalPages = Math.ceil(sortedLog.length / itemsPerPage);
 
   // Show login modal if not authenticated
   if (!isAuthenticated) {
-    return <LoginModal onLogin={handleLogin} />
+    return <LoginModal onLogin={handleLogin} />;
   }
 
   return (
@@ -146,26 +152,35 @@ export default function Dashboard() {
         <MetricsGrid stats={data.stats} trends={data.trends} />
         <ChartsSection period="" />
         <AuditLogTable
-            logs={(paginatedLog || []).map(log => ({
-                id: log.id,
-                date: log.date.toLocaleString(),
-                client: log.client,
-                operation: log.operation,
-                status: log.status,
-                description: log.description
-            }))}
-            loading={false}
-            currentPage={currentPage}
-            totalPages={totalPages}
-            onPageChange={setCurrentPage}
-            sortField={sortField}
-            sortDirection={sortDirection}
-            onSort={handleSort}
+          logs={(paginatedLog || []).map((log) => ({
+            id: log.id,
+            date: log.date.toLocaleString(),
+            client: log.client,
+            operation: log.operation,
+            status: log.status,
+            description: log.description,
+          }))}
+          loading={false}
+          currentPage={currentPage}
+          totalPages={totalPages}
+          onPageChange={setCurrentPage}
+          sortField={sortField}
+          sortDirection={sortDirection}
+          onSort={handleSort}
         />
       </main>
 
-      {showMCPConfig && <MCPConfigModal onClose={() => setShowMCPConfig(false)} />}
-      {showSettings && <SettingsModal onClose={() => { setShowSettings(false); setFocusPasswordField(false); }} />}
+      {showMCPConfig && (
+        <MCPConfigModal onClose={() => setShowMCPConfig(false)} />
+      )}
+      {showSettings && (
+        <SettingsModal
+          onClose={() => {
+            setShowSettings(false);
+            setFocusPasswordField(false);
+          }}
+        />
+      )}
       {showPasswordAlert && (
         <PasswordAlertModal
           onChangePassword={handlePasswordAlertChange}
@@ -173,5 +188,5 @@ export default function Dashboard() {
         />
       )}
     </div>
-  )
+  );
 }
