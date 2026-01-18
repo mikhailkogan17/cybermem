@@ -79,7 +79,7 @@ export async function GET(request: NextRequest) {
   // Only check OpenMemory API if explicitly configured
   // In SDK mode, there's no HTTP API - memory is handled via MCP
   if (openMemoryUrl) {
-    checks.push(checkService("OpenMemory API", `${openMemoryUrl}/health`));
+    checks.push(checkService("MCP API", `${openMemoryUrl}/health`));
   }
 
   // Only check Vector if configured
