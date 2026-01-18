@@ -67,17 +67,20 @@ export async function GET(request: NextRequest) {
 
   // Use environment variables with sensible defaults for local Docker stack
   const dbExporterUrl = process.env.DB_EXPORTER_URL || "http://localhost:8000";
-  // OpenMemory API accessed via Traefik (container name in Docker network)
-  const openMemoryUrl =
-    process.env.OPENMEMORY_URL ||
-    process.env.CYBERMEM_URL ||
-    "http://traefik:8626";
+  // OpenMemory API is optional in SDK-based architecture
+  // Only check if explicitly configured (SDK mode doesn't have HTTP API)
+  const openMemoryUrl = process.env.OPENMEMORY_URL || process.env.CYBERMEM_URL;
   const vectorUrl = process.env.VECTOR_URL; // Vector is optional
 
   const checks: Promise<ServiceStatus>[] = [
     checkService("Database", `${dbExporterUrl}/health`),
-    checkService("OpenMemory API", `${openMemoryUrl}/health`),
   ];
+
+  // Only check OpenMemory API if explicitly configured
+  // In SDK mode, there's no HTTP API - memory is handled via MCP
+  if (openMemoryUrl) {
+    checks.push(checkService("OpenMemory API", `${openMemoryUrl}/health`));
+  }
 
   // Only check Vector if configured
   if (vectorUrl) {
