@@ -26,6 +26,7 @@ dashboard/shared.env
 # Logs
 *.log
 logs/
+report/
 monitoring/traefik/*.log
 
 # Python
