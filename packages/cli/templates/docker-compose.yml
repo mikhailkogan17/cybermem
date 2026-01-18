@@ -26,19 +26,26 @@ services:
       - traefik.enable=true
     restart: unless-stopped
 
-  # Workaround: responds 200 on GET /mcp for Perplexity validation
-  mcp-responder:
-    build:
-      context: ./mcp-responder
-      dockerfile: Dockerfile
-    container_name: cybermem-mcp-responder
+  # MCP Server (Node.js/SDK)
+  mcp-server:
+    image: ghcr.io/mikhailkogan17/cybermem-mcp:latest
+    restart: unless-stopped
+    container_name: cybermem-mcp
+    environment:
+      PORT: "8080"
+      OM_DB_PATH: /data/openmemory.sqlite
+    volumes:
+      - ${CYBERMEM_ENV_PATH:-${HOME}/.cybermem/.env}:/.env
+      - ${HOME}/.cybermem/data:/data
     labels:
       - traefik.enable=true
-      - traefik.http.routers.mcp-get.entrypoints=web
-      - traefik.http.routers.mcp-get.rule=Method(`GET`) && Path(`/mcp`)
-      - traefik.http.routers.mcp-get.priority=200
-      - traefik.http.services.mcp-get.loadbalancer.server.port=8081
-    restart: unless-stopped
+      - traefik.http.routers.mcp.rule=Host(`raspberrypi.local`) && (PathPrefix(`/mcp`) || PathPrefix(`/sse`))
+      - traefik.http.routers.mcp.entrypoints=web
+      - traefik.http.services.mcp.loadbalancer.server.port=8080
+      # Legacy API support (for simple REST clients)
+      - traefik.http.routers.legacy-api.rule=Host(`raspberrypi.local`) && (PathPrefix(`/add`) || PathPrefix(`/query`) || PathPrefix(`/all`))
+      - traefik.http.routers.legacy-api.entrypoints=web
+      - traefik.http.services.legacy-api.loadbalancer.server.port=8080
 
   # Auth sidecar for JWT/API key validation (ForwardAuth)
   auth-sidecar:
@@ -84,7 +91,7 @@ services:
       - "8000:8000"
     volumes:
       # Mount host openmemory data dir (created by SDK)
-      - ${HOME}/.cybermem/data:/data:ro
+      - ${HOME}/.cybermem/data:/data
     restart: unless-stopped
 
   log-exporter:
@@ -97,7 +104,7 @@ services:
       DB_PATH: /data/openmemory.sqlite
     volumes:
       - traefik-logs:/var/log/traefik:ro
-      - ${HOME}/.cybermem/data:/data:ro
+      - ${HOME}/.cybermem/data:/data
       - ./monitoring/log_exporter/exporter.py:/app/exporter.py:ro
     restart: unless-stopped
     depends_on:

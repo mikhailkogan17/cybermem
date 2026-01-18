@@ -5,21 +5,21 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useDashboard } from "@/lib/data/dashboard-context";
 import {
-    Check,
-    Copy,
-    Database,
-    Download,
-    Eye,
-    EyeOff,
-    Key,
-    Loader2,
-    RotateCcw,
-    Server,
-    Settings,
-    Shield,
-    Trash2,
-    Upload,
-    X,
+  Check,
+  Copy,
+  Database,
+  Download,
+  Eye,
+  EyeOff,
+  Key,
+  Loader2,
+  RotateCcw,
+  Server,
+  Settings,
+  Shield,
+  Trash2,
+  Upload,
+  X,
 } from "lucide-react";
 import { useEffect, useState } from "react";
 
@@ -338,7 +338,7 @@ export default function SettingsModal({ onClose }: { onClose: () => void }) {
           </section>
 
           {/* API Configuration */}
-          {!isManaged ? (
+          {!isManaged && (
             <section>
               <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
                 <Key className="w-5 h-5" />
@@ -351,7 +351,7 @@ export default function SettingsModal({ onClose }: { onClose: () => void }) {
                     <div className="relative flex-1">
                       <Input
                         id="api-key"
-                        value={apiKey || "sk-not-generated-yet"}
+                        value={apiKey || "not-generated-yet"}
                         readOnly
                         className="bg-black/40 border-white/10 text-white font-mono"
                         type={showApiKey ? "text" : "password"}
@@ -426,37 +426,6 @@ export default function SettingsModal({ onClose }: { onClose: () => void }) {
                 </div>
               </div>
             </section>
-          ) : (
-            <section>
-              <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
-                <Shield className="w-5 h-5 text-emerald-400" />
-                API Security
-              </h3>
-              <div className="bg-emerald-500/5 border border-emerald-500/20 rounded-lg p-5 space-y-2 backdrop-blur-sm">
-                <p className="text-sm font-medium text-emerald-300">
-                  Local Mode Active
-                </p>
-                <p className="text-xs text-emerald-200/60">
-                  No API key required for connection from your laptop. Key
-                  management is hidden.
-                </p>
-
-                <div className="mt-4 pt-4 border-t border-white/10">
-                  <Label
-                    htmlFor="endpoint"
-                    className="text-xs text-neutral-500 mb-2 block"
-                  >
-                    System Endpoint
-                  </Label>
-                  <Input
-                    id="endpoint"
-                    value={endpoint}
-                    readOnly
-                    className="h-9 bg-black/40 border-white/10 text-neutral-400 text-sm"
-                  />
-                </div>
-              </div>
-            </section>
           )}
 
           {/* Data Management */}
@@ -469,7 +438,7 @@ export default function SettingsModal({ onClose }: { onClose: () => void }) {
               <div className="flex items-center gap-3">
                 <Button
                   variant="outline"
-                  className="flex-1 justify-center bg-white/5 border-white/10 hover:bg-white/10 hover:border-white/20 text-white h-11 px-6 transition-all"
+                  className="flex-1 justify-center bg-white/5 border-white/10 hover:bg-white/10 hover:border-white/20 text-white hover:text-white h-11 px-6 transition-all"
                   onClick={handleBackup}
                   disabled={isBackingUp}
                 >
@@ -492,7 +461,7 @@ export default function SettingsModal({ onClose }: { onClose: () => void }) {
                   />
                   <Button
                     variant="outline"
-                    className="w-full justify-center bg-white/5 border-white/10 hover:bg-white/10 hover:border-white/20 text-white h-11 px-6 transition-all"
+                    className="w-full justify-center bg-white/5 border-white/10 hover:bg-white/10 hover:border-white/20 text-white hover:text-white h-11 px-6 transition-all"
                     onClick={() =>
                       document.getElementById("restore-file")?.click()
                     }
@@ -594,7 +563,7 @@ export default function SettingsModal({ onClose }: { onClose: () => void }) {
                     Version
                   </span>
                   <p className="text-neutral-200 font-mono text-base mt-2 tracking-tight">
-                    v0.2.0
+                    v0.8.0
                   </p>
                 </div>
                 <div>

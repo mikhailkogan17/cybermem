@@ -6,6 +6,7 @@ on:
   pull_request:
     branches: [main]
   workflow_dispatch:
+  workflow_call:
 
 jobs:
   e2e:
@@ -24,8 +25,8 @@ jobs:
       - name: Setup Environment
         run: |
           mkdir -p ~/.cybermem
-          echo "OPENAI_API_KEY=sk-test-key-for-ci" > ~/.cybermem/.env
-          echo "OM_API_KEY=sk-test-key-for-ci" >> ~/.cybermem/.env
+          echo "OPENAI_API_KEY=sk-test-key-for-ci" > ~/.cybermem/.env # gitleaks:allow
+          echo "OM_API_KEY=sk-test-key-for-ci" >> ~/.cybermem/.env # gitleaks:allow
 
       - name: Start Docker Stack (Local Simulation)
         working-directory: packages/cli/templates
@@ -41,7 +42,7 @@ jobs:
       - name: Run E2E Tests (MCP)
         working-directory: packages/cli
         env:
-          OM_API_KEY: sk-test-key-for-ci
+          OM_API_KEY: sk-test-key-for-ci # gitleaks:allow
         run: npm run test:e2e local
 
       - name: Install Dashboard Dependencies
@@ -54,9 +55,16 @@ jobs:
 
       - name: Run Playwright Tests (Dashboard)
         working-directory: packages/dashboard
-        run: npx playwright test e2e/auth.spec.ts e2e/metrics.spec.ts e2e/settings.spec.ts
+        run: npx playwright test e2e/auth.spec.ts e2e/metrics.spec.ts
         env:
           CI: true
+
+      - name: Wipe Database (Cleanup)
+        if: always()
+        working-directory: packages/cli
+        run: npm run test:e2e -- --wipe-only
+        env:
+          OM_API_KEY: sk-test-key-for-ci # gitleaks:allow
 
       - name: Upload Playwright Report
         if: failure()

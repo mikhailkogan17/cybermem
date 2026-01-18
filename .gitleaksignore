@@ -1,7 +1,16 @@
 # Mock API key examples in dev tasks
 
-cybermem.code-workspace:generic-api-key
+# Mock API key examples in dev tasks
 
-# Example curl command with placeholder auth
+28836983bb37fcbbda62d8973bd88b2442403746:cybermem.code-workspace:curl-auth-header:264
+809689926afeadf0c51a4f520aac07dbbcbf3ddf:cybermem.code-workspace:curl-auth-header:278
+af3d101f89b7e5bf6b0a2440cd7a7a31084b0ae1:dashboard_old/app/api/config/route.ts:generic-api-key:11
+af3d101f89b7e5bf6b0a2440cd7a7a31084b0ae1:dashboard_old/app/api/config/route.ts:generic-api-key:17
+e201eccb89f0ea0de7b40b67099f2489aeec0341:CONTRIBUTING.md:curl-auth-header:110
+fa00de2d5c05c5b2e454d53df2323d7fc72b62f8:README.md:curl-auth-header:192
+a6baf72c088de11b5f1af4f87e889e4177de7e9c:docs/MONITORING.md:curl-auth-header:208
 
-cybermem.code-workspace:curl-auth-header
+# Ignore generic-api-key in old flow-test.ts commit
+
+717dffe190d8d85e1d53b526e54557b17c8263b6:packages/cli/e2e/flow-test.ts:generic-api-key:20
+717dffe190d8d85e1d53b526e54557b17c8263b6:packages/cli/e2e/flow-test.ts:generic-api-key:21
