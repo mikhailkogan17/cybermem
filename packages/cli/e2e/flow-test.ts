@@ -34,7 +34,7 @@ const mcpPost = async (url: string, apiKey: string, body: any) => {
       "Content-Type": "application/json",
       Accept: "application/json, text/event-stream",
       "x-api-key": apiKey,
-      "User-Agent": "CyberMem-FlowTest/1.0.0",
+      "User-Agent": "antigravity-client/1.0.0",
     },
     body: JSON.stringify(body),
   });
@@ -68,7 +68,7 @@ async function main() {
         {
           protocolVersion: "2024-11-05",
           capabilities: { roots: { listChanged: true } },
-          clientInfo: { name: "flow-test", version: "1.0.0" },
+          clientInfo: { name: "antigravity-client", version: "1.0.0" },
         },
         1,
       ),
@@ -89,7 +89,10 @@ async function main() {
         "tools/call",
         {
           name: "openmemory_store",
-          arguments: { content: testContent, tags: ["flow-test", "migration"] },
+          arguments: {
+            content: testContent,
+            tags: ["antigravity-client", "migration"],
+          },
         },
         3,
       ),
@@ -200,7 +203,7 @@ async function main() {
         {
           protocolVersion: "2024-11-05",
           capabilities: { roots: { listChanged: true } },
-          clientInfo: { name: "flow-test-rpi", version: "1.0.0" },
+          clientInfo: { name: "antigravity-client-rpi", version: "1.0.0" },
         },
         1,
       ),
