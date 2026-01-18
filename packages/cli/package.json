@@ -17,6 +17,7 @@
   ],
   "scripts": {
     "build": "tsc && cp -r templates dist/",
+    "lint": "eslint src/ --ext .ts",
     "start": "ts-node src/index.ts",
     "test:e2e": "ts-node e2e/test-mcp.ts",
     "prepublishOnly": "npm run build"
@@ -44,6 +45,9 @@
   "devDependencies": {
     "@types/inquirer": "^9.0.3",
     "@types/node": "^18.0.0",
+    "@typescript-eslint/eslint-plugin": "^8.52.0",
+    "@typescript-eslint/parser": "^8.52.0",
+    "eslint": "^9.39.2",
     "ts-node": "^10.9.1",
     "typescript": "^5.0.0"
   }

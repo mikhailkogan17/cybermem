@@ -1,41 +1,49 @@
 #!/usr/bin/env node
-import { Command } from 'commander';
-import { backup } from './commands/backup';
-import { deploy } from './commands/deploy';
-import { reset } from './commands/reset';
-import { restore } from './commands/restore';
+import { Command } from "commander";
+import { backup } from "./commands/backup";
+import { init } from "./commands/init";
+import { reset } from "./commands/reset";
+import { restore } from "./commands/restore";
+import { upgrade } from "./commands/upgrade";
 
 const program = new Command();
 
 program
-  .name('mcp')
-  .description('CyberMem - Deploy your AI memory server in one command')
-  .version('1.0.0');
+  .name("mcp")
+  .description("CyberMem - Deploy your AI memory server in one command")
+  .version("1.0.0");
 
-// Default Command: Deploy
+// Command: Init (formerly deploy)
 program
-  .command('deploy', { isDefault: true })
-  .description('Deploy CyberMem (Default)')
-  .option('--rpi', 'Deploy to Raspberry Pi (default: local)')
-  .option('--vps', 'Deploy to VPS/Cloud server')
-  .option('--remote-access', 'Enable Tailscale Funnel for HTTPS remote access')
-  .action(deploy);
+  .command("init")
+  .description("Initialize CyberMem (Scaffold & Start)")
+  .option("--rpi", "Deploy to Raspberry Pi")
+  .option("--vps", "Deploy to VPS/Cloud server")
+  .option("--remote-access", "Enable Tailscale Funnel for HTTPS remote access")
+  .action(init);
+
+// Command: Upgrade
+program
+  .command("upgrade")
+  .description("Upgrade CyberMem (Update Images & Config)")
+  .option("--rpi", "Target Raspberry Pi")
+  .option("--vps", "Target VPS")
+  .action(upgrade);
 
 program
-  .command('backup')
-  .description('Backup CyberMem data to a tarball')
+  .command("backup")
+  .description("Backup CyberMem data to a tarball")
   .action(backup);
 
 program
-  .command('restore')
-  .description('Restore CyberMem data from a backup file')
-  .argument('<file>', 'Backup file to restore')
+  .command("restore")
+  .description("Restore CyberMem data from a backup file")
+  .argument("<file>", "Backup file to restore")
   .action(restore);
 
 program
-  .command('reset')
-  .description('Reset (wipe) the CyberMem database - DESTRUCTIVE!')
+  .command("reset")
+  .description("Reset (wipe) the CyberMem database - DESTRUCTIVE!")
   .action(reset);
 
 program.parse(process.argv);
-

@@ -146,9 +146,30 @@ async function runTest(name: string, config: any) {
 
     if (storeRes.error) throw new Error(storeRes.error.message);
 
-    // Parse result to get content (OpenMemory JS returns JSON in index 1)
-    const storePayload = JSON.parse(storeRes.result.content[1].text);
-    const memoryId = storePayload.id;
+    console.log("      RAW CONTENT:", storeRes.result.content[0]);
+    // Parse result. OpenMemory JS SDK v2 returns plaintext string for add(), JSON for others.
+    const text = storeRes.result.content[0].text;
+    let memoryId: string;
+
+    if (text.startsWith("{")) {
+      const storePayload = JSON.parse(text);
+      memoryId = storePayload.id;
+    } else if (text.startsWith("Stored memory")) {
+      // "Stored memory <UUID> ..."
+      const match = text.match(/Stored memory ([a-f0-9-]+)/);
+      if (match) memoryId = match[1];
+      else throw new Error("Could not extract ID from text: " + text);
+    } else {
+      // Fallback or quoted string
+      try {
+        const parsed = JSON.parse(text);
+        memoryId = parsed.id || parsed; // Handle string result if valid JSON string
+      } catch {
+        const match = text.match(/([a-f0-9-]{36})/); // Try finding UUID
+        if (match) memoryId = match[1];
+        else throw new Error("Unknown response format: " + text);
+      }
+    }
 
     if (!memoryId) throw new Error("No memory ID returned");
     console.log(`      ✅ Stored Memory ID: ${memoryId}`);
@@ -187,10 +208,23 @@ async function runTest(name: string, config: any) {
     );
 
     if (listRes.error) throw new Error(listRes.error.message);
-    const listPayload = JSON.parse(listRes.result.content[1].text);
-    const listedMem = listPayload.items.find((m: any) => m.id === memoryId);
+    console.log("      RAW LIST:", listRes.result.content[0]);
+    const listText = listRes.result.content[0].text;
+    let listedMem = null;
 
-    if (!listedMem) throw new Error("Memory not found in list");
+    if (listText.trim().startsWith("{") || listText.trim().startsWith("[")) {
+      const listPayload = JSON.parse(listText);
+      const items = listPayload.items || listPayload.matches || listPayload;
+      if (Array.isArray(items)) {
+        listedMem = items.find((m: any) => m.id === memoryId);
+      }
+    } else {
+      // Plaintext: "1. [type] ... id=UUID ..."
+      if (listText.includes(`id=${memoryId}`)) listedMem = { id: memoryId };
+    }
+
+    if (!listedMem)
+      throw new Error("Memory not found in list (ID check failed)");
     console.log("      ✅ Memory found in recent list");
 
     // 5. Query Memory (Semantic Search)
@@ -210,12 +244,23 @@ async function runTest(name: string, config: any) {
 
     if (queryRes.error) throw new Error(queryRes.error.message);
 
-    const queryPayload = JSON.parse(queryRes.result.content[1].text);
-    const match = queryPayload.matches.find((m: any) => m.id === memoryId);
+    const queryText = queryRes.result.content[0].text;
+    let match = null;
+
+    if (queryText.trim().startsWith("{") || queryText.trim().startsWith("[")) {
+      const queryPayload = JSON.parse(queryText);
+      const matches = queryPayload.matches || queryPayload;
+      if (Array.isArray(matches)) {
+        match = matches.find((m: any) => m.id === memoryId);
+      }
+    } else {
+      if (queryText.includes(`id=${memoryId}`))
+        match = { id: memoryId, score: 1 };
+    }
 
     if (match) {
       console.log(
-        `      ✅ Found memory via semantic search (score=${match.score})`,
+        `      ✅ Found memory via semantic search${match.score ? ` (score=${match.score})` : ""}`,
       );
     } else {
       console.warn("      ⚠️  Stored memory not found in search results");
