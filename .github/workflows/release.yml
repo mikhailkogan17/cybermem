@@ -23,7 +23,6 @@ jobs:
     secrets: inherit
 
   release:
-    needs: e2e
     runs-on: ubuntu-latest
 
     steps:
