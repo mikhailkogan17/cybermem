@@ -183,6 +183,8 @@ services:
       DB_EXPORTER_URL: http://db-exporter:8000
       NEXT_PUBLIC_PROMETHEUS_URL: http://prometheus:9090
       PROMETHEUS_URL: http://prometheus:9090
+      # Required for Health Check to find the MCP API internally
+      CYBERMEM_URL: http://mcp-server:8080
       OM_API_KEY: ${OM_API_KEY:-dev-secret-key}
       # WATCHPACK_POLLING: "true" # Enable if hot reload blocks (high CPU usage)
     ports:

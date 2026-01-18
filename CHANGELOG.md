@@ -2,6 +2,15 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.6.15] - 2026-01-19
+
+### Fixed
+
+- **Dashboard**: Fixed "Local Mode" detection on RPi (respects `OM_API_KEY`).
+- **Dashboard**: Improved hover styles for Settings buttons (Reset, Restart, Cancel).
+- **Tests**: Renamed E2E test clients to "Antigravity" / "Claude" for cleaner Audit Logs.
+- **Test**: Added DB Reset and Read Verification to `flow-test.ts`.
+
 ## [0.6.14] - 2026-01-18
 
 ### Added
