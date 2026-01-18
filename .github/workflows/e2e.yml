@@ -65,6 +65,10 @@ jobs:
         run: npx playwright test e2e/auth.spec.ts e2e/metrics.spec.ts
         env:
           CI: true
+          OM_API_KEY: sk-test-key-for-ci # gitleaks:allow
+          DB_EXPORTER_URL: http://localhost:8000
+          PROMETHEUS_URL: http://localhost:9092
+          NEXT_PUBLIC_PROMETHEUS_URL: http://localhost:9092
 
       - name: Wipe Database (Cleanup)
         if: always()
