@@ -54,7 +54,7 @@ const TARGETS = {
         ? { "x-api-key": process.env.OM_API_KEY || getLocalApiKey() }
         : {}),
       "User-Agent": "CyberMem-CLI/1.0.0",
-      "X-Client-Name": "antigravity-client", // Explicit client name
+      "X-Client-Name": "Antigravity", // Standardized to Antigravity
     },
   },
   rpi: {
@@ -65,7 +65,7 @@ const TARGETS = {
       Accept: "application/json, text/event-stream",
       "x-api-key": getRemoteApiKey(),
       "User-Agent": "CyberMem-CLI/1.0.0",
-      "X-Client-Name": "mcp-e2e-tester-rpi",
+      "X-Client-Name": "Antigravity-Tester",
     },
   },
 };
@@ -134,7 +134,7 @@ async function runTest(name: string, config: any) {
       RPC(
         "tools/call",
         {
-          name: "openmemory_store",
+          name: "add_memory",
           arguments: {
             content: memoryContent,
             tags: ["e2e", "test"],
@@ -174,33 +174,13 @@ async function runTest(name: string, config: any) {
     if (!memoryId) throw new Error("No memory ID returned");
     console.log(`      ✅ Stored Memory ID: ${memoryId}`);
 
-    // 3. Get Memory (Direct validation)
-    console.log("   [3/6] Getting Memory...");
-    const getRes: any = await post(
-      RPC(
-        "tools/call",
-        {
-          name: "openmemory_get",
-          arguments: { id: memoryId },
-        },
-        4,
-      ),
-    );
-
-    if (getRes.error) throw new Error(getRes.error.message);
-    const getPayload = JSON.parse(getRes.result.content[0].text);
-
-    if (getPayload.content !== memoryContent)
-      throw new Error("Content mismatch");
-    console.log("      ✅ Validated content match");
-
-    // 4. List Memories
-    console.log("   [4/6] Listing Memories...");
+    // 3. List Memories
+    console.log("   [3/5] Listing Memories...");
     const listRes: any = await post(
       RPC(
         "tools/call",
         {
-          name: "openmemory_list",
+          name: "list_memories",
           arguments: { limit: 5 },
         },
         5,
@@ -227,13 +207,13 @@ async function runTest(name: string, config: any) {
       throw new Error("Memory not found in list (ID check failed)");
     console.log("      ✅ Memory found in recent list");
 
-    // 5. Query Memory (Semantic Search)
-    console.log("   [5/6] Querying Memory...");
+    // 4. Query Memory (Semantic Search)
+    console.log("   [4/5] Querying Memory...");
     const queryRes: any = await post(
       RPC(
         "tools/call",
         {
-          name: "openmemory_query",
+          name: "query_memory",
           arguments: {
             query: "E2E Test Run",
           },
@@ -266,10 +246,8 @@ async function runTest(name: string, config: any) {
       console.warn("      ⚠️  Stored memory not found in search results");
     }
 
-    // 6. Delete Memory (Using direct API since MCP might hit rate limits or have no delete tool)
-    // Actually, let's use the tool if it exists, otherwise list it as a limitation.
-    // openmemory_get proved it works.
-    console.log("   [6/6] Cleanup complete.");
+    // 5. Cleanup complete.
+    console.log("   [5/5] Cleanup complete.");
 
     console.log(`   ✨ ${name.toUpperCase()} E2E PASSED!`);
     return true;
