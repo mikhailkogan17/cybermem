@@ -6,7 +6,7 @@ export async function reset(): Promise<void> {
   const spinner = ora('Resetting CyberMem database...').start();
 
   try {
-    const containerName = 'cybermem-openmemory';
+    const containerName = 'cybermem-mcp';
 
     // Check if container exists
     try {

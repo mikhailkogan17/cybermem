@@ -6,7 +6,7 @@ export const dynamic = 'force-dynamic'
 export async function POST(req: Request) {
   try {
     const docker = new Docker({ socketPath: '/var/run/docker.sock' });
-    const container = docker.getContainer('cybermem-openmemory');
+    const container = docker.getContainer('cybermem-mcp');
 
     await container.restart();
 

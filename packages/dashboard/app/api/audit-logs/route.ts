@@ -16,7 +16,7 @@ try {
   console.error("Failed to load clients.json:", e);
 }
 
-// Normalize raw client name (e.g. "antigravity-client") to friendly name (e.g. "Antigravity")
+// Normalize raw client name (e.g. "claude-ai") to friendly name (e.g. "Claude Desktop")
 function normalizeClientName(rawName: string): string {
   if (!rawName) return "Unknown";
   const nameLower = rawName.toLowerCase();

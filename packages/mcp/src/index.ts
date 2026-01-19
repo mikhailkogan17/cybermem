@@ -10,6 +10,7 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
+import { InitializeRequestSchema } from "@modelcontextprotocol/sdk/types.js";
 import { AsyncLocalStorage } from "async_hooks";
 import axios from "axios";
 import cors from "cors";
@@ -40,8 +41,11 @@ const originalStdoutWrite = process.stdout.write.bind(process.stdout);
 console.log = console.error;
 console.info = console.error;
 
-// Async Storage for Request Context (User ID from headers)
-const requestContext = new AsyncLocalStorage<{ userId?: string }>();
+// Async Storage for Request Context (User ID and Client Name)
+const requestContext = new AsyncLocalStorage<{
+  userId?: string;
+  clientName?: string;
+}>();
 
 // Handle CLI auth commands first
 const args = process.argv.slice(2);
@@ -69,9 +73,9 @@ async function startServer() {
     return idx !== -1 && args[idx + 1] ? args[idx + 1] : undefined;
   };
 
-  const cliClientName = getArg("--client-name") || "cybermem-mcp";
   const cliUrl = getArg("--url");
   const cliToken = getArg("--token") || getArg("--api-key");
+  let stdioClientName: string | undefined = undefined;
 
   // Protocol Instructions
   const CYBERMEM_INSTRUCTIONS = `CyberMem is a persistent context daemon for AI agents.
@@ -103,6 +107,24 @@ For full protocol: https://docs.cybermem.dev/agent-protocol`;
     }),
   );
 
+  // Capture client info from handshake
+  // @ts-ignore - access underlying server
+  server.server.setRequestHandler(InitializeRequestSchema, async (request) => {
+    stdioClientName = request.params.clientInfo.name;
+    console.error(`[MCP] Client identified via handshake: ${stdioClientName}`);
+    return {
+      protocolVersion: "2024-11-05",
+      capabilities: {
+        tools: { listChanged: true },
+        resources: { subscribe: true },
+      },
+      serverInfo: {
+        name: "cybermem",
+        version: "0.7.5",
+      },
+    };
+  });
+
   // --- IMPLEMENTATION LOGIC ---
 
   let memory: any = null;
@@ -114,9 +136,15 @@ For full protocol: https://docs.cybermem.dev/agent-protocol`;
     apiClient = axios.create({
       baseURL: cliUrl,
       headers: {
-        Authorization: `Bearer ${cliToken}`,
-        "X-Client-Name": cliClientName,
+        "X-API-Key": cliToken,
       },
+    });
+    // Dynamically inject client name from context or discovery
+    apiClient.interceptors.request.use((config: any) => {
+      const ctx = requestContext.getStore();
+      config.headers["X-Client-Name"] =
+        ctx?.clientName || stdioClientName || "unknown-mcp-client";
+      return config;
     });
   } else {
     // LOCAL SDK MODE
@@ -196,12 +224,25 @@ For full protocol: https://docs.cybermem.dev/agent-protocol`;
   // Helper to log activity to SQLite (Local SDK Mode only)
   const logActivity = async (
     operation: string,
-    client: string,
-    method: string = "POST",
-    endpoint: string = "/mcp",
-    status: number = 200,
+    opts: {
+      client?: string;
+      method?: string;
+      endpoint?: string;
+      status?: number;
+    } = {},
   ) => {
     if (cliUrl || !memory) return;
+
+    const {
+      client: providedClient,
+      method = "POST",
+      endpoint = "/mcp",
+      status = 200,
+    } = opts;
+
+    const ctx = requestContext.getStore();
+    const client =
+      providedClient || ctx?.clientName || stdioClientName || "unknown-client";
 
     try {
       const dbPath = process.env.OM_DB_PATH!;
@@ -212,13 +253,8 @@ For full protocol: https://docs.cybermem.dev/agent-protocol`;
       const ts = Date.now();
       const is_error = status >= 400 ? 1 : 0;
 
-      // Ensure 'antigravity' client names are consistent in the DB for the dashboard
-      const normalizedClient = client.toLowerCase().includes("antigravity")
-        ? "Antigravity"
-        : client;
-
       console.error(
-        `[MCP] Logging ${operation} for ${normalizedClient} (status: ${status})`,
+        `[MCP] Logging ${operation} for ${client} (status: ${status})`,
       );
 
       db.serialize(() => {
@@ -229,7 +265,7 @@ For full protocol: https://docs.cybermem.dev/agent-protocol`;
           VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
           [
             ts,
-            normalizedClient,
+            client,
             "0.7.0",
             method,
             endpoint,
@@ -250,7 +286,7 @@ For full protocol: https://docs.cybermem.dev/agent-protocol`;
             count = count + 1,
             errors = errors + ?,
             last_updated = ?`,
-          [normalizedClient, operation, is_error, ts, is_error, ts],
+          [client, operation, is_error, ts, is_error, ts],
           (err: any) => {
             if (err) console.error("[MCP] Log stats error:", err.message);
           },
@@ -263,10 +299,12 @@ For full protocol: https://docs.cybermem.dev/agent-protocol`;
     }
   };
 
-  // Helper to add source tag
   const addSourceTag = (tags: string[] = []) => {
-    if (!tags.some((t) => t.startsWith("source:")))
-      tags.push(`source:${cliClientName}`);
+    if (!tags.some((t) => t.startsWith("source:"))) {
+      const clientName =
+        requestContext.getStore()?.clientName || stdioClientName || "unknown";
+      tags.push(`source:${clientName}`);
+    }
     return tags;
   };
 
@@ -305,22 +343,18 @@ For full protocol: https://docs.cybermem.dev/agent-protocol`;
             user_id: userId,
             tags,
           });
-          await logActivity(
-            "create",
-            cliClientName,
-            "POST",
-            "/memory/add",
-            200,
-          );
+          await logActivity("create", {
+            method: "POST",
+            endpoint: "/memory/add",
+            status: 200,
+          });
           return { content: [{ type: "text", text: JSON.stringify(res) }] };
         } catch (e: any) {
-          await logActivity(
-            "create",
-            cliClientName,
-            "POST",
-            "/memory/add",
-            500,
-          );
+          await logActivity("create", {
+            method: "POST",
+            endpoint: "/memory/add",
+            status: 500,
+          });
           throw e;
         }
       }
@@ -345,22 +379,18 @@ For full protocol: https://docs.cybermem.dev/agent-protocol`;
             limit: args.k,
             user_id: userId,
           });
-          await logActivity(
-            "read",
-            cliClientName,
-            "POST",
-            "/memory/query",
-            200,
-          );
+          await logActivity("read", {
+            method: "POST",
+            endpoint: "/memory/query",
+            status: 200,
+          });
           return { content: [{ type: "text", text: JSON.stringify(res) }] };
         } catch (e: any) {
-          await logActivity(
-            "read",
-            cliClientName,
-            "POST",
-            "/memory/query",
-            500,
-          );
+          await logActivity("read", {
+            method: "POST",
+            endpoint: "/memory/query",
+            status: 500,
+          });
           throw e;
         }
       }
@@ -396,7 +426,11 @@ For full protocol: https://docs.cybermem.dev/agent-protocol`;
           limit: args.limit,
           user_id: userId,
         });
-        await logActivity("read", cliClientName, "GET", "/memory/all", 200);
+        await logActivity("read", {
+          method: "GET",
+          endpoint: "/memory/all",
+          status: 200,
+        });
         return { content: [{ type: "text", text: JSON.stringify(res) }] };
       }
     },
@@ -430,26 +464,22 @@ For full protocol: https://docs.cybermem.dev/agent-protocol`;
             db.run("COMMIT", async (err: any) => {
               db.close();
               if (err) {
-                await logActivity(
-                  "delete",
-                  cliClientName,
-                  "DELETE",
-                  `/memory/${args.id}`,
-                  500,
-                );
+                await logActivity("delete", {
+                  method: "DELETE",
+                  endpoint: `/memory/${args.id}`,
+                  status: 500,
+                });
                 reject(
                   new Error(
                     `Failed to delete memory ${args.id}: ${err.message}`,
                   ),
                 );
               } else {
-                await logActivity(
-                  "delete",
-                  cliClientName,
-                  "DELETE",
-                  `/memory/${args.id}`,
-                  200,
-                );
+                await logActivity("delete", {
+                  method: "DELETE",
+                  endpoint: `/memory/${args.id}`,
+                  status: 200,
+                });
                 resolve({
                   content: [
                     { type: "text", text: `Memory ${args.id} deleted` },
@@ -470,13 +500,11 @@ For full protocol: https://docs.cybermem.dev/agent-protocol`;
       inputSchema: z.object({ id: z.string(), content: z.string().optional() }),
     },
     async (args: any) => {
-      await logActivity(
-        "update",
-        cliClientName,
-        "PATCH",
-        `/memory/${args.id}`,
-        501,
-      );
+      await logActivity("update", {
+        method: "PATCH",
+        endpoint: `/memory/${args.id}`,
+        status: 501,
+      });
       return { content: [{ type: "text", text: "Update not implemented" }] };
     },
   );
@@ -558,7 +586,10 @@ For full protocol: https://docs.cybermem.dev/agent-protocol`;
         next: express.NextFunction,
       ) => {
         const userId = req.headers["x-user-id"] as string | undefined;
-        requestContext.run({ userId }, next);
+        const clientName =
+          (req.headers["x-client-name"] as string) ||
+          (req.headers["user-agent"] as string);
+        requestContext.run({ userId, clientName }, next);
       },
     );
 
@@ -572,10 +603,20 @@ For full protocol: https://docs.cybermem.dev/agent-protocol`;
             user_id: user_id || contextUserId,
             tags: finalTags,
           });
-          await logActivity("create", "rest-api", "POST", "/add", 200);
+          await logActivity("create", {
+            client: "rest-api",
+            method: "POST",
+            endpoint: "/add",
+            status: 200,
+          });
           res.json(result);
         } catch (e: any) {
-          await logActivity("create", "rest-api", "POST", "/add", 500);
+          await logActivity("create", {
+            client: "rest-api",
+            method: "POST",
+            endpoint: "/add",
+            status: 500,
+          });
           res.status(500).json({ error: e.message });
         }
       });
@@ -590,10 +631,20 @@ For full protocol: https://docs.cybermem.dev/agent-protocol`;
               limit: k || 5,
               user_id: contextUserId,
             });
-            await logActivity("read", "rest-api", "POST", "/query", 200);
+            await logActivity("read", {
+              client: "rest-api",
+              method: "POST",
+              endpoint: "/query",
+              status: 200,
+            });
             res.json(result);
           } catch (e: any) {
-            await logActivity("read", "rest-api", "POST", "/query", 500);
+            await logActivity("read", {
+              client: "rest-api",
+              method: "POST",
+              endpoint: "/query",
+              status: 500,
+            });
             res.status(500).json({ error: e.message });
           }
         },
@@ -607,10 +658,20 @@ For full protocol: https://docs.cybermem.dev/agent-protocol`;
             limit,
             user_id: contextUserId,
           });
-          await logActivity("read", "rest-api", "GET", "/all", 200);
+          await logActivity("read", {
+            client: "rest-api",
+            method: "GET",
+            endpoint: "/all",
+            status: 200,
+          });
           res.json(result);
         } catch (e: any) {
-          await logActivity("read", "rest-api", "GET", "/all", 500);
+          await logActivity("read", {
+            client: "rest-api",
+            method: "GET",
+            endpoint: "/all",
+            status: 500,
+          });
           res.status(500).json({ error: e.message });
         }
       });

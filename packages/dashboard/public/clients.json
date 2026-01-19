@@ -2,7 +2,7 @@
   {
     "id": "claude",
     "name": "Claude Desktop",
-    "match": "claude",
+    "match": "claude|antigravity",
     "color": "#e65c40",
     "icon": "/icons/claude.png",
     "description": "Configure Claude Desktop to use CyberMem for persistent memory across conversations.",
@@ -29,22 +29,6 @@
       "Enter Name: `cybermem`",
       "Enter Type: `Command`",
       "Copy the configuration from below"
-    ],
-    "configType": "json"
-  },
-  {
-    "id": "antigravity",
-    "name": "Antigravity",
-    "match": "antigravity|antigravity-client",
-    "color": "#d946ef",
-    "icon": "/icons/antigravity.png",
-    "description": "Antigravity supports MCP via raw JSON configuration.",
-    "steps": [
-      "Open Antigravity and go to the **Agents** tab",
-      "Click on the three dots menu and select **MCP Servers**",
-      "Click **Manage MCP Servers**",
-      "Click **View RAW Config**",
-      "Paste the configuration block below"
     ],
     "configType": "json"
   },

@@ -46,14 +46,16 @@ services:
       - ${HOME}/.cybermem/data:/data
     labels:
       - traefik.enable=true
-      - traefik.http.routers.mcp.rule=(Host(`raspberrypi.local`) || Host(`localhost`) || Host(`127.0.0.1`)) && (PathPrefix(`/mcp`) || PathPrefix(`/sse`) || PathPrefix(`/health`) || PathPrefix(`/metrics`))
+      - traefik.http.routers.mcp.rule=PathPrefix(`/mcp`) || PathPrefix(`/sse`) || PathPrefix(`/health`) || PathPrefix(`/metrics`)
       - traefik.http.routers.mcp.entrypoints=web
       - traefik.http.routers.mcp.service=mcp-service
+      - traefik.http.routers.mcp.middlewares=auth-check
       - traefik.http.services.mcp-service.loadbalancer.server.port=8080
       # Legacy API support (for simple REST clients)
-      - traefik.http.routers.legacy-api.rule=(Host(`raspberrypi.local`) || Host(`localhost`) || Host(`127.0.0.1`)) && (PathPrefix(`/add`) || PathPrefix(`/query`) || PathPrefix(`/all`))
+      - traefik.http.routers.legacy-api.rule=PathPrefix(`/add`) || PathPrefix(`/query`) || PathPrefix(`/all`)
       - traefik.http.routers.legacy-api.entrypoints=web
       - traefik.http.routers.legacy-api.service=mcp-service
+      - traefik.http.routers.legacy-api.middlewares=auth-check
 
   # Auth sidecar for JWT/API key validation (ForwardAuth)
   auth-sidecar:
@@ -177,7 +179,7 @@ services:
 
 volumes:
   openmemory-data:
-    name: cybermem-openmemory-data
+    name: cybermem-data
     driver: local
   postgres-data:
     name: cybermem-postgres-data

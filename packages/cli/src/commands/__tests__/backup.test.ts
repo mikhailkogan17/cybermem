@@ -47,7 +47,7 @@ describe('backup command', () => {
         await backup({});
 
         // Expect docker inspect check
-        expect(execa).toHaveBeenCalledWith('docker', ['inspect', 'cybermem-openmemory']);
+        expect(execa).toHaveBeenCalledWith('docker', ['inspect', 'cybermem-mcp']);
 
         // Expect docker run tar
         const tarCall = (execa as any).mock.calls[1];
@@ -57,7 +57,7 @@ describe('backup command', () => {
         expect(tarCall[1]).toContain('czf');
         // Check volumes from
         expect(tarCall[1]).toContain('--volumes-from');
-        expect(tarCall[1]).toContain('cybermem-openmemory');
+        expect(tarCall[1]).toContain('cybermem-mcp');
     });
 
     it('should fail if openmemory container does not exist', async () => {

@@ -15,7 +15,7 @@ const getLocalApiKey = () => {
     // Option 1: Docker Exec (Dynamic)
     // This satisfies the requirement: "tests themselves... get the key"
     const dockerKey = execSync(
-      "docker exec cybermem-openmemory printenv OM_API_KEY",
+      "docker exec cybermem-mcp printenv OM_API_KEY",
       { encoding: "utf-8" },
     ).trim();
     if (dockerKey) return dockerKey;
@@ -54,7 +54,7 @@ const TARGETS = {
         ? { "x-api-key": process.env.OM_API_KEY || getLocalApiKey() }
         : {}),
       "User-Agent": "CyberMem-CLI/1.0.0",
-      "X-Client-Name": "Antigravity", // Standardized to Antigravity
+      "X-Client-Name": "claude-ai",
     },
   },
   rpi: {
@@ -65,7 +65,7 @@ const TARGETS = {
       Accept: "application/json, text/event-stream",
       "x-api-key": getRemoteApiKey(),
       "User-Agent": "CyberMem-CLI/1.0.0",
-      "X-Client-Name": "Antigravity-Tester",
+      "X-Client-Name": "claude-ai",
     },
   },
 };
@@ -81,20 +81,37 @@ async function runTest(name: string, config: any) {
   console.log(`\n🧪 Testing Target: ${name.toUpperCase()}`);
   console.log(`   URL: ${config.url}`);
 
+  let sessionId: string | null = null;
+
   const post = async (body: any, retries = 3) => {
     for (let i = 0; i < retries; i++) {
       try {
         const res = await fetch(config.url, {
           method: "POST",
-          headers: config.headers,
+          headers: {
+            ...config.headers,
+            ...(sessionId ? { "Mcp-Session-Id": sessionId } : {}),
+          },
           body: JSON.stringify(body),
         });
+
+        const sid = res.headers.get("Mcp-Session-Id");
+        if (sid) sessionId = sid;
 
         if (!res.ok) {
           const txt = await res.text();
           console.error(`      ❌ HTTP ${res.status} [${config.url}]: ${txt}`);
           throw new Error(`HTTP ${res.status}: ${txt}`);
         }
+
+        const contentType = res.headers.get("content-type");
+        if (contentType?.includes("text/event-stream")) {
+          const text = await res.text();
+          const match = text.match(/^data: (.*)$/m);
+          if (match) return JSON.parse(match[1]);
+          throw new Error("Invalid SSE response format: " + text);
+        }
+
         return await res.json();
       } catch (e: any) {
         if (i === retries - 1) throw e;
@@ -266,7 +283,7 @@ const resetDB = async () => {
     // Remove the database files (sqlite, -shm, -wal)
     try {
       execSync(
-        "docker exec cybermem-openmemory sh -c 'rm -f /data/openmemory.sqlite*'",
+        "docker exec cybermem-mcp sh -c 'rm -f /data/openmemory.sqlite*'",
         { stdio: "ignore" },
       );
     } catch (e) {
@@ -285,7 +302,7 @@ const resetDB = async () => {
     try {
       // Adjust volume name if needed
       execSync(
-        "docker run --rm -v cybermem-openmemory-data:/data alpine sh -c 'chown -R 1001:1001 /data && chmod 777 /data'",
+        "docker run --rm -v cybermem-data:/data alpine sh -c 'chown -R 1001:1001 /data && chmod 777 /data'",
         { stdio: "ignore" },
       );
     } catch (e) {
@@ -294,7 +311,7 @@ const resetDB = async () => {
 
     // Restart the container
     try {
-      execSync("docker restart cybermem-openmemory", { stdio: "ignore" });
+      execSync("docker restart cybermem-mcp", { stdio: "ignore" });
     } catch (e) {
       try {
         execSync("docker restart cybermem-mcp", { stdio: "ignore" });
@@ -347,13 +364,13 @@ const resetDBRemote = async (host: string) => {
     // Remove DB (SQLite + WAL/SHM)
     try {
       execSync(
-        `${sshCmd} "docker exec cybermem-openmemory sh -c 'rm -f /data/openmemory.sqlite*'"`,
+        `${sshCmd} "docker exec cybermem-mcp sh -c 'rm -f /data/openmemory.sqlite*'"`,
         { stdio: "ignore" },
       );
     } catch (e) {}
 
     // Restart Container
-    execSync(`${sshCmd} "docker restart cybermem-openmemory"`, {
+    execSync(`${sshCmd} "docker restart cybermem-mcp"`, {
       stdio: "ignore",
     });
 

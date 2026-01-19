@@ -44,7 +44,7 @@ describe('restore command', () => {
         await restore('backup.tar.gz', {});
 
         // Check docker stop
-        expect(execa).toHaveBeenCalledWith('docker', ['stop', 'cybermem-openmemory']);
+        expect(execa).toHaveBeenCalledWith('docker', ['stop', 'cybermem-mcp']);
 
         // Check docker run tar
         const tarCall = (execa as any).mock.calls[1];
@@ -53,7 +53,7 @@ describe('restore command', () => {
         expect(tarCall[1]).toContain('tar xzf /backup/backup.tar.gz -C / && chown -R 1001:1001 /data');
 
         // Check docker start
-        expect(execa).toHaveBeenCalledWith('docker', ['start', 'cybermem-openmemory']);
+        expect(execa).toHaveBeenCalledWith('docker', ['start', 'cybermem-mcp']);
     });
 
     it('should ignore docker stop error (if container not running)', async () => {
@@ -68,7 +68,7 @@ describe('restore command', () => {
 
         // Should still proceed to restore
         expect(execa).toHaveBeenCalledWith('docker', expect.arrayContaining(['run']));
-        expect(execa).toHaveBeenCalledWith('docker', ['start', 'cybermem-openmemory']);
+        expect(execa).toHaveBeenCalledWith('docker', ['start', 'cybermem-mcp']);
     });
 
     it('should fail if backup file missing', async () => {

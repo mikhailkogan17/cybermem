@@ -50,7 +50,7 @@ export async function POST(request: NextRequest) {
         message: `Deleted ${deletedCount} database files. Restart openmemory container to reinitialize.`,
         deletedCount,
         restartRequired: true,
-        restartCommand: 'docker restart cybermem-openmemory'
+        restartCommand: 'docker restart cybermem-mcp'
       })
 
     } catch (fsError: any) {

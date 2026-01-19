@@ -13,9 +13,9 @@ export async function backup(options: any) {
     try {
         // Check if container exists
         try {
-            await execa('docker', ['inspect', 'cybermem-openmemory']);
+            await execa('docker', ['inspect', 'cybermem-mcp']);
         } catch (e) {
-            console.error(chalk.red('Error: cybermem-openmemory container not found. Is CyberMem installed?'));
+            console.error(chalk.red('Error: cybermem-mcp container not found. Is CyberMem installed?'));
             process.exit(1);
         }
 
@@ -24,7 +24,7 @@ export async function backup(options: any) {
         // And we use --volumes-from to access the data volume of the running service
         const cmd = [
             'run', '--rm',
-            '--volumes-from', 'cybermem-openmemory',
+            '--volumes-from', 'cybermem-mcp',
             '-v', `${process.cwd()}:/backup`,
             'alpine',
             'tar', 'czf', `/backup/${filename}`, '-C', '/', 'data'

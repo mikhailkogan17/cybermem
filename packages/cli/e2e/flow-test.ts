@@ -34,7 +34,8 @@ const mcpPost = async (url: string, apiKey: string, body: any) => {
       "Content-Type": "application/json",
       Accept: "application/json, text/event-stream",
       "x-api-key": apiKey,
-      "User-Agent": "antigravity-client/1.0.0",
+      "X-Client-Name": "claude-ai",
+      "User-Agent": "claude-ai/1.0.0",
     },
     body: JSON.stringify(body),
   });
@@ -68,7 +69,7 @@ async function main() {
         {
           protocolVersion: "2024-11-05",
           capabilities: { roots: { listChanged: true } },
-          clientInfo: { name: "antigravity-client", version: "1.0.0" },
+          clientInfo: { name: "claude-ai", version: "1.0.0" },
         },
         1,
       ),
@@ -88,10 +89,10 @@ async function main() {
       RPC(
         "tools/call",
         {
-          name: "openmemory_store",
+          name: "add_memory",
           arguments: {
             content: testContent,
-            tags: ["antigravity-client", "migration"],
+            tags: ["claude-ai", "migration"],
           },
         },
         3,
@@ -119,15 +120,15 @@ async function main() {
       RPC(
         "tools/call",
         {
-          name: "openmemory_get",
-          arguments: { id: memoryId },
+          name: "query_memory",
+          arguments: { query: testContent.substring(0, 20) },
         },
         4,
       ),
     );
 
     if (getRes.error) throw new Error(getRes.error.message);
-    const getPayload = JSON.parse(getRes.result.content[0].text);
+    const getPayload = JSON.parse(getRes.result.content[0].text)[0];
     if (getPayload.content === testContent) {
       console.log(
         `   ✅ READ Verified on LOCAL: "${getPayload.content.substring(0, 30)}..."`,
@@ -165,10 +166,9 @@ async function main() {
     backupPath = path.join(os.tmpdir(), `cybermem-backup-${Date.now()}.sqlite`);
 
     // Copy from docker volume
-    execSync(
-      `docker cp cybermem-openmemory:/data/openmemory.sqlite "${backupPath}"`,
-      { stdio: "pipe" },
-    );
+    execSync(`docker cp cybermem-mcp:/data/openmemory.sqlite "${backupPath}"`, {
+      stdio: "pipe",
+    });
 
     const stats = fs.statSync(backupPath);
     // Calculate checksum (md5)
@@ -193,7 +193,7 @@ async function main() {
     // Stop container, copy, restart
     console.log("   ⏳ Stopping RPi container...");
     execSync(
-      `ssh -i ${sshKey} ${rpiHost} '/usr/local/bin/docker stop cybermem-openmemory'`,
+      `ssh -i ${sshKey} ${rpiHost} '/usr/local/bin/docker stop cybermem-mcp'`,
       { stdio: "pipe" },
     );
 
@@ -211,7 +211,7 @@ async function main() {
 
     console.log("   ▶️ Starting RPi container...");
     execSync(
-      `ssh -i ${sshKey} ${rpiHost} '/usr/local/bin/docker start cybermem-openmemory'`,
+      `ssh -i ${sshKey} ${rpiHost} '/usr/local/bin/docker start cybermem-mcp'`,
       { stdio: "pipe" },
     );
 
@@ -240,7 +240,7 @@ async function main() {
         {
           protocolVersion: "2024-11-05",
           capabilities: { roots: { listChanged: true } },
-          clientInfo: { name: "antigravity-client-rpi", version: "1.0.0" },
+          clientInfo: { name: "claude-ai-rpi", version: "1.0.0" },
         },
         1,
       ),
@@ -260,8 +260,8 @@ async function main() {
       RPC(
         "tools/call",
         {
-          name: "openmemory_get",
-          arguments: { id: memoryId },
+          name: "query_memory",
+          arguments: { query: testContent.substring(0, 20) },
         },
         3,
       ),
@@ -269,7 +269,7 @@ async function main() {
 
     if (getRes.error) throw new Error(getRes.error.message);
 
-    const getPayload = JSON.parse(getRes.result.content[0].text);
+    const getPayload = JSON.parse(getRes.result.content[0].text)[0];
 
     if (getPayload.content === testContent) {
       console.log(`   ✅ Memory VERIFIED on RPi!`);
@@ -317,8 +317,8 @@ async function main() {
     // Since it's a "flow test", we probably want to leave it clean.
     // Easiest is to just stop/rm volume or use CLI reset if available locally.
     // Using CLI logic:
-    execSync(`docker exec cybermem-openmemory rm -f /data/openmemory.sqlite`);
-    execSync(`docker restart cybermem-openmemory`);
+    execSync(`docker exec cybermem-mcp rm -f /data/openmemory.sqlite`);
+    execSync(`docker restart cybermem-mcp`);
 
     // We do NOT reset RPi in this test unless specified, but user asked "why db is not reset".
     // Assuming they meant LOCAL or BOTH. Let's reset LOCAL to be polite listeners.

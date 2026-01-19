@@ -23,7 +23,7 @@ export async function restore(file: string, options: any) {
         // 1. Stop the OpenMemory service to safely write to DB
         console.log(chalk.blue('Stopping OpenMemory service...'));
         try {
-            await execa('docker', ['stop', 'cybermem-openmemory']);
+            await execa('docker', ['stop', 'cybermem-mcp']);
         } catch (e) {
             console.log(chalk.gray('Container not running (or not found), proceeding...'));
         }
@@ -36,7 +36,7 @@ export async function restore(file: string, options: any) {
 
         const cmd = [
             'run', '--rm',
-            '--volumes-from', 'cybermem-openmemory', // Access the volume even if container is stopped
+            '--volumes-from', 'cybermem-mcp', // Access the volume even if container is stopped
             '-v', `${dir}:/backup`,
             'alpine',
             'sh', '-c',
@@ -51,14 +51,14 @@ export async function restore(file: string, options: any) {
 
         // 3. Restart the service
         console.log(chalk.blue('Restarting OpenMemory service...'));
-        await execa('docker', ['start', 'cybermem-openmemory']);
+        await execa('docker', ['start', 'cybermem-mcp']);
 
         console.log(chalk.green(`\n✅ Restore completed successfully!`));
         console.log('Your memory has been recovered.');
 
     } catch (error) {
         console.error(chalk.red('Restore failed:'), error);
-        console.log(chalk.yellow('Suggestion: Check if Docker is running and "cybermem-openmemory" container exists.'));
+        console.log(chalk.yellow('Suggestion: Check if Docker is running and "cybermem-mcp" container exists.'));
         process.exit(1);
     }
 }

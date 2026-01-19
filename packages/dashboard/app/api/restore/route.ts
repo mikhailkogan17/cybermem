@@ -59,7 +59,7 @@ export async function POST(request: NextRequest) {
         success: true,
         message: 'Database restored successfully. Restart openmemory container to apply.',
         restartRequired: true,
-        restartCommand: 'docker restart cybermem-openmemory'
+        restartCommand: 'docker restart cybermem-mcp'
       })
 
     } catch (restoreError: any) {
