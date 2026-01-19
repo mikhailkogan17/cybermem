@@ -25,6 +25,8 @@ services:
       - traefik-logs:/var/log/traefik
     labels:
       - traefik.enable=true
+      - traefik.http.middlewares.auth-check.forwardauth.address=http://auth-sidecar:3001/auth
+      - traefik.http.middlewares.auth-check.forwardauth.authResponseHeaders=X-User-Id,X-User-Email,X-User-Name,X-Auth-Method
     restart: unless-stopped
 
   # MCP Server (Node.js/SDK)
@@ -70,9 +72,6 @@ services:
       - ${CYBERMEM_ENV_PATH:-${HOME}/.cybermem/.env}:/.env:ro
     labels:
       - traefik.enable=true
-      # ForwardAuth middleware
-      - traefik.http.middlewares.auth-check.forwardauth.address=http://auth-sidecar:3001/auth
-      - traefik.http.middlewares.auth-check.forwardauth.authResponseHeaders=X-User-Id,X-User-Email,X-User-Name,X-Auth-Method
     healthcheck:
       test:
         [
