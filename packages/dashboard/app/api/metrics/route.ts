@@ -154,8 +154,13 @@ export async function GET(request: Request) {
           };
 
         // --- TIME SERIES AGGREGATION (Robust Linear Sampling) ---
-        const periodMs =
-          period === "24h" ? 24 * 60 * 60 * 1000 : 7 * 24 * 60 * 60 * 1000;
+        let periodMs = 24 * 60 * 60 * 1000; // Default 24h
+        if (period === "1h") periodMs = 60 * 60 * 1000;
+        else if (period === "7d") periodMs = 7 * 24 * 60 * 60 * 1000;
+        else if (period === "30d") periodMs = 30 * 24 * 60 * 60 * 1000;
+        else if (period === "90d") periodMs = 90 * 24 * 60 * 60 * 1000;
+        else if (period === "24h") periodMs = 24 * 60 * 60 * 1000;
+
         const now = Date.now();
         const startTime = now - periodMs;
 
