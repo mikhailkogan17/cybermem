@@ -16,6 +16,14 @@
 - [x] **Result**: PASSED
 - [x] **Screenshot**: (Verified manually via internal tooling)
 
+## 3. Dashboard Display Verification (Visual Check)
+
+- [x] **Top/Last Writer Card**: Shows "Antigravity" / "Claude Desktop" (Verified).
+- [x] **Top/Last Reader Card**: Shows "Antigravity" (Verified).
+- [x] **Time Series Chart**: Verified valid client names.
+- [x] **Audit Log**: Shows "Antigravity" instead of "CyberMem-FlowTest" (Verified).
+- [x] **System Status**: "All Systems OK" (Verified via `/health` check: `{"overall":"ok"}`).
+
 ## 4. Warnings / Known Issues
 
 - [x] I have checked the `full_log.txt` (if generated) for any suspicious errors.

@@ -175,8 +175,8 @@
   },
   {
     "id": "other",
-    "name": "Other",
-    "match": "other",
+    "name": "Generic Agent",
+    "match": "other|node|axios|unknown",
     "color": "#9ca3af",
     "icon": null,
     "description": "For any other MCP-compliant client, use the following connection details:",

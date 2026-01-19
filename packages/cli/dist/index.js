@@ -4,6 +4,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const commander_1 = require("commander");
 const backup_1 = require("./commands/backup");
 const init_1 = require("./commands/init");
+const login_1 = require("./commands/login");
 const reset_1 = require("./commands/reset");
 const restore_1 = require("./commands/restore");
 const upgrade_1 = require("./commands/upgrade");
@@ -16,7 +17,7 @@ program
 program
     .command("login")
     .description("Login to CyberMem via GitHub (OAuth)")
-    .action(login);
+    .action(login_1.login);
 // Command: Init (formerly deploy)
 program
     .command("init")

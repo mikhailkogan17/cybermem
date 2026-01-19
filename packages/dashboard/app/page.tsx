@@ -136,9 +136,19 @@ export default function Dashboard() {
   );
   const totalPages = Math.ceil(sortedLog.length / itemsPerPage);
 
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
   // Show login modal if not authenticated
   if (!isAuthenticated) {
     return <LoginModal onLogin={handleLogin} />;
+  }
+
+  if (!mounted) {
+    return null; // Return nothing on server and initial client render to avoid mismatch
   }
 
   return (

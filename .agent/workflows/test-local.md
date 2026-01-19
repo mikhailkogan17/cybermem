@@ -14,7 +14,6 @@ description: Run Playwright E2E tests for local environment (localhost:3000 dash
 | ----------------- | ---- | --------------------------------------- |
 | MCP/API (Traefik) | 8626 | `curl http://localhost:8626/health`     |
 | Dashboard         | 3000 | `curl http://localhost:3000/api/health` |
-| db-exporter       | 8000 | `curl http://localhost:8000/api/stats`  |
 
 ---
 
@@ -28,7 +27,7 @@ description: Run Playwright E2E tests for local environment (localhost:3000 dash
 ```bash
 # All must return 200 OK
 curl -s http://localhost:8626/health | jq '.ok'  # → true
-curl -s http://localhost:8000/api/stats | jq '.memoryRecords'  # → number
+curl -s http://localhost:3000/api/health | jq '.overall'  # → "ok"
 curl -s http://localhost:3000/api/metrics | jq '.stats.memoryRecords'  # → number
 ```
 
@@ -53,15 +52,13 @@ Use `mcp_cybermem-local_list_memories` — should work without 404.
 
 ## Step 1: Happy Path Test
 
-### 1.1 Wipe Database
+### 1.1 Wipe Database (Local)
 
 ```bash
-docker exec cybermem-openmemory sh -c 'rm -f /data/openmemory.sqlite*'
-docker run --rm -v cybermem-openmemory-data:/data alpine sh -c 'chown -R 1001:1001 /data && chmod 777 /data'
-docker restart cybermem-openmemory
+rm -f ~/.cybermem/data/openmemory.sqlite*
+npx @cybermem/cli up
 # Wait for health (up to 60s for embeddings init)
-for i in {1..30}; do curl -s http://localhost:8626/health | grep -q ok && break || sleep 2; done
-docker restart cybermem-log-exporter cybermem-db-exporter
+for i in {1..30}; do curl -s http://localhost:8626/health | grep -q true && break || sleep 2; done
 sleep 5
 ```
 

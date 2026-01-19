@@ -30,6 +30,7 @@ export default function SettingsModal({ onClose }: { onClose: () => void }) {
   const [adminPassword, setAdminPassword] = useState(
     localStorage.getItem("adminPassword") || "admin",
   );
+  const [settings, setSettings] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   const { isDemo, toggleDemo } = useDashboard();
@@ -66,6 +67,7 @@ export default function SettingsModal({ onClose }: { onClose: () => void }) {
       .then((data) => {
         // Enforce Local Mode if server says so
         setIsManaged(data.isManaged || false);
+        setSettings(data);
 
         if (localKey && !data.isManaged) {
           setApiKey(localKey);
@@ -379,6 +381,7 @@ export default function SettingsModal({ onClose }: { onClose: () => void }) {
                       )}
                     </Button>
                   </div>
+
                   <div className="flex justify-end pt-2">
                     {showRegenConfirm ? (
                       <div className="flex items-center gap-2">
@@ -557,22 +560,44 @@ export default function SettingsModal({ onClose }: { onClose: () => void }) {
               System
             </h3>
             <div className="bg-white/5 border border-white/10 rounded-xl p-6 shadow-[inset_0_0_30px_rgba(255,255,255,0.01)] backdrop-blur-md space-y-6">
-              <div className="grid grid-cols-2 gap-8">
-                <div>
-                  <span className="text-[10px] uppercase text-neutral-500 font-bold tracking-[0.2em]">
-                    Version
+              <div className="grid grid-cols-2 gap-12">
+                <div className="space-y-4">
+                  <span className="text-[10px] uppercase text-neutral-500 font-bold tracking-[0.2em] block mb-2">
+                    Versions
                   </span>
-                  <p className="text-neutral-200 font-mono text-base mt-2 tracking-tight">
-                    v0.8.0
-                  </p>
+                  <div className="space-y-3">
+                    <div className="flex justify-between items-center group/version">
+                      <span className="text-xs text-neutral-400 group-hover/version:text-neutral-300 transition-colors">
+                        Dashboard
+                      </span>
+                      <code className="text-[13px] font-mono text-neutral-200 bg-white/5 px-2 py-0.5 rounded border border-white/10 group-hover/version:border-emerald-500/30 group-hover/version:text-emerald-400 transition-all">
+                        {settings?.dashboardVersion || "v0.7.0"}
+                      </code>
+                    </div>
+                    <div className="flex justify-between items-center group/version">
+                      <span className="text-xs text-neutral-400 group-hover/version:text-neutral-300 transition-colors">
+                        MCP Server
+                      </span>
+                      <code className="text-[13px] font-mono text-neutral-200 bg-white/5 px-2 py-0.5 rounded border border-white/10 group-hover/version:border-emerald-500/30 group-hover/version:text-emerald-400 transition-all">
+                        {settings?.mcpVersion || "v0.7.0"}
+                      </code>
+                    </div>
+                  </div>
                 </div>
-                <div>
-                  <span className="text-[10px] uppercase text-neutral-500 font-bold tracking-[0.2em]">
+                <div className="border-l border-white/5 pl-8">
+                  <span className="text-[10px] uppercase text-neutral-500 font-bold tracking-[0.2em] block mb-2">
                     Environment
                   </span>
-                  <p className="text-emerald-400 font-mono text-base mt-2 tracking-tight">
-                    Production
-                  </p>
+                  <div className="mt-4 flex flex-col justify-center">
+                    <p className="text-emerald-400 font-bold text-2xl tracking-tight drop-shadow-[0_0_15px_rgba(52,211,153,0.3)]">
+                      Production
+                    </p>
+                    <p className="text-[10px] text-neutral-500 mt-1 uppercase tracking-[0.2em] font-medium">
+                      {settings?.isManaged
+                        ? "Managed Instance"
+                        : "Local Instance"}
+                    </p>
+                  </div>
                 </div>
               </div>
 

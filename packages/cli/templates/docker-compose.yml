@@ -28,18 +28,23 @@ services:
 
   # MCP Server (Node.js/SDK)
   mcp-server:
-    image: ghcr.io/mikhailkogan17/cybermem-mcp:latest
+    build:
+      context: /Users/mikhailkogan/cybermem/packages/mcp
+      dockerfile: Dockerfile
+    image: cybermem-mcp:local-dev
     restart: unless-stopped
     container_name: cybermem-mcp
     environment:
-      PORT: "8080"
+      OM_TIER: "hybrid"
+      PORT: "0"
+      OM_PORT: "0"
       OM_DB_PATH: /data/openmemory.sqlite
     volumes:
       - ${CYBERMEM_ENV_PATH:-${HOME}/.cybermem/.env}:/.env
       - ${HOME}/.cybermem/data:/data
     labels:
       - traefik.enable=true
-      - traefik.http.routers.mcp.rule=(Host(`raspberrypi.local`) || Host(`localhost`) || Host(`127.0.0.1`)) && (PathPrefix(`/mcp`) || PathPrefix(`/sse`) || PathPrefix(`/health`))
+      - traefik.http.routers.mcp.rule=(Host(`raspberrypi.local`) || Host(`localhost`) || Host(`127.0.0.1`)) && (PathPrefix(`/mcp`) || PathPrefix(`/sse`) || PathPrefix(`/health`) || PathPrefix(`/metrics`))
       - traefik.http.routers.mcp.entrypoints=web
       - traefik.http.routers.mcp.service=mcp-service
       - traefik.http.services.mcp-service.loadbalancer.server.port=8080

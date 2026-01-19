@@ -1,5 +1,7 @@
 import { checkRateLimit, rateLimitResponse } from "@/lib/rate-limit";
+import fs from "fs";
 import { NextRequest, NextResponse } from "next/server";
+import path from "path";
 
 export const dynamic = "force-dynamic";
 
@@ -38,7 +40,21 @@ async function checkService(
     const latencyMs = Date.now() - start;
 
     if (res.ok) {
-      return { name, status: "ok", latencyMs };
+      try {
+        const data = await res.json();
+        if (data.ok === false || data.status === "error") {
+          return {
+            name,
+            status: "error",
+            message: data.error || data.message || "Service reported error",
+            latencyMs,
+          };
+        }
+        return { name, status: "ok", latencyMs };
+      } catch {
+        // If not JSON but OK, assume OK (legacy services)
+        return { name, status: "ok", latencyMs };
+      }
     }
     return {
       name,
@@ -65,29 +81,40 @@ export async function GET(request: NextRequest) {
     return rateLimitResponse(rateLimit.resetIn);
   }
 
-  // Use environment variables with sensible defaults for local Docker stack
-  const dbExporterUrl = process.env.DB_EXPORTER_URL || "http://localhost:8000";
-  // OpenMemory API is optional in SDK-based architecture
-  // Only check if explicitly configured (SDK mode doesn't have HTTP API)
-  const openMemoryUrl = process.env.OPENMEMORY_URL || process.env.CYBERMEM_URL;
-  const vectorUrl = process.env.VECTOR_URL; // Vector is optional
+  // Check SQLite Database File
+  const homedir = process.env.HOME || process.env.USERPROFILE || "";
+  const dbPath =
+    process.env.OM_DB_PATH ||
+    path.resolve(homedir, ".cybermem/data/openmemory.sqlite");
 
-  const checks: Promise<ServiceStatus>[] = [
-    checkService("Database", `${dbExporterUrl}/health`),
-  ];
+  const dbExists = fs.existsSync(dbPath);
+  console.error(
+    `[HEALTH-API] SQLite Check: ${dbExists ? "OK" : "MISSING"} (${dbPath})`,
+  );
 
-  // Only check OpenMemory API if explicitly configured
-  // In SDK mode, there's no HTTP API - memory is handled via MCP
+  const dbStatus: ServiceStatus = dbExists
+    ? { name: "Database", status: "ok" }
+    : { name: "Database", status: "error", message: "SQLite file not found" };
+
+  const checks: ServiceStatus[] = [dbStatus];
+
+  // Check OpenMemory API if explicitly configured
+  const openMemoryUrl =
+    process.env.OPENMEMORY_URL ||
+    process.env.CYBERMEM_URL ||
+    "http://localhost:8626";
+
   if (openMemoryUrl) {
-    checks.push(checkService("MCP API", `${openMemoryUrl}/health`));
+    console.error(`[HEALTH-API] Checking API at ${openMemoryUrl}/health`);
+    const apiStatus = await checkService(
+      "OpenMemory (MCP) API",
+      `${openMemoryUrl}/health`,
+    );
+    console.error(`[HEALTH-API] API Status: ${apiStatus.status}`);
+    checks.push(apiStatus);
   }
 
-  // Only check Vector if configured
-  if (vectorUrl) {
-    checks.push(checkService("Vector", `${vectorUrl}/health`));
-  }
-
-  const services = await Promise.all(checks);
+  const services = checks;
 
   // Determine overall status
   const hasError = services.some((s) => s.status === "error");

@@ -1,6 +1,6 @@
 {
   "name": "@cybermem/dashboard",
-  "version": "0.5.17",
+  "version": "0.7.0",
   "description": "CyberMem Monitoring Dashboard",
   "homepage": "https://cybermem.dev",
   "repository": {
@@ -78,6 +78,7 @@
     "recharts": "2.15.4",
     "recharts-scale": "^0.4.5",
     "sonner": "^1.7.4",
+    "sqlite3": "5.1.7",
     "ssh2": "^1.17.0",
     "tailwind-merge": "^3.3.1",
     "tailwindcss-animate": "^1.0.7",

@@ -1,88 +1,111 @@
-import fs from 'fs'
-import { NextResponse } from 'next/server'
-import path from 'path'
+import fs from "fs";
+import { NextResponse } from "next/server";
+import path from "path";
 
-export const dynamic = 'force-dynamic'
+export const dynamic = "force-dynamic";
 
 // Use env var for db-exporter URL (Docker internal vs local dev)
-const DB_EXPORTER_URL = process.env.DB_EXPORTER_URL || 'http://localhost:8000'
+const DB_EXPORTER_URL = process.env.DB_EXPORTER_URL || "http://localhost:8000";
 
 // Load clients config for name normalization
-let clientsConfig: any[] = []
+let clientsConfig: any[] = [];
 try {
-  const configPath = path.join(process.cwd(), 'public', 'clients.json')
-  clientsConfig = JSON.parse(fs.readFileSync(configPath, 'utf-8'))
+  const configPath = path.join(process.cwd(), "public", "clients.json");
+  clientsConfig = JSON.parse(fs.readFileSync(configPath, "utf-8"));
 } catch (e) {
-  console.error('Failed to load clients.json:', e)
+  console.error("Failed to load clients.json:", e);
 }
 
 // Normalize raw client name (e.g. "antigravity-client") to friendly name (e.g. "Antigravity")
 function normalizeClientName(rawName: string): string {
-  if (!rawName) return 'Unknown'
-  const nameLower = rawName.toLowerCase()
+  if (!rawName) return "Unknown";
+  const nameLower = rawName.toLowerCase();
   const client = clientsConfig.find((c: any) => {
     try {
-      return new RegExp(c.match, 'i').test(nameLower)
+      return new RegExp(c.match, "i").test(nameLower);
     } catch {
-      return nameLower.includes(c.match)
+      return nameLower.includes(c.match);
     }
-  })
-  return client?.name || rawName
+  });
+  return client?.name || rawName;
 }
 
-const CLIENTS = ["Claude Code", "v0", "Cursor", "GitHub Copilot", "Windsurf"]
-const OPERATIONS = ["Read", "Write", "Update", "Delete", "Create"]
-const STATUSES = ["Success", "Success", "Success", "Warning", "Error"]
+const CLIENTS = ["Claude Code", "v0", "Cursor", "GitHub Copilot", "Windsurf"];
+const OPERATIONS = ["Read", "Write", "Update", "Delete", "Create"];
+const STATUSES = ["Success", "Success", "Success", "Warning", "Error"];
 const DESCRIPTIONS = {
-  "Success": ["Operation completed successfully", "Resource accessed", "Data synchronized"],
-  "Warning": ["High latency detected", "Rate limit approaching", "Deprecation warning"],
-  "Error": ["Unauthorized access", "Internal server error", "Timeout exceeded", "Validation failed"]
-}
+  Success: [
+    "Operation completed successfully",
+    "Resource accessed",
+    "Data synchronized",
+  ],
+  Warning: [
+    "High latency detected",
+    "Rate limit approaching",
+    "Deprecation warning",
+  ],
+  Error: [
+    "Unauthorized access",
+    "Internal server error",
+    "Timeout exceeded",
+    "Validation failed",
+  ],
+};
 
 export async function GET(request: Request) {
   try {
-    // Fetch logs from db-exporter service
-    // timeout 2s to not hang
-    const controller = new AbortController()
-    const timeoutId = setTimeout(() => controller.abort(), 2000)
+    const homedir =
+      process.env.HOME || process.env.USER || "/Users/mikhailkogan";
+    const dbPath =
+      process.env.OM_DB_PATH ||
+      path.resolve(homedir, ".cybermem/data/openmemory.sqlite");
 
-    const res = await fetch(`${DB_EXPORTER_URL}/api/logs?limit=100`, {
-      signal: controller.signal,
-      cache: 'no-store'
-    })
-    clearTimeout(timeoutId)
-
-    if (!res.ok) {
-        throw new Error(`Failed to fetch logs: ${res.statusText}`)
+    if (!fs.existsSync(dbPath)) {
+      console.error(`[AUDIT-LOGS-API] SQLite DB NOT FOUND at ${dbPath}`);
+      return NextResponse.json({ logs: [] });
     }
 
-    const data = await res.json()
-    const rawLogs = data.logs || []
+    console.error(`[AUDIT-LOGS-API] Reading logs from ${dbPath}`);
+    const sqlite3 = require("sqlite3").verbose();
+    const { open } = require("sqlite");
+    const db = await open({
+      filename: dbPath,
+      driver: sqlite3.Database,
+    });
+
+    const rawLogs = await db.all(
+      "SELECT * FROM cybermem_access_log ORDER BY timestamp DESC LIMIT 100",
+    );
+    await db.close();
+
+    console.error(`[AUDIT-LOGS-API] Found ${rawLogs.length} logs in SQLite`);
 
     const logs = rawLogs.map((log: any) => {
-        const statusCode = parseInt(log.status) || 0
-        let status = "Success"
-        if (statusCode === 0 || statusCode >= 400) status = "Error"
-        else if (statusCode >= 300) status = "Warning"
+      const statusCode = parseInt(log.status) || 0;
+      let status = "Success";
+      if (log.is_error === 1 || statusCode >= 400 || statusCode === 0)
+        status = "Error";
+      else if (statusCode >= 300) status = "Warning";
 
-        // Capitalize operation
-        const operation = log.operation.charAt(0).toUpperCase() + log.operation.slice(1)
+      // Capitalize operation
+      const operation =
+        log.operation.charAt(0).toUpperCase() + log.operation.slice(1);
 
-        return {
-            timestamp: log.timestamp,
-            client: normalizeClientName(log.client_name),
-            operation: operation,
-            status: status,
-            method: log.method,
-            description: log.endpoint,
-            rawStatus: log.status
-        }
-    })
+      return {
+        timestamp: log.timestamp,
+        client: normalizeClientName(log.client_name),
+        operation: operation,
+        status: status,
+        method: log.method,
+        description: log.endpoint,
+        rawStatus: log.status,
+      };
+    });
 
-    return NextResponse.json({ logs })
+    return NextResponse.json({ logs });
   } catch (error) {
-    console.error("Error fetching audit logs:", error)
+    console.error("[AUDIT-LOGS-API] Error fetching audit logs:", error);
     // Return empty list on error to avoid breaking UI with 500
-    return NextResponse.json({ logs: [] })
+    return NextResponse.json({ logs: [] });
   }
 }

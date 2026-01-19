@@ -18,8 +18,7 @@ export default function MetricCard({
   loading = false,
   hasData = true,
 }: MetricCardProps) {
-  const isEmpty =
-    !hasData || value === "N/A" || value === "0" || value === "0.0%";
+  const isValueNA = value === "N/A";
 
   // Skeleton state
   if (loading) {
@@ -33,15 +32,13 @@ export default function MetricCard({
     );
   }
 
-  // Empty state
-  if (isEmpty) {
+  // N/A state
+  if (isValueNA) {
     return (
       <Card className="bg-white/5 border-white/10 backdrop-blur-md text-white shadow-lg overflow-hidden relative opacity-60">
         <CardContent className="p-6 relative z-10">
           <div className="text-sm font-medium text-slate-500 mb-2">{label}</div>
-          <div className="text-4xl font-bold text-slate-500">
-            {value === "N/A" ? "N/A" : "—"}
-          </div>
+          <div className="text-4xl font-bold text-slate-500">N/A</div>
         </CardContent>
       </Card>
     );

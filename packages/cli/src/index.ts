@@ -2,6 +2,7 @@
 import { Command } from "commander";
 import { backup } from "./commands/backup";
 import { init } from "./commands/init";
+import { login } from "./commands/login";
 import { reset } from "./commands/reset";
 import { restore } from "./commands/restore";
 import { upgrade } from "./commands/upgrade";

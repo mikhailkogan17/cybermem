@@ -15,11 +15,32 @@ import axios from "axios";
 import cors from "cors";
 import dotenv from "dotenv";
 import express from "express";
-import { Memory } from "openmemory-js";
 import { z } from "zod";
-import { login, logout, showStatus } from "./auth.js";
+import { login, logout, showStatus } from "./auth";
 
 dotenv.config();
+
+// --- PRE-INITIALIZATION ---
+// Set environment variables BEFORE any imports that might trigger side-effects
+process.env.OM_TIER = "hybrid";
+// Set both PORT and OM_PORT to 0 to avoid EADDRINUSE if the SDK tries to start its own server
+process.env.PORT = "0";
+process.env.OM_PORT = "0";
+
+// Redirect all stdout to stderr IMMEDIATELY to protect Stdio protocol
+const originalStdoutWrite = process.stdout.write.bind(process.stdout);
+(process.stdout as any).write = (chunk: any, encoding: any, callback: any) => {
+  const str = typeof chunk === "string" ? chunk : chunk.toString();
+  // Allow ONLY protocol messages (must be JSON-RPC)
+  if (str.includes('"jsonrpc":')) {
+    return originalStdoutWrite(chunk, encoding, callback);
+  }
+  return process.stderr.write(chunk, encoding, callback);
+};
+
+// Also redirect console outputs
+console.log = console.error;
+console.info = console.error;
 
 // Async Storage for Request Context (User ID from headers)
 const requestContext = new AsyncLocalStorage<{ userId?: string }>();
@@ -63,7 +84,7 @@ PROTOCOL:
 For full protocol: https://docs.cybermem.dev/agent-protocol`;
 
   const server = new McpServer(
-    { name: "cybermem", version: "0.8.2" },
+    { name: "cybermem", version: "0.7.0" },
     {
       instructions: CYBERMEM_INSTRUCTIONS,
     },
@@ -86,7 +107,7 @@ For full protocol: https://docs.cybermem.dev/agent-protocol`;
 
   // --- IMPLEMENTATION LOGIC ---
 
-  let memory: Memory | null = null;
+  let memory: any = null;
   let apiClient: any = null;
 
   if (cliUrl) {
@@ -102,21 +123,143 @@ For full protocol: https://docs.cybermem.dev/agent-protocol`;
   } else {
     // LOCAL SDK MODE
     const homedir = process.env.HOME || process.env.USERPROFILE || "";
-    // Default to ~/.cybermem/data if OM_DB_PATH not set
-    if (!process.env.OM_DB_PATH) {
-      process.env.OM_DB_PATH = `${homedir}/.cybermem/data/openmemory.sqlite`;
-    }
+    // FORCE absolute standardized path for consistency across components
+    const path = await import("path");
+    const dbPath = path.resolve(homedir, ".cybermem/data/openmemory.sqlite");
+    process.env.OM_DB_PATH = dbPath;
 
     // Ensure directory exists
-    const fs = require("fs");
+    const fs = await import("fs");
     try {
-      const dbPath = process.env.OM_DB_PATH;
-      const dir = dbPath.substring(0, dbPath.lastIndexOf("/"));
+      const dir = path.dirname(dbPath);
       if (dir) fs.mkdirSync(dir, { recursive: true });
     } catch {}
 
-    memory = new Memory();
+    try {
+      // Dynamic import to ensure env vars are set before loading SDK
+      // We import from dist/core/memory directly to avoid triggering the server side-effects in openmemory-js/dist/index.js
+      // @ts-ignore
+      const { Memory } = await import("openmemory-js/dist/core/memory.js");
+      memory = new Memory();
+      (server as any)._memoryReady = true;
+
+      // --- INITIALIZE LOGGING TABLES ---
+      const sqlite3 = await import("sqlite3");
+      const db = new sqlite3.default.Database(dbPath);
+      db.configure("busyTimeout", 5000);
+      db.serialize(() => {
+        db.run("PRAGMA journal_mode=WAL;", (err: any) => {
+          if (err) console.error("[MCP] Init WAL error:", err.message);
+        });
+        db.run(
+          `CREATE TABLE IF NOT EXISTS cybermem_stats (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            client_name TEXT NOT NULL,
+            operation TEXT NOT NULL,
+            count INTEGER DEFAULT 0,
+            errors INTEGER DEFAULT 0,
+            last_updated INTEGER NOT NULL,
+            UNIQUE(client_name, operation)
+        );`,
+          (err: any) => {
+            if (err)
+              console.error("[MCP] Init stats table error:", err.message);
+          },
+        );
+        db.run(
+          `CREATE TABLE IF NOT EXISTS cybermem_access_log (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            timestamp INTEGER NOT NULL,
+            client_name TEXT NOT NULL,
+            client_version TEXT,
+            method TEXT NOT NULL,
+            endpoint TEXT NOT NULL,
+            operation TEXT NOT NULL,
+            status TEXT NOT NULL,
+            is_error INTEGER DEFAULT 0
+        );`,
+          (err: any) => {
+            if (err)
+              console.error("[MCP] Init access_log table error:", err.message);
+          },
+        );
+      });
+      db.close();
+    } catch (e) {
+      console.error("Failed to initialize OpenMemory SDK:", e);
+      (server as any)._memoryReady = false;
+    }
   }
+
+  // Helper to log activity to SQLite (Local SDK Mode only)
+  const logActivity = async (
+    operation: string,
+    client: string,
+    method: string = "POST",
+    endpoint: string = "/mcp",
+    status: number = 200,
+  ) => {
+    if (cliUrl || !memory) return;
+
+    try {
+      const dbPath = process.env.OM_DB_PATH!;
+      const sqlite3 = await import("sqlite3");
+      const db = new sqlite3.default.Database(dbPath);
+      db.configure("busyTimeout", 5000);
+
+      const ts = Date.now();
+      const is_error = status >= 400 ? 1 : 0;
+
+      // Ensure 'antigravity' client names are consistent in the DB for the dashboard
+      const normalizedClient = client.toLowerCase().includes("antigravity")
+        ? "Antigravity"
+        : client;
+
+      console.error(
+        `[MCP] Logging ${operation} for ${normalizedClient} (status: ${status})`,
+      );
+
+      db.serialize(() => {
+        // Log to access_log
+        db.run(
+          `INSERT INTO cybermem_access_log
+          (timestamp, client_name, client_version, method, endpoint, operation, status, is_error)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+          [
+            ts,
+            normalizedClient,
+            "0.7.0",
+            method,
+            endpoint,
+            operation,
+            status.toString(),
+            is_error,
+          ],
+          (err: any) => {
+            if (err) console.error("[MCP] Log access error:", err.message);
+          },
+        );
+
+        // Log to stats (Upsert)
+        db.run(
+          `INSERT INTO cybermem_stats (client_name, operation, count, errors, last_updated)
+          VALUES (?, ?, 1, ?, ?)
+          ON CONFLICT(client_name, operation) DO UPDATE SET
+            count = count + 1,
+            errors = errors + ?,
+            last_updated = ?`,
+          [normalizedClient, operation, is_error, ts, is_error, ts],
+          (err: any) => {
+            if (err) console.error("[MCP] Log stats error:", err.message);
+          },
+        );
+      });
+
+      db.close();
+    } catch (e) {
+      console.error("Failed to log activity to SQLite:", e);
+    }
+  };
 
   // Helper to add source tag
   const addSourceTag = (tags: string[] = []) => {
@@ -155,11 +298,29 @@ For full protocol: https://docs.cybermem.dev/agent-protocol`;
         });
         return { content: [{ type: "text", text: JSON.stringify(res.data) }] };
       } else {
-        const res = await memory!.add(args.content, {
-          user_id: userId,
-          tags,
-        });
-        return { content: [{ type: "text", text: JSON.stringify(res) }] };
+        try {
+          const res = await memory!.add(args.content, {
+            user_id: userId,
+            tags,
+          });
+          await logActivity(
+            "create",
+            cliClientName,
+            "POST",
+            "/memory/add",
+            200,
+          );
+          return { content: [{ type: "text", text: JSON.stringify(res) }] };
+        } catch (e: any) {
+          await logActivity(
+            "create",
+            cliClientName,
+            "POST",
+            "/memory/add",
+            500,
+          );
+          throw e;
+        }
       }
     },
   );
@@ -174,17 +335,32 @@ For full protocol: https://docs.cybermem.dev/agent-protocol`;
       const userId = getContextUserId(); // Search is scoped to user if provided
 
       if (cliUrl) {
-        // Pass user_id if supported by remote API, mostly determined by token there
         const res = await apiClient.post("/query", args);
         return { content: [{ type: "text", text: JSON.stringify(res.data) }] };
       } else {
-        // SDK supports user_id filter? Memory.search(query, options)
-        // Check openmemory-js docs/types. Assuming `user_id` in options.
-        const res = await memory!.search(args.query, {
-          limit: args.k,
-          user_id: userId,
-        });
-        return { content: [{ type: "text", text: JSON.stringify(res) }] };
+        try {
+          const res = await memory!.search(args.query, {
+            limit: args.k,
+            user_id: userId,
+          });
+          await logActivity(
+            "read",
+            cliClientName,
+            "POST",
+            "/memory/query",
+            200,
+          );
+          return { content: [{ type: "text", text: JSON.stringify(res) }] };
+        } catch (e: any) {
+          await logActivity(
+            "read",
+            cliClientName,
+            "POST",
+            "/memory/query",
+            500,
+          );
+          throw e;
+        }
       }
     },
   );
@@ -199,8 +375,6 @@ For full protocol: https://docs.cybermem.dev/agent-protocol`;
       const userId = getContextUserId();
 
       if (cliUrl) {
-        // Fallback to /query with empty string if /list not available, or use /all
-        // Old API had /all
         try {
           const res = await apiClient.get(`/all?limit=${args.limit}`);
           return {
@@ -220,6 +394,7 @@ For full protocol: https://docs.cybermem.dev/agent-protocol`;
           limit: args.limit,
           user_id: userId,
         });
+        await logActivity("read", cliClientName, "GET", "/memory/all", 200);
         return { content: [{ type: "text", text: JSON.stringify(res) }] };
       }
     },
@@ -236,9 +411,13 @@ For full protocol: https://docs.cybermem.dev/agent-protocol`;
         const res = await apiClient.delete(`/${args.id}`);
         return { content: [{ type: "text", text: JSON.stringify(res.data) }] };
       } else {
-        // SDK should support delete. Assuming memory.delete(id)
-        // Check if openmemory-js has delete. It might not based on original code saying "not implemented in SDK yet".
-        // If not implemented, we can't do much.
+        await logActivity(
+          "delete",
+          cliClientName,
+          "DELETE",
+          `/memory/${args.id}`,
+          501,
+        );
         return {
           content: [
             { type: "text", text: "Delete not implemented in SDK yet" },
@@ -255,6 +434,13 @@ For full protocol: https://docs.cybermem.dev/agent-protocol`;
       inputSchema: z.object({ id: z.string(), content: z.string().optional() }),
     },
     async (args: any) => {
+      await logActivity(
+        "update",
+        cliClientName,
+        "PATCH",
+        `/memory/${args.id}`,
+        501,
+      );
       return { content: [{ type: "text", text: "Update not implemented" }] };
     },
   );
@@ -270,10 +456,65 @@ For full protocol: https://docs.cybermem.dev/agent-protocol`;
     app.use(express.json());
 
     app.get("/health", (req: express.Request, res: express.Response) =>
-      res.json({ ok: true, version: "0.8.2", mode: cliUrl ? "proxy" : "sdk" }),
+      res.json({
+        ok: (server as any)._memoryReady,
+        version: "0.7.0",
+        mode: cliUrl ? "proxy" : "sdk",
+        ready: (server as any)._memoryReady,
+      }),
     );
 
-    // Middleware to extract context
+    app.get("/metrics", async (req: express.Request, res: express.Response) => {
+      try {
+        const dbPath = process.env.OM_DB_PATH!;
+        const sqlite3 = await import("sqlite3");
+        const db = new sqlite3.default.Database(dbPath);
+        db.configure("busyTimeout", 5000);
+
+        const getCount = (query: string): Promise<number> =>
+          new Promise((resolve) =>
+            db.get(query, (err, row: any) => resolve(row?.count || 0)),
+          );
+
+        const memoriesCount = await getCount(
+          "SELECT COUNT(*) as count FROM memories",
+        );
+        const totalRequests = await getCount(
+          "SELECT COUNT(*) as count FROM cybermem_access_log",
+        );
+        const errorRequests = await getCount(
+          "SELECT COUNT(*) as count FROM cybermem_access_log WHERE is_error = 1",
+        );
+        const uniqueClients = await getCount(
+          "SELECT COUNT(DISTINCT client_name) as count FROM cybermem_access_log",
+        );
+
+        db.close();
+
+        const metrics = [
+          "# HELP openmemory_memories_total Total number of memories",
+          "# TYPE openmemory_memories_total gauge",
+          `openmemory_memories_total ${memoriesCount}`,
+          "# HELP openmemory_requests_aggregate_total Total requests logged in SQLite",
+          "# TYPE openmemory_requests_aggregate_total counter",
+          `openmemory_requests_aggregate_total ${totalRequests}`,
+          "# HELP openmemory_errors_total Total errors logged in SQLite",
+          "# TYPE openmemory_errors_total counter",
+          `openmemory_errors_total ${errorRequests}`,
+          "# HELP openmemory_clients_total Total unique clients logged in SQLite",
+          "# TYPE openmemory_clients_total gauge",
+          `openmemory_clients_total ${uniqueClients}`,
+          "# HELP openmemory_success_rate_aggregate Success rate from SQLite logs",
+          "# TYPE openmemory_success_rate_aggregate gauge",
+          `openmemory_success_rate_aggregate ${totalRequests > 0 ? ((totalRequests - errorRequests) / totalRequests) * 100 : 100}`,
+        ].join("\n");
+
+        res.set("Content-Type", "text/plain").send(metrics);
+      } catch (e: any) {
+        res.status(500).send(`# Error: ${e.message}`);
+      }
+    });
+
     app.use(
       (
         req: express.Request,
@@ -285,12 +526,9 @@ For full protocol: https://docs.cybermem.dev/agent-protocol`;
       },
     );
 
-    // REST API Compatibility (for Remote Clients)
-    // Only enable if in SDK mode (Server)
     if (!cliUrl && memory) {
       app.post("/add", async (req: express.Request, res: express.Response) => {
         try {
-          // Use context from headers if available
           const contextUserId = requestContext.getStore()?.userId;
           const { content, user_id, tags } = req.body;
           const finalTags = addSourceTag(tags);
@@ -298,8 +536,10 @@ For full protocol: https://docs.cybermem.dev/agent-protocol`;
             user_id: user_id || contextUserId,
             tags: finalTags,
           });
+          await logActivity("create", "rest-api", "POST", "/add", 200);
           res.json(result);
         } catch (e: any) {
+          await logActivity("create", "rest-api", "POST", "/add", 500);
           res.status(500).json({ error: e.message });
         }
       });
@@ -314,8 +554,10 @@ For full protocol: https://docs.cybermem.dev/agent-protocol`;
               limit: k || 5,
               user_id: contextUserId,
             });
+            await logActivity("read", "rest-api", "POST", "/query", 200);
             res.json(result);
           } catch (e: any) {
+            await logActivity("read", "rest-api", "POST", "/query", 500);
             res.status(500).json({ error: e.message });
           }
         },
@@ -329,8 +571,10 @@ For full protocol: https://docs.cybermem.dev/agent-protocol`;
             limit,
             user_id: contextUserId,
           });
+          await logActivity("read", "rest-api", "GET", "/all", 200);
           res.json(result);
         } catch (e: any) {
+          await logActivity("read", "rest-api", "GET", "/all", 500);
           res.status(500).json({ error: e.message });
         }
       });
@@ -339,10 +583,6 @@ For full protocol: https://docs.cybermem.dev/agent-protocol`;
     const transport = new StreamableHTTPServerTransport({
       sessionIdGenerator: () => crypto.randomUUID(),
     });
-
-    // Explicitly handle requests within the context via app usage above
-    // The middleware 'requestContext.run' wraps 'next()'.
-    // Since 'app.all' is a handler *after* middleware, it runs inside the context.
 
     app.all(
       "/mcp",
@@ -357,7 +597,9 @@ For full protocol: https://docs.cybermem.dev/agent-protocol`;
 
     server.connect(transport).then(() => {
       app.listen(port, () => {
-        console.log(`CyberMem MCP running on http://localhost:${port}`);
+        console.error(
+          `CyberMem MCP (ready: ${(server as any)._memoryReady}) running on http://localhost:${port}`,
+        );
       });
     });
   } else {
