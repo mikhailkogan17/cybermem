@@ -300,12 +300,10 @@ Do NOT use prometheus mocks, stubs
 The dashboard tracks MCP client activity through db-exporter (SQLite) and visualizes it via the Metrics API.
 
 > [!IMPORTANT]
-> **Dashboard uses a Hybrid Metrics Strategy:**
+> **Dashboard uses SQLite as the Single Source of Truth (SSoT):**
 >
-> - **Stat Cards** (Success Rate, Total Requests): SQLite (db-exporter) as single source of truth.
-> - **Time Series Charts**:
->   - **Prometheus (Primary)**: Fetches `query_range` if Prometheus (9092) is up.
->   - **Beautiful Linear Sampling (SQLite Fallback)**: If Prometheus is down, the Dashboard implements a "Grafana-on-SQLite" algorithm that generates perfectly linear, zero-filled sampling (60 points/chart) to ensure smooth visualization even in lite mode.
+> - **Stat Cards** (Success Rate, Total Requests): SQLite directly.
+> - **Time Series Charts**: The Dashboard implements a **Beautiful Linear Sampling** ("Grafana-on-SQLite") algorithm that generates perfectly linear, zero-filled sampling (60 points/chart) to ensure smooth visualization without needing external metrics servers like Prometheus.
 
 **All metrics from db-exporter (SQLite):**
 

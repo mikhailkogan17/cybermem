@@ -249,157 +249,26 @@ export async function GET(request: Request) {
 
     clearTimeout(timeoutId);
 
-    // --- PROMETHEUS FETCHING ---
-    const fetchProm = async (query: string) => {
-      try {
-        const res = await fetch(
-          `${PROMETHEUS_URL}/api/v1/query?query=${encodeURIComponent(query)}`,
-          { cache: "no-store", signal: controller.signal },
-        );
-        if (!res.ok) return null;
-        const json = await res.json();
-        return json.data?.result?.[0]?.value?.[1];
-      } catch (e) {
-        return null;
-      }
-    };
-
-    const fetchPromRange = async (
-      query: string,
-      start: number,
-      end: number,
-      step: number,
-    ) => {
-      try {
-        const url = `${PROMETHEUS_URL}/api/v1/query_range?query=${encodeURIComponent(query)}&start=${start / 1000}&end=${end / 1000}&step=${step}`;
-        const res = await fetch(url, {
-          cache: "no-store",
-          signal: controller.signal,
-        });
-        if (!res.ok) return null;
-        const json = await res.json();
-        return json.data?.result || [];
-      } catch (e) {
-        return null;
-      }
-    };
-
-    // Parallel fetch of Instant stats AND Range stats
-    const [
-      promMemories,
-      promClients,
-      promRequests,
-      promSuccess,
-      promSeriesCreates,
-      promSeriesReads,
-      promSeriesUpdates,
-      promSeriesDeletes,
-    ] = await Promise.all([
-      fetchProm("openmemory_memories_total"),
-      fetchProm("count(count by(client_name) (openmemory_requests_total))"),
-      fetchProm("openmemory_requests_aggregate_total"),
-      fetchProm("openmemory_success_rate_aggregate"),
-      // Range queries (step calculated based on period)
-      fetchPromRange(
-        'sum(increase(cybermem_access_log_total{operation="create"}[5m])) by (client_name)',
-        Date.now() - (period === "24h" ? 86400000 : 604800000),
-        Date.now(),
-        period === "24h" ? 1800 : 7200, // 30m or 2h steps
-      ),
-      fetchPromRange(
-        'sum(increase(cybermem_access_log_total{operation="read"}[5m])) by (client_name)',
-        Date.now() - (period === "24h" ? 86400000 : 604800000),
-        Date.now(),
-        period === "24h" ? 1800 : 7200,
-      ),
-      fetchPromRange(
-        'sum(increase(cybermem_access_log_total{operation="update"}[5m])) by (client_name)',
-        Date.now() - (period === "24h" ? 86400000 : 604800000),
-        Date.now(),
-        period === "24h" ? 1800 : 7200,
-      ),
-      fetchPromRange(
-        'sum(increase(cybermem_access_log_total{operation="delete"}[5m])) by (client_name)',
-        Date.now() - (period === "24h" ? 86400000 : 604800000),
-        Date.now(),
-        period === "24h" ? 1800 : 7200,
-      ),
-    ]);
-
-    // Process Prometheus Range Data into Chart Format
-    const processPromSeries = (promResult: any[]) => {
-      if (!promResult || promResult.length === 0) return null;
-
-      // Map mapping timestamp -> { client: value }
-      const timeMap = new Map<number, any>();
-
-      promResult.forEach((series: any) => {
-        const client = series.metric.client_name || "Unknown";
-        series.values.forEach(([time, val]: any[]) => {
-          const t = time; // Prometheus time is already seconds
-          if (!timeMap.has(t)) timeMap.set(t, { time: t });
-          const entry = timeMap.get(t);
-          entry[client] = (entry[client] || 0) + parseFloat(val);
-        });
-      });
-
-      return Array.from(timeMap.values()).sort((a, b) => a.time - b.time);
-    };
-
-    // Override SQLite timeseries if Prometheus data is available
-    if (promSeriesCreates)
-      timeseries.creates =
-        processPromSeries(promSeriesCreates) || timeseries.creates;
-    if (promSeriesReads)
-      timeseries.reads = processPromSeries(promSeriesReads) || timeseries.reads;
-    if (promSeriesUpdates)
-      timeseries.updates =
-        processPromSeries(promSeriesUpdates) || timeseries.updates;
-    if (promSeriesDeletes)
-      timeseries.deletes =
-        processPromSeries(promSeriesDeletes) || timeseries.deletes;
-
-    // Normalize stats with explicit metrics logic
-    // We prioritize SQLite (stats) for activity, and Prometheus for total records if available
-    const normalizedStats = {
-      memoryRecords: Math.max(
-        stats.memoryRecords,
-        promMemories ? parseInt(promMemories) : 0,
-      ),
-      totalClients: Math.max(
-        stats.totalClients,
-        promClients ? parseInt(promClients) : 0,
-      ),
-      successRate:
-        stats.totalRequests > 0
-          ? stats.successRate
-          : promSuccess
-            ? parseFloat(promSuccess)
-            : 100,
-      totalRequests: Math.max(
-        stats.totalRequests,
-        promRequests ? parseInt(promRequests) : 0,
-      ),
-      topWriter: {
-        name: normalizeClientName(stats.topWriter?.name || "N/A"),
-        count: stats.topWriter?.count || 0,
-      },
-      topReader: {
-        name: normalizeClientName(stats.topReader?.name || "N/A"),
-        count: stats.topReader?.count || 0,
-      },
-      lastWriter: {
-        name: normalizeClientName(stats.lastWriter?.name || "N/A"),
-        timestamp: stats.lastWriter?.timestamp || 0,
-      },
-      lastReader: {
-        name: normalizeClientName(stats.lastReader?.name || "N/A"),
-        timestamp: stats.lastReader?.timestamp || 0,
-      },
-    };
-
     return NextResponse.json({
-      stats: normalizedStats,
+      stats: {
+        ...stats,
+        topWriter: {
+          name: normalizeClientName(stats.topWriter?.name || "N/A"),
+          count: stats.topWriter?.count || 0,
+        },
+        topReader: {
+          name: normalizeClientName(stats.topReader?.name || "N/A"),
+          count: stats.topReader?.count || 0,
+        },
+        lastWriter: {
+          name: normalizeClientName(stats.lastWriter?.name || "N/A"),
+          timestamp: stats.lastWriter?.timestamp || 0,
+        },
+        lastReader: {
+          name: normalizeClientName(stats.lastReader?.name || "N/A"),
+          timestamp: stats.lastReader?.timestamp || 0,
+        },
+      },
       timeSeries: {
         creates: normalizeTimeSeries(timeseries.creates || []),
         reads: normalizeTimeSeries(timeseries.reads || []),
