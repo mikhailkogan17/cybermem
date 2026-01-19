@@ -153,18 +153,86 @@ export async function GET(request: Request) {
             count: topReader.count,
           };
 
-        // --- TIME SERIES AGGREGATION (Prometheus ONLY) ---
-        // As requested: "only via Prometheus" to ensure data integrity and proper scaling.
-        // SQLite is used for Stat Cards and Audit Logs only.
-
-        timeseries.creates = [];
-        timeseries.reads = [];
-        timeseries.updates = [];
-        timeseries.deletes = [];
+        // --- TIME SERIES AGGREGATION (Robust Linear Sampling) ---
+        const periodMs =
+          period === "24h" ? 24 * 60 * 60 * 1000 : 7 * 24 * 60 * 60 * 1000;
+        const now = Date.now();
+        const startTime = now - periodMs;
 
         console.error(
-          `[STATS-API] SQLite Stats processed. Time series deferred to Prometheus.`,
+          `[STATS-API] Fetching cumulative chart data since ${new Date(startTime).toISOString()}`,
         );
+
+        // Get all logs in period
+        const allLogs = await db.all(
+          `
+          SELECT timestamp, operation, client_name
+          FROM cybermem_access_log
+          WHERE timestamp > ?
+          ORDER BY timestamp ASC
+        `,
+          [startTime],
+        );
+
+        // Get base counts (before startTime) to start the cumulative graph correctly
+        const baseCounts = await db.all(
+          `
+          SELECT operation, client_name, COUNT(*) as count
+          FROM cybermem_access_log
+          WHERE timestamp <= ?
+          GROUP BY 1, 2
+        `,
+          [startTime],
+        );
+
+        const buildBeautifulSeries = (targetOp: string) => {
+          const clientTotals: Record<string, number> = {};
+
+          // 1. Initialize with base counts
+          baseCounts
+            .filter((b: any) => b.operation === targetOp)
+            .forEach((b: any) => {
+              clientTotals[b.client_name] = b.count;
+            });
+
+          const series: any[] = [];
+          const opLogs = allLogs.filter((l: any) => l.operation === targetOp);
+
+          // 2. Linear Sampling (60 points)
+          const SAMPLES = 60;
+          const interval = (now - startTime) / SAMPLES;
+          let currentLogIdx = 0;
+
+          for (let i = 0; i <= SAMPLES; i++) {
+            const timePoint = startTime + i * interval;
+
+            // Catch up logs that happened before this timePoint
+            while (
+              currentLogIdx < opLogs.length &&
+              opLogs[currentLogIdx].timestamp <= timePoint
+            ) {
+              const log = opLogs[currentLogIdx];
+              clientTotals[log.client_name] =
+                (clientTotals[log.client_name] || 0) + 1;
+              currentLogIdx++;
+            }
+
+            // Record state at this exact linear time point
+            series.push({
+              time: Math.floor(timePoint / 1000),
+              ...clientTotals,
+            });
+          }
+
+          return series;
+        };
+
+        timeseries.creates = buildBeautifulSeries("create");
+        timeseries.reads = buildBeautifulSeries("read");
+        timeseries.updates = buildBeautifulSeries("update");
+        timeseries.deletes = buildBeautifulSeries("delete");
+
+        console.error(`[STATS-API] SQLite Stats & Beautiful Charts processed.`);
 
         await db.close();
       } catch (dbErr) {
