@@ -33,11 +33,12 @@ services:
       context: ../../mcp
       dockerfile: Dockerfile
     image: ghcr.io/mikhailkogan17/cybermem-mcp:latest
+    platform: linux/arm64
     restart: unless-stopped
     container_name: cybermem-mcp
     environment:
       OM_TIER: "hybrid"
-      PORT: "0"
+      PORT: "8080"
       OM_PORT: "0"
       OM_DB_PATH: /data/openmemory.sqlite
     volumes:
@@ -149,6 +150,7 @@ services:
 
   dashboard:
     image: ghcr.io/mikhailkogan17/cybermem-dashboard:latest
+    platform: linux/arm64
     container_name: cybermem-dashboard
     environment:
       DB_EXPORTER_URL: http://db-exporter:8000
