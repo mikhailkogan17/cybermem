@@ -158,11 +158,12 @@ services:
       DB_EXPORTER_URL: http://db-exporter:8000
       # Required for Health Check to find the MCP API internally
       CYBERMEM_URL: http://mcp-server:8080
+      OM_DB_PATH: /data/openmemory.sqlite
       OM_API_KEY: ${OM_API_KEY:-dev-secret-key}
     ports:
       - "3000:3000"
     volumes:
-      - openmemory-data:/data
+      - ${HOME}/.cybermem/data:/data
       - /var/run/docker.sock:/var/run/docker.sock
       - ${CYBERMEM_ENV_PATH:-${HOME}/.cybermem/.env}:/app/shared.env
     labels:

@@ -1,5 +1,10 @@
 #!/usr/bin/env node
 "use strict";
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
+Object.defineProperty(exports, "__esModule", { value: true });
+require("./env.js");
 /**
  * CyberMem MCP Server
  *
@@ -7,10 +12,6 @@
  * 1. Local/Server Mode (default): Uses openmemory-js SDK directly.
  * 2. Remote Client Mode (with --url): Proxies requests to a remote CyberMem server via HTTP.
  */
-var __importDefault = (this && this.__importDefault) || function (mod) {
-    return (mod && mod.__esModule) ? mod : { "default": mod };
-};
-Object.defineProperty(exports, "__esModule", { value: true });
 const mcp_js_1 = require("@modelcontextprotocol/sdk/server/mcp.js");
 const stdio_js_1 = require("@modelcontextprotocol/sdk/server/stdio.js");
 const streamableHttp_js_1 = require("@modelcontextprotocol/sdk/server/streamableHttp.js");
@@ -18,15 +19,9 @@ const types_js_1 = require("@modelcontextprotocol/sdk/types.js");
 const async_hooks_1 = require("async_hooks");
 const axios_1 = __importDefault(require("axios"));
 const cors_1 = __importDefault(require("cors"));
-const dotenv_1 = __importDefault(require("dotenv"));
 const express_1 = __importDefault(require("express"));
 const zod_1 = require("zod");
 const auth_1 = require("./auth");
-dotenv_1.default.config();
-// --- PRE-INITIALIZATION ---
-// Set environment variables BEFORE any imports that might trigger side-effects
-process.env.OM_TIER = "hybrid";
-// We'll set ports to 0 only when needed later
 // Redirect all stdout to stderr IMMEDIATELY to protect Stdio protocol
 const originalStdoutWrite = process.stdout.write.bind(process.stdout);
 process.stdout.write = (chunk, encoding, callback) => {
@@ -129,9 +124,6 @@ For full protocol: https://docs.cybermem.dev/agent-protocol`;
     }
     else {
         // LOCAL SDK MODE
-        // Set internal ports to 0 to prevent SDK from starting its own server
-        process.env.PORT = "0";
-        process.env.OM_PORT = "0";
         const homedir = process.env.HOME || process.env.USERPROFILE || "";
         // FORCE absolute standardized path for consistency across components
         const path = await import("path");

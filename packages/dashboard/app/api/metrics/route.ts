@@ -241,7 +241,32 @@ export async function GET(request: Request) {
 
         await db.close();
       } catch (dbErr) {
-        console.error("[STATS-API] Direct SQLite metrics fetch failed:", dbErr);
+        console.error(
+          "[STATS-API] Direct SQLite metrics fetch failed, trying db-exporter fallback:",
+          dbErr,
+        );
+        try {
+          const exporterRes = await fetch(`${DB_EXPORTER_URL}/metrics`, {
+            signal: controller.signal,
+          });
+          if (exporterRes.ok) {
+            const text = await exporterRes.text();
+            const getValue = (name: string) => {
+              const match = text.match(new RegExp(`${name}\\s+([\\d.]+)`));
+              return match ? parseFloat(match[1]) : 0;
+            };
+            stats.memoryRecords = getValue("openmemory_memories_total");
+            stats.totalRequests = getValue(
+              "openmemory_requests_aggregate_total",
+            );
+            stats.successRate = getValue("openmemory_success_rate_aggregate");
+            console.error(
+              `[STATS-API] Fallback stats from db-exporter: ${stats.totalRequests} total requests`,
+            );
+          }
+        } catch (exporterErr) {
+          console.error("[STATS-API] Fallback fetch failed:", exporterErr);
+        }
       }
     } else {
       console.error(`[STATS-API] SQLite DB NOT FOUND at ${dbPath}`);

@@ -3,7 +3,7 @@ FROM node:20-alpine AS base
 WORKDIR /app
 
 # Use corepack to get the pnpm version from the lockfile and speed up installs via cache
-RUN corepack enable
+RUN corepack enable && apk add --no-cache python3 make g++
 
 # Copy package files
 COPY package*.json ./
@@ -28,6 +28,7 @@ RUN --mount=type=cache,target=/root/.pnpm-store \
 
 # Production stage
 FROM node:20-alpine AS production
+RUN apk add --no-cache libc6-compat
 WORKDIR /app
 
 ENV NODE_ENV=production

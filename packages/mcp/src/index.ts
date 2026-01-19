@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import "./env.js";
 /**
  * CyberMem MCP Server
  *
@@ -14,17 +15,9 @@ import { InitializeRequestSchema } from "@modelcontextprotocol/sdk/types.js";
 import { AsyncLocalStorage } from "async_hooks";
 import axios from "axios";
 import cors from "cors";
-import dotenv from "dotenv";
 import express from "express";
 import { z } from "zod";
 import { login, logout, showStatus } from "./auth";
-
-dotenv.config();
-
-// --- PRE-INITIALIZATION ---
-// Set environment variables BEFORE any imports that might trigger side-effects
-process.env.OM_TIER = "hybrid";
-// We'll set ports to 0 only when needed later
 
 // Redirect all stdout to stderr IMMEDIATELY to protect Stdio protocol
 const originalStdoutWrite = process.stdout.write.bind(process.stdout);
@@ -148,10 +141,6 @@ For full protocol: https://docs.cybermem.dev/agent-protocol`;
     });
   } else {
     // LOCAL SDK MODE
-    // Set internal ports to 0 to prevent SDK from starting its own server
-    process.env.PORT = "0";
-    process.env.OM_PORT = "0";
-
     const homedir = process.env.HOME || process.env.USERPROFILE || "";
     // FORCE absolute standardized path for consistency across components
     const path = await import("path");
