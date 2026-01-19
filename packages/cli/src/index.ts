@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import { Command } from "commander";
 import { backup } from "./commands/backup";
+import { dashboard } from "./commands/dashboard";
 import { init } from "./commands/init";
 import { login } from "./commands/login";
 import { reset } from "./commands/reset";
@@ -57,5 +58,10 @@ program
   .command("reset")
   .description("Reset (wipe) the CyberMem database - DESTRUCTIVE!")
   .action(reset);
+
+program
+  .command("dashboard")
+  .description("Open the CyberMem dashboard and check stack status")
+  .action(dashboard);
 
 program.parse(process.argv);

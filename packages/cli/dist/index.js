@@ -3,6 +3,7 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 const commander_1 = require("commander");
 const backup_1 = require("./commands/backup");
+const dashboard_1 = require("./commands/dashboard");
 const init_1 = require("./commands/init");
 const login_1 = require("./commands/login");
 const reset_1 = require("./commands/reset");
@@ -48,4 +49,8 @@ program
     .command("reset")
     .description("Reset (wipe) the CyberMem database - DESTRUCTIVE!")
     .action(reset_1.reset);
+program
+    .command("dashboard")
+    .description("Open the CyberMem dashboard and check stack status")
+    .action(dashboard_1.dashboard);
 program.parse(process.argv);

@@ -38,10 +38,12 @@
 
 ### 4. CRUD Happy Path
 
-- [ ] `add_memory` (3 items) successful via Antigravity MCP
-- [ ] `query_memory` returns expected results
-- [ ] `list_memories` shows recent notes
-- [ ] Audit Log table correctly lists 3 operations with normalized client names
+- [x] `add_memory` (3 items) successful via Antigravity MCP
+- [x] `query_memory` returns expected results
+- [x] `list_memories` shows recent notes
+- [x] **[NEW]** `delete_memory` implemented (Direct SQLite) and verified via build
+- [x] Audit Log table correctly lists 3 operations with normalized client names
+- [x] **[NEW]** Time Series Charts: Fixed "uneven scale" (Linear Sampling) & Added Prometheus Support
 
 ---
 

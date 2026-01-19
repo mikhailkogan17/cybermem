@@ -123,11 +123,16 @@ def collect_metrics():
             FROM memories
             GROUP BY user_id
         """)
-        for row in cursor.fetchall():
-            client = row["client"] or "anonymous"
-            memories_total.labels(client=client).set(row["count"])
+        rows = cursor.fetchall()
+        if not rows:
+            # Emit a default anonymous:0 if no data
+            memories_total.labels(client="anonymous").set(0)
+        else:
+            for row in rows:
+                client = row["client"] or "anonymous"
+                memories_total.labels(client=client).set(row["count"])
 
-        logger.debug(f"Collected total memories for {cursor.rowcount} clients")
+        logger.debug(f"Collected total memories for {len(rows)} clients")
 
         # Metric 2: Recent memories (24h)
         # Note: created_at is stored as milliseconds since epoch

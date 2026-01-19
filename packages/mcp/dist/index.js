@@ -329,12 +329,36 @@ For full protocol: https://docs.cybermem.dev/agent-protocol`;
             return { content: [{ type: "text", text: JSON.stringify(res.data) }] };
         }
         else {
-            await logActivity("delete", cliClientName, "DELETE", `/memory/${args.id}`, 501);
-            return {
-                content: [
-                    { type: "text", text: "Delete not implemented in SDK yet" },
-                ],
-            };
+            const dbPath = process.env.OM_DB_PATH;
+            const sqlite3 = await import("sqlite3");
+            const db = new sqlite3.default.Database(dbPath);
+            db.configure("busyTimeout", 5000);
+            return new Promise((resolve, reject) => {
+                db.serialize(() => {
+                    db.run("BEGIN TRANSACTION");
+                    db.run("DELETE FROM memories WHERE id = ?", [args.id]);
+                    db.run("DELETE FROM vectors WHERE id = ?", [args.id]);
+                    db.run("DELETE FROM waypoints WHERE src_id = ? OR dst_id = ?", [
+                        args.id,
+                        args.id,
+                    ]);
+                    db.run("COMMIT", async (err) => {
+                        db.close();
+                        if (err) {
+                            await logActivity("delete", cliClientName, "DELETE", `/memory/${args.id}`, 500);
+                            reject(new Error(`Failed to delete memory ${args.id}: ${err.message}`));
+                        }
+                        else {
+                            await logActivity("delete", cliClientName, "DELETE", `/memory/${args.id}`, 200);
+                            resolve({
+                                content: [
+                                    { type: "text", text: `Memory ${args.id} deleted` },
+                                ],
+                            });
+                        }
+                    });
+                });
+            });
         }
     });
     server.registerTool("update_memory", {

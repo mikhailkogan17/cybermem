@@ -153,84 +153,17 @@ export async function GET(request: Request) {
             count: topReader.count,
           };
 
-        // --- TIME SERIES AGGREGATION (SQLite) - Cumulative "Total" style ---
-        const periodMs =
-          period === "24h" ? 24 * 60 * 60 * 1000 : 7 * 24 * 60 * 60 * 1000;
-        const now = Date.now();
-        const startTime = now - periodMs;
+        // --- TIME SERIES AGGREGATION (Prometheus ONLY) ---
+        // As requested: "only via Prometheus" to ensure data integrity and proper scaling.
+        // SQLite is used for Stat Cards and Audit Logs only.
+
+        timeseries.creates = [];
+        timeseries.reads = [];
+        timeseries.updates = [];
+        timeseries.deletes = [];
 
         console.error(
-          `[STATS-API] Fetching cumulative chart data since ${new Date(startTime).toISOString()}`,
-        );
-
-        // Get all logs in period
-        const allLogs = await db.all(
-          `
-          SELECT timestamp, operation, client_name
-          FROM cybermem_access_log
-          WHERE timestamp > ?
-          ORDER BY timestamp ASC
-        `,
-          [startTime],
-        );
-
-        // Get base counts (before startTime) to start the cumulative graph correctly
-        const baseCounts = await db.all(
-          `
-          SELECT operation, client_name, COUNT(*) as count
-          FROM cybermem_access_log
-          WHERE timestamp <= ?
-          GROUP BY 1, 2
-        `,
-          [startTime],
-        );
-
-        const buildCumulativeSeries = (targetOp: string) => {
-          const clientTotals: Record<string, number> = {};
-
-          // Initialize with base counts
-          baseCounts
-            .filter((b: any) => b.operation === targetOp)
-            .forEach((b: any) => {
-              clientTotals[b.client_name] = b.count;
-            });
-
-          const series: any[] = [];
-
-          // Start point at startTime
-          series.push({
-            time: startTime / 1000,
-            ...clientTotals,
-          });
-
-          allLogs
-            .filter((l: any) => l.operation === targetOp)
-            .forEach((log: any) => {
-              const client = log.client_name;
-              clientTotals[client] = (clientTotals[client] || 0) + 1;
-
-              series.push({
-                time: log.timestamp / 1000,
-                ...clientTotals,
-              });
-            });
-
-          // Final point at 'now' to fill to right edge
-          series.push({
-            time: now / 1000,
-            ...clientTotals,
-          });
-
-          return series;
-        };
-
-        timeseries.creates = buildCumulativeSeries("create");
-        timeseries.reads = buildCumulativeSeries("read");
-        timeseries.updates = buildCumulativeSeries("update");
-        timeseries.deletes = buildCumulativeSeries("delete");
-
-        console.error(
-          `[STATS-API] SQLite TimeSeries: ${allLogs.length} logs + base counts processed.`,
+          `[STATS-API] SQLite Stats processed. Time series deferred to Prometheus.`,
         );
 
         await db.close();
@@ -258,13 +191,100 @@ export async function GET(request: Request) {
       }
     };
 
-    const [promMemories, promClients, promRequests, promSuccess] =
-      await Promise.all([
-        fetchProm("openmemory_memories_total"),
-        fetchProm("count(count by(client_name) (openmemory_requests_total))"),
-        fetchProm("openmemory_requests_aggregate_total"),
-        fetchProm("openmemory_success_rate_aggregate"),
-      ]);
+    const fetchPromRange = async (
+      query: string,
+      start: number,
+      end: number,
+      step: number,
+    ) => {
+      try {
+        const url = `${PROMETHEUS_URL}/api/v1/query_range?query=${encodeURIComponent(query)}&start=${start / 1000}&end=${end / 1000}&step=${step}`;
+        const res = await fetch(url, {
+          cache: "no-store",
+          signal: controller.signal,
+        });
+        if (!res.ok) return null;
+        const json = await res.json();
+        return json.data?.result || [];
+      } catch (e) {
+        return null;
+      }
+    };
+
+    // Parallel fetch of Instant stats AND Range stats
+    const [
+      promMemories,
+      promClients,
+      promRequests,
+      promSuccess,
+      promSeriesCreates,
+      promSeriesReads,
+      promSeriesUpdates,
+      promSeriesDeletes,
+    ] = await Promise.all([
+      fetchProm("openmemory_memories_total"),
+      fetchProm("count(count by(client_name) (openmemory_requests_total))"),
+      fetchProm("openmemory_requests_aggregate_total"),
+      fetchProm("openmemory_success_rate_aggregate"),
+      // Range queries (step calculated based on period)
+      fetchPromRange(
+        'sum(increase(cybermem_access_log_total{operation="create"}[5m])) by (client_name)',
+        Date.now() - (period === "24h" ? 86400000 : 604800000),
+        Date.now(),
+        period === "24h" ? 1800 : 7200, // 30m or 2h steps
+      ),
+      fetchPromRange(
+        'sum(increase(cybermem_access_log_total{operation="read"}[5m])) by (client_name)',
+        Date.now() - (period === "24h" ? 86400000 : 604800000),
+        Date.now(),
+        period === "24h" ? 1800 : 7200,
+      ),
+      fetchPromRange(
+        'sum(increase(cybermem_access_log_total{operation="update"}[5m])) by (client_name)',
+        Date.now() - (period === "24h" ? 86400000 : 604800000),
+        Date.now(),
+        period === "24h" ? 1800 : 7200,
+      ),
+      fetchPromRange(
+        'sum(increase(cybermem_access_log_total{operation="delete"}[5m])) by (client_name)',
+        Date.now() - (period === "24h" ? 86400000 : 604800000),
+        Date.now(),
+        period === "24h" ? 1800 : 7200,
+      ),
+    ]);
+
+    // Process Prometheus Range Data into Chart Format
+    const processPromSeries = (promResult: any[]) => {
+      if (!promResult || promResult.length === 0) return null;
+
+      // Map mapping timestamp -> { client: value }
+      const timeMap = new Map<number, any>();
+
+      promResult.forEach((series: any) => {
+        const client = series.metric.client_name || "Unknown";
+        series.values.forEach(([time, val]: any[]) => {
+          const t = time; // Prometheus time is already seconds
+          if (!timeMap.has(t)) timeMap.set(t, { time: t });
+          const entry = timeMap.get(t);
+          entry[client] = (entry[client] || 0) + parseFloat(val);
+        });
+      });
+
+      return Array.from(timeMap.values()).sort((a, b) => a.time - b.time);
+    };
+
+    // Override SQLite timeseries if Prometheus data is available
+    if (promSeriesCreates)
+      timeseries.creates =
+        processPromSeries(promSeriesCreates) || timeseries.creates;
+    if (promSeriesReads)
+      timeseries.reads = processPromSeries(promSeriesReads) || timeseries.reads;
+    if (promSeriesUpdates)
+      timeseries.updates =
+        processPromSeries(promSeriesUpdates) || timeseries.updates;
+    if (promSeriesDeletes)
+      timeseries.deletes =
+        processPromSeries(promSeriesDeletes) || timeseries.deletes;
 
     // Normalize stats with explicit metrics logic
     // We prioritize SQLite (stats) for activity, and Prometheus for total records if available
