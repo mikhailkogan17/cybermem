@@ -38,8 +38,11 @@ jobs:
       - name: Start Docker Stack (Local Simulation)
         working-directory: packages/cli/templates
         run: |
+          docker version
+          docker compose version
           export CYBERMEM_ENV_PATH=$HOME/.cybermem/.env
           docker compose up -d
+          docker compose ps
           sleep 60 # Wait for services to be ready
 
       - name: Install CLI Dependencies

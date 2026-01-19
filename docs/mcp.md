@@ -63,10 +63,14 @@ Universal configuration that works with all MCP clients:
     "cybermem-remote": {
       "command": "npx",
       "args": [
-        "-y", "@cybermem/mcp",
-        "--url", "https://your-server.com:8626",
-        "--api-key", "sk-your-api-key",
-        "--client-name", "cursor"
+        "-y",
+        "@cybermem/mcp",
+        "--url",
+        "https://your-server.com:8626",
+        "--token",
+        "sk-your-token",
+        "--client-name",
+        "cursor"
       ]
     }
   }
@@ -78,7 +82,7 @@ Universal configuration that works with all MCP clients:
 | Argument        | Description                                    |
 | --------------- | ---------------------------------------------- |
 | `--url`         | Remote CyberMem endpoint (required for remote) |
-| `--api-key`     | API key for authentication                     |
+| `--token`       | Security token for authentication              |
 | `--client-name` | Client identifier for dashboard tracking       |
 
 ## Available Tools
@@ -124,7 +128,7 @@ Remove a memory by ID:
 
 ```typescript
 {
-  id: string  // Required: Memory ID
+  id: string; // Required: Memory ID
 }
 ```
 
@@ -155,7 +159,7 @@ Include the header in your requests:
 
 ```bash
 curl -H "X-Client-Name: my-custom-client" \
-     -H "x-api-key: sk-..." \
+     -H "Authorization: Bearer sk-..." \
      https://your-server.com:8626/mcp
 ```
 
@@ -168,14 +172,14 @@ curl -H "X-Client-Name: my-custom-client" \
 curl http://localhost:8626/health
 
 # Remote
-curl -H "x-api-key: sk-..." https://your-server.com:8626/health
+curl -H "Authorization: Bearer sk-..." https://your-server.com:8626/health
 ```
 
 ### View Logs
 
 ```bash
 # MCP server logs
-docker logs cybermem-openmemory -f
+docker logs cybermem-mcp -f
 
 # Dashboard shows client activity
 open http://localhost:3000
@@ -184,14 +188,17 @@ open http://localhost:3000
 ### Common Issues
 
 **401 Unauthorized**
-- Check API key is correct
+
+- Check security token is correct
 - For local: ensure no `CYBERMEM_URL` is set (enables keyless mode)
 
 **Connection Refused**
+
 - Verify services are running: `docker ps`
 - Check firewall allows port 8626
 
 **SSE Timeout**
+
 - Increase client timeout settings
 - Check network latency to server
 

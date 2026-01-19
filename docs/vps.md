@@ -5,6 +5,7 @@ Production deployment on cloud VPS or Kubernetes.
 ## Overview
 
 Cloud deployment features:
+
 - **PostgreSQL** for reliable storage
 - **OpenAI embeddings** (high quality)
 - **Traefik auto-cert** or Caddy for HTTPS
@@ -47,14 +48,14 @@ helm install cybermem cybermem/cybermem \
 # values.yaml
 openmemory:
   replicas: 2
-  
+
 database:
   type: postgresql
   external: false
-  
+
 embeddings:
   provider: openai
-  
+
 ingress:
   enabled: true
   host: memory.your-domain.com
@@ -132,20 +133,14 @@ Internet
 
 ## Monitoring
 
-### Prometheus Integration
+CyberMem comes with a built-in Monitoring Dashboard that tracks:
 
-```yaml
-# prometheus.yml scrape config
-scrape_configs:
-  - job_name: 'cybermem'
-    static_configs:
-      - targets: ['openmemory:8080']
-    metrics_path: /metrics
-```
+- Success rate and error counts
+- Memory record growth
+- Request latency and throughput
+- Detailed audit logs
 
-### Grafana Dashboard
-
-Import dashboard ID: `12345` (coming soon)
+The dashboard uses a direct SQLite-to-Charts engine for high-performance visualization without external dependencies.
 
 ## Security
 

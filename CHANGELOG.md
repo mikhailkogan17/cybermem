@@ -2,6 +2,22 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.7.5] - 2026-01-19
+
+### Changed
+
+- **Architecture**: Removed Prometheus and simplified to SQLite-only metrics for lighter RPi usage.
+- **Branding**: Replaced all mentions of "OpenMemory" with "CyberMem Core".
+- **Security**: Renamed "API Key" to "Security Token" and standardized on `--token` argument.
+- **MCP**: Added `cybermem://protocol` resource and centralized instructions.
+- **Landing**: Updated with new terminology and performance optimizations.
+
+### Fixed
+
+- **MCP**: Fixed `SQLITE_BUSY` crashes by increasing timeout and adding wait logic.
+- **E2E**: Fixed MCP protocol handshake and session management in Playwright tests.
+- **Dashboard**: Fixed port conflict and service naming in health checks.
+
 ## [0.6.15] - 2026-01-19
 
 ### Fixed

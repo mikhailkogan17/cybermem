@@ -98,17 +98,17 @@ export async function GET(request: NextRequest) {
 
   const checks: ServiceStatus[] = [dbStatus];
 
-  // Check OpenMemory API if explicitly configured
-  const openMemoryUrl =
-    process.env.OPENMEMORY_URL ||
+  // Check Core API if explicitly configured
+  const apiEndpoint =
     process.env.CYBERMEM_URL ||
+    process.env.OPENMEMORY_URL ||
     "http://localhost:8626";
 
-  if (openMemoryUrl) {
-    console.error(`[HEALTH-API] Checking API at ${openMemoryUrl}/health`);
+  if (apiEndpoint) {
+    console.error(`[HEALTH-API] Checking API at ${apiEndpoint}/health`);
     const apiStatus = await checkService(
-      "OpenMemory (MCP) API",
-      `${openMemoryUrl}/health`,
+      "CyberMem (MCP) API",
+      `${apiEndpoint}/health`,
     );
     console.error(`[HEALTH-API] API Status: ${apiStatus.status}`);
     checks.push(apiStatus);

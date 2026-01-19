@@ -19,7 +19,7 @@ npx @cybermem/cli init
 This will:
 
 1. Download and configure Docker containers
-2. Start OpenMemory, Traefik, Prometheus, and Dashboard
+2. Start Core API, Traefik, and Dashboard
 3. **Open browser for GitHub login (first time)**
 4. Display access URLs
 
@@ -45,11 +45,10 @@ npx @cybermem/cli init --vps
 
 After deployment, access your CyberMem instance:
 
-| Service        | URL                       | Description                       |
-| -------------- | ------------------------- | --------------------------------- |
-| **Dashboard**  | http://localhost:3000     | Monitoring UI (password: `admin`) |
-| **MCP API**    | http://localhost:8626/mcp | AI client endpoint                |
-| **Prometheus** | http://localhost:9092     | Metrics scraping                  |
+| Service       | URL                       | Description                       |
+| ------------- | ------------------------- | --------------------------------- |
+| **Dashboard** | http://localhost:3000     | Monitoring UI (password: `admin`) |
+| **MCP API**   | http://localhost:8626/mcp | AI client endpoint                |
 
 ## Connect AI Clients
 
@@ -79,7 +78,9 @@ For remote access (e.g., RPi), add the `--url` parameter:
         "-y",
         "@cybermem/mcp",
         "--url",
-        "https://your-rpi.tailnet.ts.net/cybermem/memory"
+        "https://your-rpi.ts.net/cybermem/memory",
+        "--token",
+        "sk-your-token"
       ]
     }
   }

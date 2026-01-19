@@ -5,6 +5,7 @@ Deploy CyberMem to Raspberry Pi for edge AI memory.
 ## Overview
 
 RPi deployment features:
+
 - **Tailscale Funnel** for zero-config public HTTPS
 - **SQLite** storage (SD card friendly)
 - **Ollama** local embeddings (ARM optimized)
@@ -42,8 +43,8 @@ sudo tailscale up
 ### 2. Enable Funnel
 
 ```bash
-# Enable HTTPS funnel on port 8088
-sudo tailscale funnel 8088
+# Enable HTTPS funnel on port 8626
+sudo tailscale funnel 8626
 ```
 
 ### 3. Get Your URL
@@ -56,10 +57,9 @@ tailscale funnel status
 ## Architecture
 
 ```
-Internet ──► Tailscale Funnel ──► Traefik:8088 ──► OpenMemory
+Internet ──► Tailscale Funnel ──► Traefik:8626 ──► Core API
                                       │
-                                      ├──► Dashboard:3000
-                                      └──► Prometheus:9092
+                                      └──► Dashboard:3000
 ```
 
 ## Configuration
@@ -77,8 +77,8 @@ DATABASE_URL=sqlite:///data/openmemory.sqlite
 EMBEDDING_PROVIDER=ollama
 OLLAMA_URL=http://ollama:11434
 
-# Generated API key (required for remote access)
-OM_API_KEY=sk-...
+# Generated Security Token (required for remote access)
+OM_TOKEN=sk-...
 ```
 
 ## Remote MCP Configuration
@@ -91,10 +91,14 @@ For AI clients connecting to your RPi:
     "cybermem-rpi": {
       "command": "npx",
       "args": [
-        "-y", "@cybermem/mcp",
-        "--url", "https://your-rpi.ts.net:8088",
-        "--api-key", "sk-your-api-key",
-        "--client-name", "cursor"
+        "-y",
+        "@cybermem/mcp",
+        "--url",
+        "https://your-rpi.ts.net:8626",
+        "--token",
+        "sk-your-token",
+        "--client-name",
+        "cursor"
       ]
     }
   }
@@ -106,16 +110,15 @@ For AI clients connecting to your RPi:
 > ⚠️ **64-bit OS Required**: Traefik and Prometheus require 64-bit Raspberry Pi OS. If using 32-bit userspace, use `traefik:v2.11` image.
 
 Check your platform:
+
 ```bash
 uname -m          # Should show: aarch64
 getconf LONG_BIT  # Should show: 64
 ```
 
-## Monitoring
-
 Access dashboard via Tailscale:
-- **Dashboard**: https://your-rpi.ts.net:8088/dashboard
-- **Prometheus**: http://localhost:9092 (local only)
+
+- **Dashboard**: https://your-rpi.ts.net:8626/dashboard
 
 ## Troubleshooting
 
@@ -150,6 +153,7 @@ docker version  # Should show OS/Arch: linux/arm64
 ### Slow Embeddings
 
 Ollama on Pi is slower. Consider:
+
 ```bash
 # Use smaller model
 docker exec cybermem-ollama ollama pull all-minilm
@@ -158,6 +162,7 @@ docker exec cybermem-ollama ollama pull all-minilm
 ### SD Card Wear
 
 Move data to USB drive:
+
 ```yaml
 volumes:
   openmemory-data:

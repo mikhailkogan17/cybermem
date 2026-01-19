@@ -36,19 +36,22 @@ export async function GET(request: NextRequest) {
   // 1. Env var CYBERMEM_URL
   // 2. Default to localhost:8088/memory (Managed Mode)
   const rawEndpoint = process.env.CYBERMEM_URL;
-  const endpoint = rawEndpoint || "http://localhost:8088/memory";
+  const endpoint = rawEndpoint || "http://localhost:8626/memory";
   // isManaged = Local Mode (No Auth). Only if NO URL and NO API KEY.
   // If API Key is present (RPi), we are in "Secure/Legacy" mode, not Local.
   // In local development, rawEndpoint might be unset, but we still want to not be "managed" if we want to test auth flows.
-  const isManaged = !rawEndpoint && !process.env.OM_API_KEY;
+  const isManaged =
+    !rawEndpoint &&
+    (!process.env.OM_API_KEY || process.env.OM_API_KEY === "dev-secret-key");
 
   return NextResponse.json(
     {
+      token: apiKey,
       apiKey: apiKey,
       endpoint,
       isManaged,
-      dashboardVersion: "v0.7.0",
-      mcpVersion: "v0.7.0",
+      dashboardVersion: "v0.7.5",
+      mcpVersion: "v0.7.5",
     },
     {
       headers: {

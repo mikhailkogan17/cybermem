@@ -23,9 +23,7 @@ dotenv.config();
 // --- PRE-INITIALIZATION ---
 // Set environment variables BEFORE any imports that might trigger side-effects
 process.env.OM_TIER = "hybrid";
-// Set both PORT and OM_PORT to 0 to avoid EADDRINUSE if the SDK tries to start its own server
-process.env.PORT = "0";
-process.env.OM_PORT = "0";
+// We'll set ports to 0 only when needed later
 
 // Redirect all stdout to stderr IMMEDIATELY to protect Stdio protocol
 const originalStdoutWrite = process.stdout.write.bind(process.stdout);
@@ -73,7 +71,7 @@ async function startServer() {
 
   const cliClientName = getArg("--client-name") || "cybermem-mcp";
   const cliUrl = getArg("--url");
-  const cliApiKey = getArg("--api-key");
+  const cliToken = getArg("--token") || getArg("--api-key");
 
   // Protocol Instructions
   const CYBERMEM_INSTRUCTIONS = `CyberMem is a persistent context daemon for AI agents.
@@ -84,7 +82,7 @@ PROTOCOL:
 For full protocol: https://docs.cybermem.dev/agent-protocol`;
 
   const server = new McpServer(
-    { name: "cybermem", version: "0.7.0" },
+    { name: "cybermem", version: "0.7.5" },
     {
       instructions: CYBERMEM_INSTRUCTIONS,
     },
@@ -116,12 +114,16 @@ For full protocol: https://docs.cybermem.dev/agent-protocol`;
     apiClient = axios.create({
       baseURL: cliUrl,
       headers: {
-        Authorization: `Bearer ${cliApiKey}`,
+        Authorization: `Bearer ${cliToken}`,
         "X-Client-Name": cliClientName,
       },
     });
   } else {
     // LOCAL SDK MODE
+    // Set internal ports to 0 to prevent SDK from starting its own server
+    process.env.PORT = "0";
+    process.env.OM_PORT = "0";
+
     const homedir = process.env.HOME || process.env.USERPROFILE || "";
     // FORCE absolute standardized path for consistency across components
     const path = await import("path");
@@ -492,7 +494,7 @@ For full protocol: https://docs.cybermem.dev/agent-protocol`;
     app.get("/health", (req: express.Request, res: express.Response) =>
       res.json({
         ok: (server as any)._memoryReady,
-        version: "0.7.0",
+        version: "0.7.5",
         mode: cliUrl ? "proxy" : "sdk",
         ready: (server as any)._memoryReady,
       }),
@@ -623,6 +625,7 @@ For full protocol: https://docs.cybermem.dev/agent-protocol`;
       async (req: express.Request, res: express.Response) =>
         await transport.handleRequest(req, res, req.body),
     );
+
     app.all(
       "/sse",
       async (req: express.Request, res: express.Response) =>

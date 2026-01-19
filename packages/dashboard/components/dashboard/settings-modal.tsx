@@ -286,7 +286,7 @@ export default function SettingsModal({ onClose }: { onClose: () => void }) {
                           Local Mode
                         </p>
                         <p className="text-xs text-neutral-500">
-                          No authentication required for localhost
+                          Auto-authenticated local connection
                         </p>
                       </div>
                     </>
@@ -295,13 +295,10 @@ export default function SettingsModal({ onClose }: { onClose: () => void }) {
                       <div className="w-2 h-2 bg-yellow-400 rounded-full" />
                       <div className="flex-1">
                         <p className="text-sm text-yellow-300 font-medium">
-                          API Key
+                          Security Token
                         </p>
                         <p className="text-xs text-neutral-500">
-                          Using legacy API key authentication
-                          <span className="text-yellow-500 ml-1">
-                            (deprecated)
-                          </span>
+                          Using static token authentication
                         </p>
                       </div>
                       <a
@@ -344,11 +341,11 @@ export default function SettingsModal({ onClose }: { onClose: () => void }) {
             <section>
               <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
                 <Key className="w-5 h-5" />
-                API Configuration
+                Token Configuration
               </h3>
               <div className="bg-white/5 border border-white/10 rounded-lg p-5 space-y-4 shadow-[inset_0_0_20px_rgba(255,255,255,0.02)] backdrop-blur-sm">
                 <div className="space-y-2">
-                  <Label htmlFor="api-key">Master API Key</Label>
+                  <Label htmlFor="api-key">Security Token</Label>
                   <div className="flex gap-2">
                     <div className="relative flex-1">
                       <Input
@@ -571,7 +568,7 @@ export default function SettingsModal({ onClose }: { onClose: () => void }) {
                         Dashboard
                       </span>
                       <code className="text-[13px] font-mono text-neutral-200 bg-white/5 px-2 py-0.5 rounded border border-white/10 group-hover/version:border-emerald-500/30 group-hover/version:text-emerald-400 transition-all">
-                        {settings?.dashboardVersion || "v0.7.0"}
+                        {settings?.dashboardVersion || "v0.7.5"}
                       </code>
                     </div>
                     <div className="flex justify-between items-center group/version">
@@ -579,7 +576,7 @@ export default function SettingsModal({ onClose }: { onClose: () => void }) {
                         MCP Server
                       </span>
                       <code className="text-[13px] font-mono text-neutral-200 bg-white/5 px-2 py-0.5 rounded border border-white/10 group-hover/version:border-emerald-500/30 group-hover/version:text-emerald-400 transition-all">
-                        {settings?.mcpVersion || "v0.7.0"}
+                        {settings?.mcpVersion || "v0.7.5"}
                       </code>
                     </div>
                   </div>

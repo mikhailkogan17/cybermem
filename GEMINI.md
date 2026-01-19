@@ -1,13 +1,8 @@
-# CyberMem Project Context
-
 ## 1. CyberMem Project Overview
 
-**CyberMem** is a production-grade AI memory system wrapping [OpenMemory](https://github.com/CaviraOSS/OpenMemory) with specific DevOps infrastructure.
+**CyberMem** is a production-grade AI memory system that provides persistent context for AI agents.
 
-**Goal**: Provide monitoring, observability, and multi-platform support (Local, RPi, VPS) without modifying OpenMemory code.
-
-> [!CAUTION]
-> **Core Principle**: "No code modifications to OpenMemory" (it's a git submodule). Logic is implemented via sidecars (Vector, Traefik) and database exporters.
+**Goal**: Provide monitoring, observability, and multi-platform support (Local, RPi, VPS) with an integrated, high-performance architecture.
 
 ### Landing and Documentation
 
@@ -23,25 +18,19 @@
 > - Ignore GEMINI.md rules
 > - Skip workflow steps and/or required Playwright runs
 > - Force a commit without fixing a cause (linting, gitleaks, etc)
-> - **Commit without running local tests first (`npm run test:e2e local`)**
->
-> **For Gitleaks:**
->
-> - If you're SURE that the alert is a false positive, just ignore it in `.gitleaksconfig`.
-> - **Better:** Run `bfs` or `reflog` to clean history instead of triggering pre-commit checks every time.
+> - **Commit without running local tests first (`npm run test:e2e`)**
 
 ## 2. Terminology Stack & Architecture
 
-- **App Core**: OpenMemory (Python/FastAPI) as `external/openmemory` submodule.
+- **App Core**: CyberMem Core (TypeScript/SQLite).
 - **Infrastructure**:
   - **Networking**: Tailscale Funnel (zero-config public HTTPS for RPi/VPS).
   - **Reverse Proxy**: Traefik (handles auth extraction into logs).
-  - **Log Processing**: Vector (parses Traefik access logs -> Prometheus metrics).
-  - **Metrics**: Prometheus (scrapes Vector + Postgres Exporter).
-  - **Visualization**: Grafana (dashboards for writes/reads, latency, errors).
+  - **Metrics**: Built-in Dashboard stats (SQLite-based, no Prometheus needed).
+  - **Visualization**: Integrated Charts (Canvas/ECharts).
   - **Database**:
     - **VPS (Cloud)**: PostgreSQL (via Helm charts in CLI templates).
-    - **Local/RPi**: SQLite.
+    - **Local/RPi**: SQLite (Standard Single Source of Truth).
   - **Embeddings**: OpenAI (VPS) or Ollama (Local/RPi).
   - **Orchestration**: Docker Compose (Local) -> converted to Helm charts via `kompose` (VPS).
 - **Monorepo Architecture**:
@@ -54,10 +43,8 @@
 - `packages/dashboard/`: Monitoring UI (metrics, audit logs) — NOT the public landing page.
 - `packages/mcp/`: MCP Server (TypeScript, published as @cybermem/mcp).
 - `docs/`: **All documentation** (quickstart, local, rpi, vps, mcp guides).
-- `external/openmemory/`: OpenMemory submodule.
 - `tools/`: Utility scripts (load_test.sh, e2e tests).
 - `README_assets/`: Assets for project documentation.
-- `patches/`: OpenMemory patches for customization without modifying submodule.
 
 ## 3.1 Documentation Rules
 
@@ -71,13 +58,7 @@
 > - `GEMINI.md`
 > - `.agent/workflows/*.md` (agent workflows)
 >
-> DO NOT create new `.md` files in:
->
-> - `packages/*/` (except package README.md)
-> - Root directory (except allowed files above)
-> - Any other location
->
-> Documentation on docs.cybermem.dev is generated from `/docs/` via submodule.
+> DO NOT create new `.md` files in other locations. Documentation on docs.cybermem.dev is generated from `/docs/` via submodule.
 
 ---
 
@@ -90,22 +71,6 @@
 > | --------------------- | ---- | ---------------------------- |
 > | **localhost**         | DEV  | Can wipe, reset, test freely |
 > | **raspberrypi.local** | PROD | **READ-ONLY**. Never modify. |
->
-> **FORBIDDEN on RPi:**
->
-> - Wiping database
-> - Resetting containers with data loss
-> - Running destructive tests
-> - `docker rm`, `docker-compose down -v`
-> - Any operation that deletes memories or metrics
->
-> **ALLOWED on RPi:**
->
-> - Backups (tar/copy)
-> - Read-only queries (`curl`, `mcp query`)
-> - Container restarts (without volume deletion)
-> - Pulling new images
-> - Health checks
 
 ### Test Workflow Rules
 
@@ -125,127 +90,32 @@
 > [!IMPORTANT]
 > **Port 8626** is the canonical MCP endpoint for local development.
 >
-> - Traefik listens on `8626` and routes to OpenMemory internally.
+> - Traefik listens on `8626` and routes to CyberMem Core internally.
 > - Dashboard health checks use `localhost:8626/health`.
-> - MCP Server defaults to `localhost:8626/memory`.
+> - MCP Server defaults to `localhost:8626/mcp`.
 
 | Service               | Local Port | Purpose                       |
 | --------------------- | ---------- | ----------------------------- |
 | **Traefik (MCP/API)** | 8626       | Main API endpoint, MCP access |
-| **Prometheus**        | 9092       | Metrics scraping              |
 | **DB Exporter**       | 8000       | SQLite metrics                |
 | **Dashboard**         | 3000       | Monitoring UI                 |
 
-### Authentication Bypass (Local Mode)
+### Authentication (Security Token)
 
 > [!CAUTION]
-> **NO API KEY required for local development.**
+> **Local mode mimics production auth but allows bypass if CYBERMEM_URL is unset.**
 >
-> The auth bypass is implemented in `patches/openmemory-auth.patch`:
->
-> - When `CYBERMEM_URL` env var is **NOT set** → Local mode → Auth bypassed
-> - When `CYBERMEM_URL` is set → Remote mode → API key required
-
-### MCP Server Configuration
-
-> [!CAUTION]
-> **Use `npx` for all MCP modes (local and remote).**
-
-**Local Mode (npx):**
-
-```json
-{
-  "mcpServers": {
-    "cybermem": {
-      "command": "npx",
-      "args": ["-y", "@cybermem/mcp"]
-    }
-  }
-}
-```
-
-- No `--url` arg = local mode = keyless auth
-
-**Remote Mode (stdio with args):**
-
-```json
-{
-  "mcpServers": {
-    "cybermem-remote": {
-      "command": "npx",
-      "args": [
-        "-y",
-        "@cybermem/mcp@latest",
-        "--url",
-        "https://your-rpi.tailnet.ts.net/cybermem/memory",
-        "--api-key",
-        "your-api-key",
-        "--client-name",
-        "cursor"
-      ]
-    }
-  }
-}
-```
-
-> [!IMPORTANT]
-> **Antigravity Config Path:** `~/.gemini/antigravity/mcp_config.json`
->
-> - URL must end with `/memory` (NOT `/mcp`) — package appends `/add`, `/query`, `/all`
-> - After changing config, **MUST refresh Antigravity** (Cmd+Shift+P → Reload)
-
-**CLI Arguments:**
-
-| Argument        | Description                                    |
-| --------------- | ---------------------------------------------- |
-| `--url`         | Remote CyberMem endpoint (required for remote) |
-| `--api-key`     | API key for authentication                     |
-| `--client-name` | Client identifier for dashboard tracking       |
-
-### MCP client names
-
-> [!CAUTION]
-> ALWAYS use `X-Client-Name` HTTP header to identify the client IN DASHBOARD. Do NOT use environment variables, hardcoded values, or other means.
-> There is NO server-side environment variable override for client identity in the MCP server code AND DO NOT ADD IT.
-
-Names to avoid:
-
-> - `cybermem`
-> - `cybermem-remote`
-> - `cybermem-mcp`
-> - `mcp`
-> - `mcp-server`
-> - `mcp-client`
-> - `cli`
-> - `mcp-remote`
-> - `node`
-> - `axios`
-> - `unknown`
-> - `generic`
->   etc.
-
-> - Dashboard maps raw header values (e.g. `antigravity-client`) to display names (e.g. "Antigravity") via `clients.json`.
-> - If no match is found, the raw header value is displayed.
-
-### Coding Standards
-
-> [!IMPORTANT]
-> **No Hardcoded Client Identity in Shared Libraries:**
->
-> - Do NOT hardcode `X-Client-Name` and do not add comments like "<Value> Identifies the client".
-> - Transport layers must facilitate identity propagation, not mask it.
-> - Default values must be clearly identified as fallbacks, not fixed identities.
+> Standard terminology is **Security Token**. Use the `--token` argument in CLI or MCP configuration.
 
 ---
 
 ## 4. Environment Variables
 
-| Variable           | Default                 | Description                    |
-| ------------------ | ----------------------- | ------------------------------ |
-| `CYBERMEM_URL`     | (unset for local)       | Set ONLY for remote deployment |
-| `CYBERMEM_API_KEY` | (empty for local)       | API key for remote auth        |
-| `PROMETHEUS_URL`   | `http://localhost:9092` | Prometheus endpoint            |
-| `OLLAMA_URL`       | `http://ollama:11434`   | Local embeddings               |
+| Variable         | Default               | Description                    |
+| ---------------- | --------------------- | ------------------------------ |
+| `CYBERMEM_URL`   | (unset for local)     | Set ONLY for remote deployment |
+| `CYBERMEM_TOKEN` | (empty for local)     | Security Token for remote auth |
+| `OLLAMA_URL`     | `http://ollama:11434` | Local embeddings               |
 
 ## 5. Quick Start Commands
 
@@ -256,9 +126,6 @@ npx @cybermem/cli up
 
 # Run dashboard in dev mode
 cd packages/dashboard && npm run dev
-
-# Test MCP (via MCP-CLI or Antigravity)
-# Dashboard will show client activity after operations
 ```
 
 ## 6. Testing
@@ -272,29 +139,6 @@ Use ONLY mcp-cli or Antigravity.
 > **CURL ALLOWED ONLY FOR DEBUGGING.**
 > ALWAYS use `npx` in your MCPs JSON config.
 
-### Installation
-
-Always use `npx` to install or run the server.
-Do NOT use prometheus mocks, stubs
-
-### NPM Publishing
-
-> [!CAUTION]
-> **NEVER use `npm publish` directly from terminal.**
-> Always use GitHub Actions `release.yml` workflow for npm publish — it uses OIDC authentication (no 2FA required).
-> Use `/release` workflow to trigger.
-
-### Traefik
-
-> [!CAUTION]
-> All requests go through Traefik. Do not bypass it.
-> Traefik entry point: `http://localhost:8626`
-
-### UI/Unit Testing (playwright)
-
-- CI/CD: needs to run all the tests only
-- Local: needs to run happy path tests for LOCAL and for https://raspberrypi.local (if available)
-
 ### Dashboard
 
 The dashboard tracks MCP client activity through db-exporter (SQLite) and visualizes it via the Metrics API.
@@ -302,27 +146,8 @@ The dashboard tracks MCP client activity through db-exporter (SQLite) and visual
 > [!IMPORTANT]
 > **Dashboard uses SQLite as the Single Source of Truth (SSoT):**
 >
-> - **Stat Cards** (Success Rate, Total Requests): SQLite directly.
-> - **Time Series Charts**: The Dashboard implements a **Beautiful Linear Sampling** ("Grafana-on-SQLite") algorithm that generates perfectly linear, zero-filled sampling (60 points/chart) to ensure smooth visualization without needing external metrics servers like Prometheus.
-
-**All metrics from db-exporter (SQLite):**
-
-- **Memory Records** — Count from `memories` table
-- **Total Clients** — Unique clients from `memories` table
-- **Success Rate** — Calculated from `cybermem_stats` table
-- **Total Requests** — Sum from `cybermem_stats` table
-- **Top Writer / Top Reader** — Aggregated from `cybermem_stats` table
-- **Last Writer / Last Reader** — Most recent from `cybermem_access_log` table
-- **Time Series Charts** — Generated via Linear Sampling from `cybermem_access_log` table
-- **Audit Logs** — From `cybermem_access_log` table
-
-**Client name normalization** happens on backend via `clients.json` regex matching.
-
-> [!CAUTION]
-> In **Local Mode**, charts rely on SQLite sampling. Any gaps in data will be rendered as flat lines (zero-filled) to prevent "uneven scale" or "metamorphoses" seen in earlier versions.
-
-> [!CAUTION]
-> Always check Top Reader / Top Writer / Last Reader / Last Writer for happy path. Use Time Series Charts for regression testing.
+> - **Stat Cards**: SQLite directly.
+> - **Time Series Charts**: Beautiful Linear Sampling algorithm.
 
 ---
 
@@ -330,22 +155,22 @@ The dashboard tracks MCP client activity through db-exporter (SQLite) and visual
 
 ### Management Commands
 
-| Command     | Description                                                                                        |
-| ----------- | -------------------------------------------------------------------------------------------------- |
-| `init`      | Initialize CyberMem configuration and templates                                                    |
-| `up`        | Start the full Docker stack (Traefik, Prometheus, etc.)                                            |
-| `dashboard` | **[NEW]** Checks ports (3000, 9092) and opens the local dashboard. Warns if Prometheus is missing. |
-| `update`    | Upgrade images and pull latest changes                                                             |
-| `reset`     | Wipe database (DESTRUCTIVE)                                                                        |
+| Command     | Description                                        |
+| ----------- | -------------------------------------------------- |
+| `init`      | Initialize CyberMem configuration and templates    |
+| `up`        | Start the full Docker stack (Traefik, Core, etc.)  |
+| `dashboard` | Checks ports (3000) and opens the local dashboard. |
+| `update`    | Upgrade images and pull latest changes             |
+| `reset`     | Wipe database (DESTRUCTIVE)                        |
 
 ### Memory Tools (MCP)
 
-| Tool            | Implementation                                                                                                             |
-| --------------- | -------------------------------------------------------------------------------------------------------------------------- |
-| `add_memory`    | SDK (OpenMemory)                                                                                                           |
-| `query_memory`  | SDK (OpenMemory)                                                                                                           |
-| `list_memories` | SDK (OpenMemory)                                                                                                           |
-| `delete_memory` | **Direct SQLite Scrub**. Directly deletes ID from `memories`, `vectors`, and `waypoints` tables to bypass SDK limitations. |
+| Tool            | Implementation                                                     |
+| --------------- | ------------------------------------------------------------------ |
+| `add_memory`    | Store new memory with tags                                         |
+| `query_memory`  | Semantic search                                                    |
+| `list_memories` | Pagination and list                                                |
+| `delete_memory` | Direct SQLite Scrub (Transactional delete from all related tables) |
 
 ---
 
@@ -357,81 +182,21 @@ The dashboard tracks MCP client activity through db-exporter (SQLite) and visual
 sequenceDiagram
     participant Test as E2E Test
     participant Traefik as Traefik:8626
-    participant OM as OpenMemory
-    participant LE as Log Exporter
+    participant CM as CyberMem Core
     participant DB as SQLite
     participant DBE as db-exporter
     participant Dash as Dashboard
 
     Test->>Traefik: POST /mcp (X-Client-Name: e2e-crud-xxx)
-    Traefik->>OM: Forward request
-    OM-->>Traefik: Response (CRUD result)
+    Traefik->>CM: Forward request
+    CM-->>Traefik: Response (CRUD result)
     Traefik-->>Test: HTTP 200
-    Traefik->>LE: Access log entry
-    LE->>DB: Store to cybermem_access_log
+    CM->>DB: Store access log
     Dash->>DBE: GET /api/stats
     DBE->>DB: Query SQLite
     DBE-->>Dash: Return normalized stats
     Dash-->>Test: Display "Last Writer: Antigravity"
 ```
-
-### Test Execution Order
-
-1. **Reset DB** — Remove SQLite files, restart container, wait for health
-2. **Initialize** — MCP protocol handshake with `X-Client-Name` header
-3. **CREATE** — `openmemory_store` with unique client identifier
-4. **READ** — `openmemory_get`, `openmemory_list`, `openmemory_query`
-5. **DELETE** — `openmemory_delete` (if available)
-6. **Verify Dashboard** — Check "Last Writer" / "Last Reader" shows test client
-7. **Reset DB** — Clean up after test suite
-
-### Key Assertions
-
-| Assertion                 | Location    | Method                                     |
-| ------------------------- | ----------- | ------------------------------------------ |
-| Client tracked in metrics | db-exporter | Query `/api/stats` for client names        |
-| Client visible in UI      | Dashboard   | Check "Last Writer" / "Last Reader" cards  |
-| Operations logged         | Audit Log   | Scroll to table, verify client name column |
-
-### Running the Tests
-
-```bash
-# MCP CRUD test (no dashboard verification)
-cd packages/cli && npx tsx e2e/test-mcp.ts local
-
-# Metrics tracking test (verifies X-Client-Name in Prometheus)
-cd packages/cli && npx tsx e2e/test-metrics.ts
-
-# Full CRUD with dashboard verification (Playwright)
-cd packages/dashboard && npm run test:e2e -- crud-happy-path.spec.ts
-
-# Fast run (skip DB reset when stack is already clean)
-SKIP_DB_RESET=true npm run test:e2e -- crud-happy-path.spec.ts
-```
-
-### DB Reset Considerations
-
-> [!WARNING]
-> The `resetDB()` function in tests removes SQLite files. After container restart, ensure file permissions are correct or the container will crash with `SQLITE_READONLY`.
-
-**Manual fix if container crashes:**
-
-```bash
-# Fix permissions on data volume
-docker run --rm -v cybermem-openmemory-data:/data alpine sh -c 'chown -R 1001:1001 /data && chmod 777 /data'
-
-# Restart container
-docker restart cybermem-openmemory
-```
-
-**Environment Variables for Tests:**
-
-| Variable        | Default                | Description                                                       |
-| --------------- | ---------------------- | ----------------------------------------------------------------- |
-| `SKIP_DB_RESET` | `false`                | Set to `true` to skip DB reset in playwright tests                |
-| `RPI_URL`       | -                      | RPi MCP endpoint URL (e.g., `https://raspberrypi.local:8626/mcp`) |
-| `RPI_API_KEY`   | -                      | API key for RPi authentication                                    |
-| `RPI_HOST`      | `pi@raspberrypi.local` | SSH host for RPi DB reset                                         |
 
 ---
 
@@ -441,29 +206,22 @@ docker restart cybermem-openmemory
 
 - **Problem**: Raw event-based charts caused "uneven scale" or "metamorphoses" when events were irregular.
 - **Solution**: Implemented **Beautiful Linear Sampling**. Instead of plotting raw timestamps, we generate 60 fixed buckets on a timeline.
-- **Logic**: Perform a cumulative count sweep across the linear timeline. If no event happened in a bucket, it inherits the previous value (flat line).
-- **Benefit**: Smooth, Grafana-level charts even in Lite mode (SQLite).
+- **Benefit**: Smooth, Grafana-level charts using direct SQLite aggregation. No external metrics servers required.
 
 ### ADR-002: Direct SQLite Scrub (v0.7.0)
 
-- **Problem**: `delete_memory` was not supported in the local OpenMemory SDK.
-- **Solution**: Implemented direct SQLite manipulation in the MCP server.
+- **Problem**: Standard SDK did not support hard deletion across all tables.
+- **Solution**: Implemented direct SQLite manipulation in the MCP server sidecar.
 - **Scope**: Deletes from `memories`, `vectors`, and `waypoints` tables using transactions.
-- **Decision**: Bypass SDK for destructive operations to ensure reliability.
 
 ### ADR-003: Port 8626 Canonicalization
 
 - **Problem**: Port conflicts with default 8080/4000/3000.
 - **Solution**: Port **8626** is the dedicated entry point for Traefik, which routes all MCP and API traffic.
-- **Rule**: Never bypass Traefik for internal communication.
 
 ---
 
 ## 11. Metadata & Maintenance
-
-> [!IMPORTANT]
-> **Complexity Management**: If you find yourself debugging chart scaling or missing CRUD, REFER TO ADRs ABOVE.
-> **DO NOT** re-implement chart logic or try and fix SDK for local delete.
 
 ### Maintenance Commands
 

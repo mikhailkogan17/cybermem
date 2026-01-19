@@ -5,6 +5,7 @@ Complete guide for running CyberMem on your local machine (Mac/Linux).
 ## Overview
 
 Local deployment uses:
+
 - **SQLite** for storage (no external database needed)
 - **Ollama** for embeddings (or synthetic fallback)
 - **Docker Compose** for orchestration
@@ -31,9 +32,9 @@ That's it! The CLI handles everything automatically.
 ┌────────────────────────────────────────────────────────┐
 │                    localhost                           │
 ├────────────────────────────────────────────────────────┤
-│  :3000 Dashboard    :8626 Traefik    :9092 Prometheus  │
+│  :3000 Dashboard    :8626 Traefik    :8000 Exporter    │
 │         ↓              ↓                  ↓            │
-│     Next.js        OpenMemory         Metrics          │
+│     Next.js        OpenMemory         SQLite Metrics   │
 │         └──────────────┴──────────────────┘            │
 │                        ↓                               │
 │                   SQLite + Ollama                      │
@@ -42,13 +43,13 @@ That's it! The CLI handles everything automatically.
 
 ## Services
 
-| Service        | Port     | Description                |
-| -------------- | -------- | -------------------------- |
-| **Traefik**    | 8626     | Reverse proxy, MCP routing |
-| **OpenMemory** | internal | Memory API (via Traefik)   |
-| **Dashboard**  | 3000     | Monitoring UI              |
-| **Prometheus** | 9092     | Metrics collection         |
-| **Ollama**     | 11434    | Local embeddings           |
+| Service         | Port     | Description                 |
+| --------------- | -------- | --------------------------- |
+| **Traefik**     | 8626     | Reverse proxy, MCP routing  |
+| **Core API**    | internal | Memory engine (via Traefik) |
+| **Dashboard**   | 3000     | Monitoring UI               |
+| **DB Exporter** | 8000     | SQLite metrics API          |
+| **Ollama**      | 11434    | Local embeddings            |
 
 ## Configuration
 
@@ -100,14 +101,14 @@ If ports are in use, modify `~/.cybermem/docker-compose.yml`:
 services:
   traefik:
     ports:
-      - "8627:80"  # Change from 8626
+      - "8627:80" # Change from 8626
 ```
 
-### SQLite Permissions
+### Database Permissions
 
 ```bash
 # Fix permissions if container crashes
-docker run --rm -v cybermem-openmemory-data:/data alpine \
+docker run --rm -v cybermem-core-data:/data alpine \
   sh -c 'chown -R 1001:1001 /data && chmod 777 /data'
 ```
 

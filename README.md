@@ -16,11 +16,10 @@
   <h3>Your AI Memory — Deploy Anywhere</h3>
   <p><em>Platform Engineering MCP Server for DevOps & AI Teams</em></p>
 
-  ---
+---
 
   <p><strong>Production-grade MCP Server</strong><br>
-  <strong>Docker Compose</strong> • <strong>Helm Charts</strong> • <strong>Ansible Playbooks</strong> • <strong>Prometheus</strong> • <strong>Traefik</strong><br>
-  Based on <a href="https://github.com/CaviraOSS/OpenMemory">CaviraOSS/OpenMemory</a></p>
+  <strong>Docker Compose</strong> • <strong>Helm Charts</strong> • <strong>Ansible Playbooks</strong> • <strong>SQLite</strong> • <strong>Traefik</strong></p>
 </div>
 
 ## Features
@@ -30,15 +29,17 @@
 | **Model Context Protocol** | Native Model Context Protocol support for Claude, Cursor, and other AI clients |
 | **Multi-Platform**         | Deploy on Mac, Raspberry Pi, or Cloud VPS with one command                     |
 | **Infrastructure as Code** | Production-ready **Docker Compose**, **Helm Charts**, **Ansible Playbooks**    |
-| **Observability**          | Built-in Prometheus metrics, Grafana dashboards, audit logs                    |
+| **Observability**          | Built-in SQLite activity metrics, beautiful time-series charts, audit logs     |
 | **Security**               | Traefik reverse proxy, Tailscale Funnel for zero-config HTTPS                  |
 
 ## Try It Out!
 
 To try CyberMem on your local machine, run:
+
 ```bash
 npx @cybermem/cli
 ```
+
 and follow the instructions in terminal.
 
 **Full Quick Start guide for every platform is available at [cybermem.dev/#quickstart](https://cybermem.dev/#quickstart).**
@@ -71,11 +72,11 @@ graph TD
         CLI["**CLI**"]
         Templates["**Infrastructure Templates**"]
         CLI --> Templates
-        
+
         Compose["**Docker Compose**<br/>(Local)"]
         Ansible["**Ansible**<br/>(IoT/Edge)"]
         Helm["**Helm Charts**<br/>(Cloud/K8s)"]
-        
+
         Templates --> Compose
         Templates --> Ansible
         Templates --> Helm
@@ -83,17 +84,18 @@ graph TD
 
     subgraph Runtime["⚙️ CyberMem Runtime"]
         Traefik["**Traefik**<br/>(Reverse Proxy)"]
-        Vector["**Vector**<br/>(Log Parsing)"]
-        Prom["**Prometheus**<br/>(Metrics)"]
+        LE["**Log Exporter**<br/>(Access Logs)"]
+        DBE["**DB Exporter**<br/>(SQLite Metrics)"]
         Dash["**Dashboard**<br/>(Monitoring UI)"]
-        OM["**OpenMemory**<br/>(AI Memory Engine)"]
+        OM["**Core API**<br/>(Memory Engine)"]
         DB["**SQLite / Postgres**<br/>(Persistence)"]
-        
-        Traefik -->|Logs| Vector
+
+        Traefik -->|Logs| LE
         Traefik -->|API| OM
         OM --> DB
-        Vector --> Prom
-        Prom --> Dash
+        LE --> DB
+        DB --> DBE
+        DBE --> Dash
     end
 
     Compose -.-> Traefik
@@ -106,33 +108,19 @@ graph TD
 ```
 cybermem/
 ├── packages/
-│   ├── core/                 # AI memory engine (Node.js)
-│   │   ├── src/
-│   │   └── __tests__/
 │   ├── cli/                  # Command-line tool (TypeScript)
 │   │   ├── src/              # CLI logic
-│   │   ├── templates/        # ⭐ Infrastructure templates
-│   │   │   ├── docker-compose.yml
-│   │   │   ├── k8s/
-│   │   │   │   ├── deployment.yaml
-│   │   │   │   ├── service.yaml
-│   │   │   │   └── ingress.yaml
-│   │   │   └── aws/
-│   │   │       └── ecs-task-def.json
-│   │   └── e2e/              # ⭐ End-to-end tests
-│   │       ├── basic.test.ts         # Smoke test
-│   │       ├── k8s.test.ts           # K8s deployment test
-│   │       └── docker.test.ts        # Docker test
-│   └── docs/                 # Documentation site
+│   │   └── templates/        # ⭐ Infrastructure templates
+│   ├── mcp/                  # MCP Server & Core Engine (TypeScript)
+│   │   └── src/              # Tooling & Memory Logic
+│   └── dashboard/            # Monitoring UI (Next.js)
+├── docs/                     # Documentation sources
 ├── .github/
 │   └── workflows/            # ⭐ CI/CD pipelines
-│       ├── test.yml          # Run tests on every PR
-│       ├── publish.yml       # Auto-publish on release
-│       └── e2e.yml           # E2E tests in CI
 └── README.md
 ```
 
-**Key innovation:** `packages/cli/templates/` contains the **infrastructure-as-code templates**. 
+**Key innovation:** `packages/cli/templates/` contains the **infrastructure-as-code templates**.
 The CLI reads these, interpolates variables, and generates production configs.
 
 ## Documentation
