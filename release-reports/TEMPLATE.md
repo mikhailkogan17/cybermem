@@ -16,6 +16,16 @@
 - [ ] **Result**: PASSED
 - [ ] **Screenshot**: (Paste proof of restored data)
 
+## 3. MCP Connectivity Verification (STRICT)
+
+> [!IMPORTANT]
+> **This catches the '404/401' bugs before release.**
+
+- [ ] **Local STDIO**: `echo '{"jsonrpc":"2.0","id":1,"method":"initialize",...}' | node packages/mcp/dist/index.js` returns serverInfo.
+- [ ] **Accept Headers**: Checked that `Accept: application/json, text/event-stream` is used in proxy mode.
+- [ ] **Remote Proxy (RPi)**: Verified connectivity via `--url` and `--token` flags from local machine to RPi.
+- [ ] **Screenshot Required**: Successful MCP initialization output.
+
 ## 🛠 Manual Verification (v0.7.0+)
 
 > [!IMPORTANT]

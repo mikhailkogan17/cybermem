@@ -2,148 +2,128 @@
 description: Pre-commit checks — run all tests, linters, and security checks before committing
 ---
 
-# Pre-Commit Comprehensive Check
+# Pre-Commit Gatekeeper
 
 // turbo-all
 
-> [!IMPORTANT]
-> **Run this workflow BEFORE any commit to main branch.**
-> Prevents regressions and ensures code quality.
-
----
-
-## Quick Summary
-
-| Check         | Command                                   | Pass Criteria    |
-| ------------- | ----------------------------------------- | ---------------- |
-| Linters       | `npm run lint` (in each package)          | No errors        |
-| TypeScript    | `npm run typecheck` or `tsc --noEmit`     | No errors        |
-| Unit Tests    | `npm test`                                | All pass         |
-| E2E Tests     | `npm run test:e2e -- ui-elements.spec.ts` | 12+ passed       |
-| Secrets Check | `git secrets --scan` or `gitleaks detect` | No secrets found |
-
----
-
-## Step 0: Secrets Scan (MANDATORY)
-
 > [!CAUTION]
-> **Never commit secrets.** Run this first.
+> **MANDATORY before ANY commit to main.** No exceptions. Agent must verify pass before git commit.
 
-### 0.1 Using gitleaks (recommended)
+---
+
+## TL;DR — Run This
 
 ```bash
-# Install if needed: brew install gitleaks
-gitleaks detect --source . --verbose
-# Expected: No leaks detected
+# Single command — runs atomic test pyramid
+./.hooks/pre-commit
+# Expected: "✅ GATEKEEPER PASSED"
 ```
 
-### 0.2 Alternative: git-secrets
+If gatekeeper fails: **FIX THE ERROR. DO NOT --force commit.**
 
-```bash
-# Install if needed: brew install git-secrets
-git secrets --scan
-# Expected: no secrets found
+---
+
+## Atomic Test Pyramid
+
+| Layer | What                    | Command                 | Time   |
+| ----- | ----------------------- | ----------------------- | ------ |
+| 1     | Static (lint, types)    | Automatic               | ~10s   |
+| 2     | Unit (MCP STDIO)        | Automatic               | ~5s    |
+| 3     | Integration (Docker)    | Requires running stack  | ~3s    |
+
+**Total: ~20s** — runs automatically on every commit.
+
+---
+
+## Layer 1: Static Analysis
+
+Runs without Docker. Catches 80% of issues.
+
+- [x] **Secrets scan** — gitleaks (prevents API key leaks)
+- [x] **TypeScript** — `tsc --noEmit` (catches type errors)
+- [x] **Lint** — ESLint (catches code style issues)
+- [x] **MCP build** — `npm run build` (catches syntax errors)
+
+---
+
+## Layer 2: Unit Tests
+
+Runs without Docker. Catches protocol bugs.
+
+- [x] **MCP STDIO** — Sends initialize request, expects serverInfo response
+- [x] **Auth-sidecar** — Syntax check
+
+### MCP STDIO Test Rationale
+
+This catches:
+- Missing Accept headers (SSE compatibility)
+- Broken JSON-RPC protocol
+- Initialization failures
+- Export/import issues
+
+---
+
+## Layer 3: Integration Tests
+
+Requires local Docker stack (`npx @cybermem/cli up`).
+
+- [x] **MCP Health** — `localhost:8626/health` → `{"ok":true}`
+- [x] **Dashboard Health** — `localhost:3000/api/health` → `{"overall":"ok"}`
+- [x] **Metrics API** — `localhost:3000/api/metrics` → has stats
+- [x] **Traefik Routing** — `/mcp` not 404 (middleware works)
+
+### Dashboard Data Flow Check
+
+Prevents empty dashboard regression:
+```
+MCP CRUD → SQLite → db-exporter → Dashboard API → UI cards
+```
+
+If stats.memoryRecords > 0 but UI shows 0 → data pipeline broken.
+
+---
+
+## Agent Protocol
+
+### Before Commit
+
+```
+1. Make changes
+2. Run: ./.hooks/pre-commit
+3. If FAILED → fix errors → goto 2
+4. If PASSED → git commit
+```
+
+### Before Push/Publish
+
+```
+1. Gatekeeper PASSED ✓
+2. Run: npm run test:e2e -- ui-elements.spec.ts
+   Expected: 12 passed
+3. Run: ./tools/test_mcp_modes.sh  
+   Expected: All tests passed
+4. Only then: git push / npm publish
 ```
 
 ---
 
-## Step 1: Linters and Type Checks
+## Common Failures
 
-### 1.1 Dashboard Lint
-
-```bash
-cd /Users/mikhailkogan/cybermem/packages/dashboard
-npm run lint
-# Expected: No errors (warnings OK)
-```
-
-### 1.2 TypeScript Check
-
-```bash
-cd /Users/mikhailkogan/cybermem/packages/dashboard
-npx tsc --noEmit
-# Expected: No errors
-```
-
-### 1.3 MCP Package Lint
-
-```bash
-cd /Users/mikhailkogan/cybermem/packages/mcp
-npm run lint 2>/dev/null || npx eslint src/
-# Expected: No errors
-```
+| Error | Fix |
+|-------|-----|
+| "SECRETS DETECTED" | Remove API keys from code, use .env |
+| "TypeScript errors" | Fix type issues in packages/dashboard |
+| "MCP STDIO failed" | Check packages/mcp/src/index.ts exports |
+| "MCP health 404" | Run `/stack-local` workflow |
+| "Dashboard health failed" | `docker restart cybermem-dashboard` |
+| "Traefik 404 on /mcp" | Check middleware labels in docker-compose |
 
 ---
 
-## Step 2: E2E Tests (Local Stack Required)
-
-> [!IMPORTANT]
-> Requires local Docker stack running. See `/stack-local` workflow.
-
-### 2.1 Infrastructure Check
+## Install Hook
 
 ```bash
-cd /Users/mikhailkogan/cybermem/packages/dashboard
-npm run test:e2e -- infra-check.spec.ts
-# Expected: 7 passed
+cp .hooks/pre-commit .git/hooks/pre-commit && chmod +x .git/hooks/pre-commit
 ```
 
-### 2.2 UI Elements Test
-
-```bash
-cd /Users/mikhailkogan/cybermem/packages/dashboard
-SKIP_DB_RESET=true npm run test:e2e -- ui-elements.spec.ts
-# Expected: 12 passed
-```
-
-### 2.3 Full E2E Suite (Optional, takes longer)
-
-```bash
-cd /Users/mikhailkogan/cybermem/packages/dashboard
-SKIP_DB_RESET=true npm run test:e2e -- --project=chromium
-# Expected: All specs pass
-```
-
----
-
-## Step 3: Run Test Workflows
-
-### 3.1 Test Local Environment
-
-Reference: `/test-local` workflow
-
-- Step 0: Config Validation ✓
-- Step 1: Happy Path Test ✓
-- Step 2: UI Elements Validation ✓
-
-### 3.2 Test RPi (Readonly)
-
-Reference: `/test-rpi` workflow
-
-- Step 0: Validation ✓
-- Step 1: Readonly Tests ✓
-- Step 2: Readonly UI Validation ✓
-
----
-
-## Step 4: Pre-Commit Checklist
-
-Before running `git commit`:
-
-- [ ] `gitleaks detect` — no secrets
-- [ ] `npm run lint` — no errors in dashboard
-- [ ] `tsc --noEmit` — no TypeScript errors
-- [ ] `infra-check.spec.ts` — 7 passed
-- [ ] `ui-elements.spec.ts` — 12 passed
-- [ ] Visual check of `http://localhost:3000` — no UI regressions
-
----
-
-## Common Issues
-
-| Issue                  | Fix                                      |
-| ---------------------- | ---------------------------------------- |
-| gitleaks not installed | `brew install gitleaks`                  |
-| E2E tests fail         | Run `/stack-local` first, check Docker   |
-| TypeScript errors      | Fix type issues or update types          |
-| Lint errors            | Run `npm run lint -- --fix` for auto-fix |
+Now gatekeeper runs automatically on every `git commit`.

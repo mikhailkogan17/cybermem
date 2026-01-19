@@ -108,9 +108,22 @@ const server = http.createServer((req, res) => {
   const authHeader = req.headers["authorization"];
   const apiKeyHeader = req.headers["x-api-key"];
 
-  // 1. Check JWT (Authorization: Bearer <token>)
+  // 1. Check Bearer token (JWT or API Key)
   if (authHeader?.startsWith("Bearer ")) {
     const token = authHeader.substring(7);
+
+    // 1a. Check if Bearer token is actually an API key (MCP clients like Claude Desktop)
+    const expectedKey = loadApiKey();
+    if (expectedKey && token === expectedKey) {
+      console.log("Auth OK: Bearer API Key");
+      res.writeHead(200, {
+        "X-Auth-Method": "bearer-api-key",
+      });
+      res.end();
+      return;
+    }
+
+    // 1b. Try JWT RS256 validation
     const payload = validateJwt(token);
 
     if (payload) {

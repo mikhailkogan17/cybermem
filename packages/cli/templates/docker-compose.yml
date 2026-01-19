@@ -46,13 +46,25 @@ services:
     volumes:
       - ${CYBERMEM_ENV_PATH:-${HOME}/.cybermem/.env}:/.env
       - ${HOME}/.cybermem/data:/data
+    depends_on:
+      - traefik
+      - auth-sidecar
     labels:
       - traefik.enable=true
-      - traefik.http.routers.mcp.rule=PathPrefix(`/cybermem/mcp`) || PathPrefix(`/cybermem/sse`) || PathPrefix(`/cybermem/health`) || PathPrefix(`/cybermem/metrics`) || PathPrefix(`/mcp`) || PathPrefix(`/sse`) || PathPrefix(`/health`) || PathPrefix(`/metrics`)
+      # Middleware definitions (must be on a service that starts BEFORE routes reference them)
+      - traefik.http.middlewares.strip-cybermem.stripprefix.prefixes=/cybermem
+      # Authenticated routes
+      - traefik.http.routers.mcp.rule=PathPrefix(`/cybermem/mcp`) || PathPrefix(`/cybermem/sse`) || PathPrefix(`/mcp`) || PathPrefix(`/sse`)
       - traefik.http.routers.mcp.entrypoints=web
       - traefik.http.routers.mcp.priority=100
       - traefik.http.routers.mcp.service=mcp-service
       - traefik.http.routers.mcp.middlewares=auth-check,strip-cybermem
+      # Public routes (Health/Metrics)
+      - traefik.http.routers.mcp-public.rule=PathPrefix(`/cybermem/health`) || PathPrefix(`/cybermem/metrics`) || PathPrefix(`/health`) || PathPrefix(`/metrics`)
+      - traefik.http.routers.mcp-public.entrypoints=web
+      - traefik.http.routers.mcp-public.priority=100
+      - traefik.http.routers.mcp-public.service=mcp-service
+      - traefik.http.routers.mcp-public.middlewares=strip-cybermem
       - traefik.http.services.mcp-service.loadbalancer.server.port=8080
       # Legacy API support (for simple REST clients)
       - traefik.http.routers.legacy-api.rule=PathPrefix(`/cybermem/add`) || PathPrefix(`/cybermem/query`) || PathPrefix(`/cybermem/all`) || PathPrefix(`/add`) || PathPrefix(`/query`) || PathPrefix(`/all`)
@@ -171,10 +183,9 @@ services:
       - traefik.enable=true
       # Dashboard route: /cybermem -> dashboard on port 3000
       - traefik.http.routers.dashboard.entrypoints=web
-      - traefik.http.routers.dashboard.rule=PathPrefix(`/cybermem`)
+      - traefik.http.routers.dashboard.rule=PathPrefix(`/cybermem`) && !PathPrefix(`/cybermem/mcp`) && !PathPrefix(`/cybermem/health`)
       - traefik.http.routers.dashboard.priority=10
       - traefik.http.routers.dashboard.middlewares=auth-check,strip-cybermem
-      - traefik.http.middlewares.strip-cybermem.stripprefix.prefixes=/cybermem
       - traefik.http.services.dashboard.loadbalancer.server.port=3000
     restart: unless-stopped
     depends_on:

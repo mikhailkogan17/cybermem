@@ -18,7 +18,20 @@
 > - Ignore GEMINI.md rules
 > - Skip workflow steps and/or required Playwright runs
 > - Force a commit without fixing a cause (linting, gitleaks, etc)
-> - **Commit without running local tests first (`npm run test:e2e`)**
+> - [ ] **Commit without running local tests first (`npm run test:e2e`)**
+
+## 1.5 MANDATORY AGENT PROTOCOL (Gatekeeper)
+
+> [!IMPORTANT]
+> **EVERY AGENT (Antigravity, Claude Code, Opus) MUST follow this workflow before ANY push or publish:**
+
+1.  **Run Pre-commit**: Execute `/pre_commit` or `./.hooks/pre-commit` locally.
+2.  **Full E2E suite**: Run `npm run test:e2e local` in `packages/cli` AND verify dashboard health.
+3.  **Docs Sync**: Run `/refresh-docs` to ensure documentation and landing are consistent.
+4.  **Create Release Report**: Every non-trivial change MUST have a verified report in `release-reports/` based on `TEMPLATE.md`.
+5.  **MCP Verification**: Specifically verify both **Local SDK** and **Remote Proxy** modes to prevent protocol regressions.
+
+FAILURE TO FOLLOW THIS PROTOCOL IS UNACCEPTABLE AND CAUSES PRODUCTION DOWN-TIME.
 
 ## 2. Terminology Stack & Architecture
 
