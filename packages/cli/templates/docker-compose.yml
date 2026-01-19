@@ -31,7 +31,7 @@ services:
     build:
       context: ../../mcp
       dockerfile: Dockerfile
-    image: cybermem-mcp:local-dev
+    image: ghcr.io/mikhailkogan17/cybermem-mcp:latest
     restart: unless-stopped
     container_name: cybermem-mcp
     environment:
