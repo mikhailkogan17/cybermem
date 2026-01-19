@@ -130,6 +130,8 @@ For full protocol: https://docs.cybermem.dev/agent-protocol`;
       baseURL: cliUrl,
       headers: {
         "X-API-Key": cliToken,
+        Accept: "application/json, text/event-stream",
+        "Content-Type": "application/json",
       },
     });
     // Dynamically inject client name from context or discovery
