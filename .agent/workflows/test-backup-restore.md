@@ -44,10 +44,10 @@ ssh pi@raspberrypi.local 'curl -s http://localhost:8000/api/stats | jq "{memoryR
 
 ## Step 1: Restore to Local (LOCAL ONLY)
 
-### 1.1 Stop Local OpenMemory
+### 1.1 Stop Local MCP Server
 
 ```bash
-docker stop cybermem-openmemory
+docker stop cybermem-mcp
 ```
 
 ### 1.2 Extract Backup to Local Docker Volume
@@ -69,7 +69,7 @@ docker run --rm \
 ### 1.3 Restart Local Stack
 
 ```bash
-docker start cybermem-openmemory
+docker start cybermem-mcp
 sleep 15
 docker restart cybermem-log-exporter cybermem-db-exporter
 sleep 5

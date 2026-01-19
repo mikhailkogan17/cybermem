@@ -39,8 +39,7 @@ jobs:
         working-directory: packages/cli/templates
         run: |
           export CYBERMEM_ENV_PATH=$HOME/.cybermem/.env
-          docker-compose --version
-          docker-compose up -d
+          docker compose up -d
           sleep 60 # Wait for services to be ready
 
       - name: Install CLI Dependencies

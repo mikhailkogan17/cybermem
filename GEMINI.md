@@ -297,11 +297,15 @@ Do NOT use prometheus mocks, stubs
 
 ### Dashboard
 
-The dashboard tracks MCP client activity through db-exporter (SQLite).
+The dashboard tracks MCP client activity through db-exporter (SQLite) and visualizes it via the Metrics API.
 
 > [!IMPORTANT]
-> **Dashboard uses SQLite as single source of truth** (not Prometheus).
-> Prometheus remains in stack for Grafana/alerting but is not used by dashboard.
+> **Dashboard uses a Hybrid Metrics Strategy:**
+>
+> - **Stat Cards** (Success Rate, Total Requests): SQLite (db-exporter) as single source of truth.
+> - **Time Series Charts**:
+>   - **Prometheus (Primary)**: Fetches `query_range` if Prometheus (9092) is up.
+>   - **Beautiful Linear Sampling (SQLite Fallback)**: If Prometheus is down, the Dashboard implements a "Grafana-on-SQLite" algorithm that generates perfectly linear, zero-filled sampling (60 points/chart) to ensure smooth visualization even in lite mode.
 
 **All metrics from db-exporter (SQLite):**
 
@@ -311,17 +315,43 @@ The dashboard tracks MCP client activity through db-exporter (SQLite).
 - **Total Requests** — Sum from `cybermem_stats` table
 - **Top Writer / Top Reader** — Aggregated from `cybermem_stats` table
 - **Last Writer / Last Reader** — Most recent from `cybermem_access_log` table
-- **Time Series Charts** — Bucketed counts from `cybermem_access_log` table
+- **Time Series Charts** — Generated via Linear Sampling from `cybermem_access_log` table
 - **Audit Logs** — From `cybermem_access_log` table
 
 **Client name normalization** happens on backend via `clients.json` regex matching.
+
+> [!CAUTION]
+> In **Local Mode**, charts rely on SQLite sampling. Any gaps in data will be rendered as flat lines (zero-filled) to prevent "uneven scale" or "metamorphoses" seen in earlier versions.
 
 > [!CAUTION]
 > Always check Top Reader / Top Writer / Last Reader / Last Writer for happy path. Use Time Series Charts for regression testing.
 
 ---
 
-## 7. CRUD Happy Path Test Flow
+## 8. CLI Commands
+
+### Management Commands
+
+| Command     | Description                                                                                        |
+| ----------- | -------------------------------------------------------------------------------------------------- |
+| `init`      | Initialize CyberMem configuration and templates                                                    |
+| `up`        | Start the full Docker stack (Traefik, Prometheus, etc.)                                            |
+| `dashboard` | **[NEW]** Checks ports (3000, 9092) and opens the local dashboard. Warns if Prometheus is missing. |
+| `update`    | Upgrade images and pull latest changes                                                             |
+| `reset`     | Wipe database (DESTRUCTIVE)                                                                        |
+
+### Memory Tools (MCP)
+
+| Tool            | Implementation                                                                                                             |
+| --------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| `add_memory`    | SDK (OpenMemory)                                                                                                           |
+| `query_memory`  | SDK (OpenMemory)                                                                                                           |
+| `list_memories` | SDK (OpenMemory)                                                                                                           |
+| `delete_memory` | **Direct SQLite Scrub**. Directly deletes ID from `memories`, `vectors`, and `waypoints` tables to bypass SDK limitations. |
+
+---
+
+## 9. CRUD Happy Path Test Flow
 
 ### Pipeline Overview
 
@@ -405,5 +435,40 @@ docker restart cybermem-openmemory
 | `RPI_API_KEY`   | -                      | API key for RPi authentication                                    |
 | `RPI_HOST`      | `pi@raspberrypi.local` | SSH host for RPi DB reset                                         |
 
-> [!NOTE]
-> RPi platform compatibility documentation is in global `~/.gemini/GEMINI.md`.
+---
+
+## 10. Architectural Decision Records (ADR)
+
+### ADR-001: Beautiful Local Charts (v0.7.2)
+
+- **Problem**: Raw event-based charts caused "uneven scale" or "metamorphoses" when events were irregular.
+- **Solution**: Implemented **Beautiful Linear Sampling**. Instead of plotting raw timestamps, we generate 60 fixed buckets on a timeline.
+- **Logic**: Perform a cumulative count sweep across the linear timeline. If no event happened in a bucket, it inherits the previous value (flat line).
+- **Benefit**: Smooth, Grafana-level charts even in Lite mode (SQLite).
+
+### ADR-002: Direct SQLite Scrub (v0.7.0)
+
+- **Problem**: `delete_memory` was not supported in the local OpenMemory SDK.
+- **Solution**: Implemented direct SQLite manipulation in the MCP server.
+- **Scope**: Deletes from `memories`, `vectors`, and `waypoints` tables using transactions.
+- **Decision**: Bypass SDK for destructive operations to ensure reliability.
+
+### ADR-003: Port 8626 Canonicalization
+
+- **Problem**: Port conflicts with default 8080/4000/3000.
+- **Solution**: Port **8626** is the dedicated entry point for Traefik, which routes all MCP and API traffic.
+- **Rule**: Never bypass Traefik for internal communication.
+
+---
+
+## 11. Metadata & Maintenance
+
+> [!IMPORTANT]
+> **Complexity Management**: If you find yourself debugging chart scaling or missing CRUD, REFER TO ADRs ABOVE.
+> **DO NOT** re-implement chart logic or try and fix SDK for local delete.
+
+### Maintenance Commands
+
+- `/refresh-docs`: Sync landing and main repo.
+- `/test-backup-restore`: Verify RPi -> Local data sync.
+- `/release`: Bump versions and trigger OIDC publish.
