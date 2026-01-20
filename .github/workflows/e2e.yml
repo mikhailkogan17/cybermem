@@ -100,10 +100,11 @@ jobs:
 
       - name: Wipe Database (Cleanup)
         if: always()
-        working-directory: packages/cli
-        run: npm run test:e2e -- --wipe-only
-        env:
-          OM_API_KEY: sk-test-key-for-ci # gitleaks:allow
+        run: |
+          # Direct docker cleanup - more reliable than ts-node in CI
+          docker exec cybermem-mcp sh -c 'rm -f /data/openmemory.sqlite*' || true
+          docker restart cybermem-mcp || true
+          echo "✅ Database wiped"
 
       - name: Upload Playwright Report
         if: failure()
