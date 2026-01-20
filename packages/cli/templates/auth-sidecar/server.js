@@ -97,7 +97,7 @@ function isLocalRequest(req) {
 }
 
 // ForwardAuth handler
-const server = http.createServer((req, res) => {
+const server = http.createServer(async (req, res) => {
   // Health check
   if (req.url === "/health") {
     res.writeHead(200, { "Content-Type": "application/json" });
@@ -136,6 +136,45 @@ const server = http.createServer((req, res) => {
       });
       res.end();
       return;
+    }
+
+    // 1c. Try GitHub OAuth token verification
+    try {
+      const https = require("https");
+      const ghRes = await new Promise((resolve, reject) => {
+        const req = https.get(
+          "https://api.github.com/user",
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+              "User-Agent": "CyberMem-Auth-Sidecar/1.0",
+              Accept: "application/vnd.github+json",
+            },
+          },
+          (res) => {
+            let data = "";
+            res.on("data", (chunk) => (data += chunk));
+            res.on("end", () => resolve({ status: res.statusCode, data }));
+          },
+        );
+        req.on("error", reject);
+        req.end();
+      });
+
+      if (ghRes.status === 200) {
+        const user = JSON.parse(ghRes.data);
+        console.log(`Auth OK: GitHub OAuth (${user.login})`);
+        res.writeHead(200, {
+          "X-User-Id": String(user.id),
+          "X-User-Email": user.email || "",
+          "X-User-Name": user.login,
+          "X-Auth-Method": "github-oauth",
+        });
+        res.end();
+        return;
+      }
+    } catch (err) {
+      // GitHub verification failed, continue to other methods
     }
   }
 

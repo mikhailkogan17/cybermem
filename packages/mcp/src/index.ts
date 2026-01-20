@@ -17,7 +17,7 @@ import axios from "axios";
 import cors from "cors";
 import express from "express";
 import { z } from "zod";
-import { login, logout, showStatus } from "./auth";
+import { getToken, login, logout, showStatus } from "./auth";
 
 // Redirect all stdout to stderr IMMEDIATELY to protect Stdio protocol
 const originalStdoutWrite = process.stdout.write.bind(process.stdout);
@@ -67,7 +67,7 @@ async function startServer() {
   };
 
   const cliUrl = getArg("--url");
-  const cliToken = getArg("--token") || getArg("--api-key");
+  const cliToken = getArg("--token") || getArg("--api-key") || (cliUrl ? getToken() : undefined);
   let stdioClientName: string | undefined = undefined;
 
   // Protocol Instructions
@@ -154,7 +154,7 @@ For full protocol: https://docs.cybermem.dev/agent-protocol`;
     try {
       const dir = path.dirname(dbPath);
       if (dir) fs.mkdirSync(dir, { recursive: true });
-    } catch {}
+    } catch { }
 
     try {
       // Dynamic import to ensure env vars are set before loading SDK
