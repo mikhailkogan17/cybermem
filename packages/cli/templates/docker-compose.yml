@@ -35,7 +35,7 @@ services:
       context: ../../mcp
       dockerfile: Dockerfile
     image: ghcr.io/mikhailkogan17/cybermem-mcp:latest
-    platform: linux/arm64
+    # Note: platform omitted - docker auto-detects (amd64 for CI, arm64 for RPi)
     restart: unless-stopped
     container_name: cybermem-mcp
     environment:
@@ -165,7 +165,7 @@ services:
 
   dashboard:
     image: ghcr.io/mikhailkogan17/cybermem-dashboard:latest
-    platform: linux/arm64
+    # Note: platform omitted - docker auto-detects (amd64 for CI, arm64 for RPi)
     container_name: cybermem-dashboard
     environment:
       DB_EXPORTER_URL: http://db-exporter:8000
