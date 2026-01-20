@@ -40,6 +40,8 @@ jobs:
         run: |
           docker version
           docker compose version
+          # Override arm64 platform for CI (Ubuntu runs amd64)
+          export DOCKER_DEFAULT_PLATFORM=linux/amd64
           export CYBERMEM_ENV_PATH=$HOME/.cybermem/.env
           docker compose up -d
           docker compose ps
