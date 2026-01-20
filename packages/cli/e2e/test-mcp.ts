@@ -14,10 +14,9 @@ const getLocalApiKey = () => {
   try {
     // Option 1: Docker Exec (Dynamic)
     // This satisfies the requirement: "tests themselves... get the key"
-    const dockerKey = execSync(
-      "docker exec cybermem-mcp printenv OM_API_KEY",
-      { encoding: "utf-8" },
-    ).trim();
+    const dockerKey = execSync("docker exec cybermem-mcp printenv OM_API_KEY", {
+      encoding: "utf-8",
+    }).trim();
     if (dockerKey) return dockerKey;
   } catch (e) {
     // Container might not be running or accessible yet
@@ -50,8 +49,12 @@ const TARGETS = {
       "Content-Type": "application/json",
       Accept: "application/json, text/event-stream",
       // Use API key if provided via env (CI) or discovered from docker/file
+      // Send both x-api-key and Authorization for compatibility with auth-sidecar
       ...(process.env.OM_API_KEY || getLocalApiKey()
-        ? { "x-api-key": process.env.OM_API_KEY || getLocalApiKey() }
+        ? {
+            "x-api-key": process.env.OM_API_KEY || getLocalApiKey(),
+            Authorization: `Bearer ${process.env.OM_API_KEY || getLocalApiKey()}`,
+          }
         : {}),
       "User-Agent": "CyberMem-CLI/1.0.0",
       "X-Client-Name": "claude-ai",
