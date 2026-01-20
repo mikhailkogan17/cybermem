@@ -39,14 +39,15 @@ jobs:
         working-directory: packages/cli/templates
         env:
           DOCKER_DEFAULT_PLATFORM: linux/amd64
-          CYBERMEM_ENV_PATH: ${{ github.workspace }}/.cybermem/.env
         run: |
           docker version
           docker compose version
-          mkdir -p $HOME/.cybermem
-          cp ~/.cybermem/.env ${{ github.workspace }}/.cybermem/.env || true
+          # Set env path for auth-sidecar volume mount
+          export CYBERMEM_ENV_PATH=$HOME/.cybermem/.env
           docker compose up -d
           docker compose ps
+          # Show what auth-sidecar sees
+          docker exec cybermem-auth-sidecar cat /.env || echo "No .env found"
           sleep 60 # Wait for services to be ready
 
       - name: Install CLI Dependencies
