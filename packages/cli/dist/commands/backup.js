@@ -16,10 +16,10 @@ async function backup(options) {
     try {
         // Check if container exists
         try {
-            await (0, execa_1.default)('docker', ['inspect', 'cybermem-openmemory']);
+            await (0, execa_1.default)('docker', ['inspect', 'cybermem-mcp']);
         }
         catch (e) {
-            console.error(chalk_1.default.red('Error: cybermem-openmemory container not found. Is CyberMem installed?'));
+            console.error(chalk_1.default.red('Error: cybermem-mcp container not found. Is CyberMem installed?'));
             process.exit(1);
         }
         // Use a transient alpine container to tar the /data volume
@@ -27,7 +27,7 @@ async function backup(options) {
         // And we use --volumes-from to access the data volume of the running service
         const cmd = [
             'run', '--rm',
-            '--volumes-from', 'cybermem-openmemory',
+            '--volumes-from', 'cybermem-mcp',
             '-v', `${process.cwd()}:/backup`,
             'alpine',
             'tar', 'czf', `/backup/${filename}`, '-C', '/', 'data'

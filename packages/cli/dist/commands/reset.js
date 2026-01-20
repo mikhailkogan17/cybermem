@@ -10,7 +10,7 @@ const ora_1 = __importDefault(require("ora"));
 async function reset() {
     const spinner = (0, ora_1.default)('Resetting CyberMem database...').start();
     try {
-        const containerName = 'cybermem-openmemory';
+        const containerName = 'cybermem-mcp';
         // Check if container exists
         try {
             (0, child_process_1.execSync)(`docker inspect ${containerName}`, { stdio: 'pipe' });

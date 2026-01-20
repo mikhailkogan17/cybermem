@@ -1,6 +1,11 @@
 import chalk from "chalk";
+import fs from "fs";
 import net from "net";
 import open from "open";
+import os from "os";
+import path from "path";
+
+const TOKEN_FILE = path.join(os.homedir(), ".cybermem", "token.json");
 
 const checkPort = (port: number): Promise<boolean> => {
   return new Promise((resolve) => {
@@ -19,6 +24,23 @@ const checkPort = (port: number): Promise<boolean> => {
   });
 };
 
+/**
+ * Get stored token from ~/.cybermem/token.json
+ */
+function getStoredToken(): string | null {
+  try {
+    if (!fs.existsSync(TOKEN_FILE)) return null;
+    const data = JSON.parse(fs.readFileSync(TOKEN_FILE, "utf-8"));
+    if (new Date(data.expires_at) < new Date()) {
+      console.warn(chalk.yellow("Token expired. Run: cybermem-cli login"));
+      return null;
+    }
+    return data.access_token;
+  } catch {
+    return null;
+  }
+}
+
 export async function dashboard(options: any) {
   console.log(chalk.blue("Checking CyberMem stack status..."));
 
@@ -34,7 +56,6 @@ export async function dashboard(options: any) {
         "Run 'cybermem up' or 'cd packages/dashboard && npm run dev' to start it.",
       ),
     );
-    // process.exit(1); // Optional: stay open to allow attempts? Nah, let's exit.
   } else {
     console.log(chalk.green("✅ Dashboard is running on port 3000."));
   }
@@ -53,5 +74,26 @@ export async function dashboard(options: any) {
   if (dashboardUp) {
     console.log(chalk.blue("\nOpening dashboard..."));
     await open("http://localhost:3000");
+  } else {
+    // Try remote dashboard if local isn't up
+    const token = getStoredToken();
+    if (token) {
+      // Check for remote URL from environment or config
+      const remoteUrl = process.env.CYBERMEM_DASHBOARD_URL;
+      if (remoteUrl) {
+        console.log(chalk.blue("\nOpening remote dashboard..."));
+        await open(`${remoteUrl}/api/auth/token?token=${token}`);
+      } else {
+        console.log(
+          chalk.gray(
+            "\nTip: Set CYBERMEM_DASHBOARD_URL to open remote dashboard.",
+          ),
+        );
+      }
+    } else {
+      console.log(
+        chalk.gray("\nTip: Run 'cybermem-cli login' to enable remote access."),
+      );
+    }
   }
 }

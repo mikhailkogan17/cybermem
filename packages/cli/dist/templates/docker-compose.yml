@@ -1,3 +1,4 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/compose-spec/compose-spec/master/schema/compose-spec.json
 # CyberMem - OpenMemory + DevOps monitoring stack
 # For local development only
 # Production deployment: use Helm chart (charts/cybermem/)
@@ -24,34 +25,53 @@ services:
       - traefik-logs:/var/log/traefik
     labels:
       - traefik.enable=true
+      - traefik.http.middlewares.auth-check.forwardauth.address=http://auth-sidecar:3001/auth
+      - traefik.http.middlewares.auth-check.forwardauth.authResponseHeaders=X-User-Id,X-User-Email,X-User-Name,X-Auth-Method
     restart: unless-stopped
 
   # MCP Server (Node.js/SDK)
   mcp-server:
     build:
-      context: /Users/mikhailkogan/cybermem/packages/mcp
+      context: ../../mcp
       dockerfile: Dockerfile
-    image: cybermem-mcp:local-dev
+    image: ghcr.io/mikhailkogan17/cybermem-mcp:latest
+    platform: linux/arm64
     restart: unless-stopped
     container_name: cybermem-mcp
     environment:
       OM_TIER: "hybrid"
-      PORT: "0"
+      PORT: "8080"
       OM_PORT: "0"
       OM_DB_PATH: /data/openmemory.sqlite
     volumes:
       - ${CYBERMEM_ENV_PATH:-${HOME}/.cybermem/.env}:/.env
       - ${HOME}/.cybermem/data:/data
+    depends_on:
+      - traefik
+      - auth-sidecar
     labels:
       - traefik.enable=true
-      - traefik.http.routers.mcp.rule=(Host(`raspberrypi.local`) || Host(`localhost`) || Host(`127.0.0.1`)) && (PathPrefix(`/mcp`) || PathPrefix(`/sse`) || PathPrefix(`/health`) || PathPrefix(`/metrics`))
+      # Middleware definitions (must be on a service that starts BEFORE routes reference them)
+      - traefik.http.middlewares.strip-cybermem.stripprefix.prefixes=/cybermem
+      # Authenticated routes
+      - traefik.http.routers.mcp.rule=PathPrefix(`/cybermem/mcp`) || PathPrefix(`/cybermem/sse`) || PathPrefix(`/mcp`) || PathPrefix(`/sse`)
       - traefik.http.routers.mcp.entrypoints=web
+      - traefik.http.routers.mcp.priority=100
       - traefik.http.routers.mcp.service=mcp-service
+      - traefik.http.routers.mcp.middlewares=auth-check,strip-cybermem
+      # Public routes (Health/Metrics)
+      - traefik.http.routers.mcp-public.rule=PathPrefix(`/cybermem/health`) || PathPrefix(`/cybermem/metrics`) || PathPrefix(`/health`) || PathPrefix(`/metrics`)
+      - traefik.http.routers.mcp-public.entrypoints=web
+      - traefik.http.routers.mcp-public.priority=100
+      - traefik.http.routers.mcp-public.service=mcp-service
+      - traefik.http.routers.mcp-public.middlewares=strip-cybermem
       - traefik.http.services.mcp-service.loadbalancer.server.port=8080
       # Legacy API support (for simple REST clients)
-      - traefik.http.routers.legacy-api.rule=(Host(`raspberrypi.local`) || Host(`localhost`) || Host(`127.0.0.1`)) && (PathPrefix(`/add`) || PathPrefix(`/query`) || PathPrefix(`/all`))
+      - traefik.http.routers.legacy-api.rule=PathPrefix(`/cybermem/add`) || PathPrefix(`/cybermem/query`) || PathPrefix(`/cybermem/all`) || PathPrefix(`/add`) || PathPrefix(`/query`) || PathPrefix(`/all`)
       - traefik.http.routers.legacy-api.entrypoints=web
+      - traefik.http.routers.legacy-api.priority=100
       - traefik.http.routers.legacy-api.service=mcp-service
+      - traefik.http.routers.legacy-api.middlewares=auth-check,strip-cybermem
 
   # Auth sidecar for JWT/API key validation (ForwardAuth)
   auth-sidecar:
@@ -64,9 +84,6 @@ services:
       - ${CYBERMEM_ENV_PATH:-${HOME}/.cybermem/.env}:/.env:ro
     labels:
       - traefik.enable=true
-      # ForwardAuth middleware
-      - traefik.http.middlewares.auth-check.forwardauth.address=http://auth-sidecar:3001/auth
-      - traefik.http.middlewares.auth-check.forwardauth.authResponseHeaders=X-User-Id,X-User-Email,X-User-Name,X-Auth-Method
     healthcheck:
       test:
         [
@@ -82,9 +99,8 @@ services:
       retries: 3
     restart: unless-stopped
 
-  # NOTE: openmemory container REMOVED
-  # Memory now handled by @cybermem/mcp with embedded openmemory-js SDK
-  # SQLite stored at ~/.cybermem/data/openmemory.sqlite
+  # Memory engine (MCP + Persistence)
+  # Uses embedded SQLite stored at ~/.cybermem/data/openmemory.sqlite
 
   db-exporter:
     image: ghcr.io/mikhailkogan17/cybermem-db_exporter:latest
@@ -136,22 +152,6 @@ services:
     profiles:
       - postgres
 
-  postgres-exporter:
-    image: prometheuscommunity/postgres-exporter:v0.15.0
-    container_name: cybermem-postgres-exporter
-    environment:
-      DATA_SOURCE_NAME: postgresql://${PG_USER:-openmemory}:${PG_PASSWORD:-postgres}@postgres:5432/${PG_DB:-openmemory}?sslmode=disable
-      PG_EXPORTER_EXTEND_QUERY_PATH: /queries.yml
-    ports:
-      - "9187:9187"
-    volumes:
-      - ./monitoring/postgres_exporter/queries.yml:/queries.yml:ro
-    restart: unless-stopped
-    depends_on:
-      - postgres
-    profiles:
-      - postgres
-
   ollama:
     image: ollama/ollama:latest
     container_name: cybermem-ollama
@@ -163,66 +163,43 @@ services:
     profiles:
       - ollama
 
-  prometheus:
-    image: prom/prometheus:v2.48.0
-    container_name: cybermem-prometheus
-    command:
-      - --config.file=/etc/prometheus/prometheus.yml
-      - --storage.tsdb.path=/prometheus
-      - --storage.tsdb.retention.time=${PROM_RETENTION:-7d}
-      - --web.console.libraries=/usr/share/prometheus/console_libraries
-      - --web.console.templates=/usr/share/prometheus/consoles
-    ports:
-      - "9092:9090"
-    volumes:
-      - ./monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
-      - prometheus-data:/prometheus
-    restart: unless-stopped
-    depends_on:
-      - db-exporter
-
   dashboard:
     image: ghcr.io/mikhailkogan17/cybermem-dashboard:latest
+    platform: linux/arm64
     container_name: cybermem-dashboard
     environment:
       DB_EXPORTER_URL: http://db-exporter:8000
-      NEXT_PUBLIC_PROMETHEUS_URL: http://prometheus:9090
-      PROMETHEUS_URL: http://prometheus:9090
       # Required for Health Check to find the MCP API internally
       CYBERMEM_URL: http://mcp-server:8080
+      OM_DB_PATH: /data/openmemory.sqlite
       OM_API_KEY: ${OM_API_KEY:-dev-secret-key}
-      # WATCHPACK_POLLING: "true" # Enable if hot reload blocks (high CPU usage)
     ports:
       - "3000:3000"
     volumes:
-      - openmemory-data:/data
+      - ${HOME}/.cybermem/data:/data
       - /var/run/docker.sock:/var/run/docker.sock
       - ${CYBERMEM_ENV_PATH:-${HOME}/.cybermem/.env}:/app/shared.env
     labels:
       - traefik.enable=true
       # Dashboard route: /cybermem -> dashboard on port 3000
       - traefik.http.routers.dashboard.entrypoints=web
-      - traefik.http.routers.dashboard.rule=PathPrefix(`/cybermem`)
+      - traefik.http.routers.dashboard.rule=PathPrefix(`/cybermem`) && !PathPrefix(`/cybermem/mcp`) && !PathPrefix(`/cybermem/health`)
+      - traefik.http.routers.dashboard.priority=10
       - traefik.http.routers.dashboard.middlewares=auth-check,strip-cybermem
-      - traefik.http.middlewares.strip-cybermem.stripprefix.prefixes=/cybermem
       - traefik.http.services.dashboard.loadbalancer.server.port=3000
     restart: unless-stopped
     depends_on:
-      - prometheus
       - db-exporter
 
 volumes:
   openmemory-data:
-    name: cybermem-openmemory-data
+    name: cybermem-data
     driver: local
   postgres-data:
     name: cybermem-postgres-data
     driver: local
   ollama-models:
     name: cybermem-ollama-models
-    driver: local
-  prometheus-data:
-    name: cybermem-prometheus-data
     driver: local
   traefik-logs:
     name: cybermem-traefik-logs

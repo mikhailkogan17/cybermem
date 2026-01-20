@@ -1,29 +1,35 @@
-import { auth } from "@/auth";
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 
 /**
  * Dashboard Middleware
  *
- * 1. LOCAL BYPASS: localhost and 127.0.0.1 skip auth
- * 2. REMOTE: Require GitHub OAuth
+ * 1. LOCAL BYPASS: localhost, 127.0.0.1, raspberrypi.local skip auth
+ * 2. REMOTE: Check cybermem_token cookie
  * 3. CSRF Protection for mutations
  */
 export async function middleware(request: NextRequest) {
   const host = request.headers.get("host") || "";
 
-  // LOCAL BYPASS: Skip auth for localhost (development)
-  const isLocal = host.includes("localhost") || host.includes("127.0.0.1");
+  // LOCAL BYPASS: Skip auth for local development and trusted networks
+  const isLocal =
+    host.includes("localhost") ||
+    host.includes("127.0.0.1") ||
+    host.includes("raspberrypi.local");
 
   if (!isLocal) {
-    // REMOTE: Check GitHub OAuth session
-    const session = await auth();
+    // REMOTE: Check cookie token
+    const token = request.cookies.get("cybermem_token")?.value;
 
-    if (!session?.user) {
-      const signInUrl = new URL("/auth/signin", request.url);
-      signInUrl.searchParams.set("callbackUrl", request.nextUrl.pathname);
-      return NextResponse.redirect(signInUrl);
+    if (!token) {
+      // Redirect to token auth page with error
+      const authUrl = new URL("/api/auth/token", request.url);
+      authUrl.searchParams.set("error", "no_token");
+      return NextResponse.redirect(authUrl);
     }
+
+    // Note: Full token verification happens in the token endpoint
+    // Cookie existence is enough for middleware (token was validated when set)
   }
 
   // CSRF Protection for mutating requests
