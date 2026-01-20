@@ -57,11 +57,12 @@ export default defineConfig({
     },
   ],
   webServer: {
-    // Kill any existing process on 3000 before starting dev server
+    // In CI: dashboard runs via docker-compose, no need to start new server
+    // Locally: starts dev server if not already running
     command:
       "lsof -ti:3000 | xargs kill -9 2>/dev/null || true; npm run dev -- -p 3000 -H 127.0.0.1",
     url: "http://127.0.0.1:3000",
-    reuseExistingServer: !process.env.CI,
+    reuseExistingServer: true, // Always reuse - docker-compose provides in CI
     stdout: "pipe",
     stderr: "pipe",
     timeout: 60000,
