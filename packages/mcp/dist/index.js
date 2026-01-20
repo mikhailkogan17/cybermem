@@ -64,7 +64,7 @@ async function startServer() {
         return idx !== -1 && args[idx + 1] ? args[idx + 1] : undefined;
     };
     const cliUrl = getArg("--url");
-    const cliToken = getArg("--token") || getArg("--api-key");
+    const cliToken = getArg("--token") || getArg("--api-key") || (cliUrl ? (0, auth_1.getToken)() : undefined);
     let stdioClientName = undefined;
     // Protocol Instructions
     const CYBERMEM_INSTRUCTIONS = `CyberMem is a persistent context daemon for AI agents.

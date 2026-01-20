@@ -44,7 +44,7 @@ echo "└───────────────────────�
 # 1.1 Secrets Check
 echo "📦 [1.1] Secrets scan..."
 if command -v gitleaks &> /dev/null; then
-    if gitleaks detect --source . --no-git --redact --quiet 2>/dev/null; then
+    if gitleaks detect --source . --no-git --redact 2>/dev/null; then
         pass "No secrets detected"
     else
         fail "SECRETS DETECTED! Run: gitleaks detect --source . --verbose"

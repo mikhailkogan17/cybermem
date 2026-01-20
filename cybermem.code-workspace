@@ -137,6 +137,9 @@
       "sparklines",
       "topk",
     ],
+    "tfa.dashboard.includeSecondaryModels": false,
+    "tfa.status.showQuota": false,
+    "tfa.status.showCache": false,
   },
   "extensions": {
     "recommendations": [
