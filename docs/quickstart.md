@@ -45,10 +45,10 @@ npx @cybermem/cli init --vps
 
 After deployment, access your CyberMem instance:
 
-| Service       | URL                       | Description                       |
-| ------------- | ------------------------- | --------------------------------- |
-| **Dashboard** | http://localhost:3000     | Monitoring UI (password: `admin`) |
-| **MCP API**   | http://localhost:8626/mcp | AI client endpoint                |
+| Service       | URL                       | Description        |
+| ------------- | ------------------------- | ------------------ |
+| **Dashboard** | http://localhost:3000     | Monitoring UI      |
+| **MCP API**   | http://localhost:8626/mcp | AI client endpoint |
 
 ## Connect AI Clients
 
