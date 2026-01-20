@@ -37,12 +37,14 @@ jobs:
 
       - name: Start Docker Stack (Local Simulation)
         working-directory: packages/cli/templates
+        env:
+          DOCKER_DEFAULT_PLATFORM: linux/amd64
+          CYBERMEM_ENV_PATH: ${{ github.workspace }}/.cybermem/.env
         run: |
           docker version
           docker compose version
-          # Override arm64 platform for CI (Ubuntu runs amd64)
-          export DOCKER_DEFAULT_PLATFORM=linux/amd64
-          export CYBERMEM_ENV_PATH=$HOME/.cybermem/.env
+          mkdir -p $HOME/.cybermem
+          cp ~/.cybermem/.env ${{ github.workspace }}/.cybermem/.env || true
           docker compose up -d
           docker compose ps
           sleep 60 # Wait for services to be ready
