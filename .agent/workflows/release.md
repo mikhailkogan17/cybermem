@@ -4,56 +4,93 @@ description: Create a new release - bump version, tag, npm publish, GitHub relea
 
 # Release Workflow
 
-Creates a new release via GitHub Actions with:
-- Version bump (patch by default)
-- Git tag
-- npm publish (OIDC trusted publishers)
-- GitHub release
-- Post-release version bump
+// turbo-all
 
-## Usage
+> [!IMPORTANT]
+> This workflow triggers GitHub Actions to bump versions, publish to npm, and create a GitHub release.
 
-```bash
-/release          # Patch release (e.g., 0.2.1 -> 0.2.2)
-/release minor    # Minor release (e.g., 0.2.1 -> 0.3.0)
-/release major    # Major release (e.g., 0.2.1 -> 1.0.0)
-```
+---
 
-## Steps
+## Prerequisites
 
-### 1. Ensure clean working directory
-// turbo
+- Clean working directory
+- All tests passing locally (`npm run test:e2e`)
+- Pre-commit hook passed (`./.hooks/pre-commit`)
+
+---
+
+## Step 1: Ensure Clean State
+
 ```bash
 cd /Users/mikhailkogan/cybermem
 git status
 ```
-Verify `nothing to commit, working tree clean`.
 
-### 2. Trigger GitHub Actions release workflow
+**Must show:** `nothing to commit, working tree clean`
+
+## Step 2: Trigger Release
+
 ```bash
-gh workflow run release.yml --field version_type=${VERSION_TYPE:-patch}
+# Patch release (0.7.6 → 0.7.7)
+gh workflow run release.yml --field version_type=patch
+
+# Minor release (0.7.6 → 0.8.0)
+gh workflow run release.yml --field version_type=minor
+
+# Major release (0.7.6 → 1.0.0)
+gh workflow run release.yml --field version_type=major
 ```
 
-### 3. Monitor workflow progress
-// turbo
-```bash
-sleep 10 && gh run list --workflow="release.yml" --limit 1 --json status,conclusion,databaseId
-```
+## Step 3: Monitor Progress
 
-### 4. Wait for completion and check result
 ```bash
+gh run list --workflow="release.yml" --limit 1
 gh run view $(gh run list --workflow="release.yml" --limit 1 --json databaseId --jq '.[0].databaseId') --watch
 ```
 
-### 5. Verify release
-// turbo
-```bash
-npm view @cybermem/mcp version
-gh release list --limit 1
-```
+## Step 4: Verify Release
 
-### 6. Pull remote changes (workflow commits version bumps)
-// turbo
 ```bash
+# Check npm versions
+npm view @cybermem/mcp version
+npm view @cybermem/cli version
+
+# Check GitHub release
+gh release list --limit 1
+
+# Pull version bump commits
 git pull
 ```
+
+## Step 5: Deploy to RPi
+
+```bash
+# Pull new images
+ssh pi@raspberrypi.local 'cd ~/.cybermem && docker-compose pull && docker-compose up -d'
+
+# Verify versions
+ssh pi@raspberrypi.local 'docker images --format "{{.Repository}}:{{.Tag}}" | grep cybermem.*latest'
+```
+
+---
+
+## What Release Does
+
+1. Runs E2E tests in CI
+2. Bumps version in cli, mcp, dashboard packages
+3. Builds all packages
+4. Commits version bump
+5. Creates git tag (v0.7.7)
+6. Publishes to npm (OIDC trusted publishers)
+7. Creates GitHub release with notes
+8. Bumps to next dev version (0.7.8)
+
+---
+
+## Troubleshooting
+
+| Issue              | Fix                                                                |
+| ------------------ | ------------------------------------------------------------------ |
+| E2E fails in CI    | Check dashboard E2E tests locally first                            |
+| npm publish fails  | Verify OIDC setup in npm account                                   |
+| Tag already exists | Delete tag: `git tag -d v0.x.x && git push --delete origin v0.x.x` |

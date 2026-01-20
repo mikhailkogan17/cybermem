@@ -113,12 +113,25 @@ FAILURE TO FOLLOW THIS PROTOCOL IS UNACCEPTABLE AND CAUSES PRODUCTION DOWN-TIME.
 | **DB Exporter**       | 8000       | SQLite metrics                |
 | **Dashboard**         | 3000       | Monitoring UI                 |
 
-### Authentication (Security Token)
+### Authentication
 
-> [!CAUTION]
-> **Local mode mimics production auth but allows bypass if CYBERMEM_URL is unset.**
+> [!IMPORTANT]
+> **Token-Based Auth (v0.7.7+)**
 >
-> Standard terminology is **Security Token**. Use the `--token` argument in CLI or MCP configuration.
+> - **Local/raspberrypi.local**: No auth required (bypass)
+> - **Remote (Tailscale/VPS)**: Cookie-based auth via `cybermem-cli login`
+
+**Auth Flow:**
+
+```
+cybermem-cli login     → Opens cybermem.dev/auth/signin → GitHub OAuth → JWT token saved
+cybermem-cli dashboard → Opens dashboard with ?token=xxx → Sets cookie → Works
+```
+
+**No env vars required for dashboard auth.** Public key (RS256) is embedded in:
+
+- `packages/dashboard/lib/auth.ts`
+- `packages/cli/templates/auth-sidecar/server.js`
 
 ---
 
@@ -234,10 +247,41 @@ sequenceDiagram
 
 ---
 
-## 11. Metadata & Maintenance
+## 11. Maintenance Workflows
 
-### Maintenance Commands
+> [!IMPORTANT]
+> Run `/health-check` weekly or before demos/interviews.
 
-- `/refresh-docs`: Sync landing and main repo.
-- `/test-backup-restore`: Verify RPi -> Local data sync.
-- `/release`: Bump versions and trigger OIDC publish.
+### Core Workflows
+
+| Workflow        | Purpose                      | Environment    |
+| --------------- | ---------------------------- | -------------- |
+| `/health-check` | Complete system verification | All            |
+| `/pre_commit`   | Run before any commit        | Local          |
+| `/release`      | Publish npm packages         | GitHub Actions |
+| `/refresh-docs` | Sync landing + docs          | Local          |
+| `/test-local`   | E2E tests on localhost       | Local only     |
+| `/test-rpi`     | Read-only RPi validation     | RPi (prod)     |
+
+### Weekly Maintenance
+
+1. Run `/health-check` to verify all systems
+2. Check npm versions match local packages
+3. Sync landing submodule if behind
+4. Review audit logs on dashboard
+
+### Release Process
+
+1. Ensure clean git state
+2. Run `gh workflow run release.yml --field version_type=patch`
+3. Monitor with `gh run view --watch`
+4. Deploy to RPi: `ssh pi@raspberrypi.local 'cd ~/.cybermem && docker-compose pull && docker-compose up -d'`
+
+### Disaster Recovery
+
+| Issue         | Recovery                                                            |
+| ------------- | ------------------------------------------------------------------- |
+| RPi down      | `ssh pi@raspberrypi.local 'cd ~/.cybermem && docker-compose up -d'` |
+| Auth broken   | Check auth-sidecar logs: `docker logs cybermem-auth-sidecar`        |
+| MCP 404       | Verify Tailscale funnel: `sudo tailscale funnel status`             |
+| Dashboard 401 | Clear cookie or run `cybermem-cli login`                            |
