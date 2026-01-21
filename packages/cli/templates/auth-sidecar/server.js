@@ -2,98 +2,95 @@
  * CyberMem Auth Sidecar
  *
  * ForwardAuth service for Traefik that validates:
- * 1. JWT tokens (RS256) with embedded public key
- * 2. API keys (X-API-Key header) - deprecated fallback
- * 3. Local requests (localhost bypass)
+ * 1. Bearer tokens (sk-xxx) against SQLite access_keys table
+ * 2. Local requests bypass (localhost, *.local domains)
  *
- * NO SECRETS REQUIRED - public key is embedded.
+ * NO EXTERNAL DEPENDENCIES - uses built-in crypto and sqlite3.
  */
 
 const http = require("http");
-const fs = require("fs");
 const crypto = require("crypto");
+const path = require("path");
 
 const PORT = process.env.PORT || 3001;
-const API_KEY_FILE = process.env.API_KEY_FILE || "/.env";
+const DB_PATH = process.env.OM_DB_PATH || "/data/openmemory.sqlite";
 
-// RSA Public Key for JWT verification (embedded - no secrets!)
-const PUBLIC_KEY = `-----BEGIN PUBLIC KEY-----
-MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAkrWPslHt+dcX/lckX4mw
-AaI4koCqn7NqEkTtuyJuzFv969Da0ghhWdTIRR6H8pYfsTtqtX2UAZox8i5IJ9t9
-JS8nBfbL2fFiuEz51LMNKMSLw7j2dJT/g5iIdT64LyJZ/9+kLMXC
-EBWPIyEvx4GMzKSf2L+jNaUY/0J8n/JNAbKtIplKtfOU/tNWuoZfcj3SnoxrmApN
-Xw+LsE26EM2Gq7MKLQf3r3GUIm2dBgs7XUNJRiezrPgFzekiaiDyFsNhhk1jkx2I
-ljQgSslGQ4dODE73KB07b0Qi7zPWAtGlCyDQD5RLICzht1mMENta7x+TlPJfDv8g
-XeEmW5ihAgMBAAE=
------END PUBLIC KEY-----`;
-
-// Load API key from file (deprecated fallback)
-function loadApiKey() {
-  try {
-    const content = fs.readFileSync(API_KEY_FILE, "utf-8");
-    const match = content.match(/OM_API_KEY=(.+)/);
-    return match ? match[1].trim() : null;
-  } catch {
-    return null;
-  }
+// Hash token using same PBKDF2 as CLI (for verification)
+function hashToken(token) {
+  return new Promise((resolve, reject) => {
+    const salt = crypto
+      .createHash("sha256")
+      .update("cybermem-salt-v1")
+      .digest("hex")
+      .slice(0, 16);
+    crypto.pbkdf2(token, salt, 100000, 64, "sha512", (err, key) => {
+      if (err) reject(err);
+      else resolve(key.toString("hex"));
+    });
+  });
 }
 
-// RS256 JWT validation
-function validateJwt(token) {
+// Verify token against SQLite access_keys table
+async function verifyToken(token) {
   try {
-    const parts = token.split(".");
-    if (parts.length !== 3) return null;
+    const sqlite3 = require("sqlite3").verbose();
+    const db = new sqlite3.Database(DB_PATH);
 
-    const [headerB64, payloadB64, signatureB64] = parts;
+    const tokenHash = await hashToken(token);
 
-    // Decode header to check algorithm
-    const header = JSON.parse(Buffer.from(headerB64, "base64url").toString());
-    if (header.alg !== "RS256") {
-      console.log("JWT: unsupported algorithm", header.alg);
-      return null;
-    }
-
-    // Verify RS256 signature
-    const data = `${headerB64}.${payloadB64}`;
-    const signature = Buffer.from(signatureB64, "base64url");
-
-    const verify = crypto.createVerify("RSA-SHA256");
-    verify.update(data);
-
-    if (!verify.verify(PUBLIC_KEY, signature)) {
-      console.log("JWT: signature verification failed");
-      return null;
-    }
-
-    // Decode payload
-    const payload = JSON.parse(Buffer.from(payloadB64, "base64url").toString());
-
-    // Check expiration
-    if (payload.exp && payload.exp < Date.now() / 1000) {
-      console.log("JWT: token expired");
-      return null;
-    }
-
-    // Check issuer
-    if (payload.iss !== "cybermem.dev") {
-      console.log("JWT: invalid issuer", payload.iss);
-      return null;
-    }
-
-    return payload;
+    return new Promise((resolve, reject) => {
+      db.get(
+        "SELECT user_id, name FROM access_keys WHERE key_hash = ? AND is_active = 1",
+        [tokenHash],
+        (err, row) => {
+          db.close();
+          if (err) {
+            console.log("DB error:", err.message);
+            resolve(null);
+          } else if (row) {
+            // Update last_used_at
+            const updateDb = new sqlite3.Database(DB_PATH);
+            updateDb.run(
+              "UPDATE access_keys SET last_used_at = datetime('now') WHERE key_hash = ?",
+              [tokenHash],
+            );
+            updateDb.close();
+            resolve({ userId: row.user_id, name: row.name });
+          } else {
+            resolve(null);
+          }
+        },
+      );
+    });
   } catch (err) {
-    console.log("JWT validation error:", err.message);
+    console.log("Token verification error:", err.message);
     return null;
   }
 }
 
-// Check if request is from localhost
+// Check if request is from localhost or local network
 function isLocalRequest(req) {
   const forwarded = req.headers["x-forwarded-for"];
   const realIp = req.headers["x-real-ip"];
-  const ip = forwarded?.split(",")[0] || realIp || req.socket.remoteAddress;
+  const host = req.headers["x-forwarded-host"] || req.headers["host"] || "";
+  const ip =
+    forwarded?.split(",")[0]?.trim() || realIp || req.socket.remoteAddress;
 
-  return ip === "127.0.0.1" || ip === "::1" || ip === "localhost";
+  // IP-based local check
+  const isLocalIp =
+    ip === "127.0.0.1" ||
+    ip === "::1" ||
+    ip === "::ffff:127.0.0.1" ||
+    ip === "localhost";
+
+  // Host-based local check (raspberrypi.local, localhost, *.local)
+  const isLocalHost =
+    host.includes("localhost") ||
+    host.includes("127.0.0.1") ||
+    host.includes("raspberrypi.local") ||
+    host.match(/\.local(:\d+)?$/);
+
+  return isLocalIp || isLocalHost;
 }
 
 // ForwardAuth handler
@@ -101,111 +98,73 @@ const server = http.createServer(async (req, res) => {
   // Health check
   if (req.url === "/health") {
     res.writeHead(200, { "Content-Type": "application/json" });
-    res.end(JSON.stringify({ status: "ok" }));
+    res.end(JSON.stringify({ status: "ok", mode: "token-auth" }));
     return;
   }
 
   const authHeader = req.headers["authorization"];
   const apiKeyHeader = req.headers["x-api-key"];
 
-  // 1. Check Bearer token (JWT or API Key)
-  if (authHeader?.startsWith("Bearer ")) {
-    const token = authHeader.substring(7);
-
-    // 1a. Check if Bearer token is actually an API key (MCP clients like Claude Desktop)
-    const expectedKey = loadApiKey();
-    if (expectedKey && token === expectedKey) {
-      console.log("Auth OK: Bearer API Key");
-      res.writeHead(200, {
-        "X-Auth-Method": "bearer-api-key",
-      });
-      res.end();
-      return;
-    }
-
-    // 1b. Try JWT RS256 validation
-    const payload = validateJwt(token);
-
-    if (payload) {
-      console.log(`Auth OK: JWT (${payload.email || payload.sub})`);
-      res.writeHead(200, {
-        "X-User-Id": payload.sub || "",
-        "X-User-Email": payload.email || "",
-        "X-User-Name": payload.name || "",
-        "X-Auth-Method": "jwt",
-      });
-      res.end();
-      return;
-    }
-
-    // 1c. Try GitHub OAuth token verification
-    try {
-      const https = require("https");
-      const ghRes = await new Promise((resolve, reject) => {
-        const req = https.get(
-          "https://api.github.com/user",
-          {
-            headers: {
-              Authorization: `Bearer ${token}`,
-              "User-Agent": "CyberMem-Auth-Sidecar/1.0",
-              Accept: "application/vnd.github+json",
-            },
-          },
-          (res) => {
-            let data = "";
-            res.on("data", (chunk) => (data += chunk));
-            res.on("end", () => resolve({ status: res.statusCode, data }));
-          },
-        );
-        req.on("error", reject);
-        req.end();
-      });
-
-      if (ghRes.status === 200) {
-        const user = JSON.parse(ghRes.data);
-        console.log(`Auth OK: GitHub OAuth (${user.login})`);
-        res.writeHead(200, {
-          "X-User-Id": String(user.id),
-          "X-User-Email": user.email || "",
-          "X-User-Name": user.login,
-          "X-Auth-Method": "github-oauth",
-        });
-        res.end();
-        return;
-      }
-    } catch (err) {
-      // GitHub verification failed, continue to other methods
-    }
-  }
-
-  // 2. Check API Key (deprecated fallback)
-  const expectedKey = loadApiKey();
-  if (apiKeyHeader && expectedKey && apiKeyHeader === expectedKey) {
-    console.log("Auth OK: API Key (deprecated)");
-    res.writeHead(200, {
-      "X-Auth-Method": "api-key",
-      "X-Auth-Deprecated": "true",
-    });
-    res.end();
-    return;
-  }
-
-  // 3. Local bypass (development)
+  // 1. Local bypass - no auth required for localhost
   if (isLocalRequest(req)) {
     console.log("Auth OK: Local bypass");
     res.writeHead(200, {
       "X-Auth-Method": "local",
+      "X-User-Id": "local",
     });
     res.end();
     return;
   }
 
+  // 2. Check Bearer token (sk-xxx format)
+  if (authHeader?.startsWith("Bearer ")) {
+    const token = authHeader.substring(7);
+
+    if (token.startsWith("sk-")) {
+      const result = await verifyToken(token);
+
+      if (result) {
+        console.log(`Auth OK: Token (${result.name || result.userId})`);
+        res.writeHead(200, {
+          "X-User-Id": result.userId,
+          "X-Auth-Method": "token",
+          "X-Token-Name": result.name || "",
+        });
+        res.end();
+        return;
+      }
+    }
+  }
+
+  // 3. Check X-API-Key header (sk-xxx format)
+  if (apiKeyHeader?.startsWith("sk-")) {
+    const result = await verifyToken(apiKeyHeader);
+
+    if (result) {
+      console.log(`Auth OK: API-Key Header (${result.name || result.userId})`);
+      res.writeHead(200, {
+        "X-User-Id": result.userId,
+        "X-Auth-Method": "api-key",
+        "X-Token-Name": result.name || "",
+      });
+      res.end();
+      return;
+    }
+  }
+
   // 4. Unauthorized
-  console.log("Auth FAILED: No valid credentials");
+  console.log("Auth FAILED: No valid token");
   res.writeHead(401, { "Content-Type": "application/json" });
-  res.end(JSON.stringify({ error: "Unauthorized" }));
+  res.end(
+    JSON.stringify({
+      error: "Unauthorized",
+      message:
+        "Valid access token required. Get your token from Dashboard Settings.",
+    }),
+  );
 });
 
 server.listen(PORT, () => {
-  console.log(`Auth sidecar (RS256) listening on port ${PORT}`);
+  console.log(`Auth sidecar (token-auth) listening on port ${PORT}`);
+  console.log(`DB path: ${DB_PATH}`);
 });
