@@ -11,7 +11,6 @@ import {
     Download,
     Eye,
     EyeOff,
-    Key,
     Loader2,
     RotateCcw,
     Server,
@@ -27,15 +26,11 @@ export default function SettingsModal({ onClose }: { onClose: () => void }) {
   const [apiKey, setApiKey] = useState("");
   const [endpoint, setEndpoint] = useState("");
   const [isManaged, setIsManaged] = useState(false);
-  const [adminPassword, setAdminPassword] = useState(
-    localStorage.getItem("adminPassword") || "admin",
-  );
   const [settings, setSettings] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   const { isDemo, toggleDemo } = useDashboard();
   const [showApiKey, setShowApiKey] = useState(false);
-  const [showAdminPassword, setShowAdminPassword] = useState(false);
 
   const [showRegenConfirm, setShowRegenConfirm] = useState(false);
   const [regenInputValue, setRegenInputValue] = useState("");
@@ -114,7 +109,7 @@ export default function SettingsModal({ onClose }: { onClose: () => void }) {
   const [saved, setSaved] = useState(false);
 
   const handleSave = () => {
-    localStorage.setItem("adminPassword", adminPassword);
+    // Settings saved
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);
   };
@@ -243,190 +238,134 @@ export default function SettingsModal({ onClose }: { onClose: () => void }) {
 
         {/* Content */}
         <div className="p-6 space-y-6">
-          {/* Security */}
+          {/* Access Token */}
           <section>
             <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
               <Shield className="w-5 h-5" />
-              Security
+              Access Token
             </h3>
             <div className="bg-white/5 border border-white/10 rounded-lg p-5 space-y-4 shadow-[inset_0_0_20px_rgba(255,255,255,0.02)] backdrop-blur-sm">
+              {/* Token Display */}
               <div className="space-y-2">
-                <Label htmlFor="admin-password">Admin Password</Label>
-                <div className="relative">
-                  <Input
-                    id="admin-password"
-                    value={adminPassword}
-                    onChange={(e) => setAdminPassword(e.target.value)}
-                    className="bg-black/40 border-white/10 text-white"
-                    type={showAdminPassword ? "text" : "password"}
-                  />
-                  <button
-                    onClick={() => setShowAdminPassword(!showAdminPassword)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-white"
+                <Label htmlFor="access-token">Your Access Token</Label>
+                <div className="flex gap-2">
+                  <div className="relative flex-1">
+                    <Input
+                      id="access-token"
+                      value={apiKey || "Token not generated yet"}
+                      readOnly
+                      className="bg-black/40 border-white/10 text-white font-mono text-sm"
+                      type={showApiKey ? "text" : "password"}
+                    />
+                    <button
+                      onClick={() => setShowApiKey(!showApiKey)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-white"
+                    >
+                      {showApiKey ? (
+                        <EyeOff className="w-4 h-4" />
+                      ) : (
+                        <Eye className="w-4 h-4" />
+                      )}
+                    </button>
+                  </div>
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    onClick={() => copyToClipboard(apiKey, "accesstoken")}
+                    className="text-neutral-400 hover:text-white"
                   >
-                    {showAdminPassword ? (
-                      <EyeOff className="w-4 h-4" />
+                    {copiedId === "accesstoken" ? (
+                      <Check className="h-4 w-4 text-emerald-400" />
                     ) : (
-                      <Eye className="w-4 h-4" />
+                      <Copy className="h-4 w-4" />
                     )}
-                  </button>
+                  </Button>
                 </div>
+                <p className="text-xs text-neutral-500">
+                  Use this token to connect MCP clients from other devices
+                </p>
               </div>
 
-              {/* Authentication Status */}
-              <div className="space-y-2 pt-4 border-t border-white/10">
-                <Label>Authentication Method</Label>
+              {/* Regenerate */}
+              <div className="pt-2 border-t border-white/10">
+                {showRegenConfirm ? (
+                  <div className="flex items-center gap-2">
+                    <Input
+                      value={regenInputValue}
+                      onChange={(e) => setRegenInputValue(e.target.value)}
+                      placeholder="Type 'confirm'"
+                      className="h-8 flex-1 text-xs bg-black/40 border-white/10"
+                    />
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => {
+                        setShowRegenConfirm(false);
+                        setRegenInputValue("");
+                      }}
+                      className="text-neutral-400"
+                    >
+                      Cancel
+                    </Button>
+                    <Button
+                      size="sm"
+                      disabled={regenInputValue !== "confirm"}
+                      onClick={confirmRegenerate}
+                      className="bg-yellow-500/20 text-yellow-400 hover:bg-yellow-500/30"
+                    >
+                      Regenerate
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="flex justify-between items-center">
+                    <p className="text-xs text-neutral-500">
+                      Regenerating will invalidate your current token
+                    </p>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => setShowRegenConfirm(true)}
+                      className="text-yellow-400 hover:bg-yellow-500/10"
+                    >
+                      <RotateCcw className="w-3 h-3 mr-1" />
+                      Regenerate Token
+                    </Button>
+                  </div>
+                )}
+              </div>
+
+              {/* Auth Status */}
+              <div className="pt-4 border-t border-white/10">
                 <div className="flex items-center gap-3 p-3 bg-black/20 rounded-lg border border-white/5">
-                  {/* Show different states based on auth method */}
                   {isManaged ? (
                     <>
                       <div className="w-2 h-2 bg-emerald-400 rounded-full animate-pulse" />
                       <div className="flex-1">
                         <p className="text-sm text-emerald-300 font-medium">
-                          Local Mode
+                          Local Mode Active
                         </p>
                         <p className="text-xs text-neutral-500">
-                          Auto-authenticated local connection
+                          No token needed for local connections
                         </p>
                       </div>
                     </>
-                  ) : apiKey ? (
+                  ) : (
                     <>
                       <div className="w-2 h-2 bg-yellow-400 rounded-full" />
                       <div className="flex-1">
                         <p className="text-sm text-yellow-300 font-medium">
-                          Security Token
+                          Remote Mode
                         </p>
                         <p className="text-xs text-neutral-500">
-                          Using static token authentication
+                          Token required for MCP client connections
                         </p>
                       </div>
-                      <a
-                        href="https://cybermem.dev/auth/signin"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="px-3 py-1.5 text-xs bg-white/10 hover:bg-white/20 rounded-lg text-white transition-colors"
-                      >
-                        Upgrade to OAuth
-                      </a>
-                    </>
-                  ) : (
-                    <>
-                      <div className="w-2 h-2 bg-neutral-400 rounded-full" />
-                      <div className="flex-1">
-                        <p className="text-sm text-neutral-300 font-medium">
-                          Not Configured
-                        </p>
-                        <p className="text-xs text-neutral-500">
-                          Connect with GitHub for secure access
-                        </p>
-                      </div>
-                      <a
-                        href="https://cybermem.dev/auth/signin"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="px-3 py-1.5 text-xs bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500/20 rounded-lg text-emerald-400 transition-colors"
-                      >
-                        Connect GitHub
-                      </a>
                     </>
                   )}
                 </div>
               </div>
             </div>
           </section>
-
-          {/* API Configuration */}
-          {!isManaged && (
-            <section>
-              <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
-                <Key className="w-5 h-5" />
-                Token Configuration
-              </h3>
-              <div className="bg-white/5 border border-white/10 rounded-lg p-5 space-y-4 shadow-[inset_0_0_20px_rgba(255,255,255,0.02)] backdrop-blur-sm">
-                <div className="space-y-2">
-                  <Label htmlFor="api-key">Security Token</Label>
-                  <div className="flex gap-2">
-                    <div className="relative flex-1">
-                      <Input
-                        id="api-key"
-                        value={apiKey || "not-generated-yet"}
-                        readOnly
-                        className="bg-black/40 border-white/10 text-white font-mono"
-                        type={showApiKey ? "text" : "password"}
-                      />
-                      <button
-                        onClick={() => setShowApiKey(!showApiKey)}
-                        className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-white"
-                      >
-                        {showApiKey ? (
-                          <EyeOff className="w-4 h-4" />
-                        ) : (
-                          <Eye className="w-4 h-4" />
-                        )}
-                      </button>
-                    </div>
-                    <Button
-                      size="icon"
-                      variant="ghost"
-                      onClick={() => copyToClipboard(apiKey, "apikey")}
-                    >
-                      {copiedId === "apikey" ? (
-                        <Check className="h-4 w-4 text-emerald-400" />
-                      ) : (
-                        <Copy className="h-4 w-4" />
-                      )}
-                    </Button>
-                  </div>
-
-                  <div className="flex justify-end pt-2">
-                    {showRegenConfirm ? (
-                      <div className="flex items-center gap-2">
-                        <Input
-                          value={regenInputValue}
-                          onChange={(e) => setRegenInputValue(e.target.value)}
-                          placeholder="Type 'agree'"
-                          className="h-8 w-24 text-xs"
-                        />
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={() => setShowRegenConfirm(false)}
-                        >
-                          Cancel
-                        </Button>
-                        <Button
-                          size="sm"
-                          disabled={regenInputValue !== "agree"}
-                          onClick={confirmRegenerate}
-                        >
-                          Confirm
-                        </Button>
-                      </div>
-                    ) : (
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => setShowRegenConfirm(true)}
-                      >
-                        Regenerate Key
-                      </Button>
-                    )}
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="endpoint">Server Endpoint</Label>
-                  <Input
-                    id="endpoint"
-                    value={endpoint}
-                    onChange={(e) => setEndpoint(e.target.value)}
-                    className="bg-black/40 border-white/10 text-white"
-                  />
-                </div>
-              </div>
-            </section>
-          )}
 
           {/* Data Management */}
           <section>
