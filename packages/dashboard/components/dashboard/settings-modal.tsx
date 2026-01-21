@@ -1,24 +1,26 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
+import { ConfirmationModal } from "@/components/ui/confirmation-modal";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { TintButton } from "@/components/ui/tint-button";
 import { useDashboard } from "@/lib/data/dashboard-context";
 import {
-    Check,
-    Copy,
-    Database,
-    Download,
-    Eye,
-    EyeOff,
-    Loader2,
-    RotateCcw,
-    Server,
-    Settings,
-    Shield,
-    Trash2,
-    Upload,
-    X,
+  Check,
+  Copy,
+  Database,
+  Download,
+  Eye,
+  EyeOff,
+  Loader2,
+  RotateCcw,
+  Server,
+  Settings,
+  Shield,
+  Trash2,
+  Upload,
+  X,
 } from "lucide-react";
 import { useEffect, useState } from "react";
 
@@ -245,7 +247,7 @@ export default function SettingsModal({ onClose }: { onClose: () => void }) {
               Access Token
             </h3>
             <div className="bg-white/5 border border-white/10 rounded-lg p-5 space-y-4 shadow-[inset_0_0_20px_rgba(255,255,255,0.02)] backdrop-blur-sm">
-              {/* Token Display */}
+              {/* Token Display with inline regenerate */}
               <div className="space-y-2">
                 <Label htmlFor="access-token">Your Access Token</Label>
                 <div className="flex gap-2">
@@ -254,7 +256,7 @@ export default function SettingsModal({ onClose }: { onClose: () => void }) {
                       id="access-token"
                       value={apiKey || "Token not generated yet"}
                       readOnly
-                      className="bg-black/40 border-white/10 text-white font-mono text-sm"
+                      className="bg-black/40 border-white/10 text-white font-mono text-sm pr-10"
                       type={showApiKey ? "text" : "password"}
                     />
                     <button
@@ -268,70 +270,32 @@ export default function SettingsModal({ onClose }: { onClose: () => void }) {
                       )}
                     </button>
                   </div>
-                  <Button
-                    size="icon"
+                  <TintButton
+                    tint="neutral"
                     variant="ghost"
+                    size="icon"
                     onClick={() => copyToClipboard(apiKey, "accesstoken")}
-                    className="text-neutral-400 hover:text-white"
+                    title="Copy token"
                   >
                     {copiedId === "accesstoken" ? (
                       <Check className="h-4 w-4 text-emerald-400" />
                     ) : (
                       <Copy className="h-4 w-4" />
                     )}
-                  </Button>
+                  </TintButton>
+                  <TintButton
+                    tint="yellow"
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => setShowRegenConfirm(true)}
+                    title="Regenerate token"
+                  >
+                    <RotateCcw className="w-4 h-4" />
+                  </TintButton>
                 </div>
                 <p className="text-xs text-neutral-500">
                   Use this token to connect MCP clients from other devices
                 </p>
-              </div>
-
-              {/* Regenerate */}
-              <div className="pt-2 border-t border-white/10">
-                {showRegenConfirm ? (
-                  <div className="flex items-center gap-2">
-                    <Input
-                      value={regenInputValue}
-                      onChange={(e) => setRegenInputValue(e.target.value)}
-                      placeholder="Type 'confirm'"
-                      className="h-8 flex-1 text-xs bg-black/40 border-white/10"
-                    />
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      onClick={() => {
-                        setShowRegenConfirm(false);
-                        setRegenInputValue("");
-                      }}
-                      className="text-neutral-400"
-                    >
-                      Cancel
-                    </Button>
-                    <Button
-                      size="sm"
-                      disabled={regenInputValue !== "confirm"}
-                      onClick={confirmRegenerate}
-                      className="bg-yellow-500/20 text-yellow-400 hover:bg-yellow-500/30"
-                    >
-                      Regenerate
-                    </Button>
-                  </div>
-                ) : (
-                  <div className="flex justify-between items-center">
-                    <p className="text-xs text-neutral-500">
-                      Regenerating will invalidate your current token
-                    </p>
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      onClick={() => setShowRegenConfirm(true)}
-                      className="text-yellow-400 hover:bg-yellow-500/10"
-                    >
-                      <RotateCcw className="w-3 h-3 mr-1" />
-                      Regenerate Token
-                    </Button>
-                  </div>
-                )}
               </div>
 
               {/* Auth Status */}
@@ -375,19 +339,20 @@ export default function SettingsModal({ onClose }: { onClose: () => void }) {
             </h3>
             <div className="flex flex-col gap-3">
               <div className="flex items-center gap-3">
-                <Button
-                  variant="outline"
-                  className="flex-1 justify-center bg-white/5 border-white/10 hover:bg-white/10 hover:border-white/20 text-white hover:text-white h-11 px-6 transition-all"
+                <TintButton
+                  tint="neutral"
+                  variant="solid"
+                  className="flex-1 h-11"
                   onClick={handleBackup}
                   disabled={isBackingUp}
                 >
                   {isBackingUp ? (
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    <Loader2 className="w-4 h-4 animate-spin" />
                   ) : (
-                    <Download className="w-4 h-4 mr-2 opacity-70" />
+                    <Download className="w-4 h-4" />
                   )}
-                  <span className="font-medium">Backup</span>
-                </Button>
+                  Backup
+                </TintButton>
 
                 <div className="flex-1 relative">
                   <input
@@ -398,71 +363,35 @@ export default function SettingsModal({ onClose }: { onClose: () => void }) {
                     onChange={handleRestore}
                     disabled={isRestoring}
                   />
-                  <Button
-                    variant="outline"
-                    className="w-full justify-center bg-white/5 border-white/10 hover:bg-white/10 hover:border-white/20 text-white hover:text-white h-11 px-6 transition-all"
+                  <TintButton
+                    tint="neutral"
+                    variant="solid"
+                    className="w-full h-11"
                     onClick={() =>
                       document.getElementById("restore-file")?.click()
                     }
                     disabled={isRestoring}
                   >
                     {isRestoring ? (
-                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      <Loader2 className="w-4 h-4 animate-spin" />
                     ) : (
-                      <Upload className="w-4 h-4 mr-2 opacity-70" />
+                      <Upload className="w-4 h-4" />
                     )}
-                    <span className="font-medium">Restore</span>
-                  </Button>
+                    Restore
+                  </TintButton>
                 </div>
 
-                <Button
-                  variant="outline"
-                  className="flex-1 justify-center bg-red-500/5 border-red-500/10 hover:bg-red-500/10 hover:border-red-500/30 text-red-400 hover:text-red-300 h-11 px-6 transition-all"
+                <TintButton
+                  tint="red"
+                  variant="solid"
+                  className="flex-1 h-11"
                   onClick={() => setShowResetConfirm(true)}
                   disabled={isResetting}
                 >
-                  <Trash2 className="w-4 h-4 mr-2 opacity-70" />
-                  <span className="font-medium">Reset DB</span>
-                </Button>
+                  <Trash2 className="w-4 h-4" />
+                  Reset DB
+                </TintButton>
               </div>
-
-              {showResetConfirm && (
-                <div className="p-5 bg-red-500/5 border border-red-500/20 rounded-xl space-y-4 shadow-inner">
-                  <p className="text-xs text-red-400/80 font-bold uppercase tracking-widest text-center">
-                    Danger Zone: This will permanently delete all memories!
-                  </p>
-                  <div className="flex flex-col gap-3">
-                    <Input
-                      value={resetConfirmText}
-                      onChange={(e) => setResetConfirmText(e.target.value)}
-                      placeholder="Type 'RESET' to confirm"
-                      className="h-10 bg-black/40 border-red-500/20 text-white placeholder:text-red-500/20 text-center font-mono focus:border-red-500/40"
-                    />
-                    <div className="flex gap-2">
-                      <Button
-                        className="flex-1 text-neutral-400 hover:text-white hover:bg-white/5"
-                        variant="ghost"
-                        onClick={() => {
-                          setShowResetConfirm(false);
-                          setResetConfirmText("");
-                        }}
-                      >
-                        Cancel
-                      </Button>
-                      <Button
-                        className="flex-1 bg-red-500/80 hover:bg-red-500 text-white shadow-lg active:scale-[0.98] transition-transform"
-                        disabled={resetConfirmText !== "RESET" || isResetting}
-                        onClick={handleReset}
-                      >
-                        {isResetting && (
-                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                        )}
-                        Confirm Reset
-                      </Button>
-                    </div>
-                  </div>
-                </div>
-              )}
 
               {operationStatus && (
                 <div
@@ -538,19 +467,20 @@ export default function SettingsModal({ onClose }: { onClose: () => void }) {
               </div>
 
               <div className="pt-2 border-t border-white/5">
-                <Button
-                  variant="outline"
-                  className="w-full bg-sky-500/5 border-sky-500/10 hover:bg-sky-500/10 hover:border-sky-500/30 text-sky-400 hover:text-sky-300 h-10 transition-all font-medium flex items-center justify-center gap-2 group"
+                <TintButton
+                  tint="sky"
+                  variant="solid"
+                  className="w-full h-10"
                   onClick={handleRestart}
                   disabled={isRestarting}
                 >
                   {isRestarting ? (
                     <Loader2 className="w-4 h-4 animate-spin" />
                   ) : (
-                    <RotateCcw className="w-4 h-4 opacity-70 group-hover:rotate-45 transition-transform" />
+                    <RotateCcw className="w-4 h-4" />
                   )}
                   {isRestarting ? "Restarting..." : "Restart Service"}
-                </Button>
+                </TintButton>
               </div>
             </div>
           </section>
@@ -558,21 +488,42 @@ export default function SettingsModal({ onClose }: { onClose: () => void }) {
 
         {/* Footer */}
         <div className="sticky bottom-0 bg-[#0B1116]/80 backdrop-blur-md border-t border-emerald-500/20 px-6 py-4 flex justify-end gap-3 z-10">
-          <Button
-            onClick={onClose}
-            variant="ghost"
-            className="text-neutral-400 hover:text-white hover:bg-white/5"
-          >
-            Cancel
-          </Button>
-          <Button
-            onClick={handleSave}
-            className="bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-400 border border-emerald-500/20"
-          >
-            {saved ? "Saved!" : "Save Changes"}
-          </Button>
+          <TintButton tint="neutral" variant="ghost" onClick={onClose}>
+            Close
+          </TintButton>
         </div>
       </div>
+
+      {/* Regenerate Token Confirmation Modal */}
+      <ConfirmationModal
+        isOpen={showRegenConfirm}
+        onClose={() => {
+          setShowRegenConfirm(false);
+          setRegenInputValue("");
+        }}
+        onConfirm={confirmRegenerate}
+        title="Regenerate Access Token"
+        description="This will invalidate your current token. All connected MCP clients will need to be reconfigured with the new token."
+        confirmText="Regenerate"
+        confirmWord="confirm"
+        tint="yellow"
+      />
+
+      {/* Reset Database Confirmation Modal */}
+      <ConfirmationModal
+        isOpen={showResetConfirm}
+        onClose={() => {
+          setShowResetConfirm(false);
+          setResetConfirmText("");
+        }}
+        onConfirm={handleReset}
+        title="Reset Database"
+        description="This will permanently delete ALL memories and cannot be undone. Make sure you have a backup!"
+        confirmText="Reset Database"
+        confirmWord="RESET"
+        tint="red"
+        isLoading={isResetting}
+      />
     </div>
   );
 }

@@ -5,7 +5,6 @@ const commander_1 = require("commander");
 const backup_1 = require("./commands/backup");
 const dashboard_1 = require("./commands/dashboard");
 const init_1 = require("./commands/init");
-const login_1 = require("./commands/login");
 const reset_1 = require("./commands/reset");
 const restore_1 = require("./commands/restore");
 const upgrade_1 = require("./commands/upgrade");
@@ -14,11 +13,6 @@ program
     .name("mcp")
     .description("CyberMem - Deploy your AI memory server in one command")
     .version("1.0.0");
-// Command: Login
-program
-    .command("login")
-    .description("Login to CyberMem via GitHub (OAuth)")
-    .action(login_1.login);
 // Command: Init (formerly deploy)
 program
     .command("init")

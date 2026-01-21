@@ -1,4 +1,37 @@
 "use strict";
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
 var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
@@ -11,6 +44,23 @@ const fs_1 = __importDefault(require("fs"));
 const inquirer_1 = __importDefault(require("inquirer"));
 const os_1 = __importDefault(require("os"));
 const path_1 = __importDefault(require("path"));
+// Hash token using PBKDF2 (built-in, no bcrypt dependency)
+async function hashToken(token) {
+    return new Promise((resolve, reject) => {
+        // Use a fixed salt prefix for deterministic validation
+        const salt = crypto_1.default
+            .createHash("sha256")
+            .update("cybermem-salt-v1")
+            .digest("hex")
+            .slice(0, 16);
+        crypto_1.default.pbkdf2(token, salt, 100000, 64, "sha512", (err, key) => {
+            if (err)
+                reject(err);
+            else
+                resolve(key.toString("hex"));
+        });
+    });
+}
 async function init(options) {
     // Determine target from flags
     let target = "local";
@@ -80,13 +130,76 @@ async function init(options) {
                     OM_API_KEY: "",
                 },
             });
-            console.log(chalk_1.default.green("\n🎉 CyberMem Installed!"));
-            console.log("");
-            console.log(chalk_1.default.bold("Next Steps:"));
-            console.log(`  1. Open ${chalk_1.default.underline("http://localhost:3000/client-connect")} to connect your MCP clients`);
-            console.log(`  2. Default password: ${chalk_1.default.bold("admin")} (you'll be prompted to change it)`);
-            console.log("");
-            console.log(chalk_1.default.dim("Local mode is active: No API key required for connections from this laptop."));
+            // Generate access token and store hash in SQLite
+            const accessToken = `sk-${crypto_1.default.randomBytes(24).toString("base64url")}`;
+            const bcryptHash = await hashToken(accessToken);
+            const dbPath = path_1.default.join(dataDir, "openmemory.sqlite");
+            // Wait for SQLite DB to be created by MCP server
+            console.log(chalk_1.default.blue("Initializing access token..."));
+            await new Promise((resolve) => setTimeout(resolve, 3000));
+            // Check if token already exists
+            try {
+                const sqlite3 = await Promise.resolve().then(() => __importStar(require("sqlite3")));
+                const db = new sqlite3.default.Database(dbPath);
+                // Create table if not exists (in case MCP hasn't run yet)
+                db.run(`CREATE TABLE IF NOT EXISTS access_keys (
+          id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
+          key_hash TEXT NOT NULL,
+          name TEXT DEFAULT 'default',
+          user_id TEXT DEFAULT 'default',
+          created_at TEXT DEFAULT (datetime('now')),
+          last_used_at TEXT,
+          is_active INTEGER DEFAULT 1
+        );`);
+                // Check for existing key
+                db.get("SELECT COUNT(*) as count FROM access_keys WHERE is_active = 1", [], (err, row) => {
+                    if (err || (row && row.count > 0)) {
+                        db.close();
+                        // Token exists, don't regenerate
+                        console.log(chalk_1.default.gray("Access token already configured."));
+                        printSuccessMessage(false);
+                        return;
+                    }
+                    // Insert new key
+                    db.run("INSERT INTO access_keys (id, key_hash, name, user_id) VALUES (?, ?, ?, ?)", [
+                        crypto_1.default.randomBytes(8).toString("hex"),
+                        bcryptHash,
+                        "default",
+                        "default",
+                    ], (err) => {
+                        db.close();
+                        if (err) {
+                            console.warn(chalk_1.default.yellow("Could not store access token: " + err.message));
+                            printSuccessMessage(false);
+                        }
+                        else {
+                            printSuccessMessage(true, accessToken);
+                        }
+                    });
+                });
+            }
+            catch (e) {
+                console.warn(chalk_1.default.yellow("Could not initialize access token: " + e.message));
+                console.log(chalk_1.default.gray("You can generate a token from the Dashboard Settings."));
+                printSuccessMessage(false);
+            }
+            function printSuccessMessage(showToken, token) {
+                console.log(chalk_1.default.green("\n🎉 CyberMem Installed!"));
+                console.log("");
+                if (showToken && token) {
+                    console.log(chalk_1.default.bold("⚡ Your Access Token (save this!):"));
+                    console.log(chalk_1.default.cyan.bold(`   ${token}`));
+                    console.log("");
+                    console.log(chalk_1.default.gray("   Use this token to connect MCP clients from other devices."));
+                    console.log(chalk_1.default.gray("   You can regenerate it from Dashboard Settings."));
+                    console.log("");
+                }
+                console.log(chalk_1.default.bold("Next Steps:"));
+                console.log(`  1. Open ${chalk_1.default.underline("http://localhost:3000/client-setup")} to connect your MCP clients`);
+                console.log(`  2. Local access is auto-authenticated (no token needed on localhost)`);
+                console.log("");
+                console.log(chalk_1.default.dim("Local mode is active: No auth required for connections from this device."));
+            }
         }
         else if (target === "rpi" || target === "vps") {
             const composeFile = path_1.default.join(templateDir, "docker-compose.yml");
