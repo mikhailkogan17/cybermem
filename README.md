@@ -37,7 +37,7 @@
 To try CyberMem on your local machine, run:
 
 ```bash
-npx @cybermem/cli
+npx @cybermem/cli init
 ```
 
 and follow the instructions in terminal.
