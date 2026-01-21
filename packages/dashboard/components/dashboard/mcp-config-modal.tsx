@@ -5,14 +5,14 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useDashboard } from "@/lib/data/dashboard-context";
 import {
-  Check,
-  Copy,
-  Eye,
-  EyeOff,
-  FileCode,
-  Info,
-  Monitor,
-  X,
+    Check,
+    Copy,
+    Eye,
+    EyeOff,
+    FileCode,
+    Info,
+    Monitor,
+    X,
 } from "lucide-react";
 import Image from "next/image";
 import { useEffect, useState } from "react";
@@ -112,19 +112,12 @@ export default function MCPConfigModal({ onClose }: { onClose: () => void }) {
       };
     }
 
-    // Remote mode: use stdio with --url and --token args (universal for all clients)
+    // Remote mode: use stdio with --url and --login (OAuth flow)
     return {
       mcpServers: {
         cybermem: {
           command: "npx",
-          args: [
-            "-y",
-            "@cybermem/mcp",
-            "--url",
-            baseUrl,
-            "--token",
-            apiKey || "sk-your-generated-token",
-          ],
+          args: ["-y", "@cybermem/mcp", "--url", baseUrl, "--login"],
         },
       },
     };
@@ -142,7 +135,7 @@ export default function MCPConfigModal({ onClose }: { onClose: () => void }) {
       if (isManaged) {
         return `# CyberMem Configuration (Local Mode)\n[mcp]\ncommand = "npx"\nargs = ["@cybermem/mcp"]`;
       }
-      return `# CyberMem Configuration (Remote Mode)\n[mcp]\ncommand = "npx"\nargs = ["@cybermem/mcp", "--url", "${baseUrl}", "--token", "${maskKey ? displayKey : actualKey}"]`;
+      return `# CyberMem Configuration (Remote Mode)\n[mcp]\ncommand = "npx"\nargs = ["@cybermem/mcp", "--url", "${baseUrl}", "--login"]`;
     }
 
     // Handle command-based configs (Claude Code, Gemini CLI, etc.)
@@ -165,14 +158,6 @@ export default function MCPConfigModal({ onClose }: { onClose: () => void }) {
 
     // Default to JSON config
     const jsonConfig = getMcpConfig(selectedClient);
-    if (!isManaged && maskKey) {
-      // Mask the token in args array
-      const args = (jsonConfig.mcpServers.cybermem as any).args;
-      const tokenIdx = args.indexOf("--token");
-      if (tokenIdx !== -1 && args[tokenIdx + 1]) {
-        args[tokenIdx + 1] = displayKey;
-      }
-    }
     return JSON.stringify(jsonConfig, null, 2);
   };
 
