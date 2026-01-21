@@ -189,6 +189,22 @@ For full protocol: https://docs.cybermem.dev/agent-protocol`;
               console.error("[MCP] Init access_log table error:", err.message);
           },
         );
+        // Access keys table for token-based auth
+        db.run(
+          `CREATE TABLE IF NOT EXISTS access_keys (
+            id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
+            key_hash TEXT NOT NULL,
+            name TEXT DEFAULT 'default',
+            user_id TEXT DEFAULT 'default',
+            created_at TEXT DEFAULT (datetime('now')),
+            last_used_at TEXT,
+            is_active INTEGER DEFAULT 1
+        );`,
+          (err: any) => {
+            if (err)
+              console.error("[MCP] Init access_keys table error:", err.message);
+          },
+        );
       });
       db.close();
     } catch (e) {
