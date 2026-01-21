@@ -21,7 +21,6 @@ const axios_1 = __importDefault(require("axios"));
 const cors_1 = __importDefault(require("cors"));
 const express_1 = __importDefault(require("express"));
 const zod_1 = require("zod");
-const auth_1 = require("./auth");
 // Redirect all stdout to stderr IMMEDIATELY to protect Stdio protocol
 const originalStdoutWrite = process.stdout.write.bind(process.stdout);
 process.stdout.write = (chunk, encoding, callback) => {
@@ -37,34 +36,17 @@ console.log = console.error;
 console.info = console.error;
 // Async Storage for Request Context (User ID and Client Name)
 const requestContext = new async_hooks_1.AsyncLocalStorage();
-// Handle CLI auth commands first
+// CLI args processing
 const args = process.argv.slice(2);
-if (args.includes("--login")) {
-    (0, auth_1.login)()
-        .then(() => process.exit(0))
-        .catch((err) => {
-        console.error("Login failed:", err.message);
-        process.exit(1);
-    });
-}
-else if (args.includes("--logout")) {
-    (0, auth_1.logout)();
-    process.exit(0);
-}
-else if (args.includes("--status")) {
-    (0, auth_1.showStatus)();
-    process.exit(0);
-}
-else {
-    startServer();
-}
+// Start the server
+startServer();
 async function startServer() {
     const getArg = (name) => {
         const idx = args.indexOf(name);
         return idx !== -1 && args[idx + 1] ? args[idx + 1] : undefined;
     };
     const cliUrl = getArg("--url");
-    const cliToken = getArg("--token") || getArg("--api-key") || (cliUrl ? (0, auth_1.getToken)() : undefined);
+    const cliToken = getArg("--token") || getArg("--api-key");
     let stdioClientName = undefined;
     // Protocol Instructions
     const CYBERMEM_INSTRUCTIONS = `CyberMem is a persistent context daemon for AI agents.

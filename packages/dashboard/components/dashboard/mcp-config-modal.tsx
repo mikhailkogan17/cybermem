@@ -112,12 +112,19 @@ export default function MCPConfigModal({ onClose }: { onClose: () => void }) {
       };
     }
 
-    // Remote mode: use stdio with --url and --login (OAuth flow)
+    // Remote mode: use stdio with --url and --token
     return {
       mcpServers: {
         cybermem: {
           command: "npx",
-          args: ["-y", "@cybermem/mcp", "--url", baseUrl, "--login"],
+          args: [
+            "-y",
+            "@cybermem/mcp",
+            "--url",
+            baseUrl,
+            "--token",
+            apiKey || "sk-your-generated-token",
+          ],
         },
       },
     };
@@ -135,7 +142,7 @@ export default function MCPConfigModal({ onClose }: { onClose: () => void }) {
       if (isManaged) {
         return `# CyberMem Configuration (Local Mode)\n[mcp]\ncommand = "npx"\nargs = ["@cybermem/mcp"]`;
       }
-      return `# CyberMem Configuration (Remote Mode)\n[mcp]\ncommand = "npx"\nargs = ["@cybermem/mcp", "--url", "${baseUrl}", "--login"]`;
+      return `# CyberMem Configuration (Remote Mode)\n[mcp]\ncommand = "npx"\nargs = ["@cybermem/mcp", "--url", "${baseUrl}", "--token", "${maskKey ? displayKey : actualKey}"]`;
     }
 
     // Handle command-based configs (Claude Code, Gemini CLI, etc.)

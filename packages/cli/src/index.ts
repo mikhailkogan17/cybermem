@@ -3,7 +3,6 @@ import { Command } from "commander";
 import { backup } from "./commands/backup";
 import { dashboard } from "./commands/dashboard";
 import { init } from "./commands/init";
-import { login } from "./commands/login";
 import { reset } from "./commands/reset";
 import { restore } from "./commands/restore";
 import { upgrade } from "./commands/upgrade";
@@ -14,12 +13,6 @@ program
   .name("mcp")
   .description("CyberMem - Deploy your AI memory server in one command")
   .version("1.0.0");
-
-// Command: Login
-program
-  .command("login")
-  .description("Login to CyberMem via GitHub (OAuth)")
-  .action(login);
 
 // Command: Init (formerly deploy)
 program

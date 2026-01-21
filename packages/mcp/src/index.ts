@@ -17,7 +17,6 @@ import axios from "axios";
 import cors from "cors";
 import express from "express";
 import { z } from "zod";
-import { getToken, login, logout, showStatus } from "./auth";
 
 // Redirect all stdout to stderr IMMEDIATELY to protect Stdio protocol
 const originalStdoutWrite = process.stdout.write.bind(process.stdout);
@@ -40,25 +39,11 @@ const requestContext = new AsyncLocalStorage<{
   clientName?: string;
 }>();
 
-// Handle CLI auth commands first
+// CLI args processing
 const args = process.argv.slice(2);
 
-if (args.includes("--login")) {
-  login()
-    .then(() => process.exit(0))
-    .catch((err) => {
-      console.error("Login failed:", err.message);
-      process.exit(1);
-    });
-} else if (args.includes("--logout")) {
-  logout();
-  process.exit(0);
-} else if (args.includes("--status")) {
-  showStatus();
-  process.exit(0);
-} else {
-  startServer();
-}
+// Start the server
+startServer();
 
 async function startServer() {
   const getArg = (name: string) => {
@@ -67,7 +52,7 @@ async function startServer() {
   };
 
   const cliUrl = getArg("--url");
-  const cliToken = getArg("--token") || getArg("--api-key") || (cliUrl ? getToken() : undefined);
+  const cliToken = getArg("--token") || getArg("--api-key");
   let stdioClientName: string | undefined = undefined;
 
   // Protocol Instructions
@@ -154,7 +139,7 @@ For full protocol: https://docs.cybermem.dev/agent-protocol`;
     try {
       const dir = path.dirname(dbPath);
       if (dir) fs.mkdirSync(dir, { recursive: true });
-    } catch { }
+    } catch {}
 
     try {
       // Dynamic import to ensure env vars are set before loading SDK

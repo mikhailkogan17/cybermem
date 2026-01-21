@@ -92,7 +92,7 @@
     ],
     "configType": "command",
     "localCommand": "claude mcp add cybermem npx @cybermem/mcp",
-    "remoteCommand": "claude mcp add cybermem -- npx @cybermem/mcp --url {{ENDPOINT}} --login"
+    "remoteCommand": "claude mcp add cybermem -- npx @cybermem/mcp --url {{ENDPOINT}} --token {{TOKEN}}"
   },
   {
     "id": "chatgpt",
@@ -155,7 +155,7 @@
     ],
     "configType": "cmd",
     "localCommand": "gemini mcp add cybermem npx @cybermem/mcp",
-    "remoteCommand": "gemini mcp add cybermem -- npx @cybermem/mcp --url {{ENDPOINT}} --login"
+    "remoteCommand": "gemini mcp add cybermem -- npx @cybermem/mcp --url {{ENDPOINT}} --token {{TOKEN}}"
   },
   {
     "id": "other",
@@ -166,7 +166,7 @@
     "description": "For any other MCP-compliant client, use the following connection details:",
     "steps": [
       "**Transport**: stdio (via npx command)",
-      "**Command**: `npx @cybermem/mcp` with `--url {{ENDPOINT}}` and `--login` args",
+      "**Command**: `npx @cybermem/mcp` with `--url {{ENDPOINT}}` and `--token {{TOKEN}}` args",
       "Refer to your client's documentation for config file location"
     ],
     "configType": "json"
