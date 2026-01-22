@@ -75,6 +75,7 @@ export const TintButton = forwardRef<HTMLButtonElement, TintButtonProps>(
           "inline-flex items-center justify-center gap-2 rounded-lg border font-medium transition-all",
           "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-[#0B1116]",
           "disabled:opacity-50 disabled:cursor-not-allowed",
+          "[&_svg]:shrink-0",
           tintStyles[tint][variant],
           sizeStyles[size],
           className,
