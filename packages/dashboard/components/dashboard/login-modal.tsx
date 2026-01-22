@@ -1,8 +1,8 @@
 "use client";
 
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { TintButton } from "@/components/ui/tint-button";
 import { Key, LogIn } from "lucide-react";
 import { useEffect, useState } from "react";
 
@@ -35,7 +35,12 @@ export default function LoginModal({ onLogin }: LoginModalProps) {
     e.preventDefault();
 
     if (!token.trim()) {
-      setError("Please enter your access token");
+      setError("Please enter your API token");
+      return;
+    }
+
+    if (!token.startsWith("sk-")) {
+      setError("Token should start with 'sk-'");
       return;
     }
 
@@ -71,7 +76,7 @@ export default function LoginModal({ onLogin }: LoginModalProps) {
             CyberMem Dashboard
           </h2>
           <p className="text-neutral-400 text-sm">
-            Enter your access token to continue
+            Remote access requires API token authentication
           </p>
         </div>
 
@@ -79,7 +84,7 @@ export default function LoginModal({ onLogin }: LoginModalProps) {
         <form onSubmit={handleSubmit} className="px-6 pb-6 space-y-4">
           <div className="space-y-2">
             <Label htmlFor="token" className="text-neutral-200">
-              Access Token
+              API Token
             </Label>
             <Input
               id="token"
@@ -93,17 +98,31 @@ export default function LoginModal({ onLogin }: LoginModalProps) {
             {error && <p className="text-red-400 text-sm mt-2">{error}</p>}
           </div>
 
-          <Button
+          <TintButton
             type="submit"
-            className="w-full bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500/20 text-emerald-400 font-medium transition-colors gap-2"
+            tint="emerald"
+            variant="solid"
+            className="w-full h-11"
           >
             <LogIn className="w-4 h-4" />
-            Login
-          </Button>
+            Login with Token
+          </TintButton>
 
-          <p className="text-xs text-neutral-500 text-center pt-2">
-            Find your access token in Dashboard Settings (from localhost)
-          </p>
+          <div className="text-xs text-neutral-500 text-center pt-2 space-y-1">
+            <p>
+              <strong className="text-neutral-400">
+                Where to find your token:
+              </strong>
+            </p>
+            <p>
+              1. Open Dashboard from{" "}
+              <code className="text-emerald-400/80">localhost:3000</code> or{" "}
+              <code className="text-emerald-400/80">
+                raspberrypi.local:3000
+              </code>
+            </p>
+            <p>2. Go to Settings → Access Token → Copy</p>
+          </div>
         </form>
       </div>
     </div>
