@@ -6,6 +6,51 @@ export const dynamic = "force-dynamic";
 
 const CONFIG_PATH = "/data/config.json";
 
+// Detect the correct MCP endpoint based on request host
+function getMcpEndpoint(request: NextRequest): {
+  endpoint: string;
+  isLocal: boolean;
+} {
+  const host = request.headers.get("host") || "localhost:3000";
+  const hostname = host.split(":")[0];
+
+  // Priority 1: Explicit env var
+  if (process.env.CYBERMEM_URL) {
+    return { endpoint: process.env.CYBERMEM_URL, isLocal: false };
+  }
+
+  // Priority 2: Tailscale domain (from env or detect)
+  const tailscaleDomain = process.env.TAILSCALE_DOMAIN;
+
+  // Priority 3: Based on request host
+  if (hostname === "localhost" || hostname === "127.0.0.1") {
+    // Local development
+    return { endpoint: "http://localhost:8626/mcp", isLocal: true };
+  }
+
+  if (hostname.endsWith(".local")) {
+    // LAN access (raspberrypi.local)
+    // If Tailscale domain is available, prefer it for remote config
+    if (tailscaleDomain) {
+      return {
+        endpoint: `https://${tailscaleDomain}/cybermem/mcp`,
+        isLocal: false,
+        // Also provide LAN endpoint as fallback
+      };
+    }
+    return { endpoint: `http://${hostname}:8626/mcp`, isLocal: true };
+  }
+
+  if (hostname.includes(".ts.net")) {
+    // Tailscale Funnel access
+    return { endpoint: `https://${hostname}/cybermem/mcp`, isLocal: false };
+  }
+
+  // Fallback: use request host
+  const protocol = request.headers.get("x-forwarded-proto") || "http";
+  return { endpoint: `${protocol}://${hostname}:8626/mcp`, isLocal: false };
+}
+
 export async function GET(request: NextRequest) {
   // Rate limiting check
   const rateLimit = checkRateLimit(request);
@@ -32,17 +77,11 @@ export async function GET(request: NextRequest) {
     // ignore
   }
 
-  // Endpoint resolution:
-  // 1. Env var CYBERMEM_URL
-  // 2. Default to localhost:8088/memory (Managed Mode)
-  const rawEndpoint = process.env.CYBERMEM_URL;
-  const endpoint = rawEndpoint || "http://localhost:8626/memory";
-  // isManaged = Local Mode (No Auth). Only if NO URL and NO API KEY.
-  // If API Key is present (RPi), we are in "Secure/Legacy" mode, not Local.
-  // In local development, rawEndpoint might be unset, but we still want to not be "managed" if we want to test auth flows.
-  const isManaged =
-    !rawEndpoint &&
-    (!process.env.OM_API_KEY || process.env.OM_API_KEY === "dev-secret-key");
+  // Get dynamic endpoint based on request host
+  const { endpoint, isLocal } = getMcpEndpoint(request);
+
+  // isManaged = Local Mode (localhost auto-login)
+  const isManaged = isLocal;
 
   return NextResponse.json(
     {
@@ -50,8 +89,9 @@ export async function GET(request: NextRequest) {
       apiKey: apiKey,
       endpoint,
       isManaged,
-      dashboardVersion: "v0.7.5",
-      mcpVersion: "v0.7.5",
+      isLocal,
+      dashboardVersion: "v0.8.0",
+      mcpVersion: "v0.8.0",
     },
     {
       headers: {

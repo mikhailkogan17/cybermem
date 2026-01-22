@@ -173,6 +173,8 @@ services:
       CYBERMEM_URL: http://mcp-server:8080
       OM_DB_PATH: /data/openmemory.sqlite
       OM_API_KEY: ${OM_API_KEY:-dev-secret-key}
+      # Tailscale domain for remote config (optional, auto-detected if not set)
+      TAILSCALE_DOMAIN: ${TAILSCALE_DOMAIN:-}
     ports:
       - "3000:3000"
     volumes:
