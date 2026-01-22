@@ -453,15 +453,23 @@ export default function SettingsModal({ onClose }: { onClose: () => void }) {
                   <span className="text-[10px] uppercase text-neutral-500 font-bold tracking-[0.2em] block mb-2">
                     Environment
                   </span>
-                  <div className="mt-4 flex flex-col justify-center">
-                    <p className="text-emerald-400 font-bold text-2xl tracking-tight drop-shadow-[0_0_15px_rgba(52,211,153,0.3)]">
-                      Production
-                    </p>
-                    <p className="text-[10px] text-neutral-500 mt-1 uppercase tracking-[0.2em] font-medium">
-                      {settings?.isManaged
-                        ? "Managed Instance"
-                        : "Local Instance"}
-                    </p>
+                  <div className="space-y-3">
+                    <div className="flex justify-between items-center">
+                      <span className="text-xs text-neutral-400">Status</span>
+                      <code className="text-[13px] font-mono text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">
+                        Production
+                      </code>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-xs text-neutral-400">Instance</span>
+                      <code className="text-[13px] font-mono text-neutral-200 bg-white/5 px-2 py-0.5 rounded border border-white/10">
+                        {settings?.isLocal
+                          ? "Local"
+                          : settings?.isManaged
+                            ? "RPi"
+                            : "VPS"}
+                      </code>
+                    </div>
                   </div>
                 </div>
               </div>

@@ -6,7 +6,6 @@ import DashboardHeader from "@/components/dashboard/header";
 import LoginModal from "@/components/dashboard/login-modal";
 import MCPConfigModal from "@/components/dashboard/mcp-config-modal";
 import MetricsGrid from "@/components/dashboard/metrics-grid";
-import PasswordAlertModal from "@/components/dashboard/password-alert-modal";
 import SettingsModal from "@/components/dashboard/settings-modal";
 import { useDashboard } from "@/lib/data/dashboard-context";
 import { DashboardData } from "@/lib/data/types";
@@ -27,8 +26,6 @@ export default function Dashboard() {
 
   const [showMCPConfig, setShowMCPConfig] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
-  const [showPasswordAlert, setShowPasswordAlert] = useState(false);
-  const [focusPasswordField, setFocusPasswordField] = useState(false);
 
   // Data State
   const [data, setData] = useState<DashboardData>({
@@ -53,27 +50,8 @@ export default function Dashboard() {
 
   // Auth is handled by context (Layout passes initial state from headers)
 
-  const handleLogin = (password: string) => {
+  const handleLogin = (token: string) => {
     login();
-
-    // Check if using default password and warning not dismissed
-    const hasCustomPassword = localStorage.getItem("adminPassword") !== null;
-    const warningDismissed =
-      localStorage.getItem("hidePasswordWarning") === "true";
-
-    if (!hasCustomPassword && !warningDismissed) {
-      setShowPasswordAlert(true);
-    }
-  };
-
-  const handlePasswordAlertChange = () => {
-    setShowPasswordAlert(false);
-    setFocusPasswordField(true);
-    setShowSettings(true);
-  };
-
-  const handlePasswordAlertDismiss = () => {
-    setShowPasswordAlert(false);
   };
 
   // Fetch Data Effect - Reacts to strategy change or refresh signal
@@ -183,20 +161,7 @@ export default function Dashboard() {
       {showMCPConfig && (
         <MCPConfigModal onClose={() => setShowMCPConfig(false)} />
       )}
-      {showSettings && (
-        <SettingsModal
-          onClose={() => {
-            setShowSettings(false);
-            setFocusPasswordField(false);
-          }}
-        />
-      )}
-      {showPasswordAlert && (
-        <PasswordAlertModal
-          onChangePassword={handlePasswordAlertChange}
-          onDismiss={handlePasswordAlertDismiss}
-        />
-      )}
+      {showSettings && <SettingsModal onClose={() => setShowSettings(false)} />}
     </div>
   );
 }
