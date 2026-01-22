@@ -3,6 +3,7 @@ import { Analytics } from "@vercel/analytics/next";
 import type { Metadata } from "next";
 import { Exo_2, Geist, Geist_Mono } from "next/font/google";
 import type React from "react";
+import { Toaster } from "sonner";
 import "./globals.css";
 
 const _geist = Geist({ subsets: ["latin"] });
@@ -38,6 +39,7 @@ export default async function RootLayout({
         <DashboardProvider initialAuth={initialAuth}>
           {children}
         </DashboardProvider>
+        <Toaster richColors theme="dark" position="bottom-right" />
         <Analytics />
       </body>
     </html>

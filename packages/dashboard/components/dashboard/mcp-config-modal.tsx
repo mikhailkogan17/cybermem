@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import Image from "next/image";
 import { useEffect, useState } from "react";
+import { toast } from "sonner";
 
 export default function MCPConfigModal({ onClose }: { onClose: () => void }) {
   const { clientConfigs } = useDashboard();
@@ -93,9 +94,14 @@ export default function MCPConfigModal({ onClose }: { onClose: () => void }) {
       setIsKeyVisible(true);
       setShowRegenConfirm(false);
       setRegenInputValue("");
+      toast.success("Token Regenerated!", {
+        description: "All existing client connections will need to be updated.",
+      });
     } catch (e) {
       console.error(e);
-      alert("Failed to regenerate key on server.");
+      toast.error("Failed to regenerate token", {
+        description: "Please check if the server is running.",
+      });
     }
   };
 
@@ -172,6 +178,7 @@ export default function MCPConfigModal({ onClose }: { onClose: () => void }) {
     navigator.clipboard.writeText(text);
     setCopiedId(id);
     setTimeout(() => setCopiedId(null), 2000);
+    toast.success("Copied to clipboard!");
   };
 
   const highlightJSON = (obj: any) => {

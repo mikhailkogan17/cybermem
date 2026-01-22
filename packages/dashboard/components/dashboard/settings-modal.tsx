@@ -7,22 +7,23 @@ import { Label } from "@/components/ui/label";
 import { TintButton } from "@/components/ui/tint-button";
 import { useDashboard } from "@/lib/data/dashboard-context";
 import {
-  Check,
-  Copy,
-  Database,
-  Download,
-  Eye,
-  EyeOff,
-  Loader2,
-  RotateCcw,
-  Server,
-  Settings,
-  Shield,
-  Trash2,
-  Upload,
-  X,
+    Check,
+    Copy,
+    Database,
+    Download,
+    Eye,
+    EyeOff,
+    Loader2,
+    RotateCcw,
+    Server,
+    Settings,
+    Shield,
+    Trash2,
+    Upload,
+    X,
 } from "lucide-react";
 import { useEffect, useState } from "react";
+import { toast } from "sonner";
 
 export default function SettingsModal({ onClose }: { onClose: () => void }) {
   const [apiKey, setApiKey] = useState("");
@@ -52,6 +53,7 @@ export default function SettingsModal({ onClose }: { onClose: () => void }) {
     navigator.clipboard.writeText(text);
     setCopiedId(id);
     setTimeout(() => setCopiedId(null), 2000);
+    toast.success("Copied to clipboard!");
   };
 
   // Fetch settings from server
@@ -102,9 +104,12 @@ export default function SettingsModal({ onClose }: { onClose: () => void }) {
       setShowApiKey(true);
       setShowRegenConfirm(false);
       setRegenInputValue("");
+      toast.success("Token Regenerated!", {
+        description: "All connected clients will need to be updated.",
+      });
     } catch (e) {
       console.error(e);
-      alert("Failed to regenerate key on server.");
+      toast.error("Failed to regenerate token");
     }
   };
 

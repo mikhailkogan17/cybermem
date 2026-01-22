@@ -3,7 +3,12 @@
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { TintButton } from "@/components/ui/tint-button";
-import { Key, LogIn } from "lucide-react";
+import {
+    Tooltip,
+    TooltipContent,
+    TooltipTrigger,
+} from "@/components/ui/tooltip";
+import { HelpCircle, Key, LogIn } from "lucide-react";
 import { useEffect, useState } from "react";
 
 interface LoginModalProps {
@@ -83,9 +88,29 @@ export default function LoginModal({ onLogin }: LoginModalProps) {
         {/* Content */}
         <form onSubmit={handleSubmit} className="px-6 pb-6 space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="token" className="text-neutral-200">
-              API Token
-            </Label>
+            <div className="flex items-center gap-2">
+              <Label htmlFor="token" className="text-neutral-200">
+                API Token
+              </Label>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    type="button"
+                    className="text-neutral-500 hover:text-emerald-400 transition-colors"
+                  >
+                    <HelpCircle className="w-4 h-4" />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent className="max-w-xs bg-neutral-900 border-neutral-700 text-neutral-200">
+                  <p className="text-xs">
+                    Find your token in{" "}
+                    <code className="text-emerald-400">~/.cybermem/.env</code>{" "}
+                    or check the terminal output from{" "}
+                    <code className="text-emerald-400">cybermem up</code>
+                  </p>
+                </TooltipContent>
+              </Tooltip>
+            </div>
             <Input
               id="token"
               type="password"

@@ -79,9 +79,11 @@ services:
     container_name: cybermem-auth-sidecar
     environment:
       PORT: "3001"
+      OM_DB_PATH: /data/openmemory.sqlite
       API_KEY_FILE: /.env
     volumes:
       - ${CYBERMEM_ENV_PATH:-${HOME}/.cybermem/.env}:/.env:ro
+      - ${HOME}/.cybermem/data:/data:ro
     labels:
       - traefik.enable=true
     healthcheck:
