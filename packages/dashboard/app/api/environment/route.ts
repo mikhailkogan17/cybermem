@@ -16,7 +16,7 @@ export async function GET(request: Request) {
   const tailscaleHostname = process.env.TAILSCALE_HOSTNAME;
   if (tailscaleHostname) {
     return NextResponse.json({
-      url: `https://${tailscaleHostname}/cybermem`,
+      url: `https://${tailscaleHostname}`,
       type: "tailscale",
       editable: false,
       hint: "Using Tailscale Funnel for secure remote access",
@@ -30,7 +30,7 @@ export async function GET(request: Request) {
       ? publicUrl.slice(0, -1)
       : publicUrl;
     return NextResponse.json({
-      url: `${formattedUrl}/cybermem`,
+      url: formattedUrl,
       type: "vps",
       editable: true,
       hint: "Configure CYBERMEM_PUBLIC_URL to change this URL",
@@ -44,7 +44,7 @@ export async function GET(request: Request) {
   if (host.includes(".local")) {
     const hostname = host.split(":")[0];
     return NextResponse.json({
-      url: `http://${hostname}:${MCP_PORT}/cybermem`,
+      url: `http://${hostname}:${MCP_PORT}`,
       type: "lan",
       editable: false,
       hint: "Detected LAN access via mDNS (.local)",
@@ -56,7 +56,7 @@ export async function GET(request: Request) {
   if (ipMatch) {
     const protocol = request.headers.get("x-forwarded-proto") || "http";
     return NextResponse.json({
-      url: `${protocol}://${ipMatch[1]}:${MCP_PORT}/cybermem`,
+      url: `${protocol}://${ipMatch[1]}:${MCP_PORT}`,
       type: "ip",
       editable: true,
       hint: "Detected IP-based access",
@@ -65,7 +65,7 @@ export async function GET(request: Request) {
 
   // Default to localhost
   return NextResponse.json({
-    url: `http://localhost:${MCP_PORT}/cybermem`,
+    url: `http://localhost:${MCP_PORT}`,
     type: "local",
     editable: false,
     hint: "Running locally",
