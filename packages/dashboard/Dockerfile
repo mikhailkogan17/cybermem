@@ -29,7 +29,7 @@ RUN --mount=type=cache,target=/root/.pnpm-store \
 # Native stage for sqlite3 bindings
 FROM node:20-alpine AS native-builder
 RUN apk add --no-cache python3 make g++
-WORKDIR /app
+WORKDIR /native
 RUN npm init -y && npm install sqlite3@5.1.7
 
 # Production stage
@@ -45,8 +45,9 @@ COPY --from=builder /app/public ./public
 COPY --from=builder /app/.next/standalone ./
 COPY --from=builder /app/.next/static ./.next/static
 
-# Copy compiled native modules
-COPY --from=native-builder /app/node_modules ./node_modules
+# Copy compiled native modules (sqlite3 specifically)
+# standalone contains its own node_modules, we add ours there
+COPY --from=native-builder /native/node_modules/sqlite3 ./node_modules/sqlite3
 
 # Expose port
 EXPOSE 3000
