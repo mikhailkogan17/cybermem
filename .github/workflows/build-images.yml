@@ -45,13 +45,17 @@ jobs:
   build-dashboard:
     needs: filter
     if: needs.filter.outputs.dashboard == 'true' || github.event_name == 'workflow_dispatch'
-    runs-on: ${{ matrix.platform == 'amd64' && 'ubuntu-latest' || 'self-hosted' }}
+    strategy:
+      matrix:
+        include:
+          - platform: amd64
+            runner: ubuntu-latest
+          - platform: arm64
+            runner: [self-hosted, linux, arm]
+    runs-on: ${{ matrix.runner }}
     permissions:
       contents: read
       packages: write
-    strategy:
-      matrix:
-        platform: [amd64, arm64]
 
     steps:
       - name: Checkout repository
