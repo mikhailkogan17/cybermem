@@ -313,13 +313,14 @@ sequenceDiagram
 - **Cause**: `auth-sidecar` expected the root path `/` while Traefik was sending `/auth`.
 - **Fix**: Removed the `/cybermem` prefix project-wide. Dashboard is now the root service at port 8626. Consolidated all authenticated routes directly under `/mcp` and `/sse`. Added a Traefik regex redirect to handle legacy `/cybermem` requests for backwards compatibility.
 
-### 4. RPi 32-bit Userland Platform Mismatch
-- **Problem**: RPi OS may have a 64-bit kernel (`aarch64`) but 32-bit userspace (`linux/arm/v7`). Running standard ARM64 images causes `SIGSEGV` (exit code 159).
-- **Cause**: Minimal Docker images (Alpine) often lack the compatibility layers for this mismatch during native binding loading.
-- **Fix**: 
-  1. Force `DOCKER_DEFAULT_PLATFORM=linux/arm64` if the hardware supports it.
-  2. Use multi-arch Docker builds (buildx) to ensure compatible binaries are included.
-  3. stabilized on forced ARM64 builds for modern RPi OS (Bullseye/Bookworm 64-bit).
+### 4. RPi 32-bit Userland Platform Mismatch (CRITICAL)
+- **Problem**: RPi OS 11 (Bullseye) may have a 64-bit kernel (`aarch64`) but 32-bit userspace (`linux/arm/v7`). Standard `apt install docker-ce` installs the 32-bit version. Running 64-bit Alpine containers on a 32-bit `dockerd` causes `SIGSEGV` (exit code 159) during `apk add`.
+- **Cause**: 32-bit Docker daemon cannot properly manage 64-bit seccomp profiles or system calls for 64-bit containers on some RPi configurations.
+- **Fix (v0.11.2)**: 
+  1. Purge all 32-bit Docker packages (`docker-ce`, `docker-ce-cli`).
+  2. Install 64-bit static Docker binaries (`dockerd`, `docker`) from Docker's download site.
+  3. Configure a custom `systemd` service for the 64-bit static `dockerd`.
+- **Verification**: `docker version` must show `OS/Arch: linux/arm64` for BOTH Client and Server.
 
 # 💀 Postmortem: The "Missing Memories" Incident
 
