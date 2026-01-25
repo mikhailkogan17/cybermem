@@ -25,7 +25,7 @@ services:
       - traefik-logs:/var/log/traefik
     labels:
       - traefik.enable=true
-      - traefik.http.middlewares.auth-check.forwardauth.address=http://auth-sidecar:3001/auth
+      - traefik.http.middlewares.auth-check.forwardauth.address=http://auth-sidecar:3001/
       - traefik.http.middlewares.auth-check.forwardauth.authResponseHeaders=X-User-Id,X-User-Email,X-User-Name,X-Auth-Method
     restart: unless-stopped
 
@@ -83,7 +83,7 @@ services:
       API_KEY_FILE: /.env
     volumes:
       - ${CYBERMEM_ENV_PATH:-${HOME}/.cybermem/.env}:/.env:ro
-      - ${HOME}/.cybermem/data:/data:ro
+      - ${HOME}/.cybermem/data:/data
     labels:
       - traefik.enable=true
     healthcheck:
