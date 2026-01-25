@@ -468,11 +468,11 @@ export default function SettingsModal({ onClose }: { onClose: () => void }) {
                     <div className="flex justify-between items-center">
                       <span className="text-xs text-neutral-400">Instance</span>
                       <code className="text-[13px] font-mono text-neutral-200 bg-white/5 px-2 py-0.5 rounded border border-white/10">
-                        {settings?.isLocal
-                          ? "Local"
-                          : settings?.isManaged
-                            ? "RPi"
-                            : "VPS"}
+                        {settings?.instanceType === "rpi"
+                          ? "Raspberry Pi"
+                          : settings?.instanceType === "vps"
+                            ? "Cloud / VPS"
+                            : "Local Machine"}
                       </code>
                     </div>
                   </div>

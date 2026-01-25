@@ -1,6 +1,8 @@
 import { checkRateLimit, rateLimitResponse } from "@/lib/rate-limit";
 import fs from "fs";
 import { NextRequest, NextResponse } from "next/server";
+import os from "os";
+import path from "path";
 
 export const dynamic = "force-dynamic";
 
@@ -55,6 +57,35 @@ function getMcpEndpoint(request: NextRequest): {
   return { endpoint: `${protocol}://${hostname}:8626/mcp`, isLocal: false };
 }
 
+// Detect hardware type
+function getInstanceType(): "local" | "rpi" | "vps" {
+  // Explicit override
+  if (process.env.CYBERMEM_INSTANCE) {
+    const val = process.env.CYBERMEM_INSTANCE.toLowerCase();
+    if (val === "rpi") return "rpi";
+    if (val === "vps") return "vps";
+    return "local";
+  }
+
+  const hostname = os.hostname().toLowerCase();
+  const arch = process.arch;
+
+  // RPi detection: hostname has 'raspberry' OR it's arm/arm64 on linux
+  if (
+    hostname.includes("raspberry") ||
+    (process.platform === "linux" && (arch === "arm" || arch === "arm64"))
+  ) {
+    return "rpi";
+  }
+
+  // Cloud/VPS detection (heuristic)
+  if (process.env.VERCEL || process.env.KUBERNETES_SERVICE_HOST) {
+    return "vps";
+  }
+
+  return "local";
+}
+
 export async function GET(request: NextRequest) {
   // Rate limiting check
   const rateLimit = checkRateLimit(request);
@@ -84,8 +115,23 @@ export async function GET(request: NextRequest) {
   // Get dynamic endpoint based on request host
   const { endpoint, isLocal } = getMcpEndpoint(request);
 
+  // Detect instance type
+  const instanceType = getInstanceType();
+
   // isManaged = Local Mode (localhost auto-login)
   const isManaged = isLocal;
+
+  // Read version from package.json
+  let version = "v0.11.4"; // Default fallback
+  try {
+    const pkgPath = path.join(process.cwd(), "package.json");
+    if (fs.existsSync(pkgPath)) {
+      const pkg = JSON.parse(fs.readFileSync(pkgPath, "utf-8"));
+      version = `v${pkg.version}`;
+    }
+  } catch (e) {
+    // ignore
+  }
 
   return NextResponse.json(
     {
@@ -94,8 +140,9 @@ export async function GET(request: NextRequest) {
       endpoint,
       isManaged,
       isLocal,
-      dashboardVersion: "v0.8.0",
-      mcpVersion: "v0.8.0",
+      instanceType,
+      dashboardVersion: version,
+      mcpVersion: version,
     },
     {
       headers: {

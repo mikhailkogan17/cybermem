@@ -24,14 +24,15 @@
 
 ## Features
 
-| Feature                    | Description                                                                    |
-| -------------------------- | ------------------------------------------------------------------------------ |
-| **Model Context Protocol** | Native Model Context Protocol support for Claude, Cursor, and other AI clients |
-| **Multi-Platform**         | Deploy on Mac, Raspberry Pi, or Cloud VPS with one command                     |
-| **Infrastructure as Code** | Production-ready **Docker Compose**, **Helm Charts**, **Ansible Playbooks**    |
-| **Observability**          | Built-in SQLite activity metrics, beautiful time-series charts, audit logs     |
-| **Hybrid CI/CD**           | **Self-Hosted RPi Runner** for native 64-bit ARM builds + GitHub Cloud for x86 |
-| **Security**               | Traefik reverse proxy, Tailscale Funnel for zero-config HTTPS                  |
+| Feature                    | Description                                                                           |
+| -------------------------- | ------------------------------------------------------------------------------------- |
+| **Model Context Protocol** | Native Model Context Protocol support for Claude, Cursor, and other AI clients        |
+| **Multi-Platform**         | Deploy on Mac, Raspberry Pi, or Cloud VPS with one command                            |
+| **Infrastructure as Code** | Production-ready **Ansible Playbooks**, **Helm Charts**, **Docker Compose**           |
+| **Observability**          | Built-in SQLite activity metrics, beautiful time-series charts, audit logs            |
+| **Ansible-First Prod**     | **Senior DevOps Workflow**: Automated deployment, health-checks, and state management |
+| **Hybrid CI/CD**           | **Self-Hosted RPi Runner** for native 64-bit ARM builds + GitHub Cloud for x86        |
+| **Security**               | Traefik reverse proxy, Tailscale Funnel for zero-config HTTPS                         |
 
 ## Try It Out!
 
@@ -142,12 +143,13 @@ The CLI reads these, interpolates variables, and generates production configs.
 
 Full documentation available at **[docs.cybermem.dev](https://docs.cybermem.dev)**:
 
-| Guide                                            | Description                       |
-| :----------------------------------------------- | :-------------------------------- |
-| [Local Setup](https://docs.cybermem.dev/local)   | Mac/Linux development environment |
-| [Raspberry Pi](https://docs.cybermem.dev/rpi)    | Edge deployment with Tailscale    |
-| [Cloud/VPS](https://docs.cybermem.dev/vps)       | Production Kubernetes deployment  |
-| [MCP Integration](https://docs.cybermem.dev/mcp) | Connect Claude, Cursor, and more  |
+| Guide                                                   | Description                          |
+| :------------------------------------------------------ | :----------------------------------- |
+| [Local Setup](https://docs.cybermem.dev/local)          | Mac/Linux development environment    |
+| [Ansible Deployment](https://docs.cybermem.dev/ansible) | **Production standard** for RPi/Edge |
+| [Raspberry Pi](https://docs.cybermem.dev/rpi)           | Edge deployment with Tailscale       |
+| [Cloud/VPS](https://docs.cybermem.dev/vps)              | Production Kubernetes deployment     |
+| [MCP Integration](https://docs.cybermem.dev/mcp)        | Connect Claude, Cursor, and more     |
 
 ## Contributing
 

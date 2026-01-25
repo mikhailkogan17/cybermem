@@ -94,10 +94,10 @@ FAILURE TO FOLLOW THIS PROTOCOL IS UNACCEPTABLE AND CAUSES PRODUCTION DOWN-TIME.
 > [!CAUTION]
 > **Local = DEV, RPi = PROD**
 >
-> | Environment           | Type | Data Safety                  |
-> | --------------------- | ---- | ---------------------------- |
-> | **localhost**         | DEV  | Can wipe, reset, test freely |
-> | **raspberrypi.local** | PROD | **READ-ONLY**. Never modify. |
+| >                     | Environment | Type                                                     | Data Safety |
+| --------------------- | ----------- | -------------------------------------------------------- |
+| **localhost**         | DEV         | Can wipe, reset, test freely                             |
+| **raspberrypi.local** | PROD        | **STRICT READ-ONLY**. Never wipe/modify without consent. |
 
 ### Test Workflow Rules
 
@@ -289,7 +289,10 @@ sequenceDiagram
 1. Ensure clean git state
 2. Run `gh workflow run release.yml --field version_type=patch`
 3. Monitor with `gh run view --watch`
-4. Deploy to RPi: `ssh pi@raspberrypi.local 'cd ~/.cybermem && docker-compose pull && docker-compose up -d'`
+4. Deploy to RPi: `ansible-playbook -i inventory/hosts.ini playbooks/deploy-cybermem.yml`
+
+> [!CAUTION]
+> **ANSIBLE-ONLY DEPLOYMENT**: It is STRICTLY FORBIDDEN to use `docker-compose pull` or raw SSH commands for RPi updates. Use Ansible to ensure idempotent state and automated health checks.
 
 ### Disaster Recovery
 
