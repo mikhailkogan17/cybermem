@@ -45,7 +45,7 @@ jobs:
   build-dashboard:
     needs: filter
     if: needs.filter.outputs.dashboard == 'true' || github.event_name == 'workflow_dispatch'
-    runs-on: ${{ matrix.platform == 'amd64' && 'ubuntu-latest' || 'ubuntu-24.04-arm64' }}
+    runs-on: ${{ matrix.platform == 'amd64' && 'ubuntu-latest' || 'ubuntu-24.04-arm' }}
     permissions:
       contents: read
       packages: write
@@ -58,7 +58,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Set up QEMU
-        if: matrix.platform == 'arm64' && false # Disabled as we use native ARM runner
+        if: matrix.platform == 'arm64'
         uses: docker/setup-qemu-action@v3
 
       - name: Set up Docker Buildx
