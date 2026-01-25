@@ -31,12 +31,16 @@ jobs:
           filters: |
             dashboard:
               - 'packages/dashboard/**'
+              - '.github/workflows/build-images.yml'
             mcp:
               - 'packages/mcp/**'
+              - '.github/workflows/build-images.yml'
             auth:
               - 'packages/cli/templates/auth-sidecar/**'
+              - '.github/workflows/build-images.yml'
             exporters:
               - 'packages/cli/templates/monitoring/**'
+              - '.github/workflows/build-images.yml'
 
   build-dashboard:
     needs: filter
