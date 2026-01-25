@@ -35,6 +35,18 @@
 
 FAILURE TO FOLLOW THIS PROTOCOL IS UNACCEPTABLE AND CAUSES PRODUCTION DOWN-TIME.
 
+## 1.6 LETHAL LAWS OF IDENTITY (Non-Negotiable)
+
+> [!CAUTION]
+> **Strict Identification & Privacy Rules**
+>
+> 1. **NO HARDCODED X-CLIENT-NAME**: It is STRICTLY FORBIDDEN to hardcode string literals like `X-Client-Name: dashboard` or `curl` in source code or scripts. Use dynamic variables or project constants.
+> 2. **MANDATORY IDENTIFICATION**: Every request from a tool (pre-commit), script (load_test), or sub-component MUST send a valid `X-Client-Name`.
+> 3. **NO ENV LEAKAGE**: Public MCP configuration (suggested JSON/TOML) MUST NEVER use internal Docker environment variables (e.g., `mcp-server:8080`). Use dynamic URL detection based on the request origin.
+> 4. **ARGS > ENVS**: High-level configuration MUST be passed via command line arguments (`--url`, `--token`) to the MCP server, never solely through implicitly inherited environment variables in the public-facing documentation.
+
+---
+
 ## 2. Terminology Stack & Architecture
 
 - **App Core**: CyberMem Core (TypeScript/SQLite).
@@ -334,3 +346,26 @@ sequenceDiagram
 - **Action Items**: 
   - [ ] Implement `pre-deploy` check to verify if images in GHCR match current `main` branch.
   - [ ] Add "Production Warning" when running `npx @cybermem/cli reset` on local macbook if it detects an RPi on the network.
+
+# 💀 Postmortem: The "mcp-server" Leak
+
+- **Date**: 2026-01-26
+- **Status**: Resolved (v0.11.4)
+- **What happened**: RPi dashboard incorrectly suggested `http://mcp-server:8080` in the MCP integration modal.
+- **Root Cause**: 
+  1. The `docker-compose.yml` template used `CYBERMEM_URL=http://mcp-server:8080` for the dashboard service to perform internal health checks.
+  2. The `settings` API picked up this environment variable as a "public" override, leaking the internal Docker hostname to the user interface.
+- **Fix**: Renamed internal variable to `INTERNAL_MCP_URL` and pivoted to using `window.location.origin` for dynamic client-side suggestions.
+
+# 💀 Postmortem: The "Mozilla/curl" Stats Noise
+
+- **Date**: 2026-01-26
+- **Status**: Resolved (v0.11.4)
+- **What happened**: Dashboard "Top/Last Writer" cards were polluted with `Mozilla` and `curl` entries.
+- **Root Cause**:
+  1. The `log-exporter` had a legacy fallback that parsed `User-Agent` if the `X-Client-Name` header was missing.
+  2. The dashboard's own background health checks and metrics fetching (performed by the browser or server-side fetch) did not send an identity header.
+  3. The `pre-commit` gatekeeper and `curl` tests also missed the mandatory identity header.
+- **Fix**: 
+  1. Mandated `X-Client-Name: antigravity-client` for ALL internal system calls (Dashboard, Health, Gatekeeper).
+  2. Updated `log-exporter` to prioritize verified identities and stop opportunistic UA parsing for stats aggregation.

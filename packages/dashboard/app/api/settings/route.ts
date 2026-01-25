@@ -14,9 +14,13 @@ function getMcpEndpoint(request: NextRequest): {
   const host = request.headers.get("host") || "localhost:3000";
   const hostname = host.split(":")[0];
 
-  // Priority 1: Explicit env var
-  if (process.env.CYBERMEM_URL) {
-    return { endpoint: process.env.CYBERMEM_URL, isLocal: false };
+  // Priority 1: Explicit public override (for VPS/Proxy)
+  if (process.env.CYBERMEM_PUBLIC_URL) {
+    const url = process.env.CYBERMEM_PUBLIC_URL;
+    return {
+      endpoint: url.endsWith("/mcp") ? url : `${url.replace(/\/$/, "")}/mcp`,
+      isLocal: false,
+    };
   }
 
   // Priority 2: Tailscale domain (from env or detect)

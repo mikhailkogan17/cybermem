@@ -30,6 +30,7 @@
 | **Multi-Platform**         | Deploy on Mac, Raspberry Pi, or Cloud VPS with one command                     |
 | **Infrastructure as Code** | Production-ready **Docker Compose**, **Helm Charts**, **Ansible Playbooks**    |
 | **Observability**          | Built-in SQLite activity metrics, beautiful time-series charts, audit logs     |
+| **Hybrid CI/CD**           | **Self-Hosted RPi Runner** for native 64-bit ARM builds + GitHub Cloud for x86 |
 | **Security**               | Traefik reverse proxy, Tailscale Funnel for zero-config HTTPS                  |
 
 ## Try It Out!
@@ -56,7 +57,10 @@ and follow the instructions in terminal.
 | Cursor doesn't know your coding style | Context persists across sessions     |
 | Each tool has separate knowledge      | One unified memory for all AI agents |
 
-**For Platform Engineers:** CyberMem also demonstrates Infrastructure as Code practices — CLI generates Docker Compose, Ansible Playbooks, or Helm Charts depending on your target platform.
+**For Platform Engineers:** CyberMem demonstrates advanced Infrastructure practices:
+- **IaC Automation:** CLI generates Docker Compose, Ansible, or Helm depending on the target.
+- **Hybrid CI:** Leverages a private Raspberry Pi runner to bypass QEMU overhead, achieving native ARM64 build speeds.
+- **Zero-Trust Access:** Integrates Tailscale Funnel for secure, public access without port forwarding.
 
 ## Architecture Overview
 
@@ -68,7 +72,16 @@ config:
   fontSize: 11
 ---
 graph TD
-    subgraph Gen["🏗️ Platform Engineering Engine"]
+    subgraph CI["🚀 Hybrid CI/CD Pipeline"]
+        GHA["**GitHub Actions**<br/>(Control Plane)"]
+        Cloud["**GitHub Cloud**<br/>(AMD64 Builds)"]
+        RPiR["**Self-Hosted RPi**<br/>(Native ARM64 Builds)"]
+        
+        GHA --> Cloud
+        GHA --> RPiR
+    end
+
+    subgraph Gen["🏗️ IaC Engine"]
         CLI["**CLI**"]
         Templates["**Infrastructure Templates**"]
         CLI --> Templates
@@ -98,6 +111,8 @@ graph TD
         DBE --> Dash
     end
 
+    Cloud -.-> Runtime
+    RPiR -.-> Runtime
     Compose -.-> Traefik
     Ansible -.-> Traefik
     Helm -.-> Traefik

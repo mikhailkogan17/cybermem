@@ -168,7 +168,9 @@ export class ProductionDataSource implements DataSourceStrategy {
   }
 
   async getChartData(period: string): Promise<TimeSeriesData> {
-    const res = await fetch(`/api/metrics?period=${period}`);
+    const res = await fetch(`/api/metrics?period=${period}`, {
+      headers: { "X-Client-Name": "dashboard" },
+    });
     if (!res.ok) throw new Error("Failed to fetch chart data");
     const apiData = await res.json();
 

@@ -5,14 +5,14 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useDashboard } from "@/lib/data/dashboard-context";
 import {
-    Check,
-    Copy,
-    Eye,
-    EyeOff,
-    FileCode,
-    Info,
-    Monitor,
-    X,
+  Check,
+  Copy,
+  Eye,
+  EyeOff,
+  FileCode,
+  Info,
+  Monitor,
+  X,
 } from "lucide-react";
 import Image from "next/image";
 import { useEffect, useState } from "react";
@@ -60,13 +60,21 @@ export default function MCPConfigModal({ onClose }: { onClose: () => void }) {
           setApiKey(data.apiKey !== "not-set" ? data.apiKey : "");
           setIsManaged(data.isManaged || false);
           let srvEndpoint = data.endpoint;
-          if (
-            srvEndpoint.includes("localhost") &&
-            typeof window !== "undefined" &&
-            !window.location.hostname.includes("localhost")
-          ) {
-            const port = srvEndpoint.split(":").pop()?.split("/")[0] || "8626";
-            srvEndpoint = `${window.location.protocol}//${window.location.hostname}:${port}`;
+          // Dynamically detect endpoint if accessed via local network or Tailscale
+          if (typeof window !== "undefined") {
+            const currentHost = window.location.hostname;
+            const currentOrigin = window.location.origin;
+
+            // If the server suggests a Docker internal name or localhost, override it with current origin
+            if (srvEndpoint.includes("localhost")) {
+              srvEndpoint = `${currentOrigin}/mcp`;
+            } else if (
+              currentHost.endsWith(".local") ||
+              currentHost.includes(".ts.net")
+            ) {
+              // Ensure we use the correct protocol/host the user is actually using
+              srvEndpoint = `${currentOrigin}/mcp`;
+            }
           }
           setBaseUrl(srvEndpoint);
           setIsLoading(false);

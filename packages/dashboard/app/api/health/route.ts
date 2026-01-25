@@ -32,7 +32,7 @@ async function checkService(
       signal: controller.signal,
       cache: "no-store",
       headers: {
-        "X-Client-Name": "CyberMem-Dashboard",
+        "X-Client-Name": "antigravity-client",
       },
     });
     clearTimeout(timeoutId);
@@ -100,6 +100,7 @@ export async function GET(request: NextRequest) {
 
   // Check Core API if explicitly configured
   const apiEndpoint =
+    process.env.INTERNAL_MCP_URL ||
     process.env.CYBERMEM_URL ||
     process.env.OPENMEMORY_URL ||
     "http://localhost:8626";

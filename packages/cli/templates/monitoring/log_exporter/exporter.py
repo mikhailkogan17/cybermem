@@ -190,18 +190,17 @@ def parse_and_export():
             status = str(data.get("DownstreamStatus", 0))
 
             # Extract MCP client info from custom headers
-            client_name = data.get("request_X-Client-Name", "unknown")
+            client_name = data.get("request_X-Client-Name", "unknown").lower()
             client_version = data.get("request_X-Client-Version", "unknown")
 
-            # Fallback to User-Agent if client_name is unknown
+            # Fallback to User-Agent ONLY if client_name is unknown AND its not a bot
             if client_name == "unknown":
                 ua = data.get("request_User-Agent", "")
-                if ua and ua != "-":
+                if ua and ua != "-" and "Mozilla" not in ua and "curl" not in ua:
                     # Simple heuristic: take the first part before '/' or space
-                    # e.g. "curl/7.64.1" -> "curl", "Mozilla/5.0" -> "Mozilla"
                     parts = ua.split("/")
                     if len(parts) > 0:
-                        potential_name = parts[0].split(" ")[0].strip()
+                        potential_name = parts[0].split(" ")[0].strip().lower()
                         if potential_name:
                             client_name = potential_name
 
@@ -234,16 +233,16 @@ def parse_and_export():
             ):
                 endpoint = "/memory/:id"
 
-            # Only track requests to OpenMemory API (/memory/* and /mcp endpoints)
             # Exclude /health checks - they pollute Top/Last Reader metrics
             if endpoint.startswith("/memory") or endpoint.startswith("/mcp"):
                 # Check if it's an error (4xx or 5xx)
                 is_error = status.startswith("4") or status.startswith("5")
 
-                # Write aggregate stats
-                increment_stat(client_name, operation, is_error)
+                # Write aggregate stats ONLY for known clients
+                if client_name != "unknown" and "health" not in endpoint:
+                    increment_stat(client_name, operation, is_error)
 
-                # Log individual request to access_log
+                # Log individual request to access_log (always log for audit)
                 log_access(
                     client_name,
                     client_version,

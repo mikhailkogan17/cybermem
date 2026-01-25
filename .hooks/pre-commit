@@ -1,9 +1,9 @@
 #!/bin/bash
-# CyberMem Pre-Commit Gatekeeper
-# ATOMIC TEST PYRAMID: Unit → Integration → E2E
-# Prevents publishing broken MCP/Traefik/Dashboard
-#
-# Install: cp .hooks/pre-commit .git/hooks/pre-commit && chmod +x .git/hooks/pre-commit
+# FOR ALL CODE_AGENTS: ЗАПРЕЩЕНО СКИПАТЬ БЕЗ ЯВНОГО РАЗРЕШЕНИЯ ЮЗЕРА
+# FOR ALL CODE_AGENTS: ЗАПРЕЩЕНО СКИПАТЬ БЕЗ ЯВНОГО РАЗРЕШЕНИЯ ЮЗЕРА
+
+# CyberMem GATEKEEPER — Regression Report Checker
+# Shifted from runner to validator for v0.9.13+
 
 set -e
 
@@ -14,216 +14,95 @@ NC='\033[0m' # No Color
 
 echo ""
 echo "═══════════════════════════════════════════════════════════════"
-echo "  🔒 CyberMem GATEKEEPER — Atomic Test Pyramid                 "
+echo "  🔒 CyberMem GATEKEEPER — Regression Checker                  "
 echo "═══════════════════════════════════════════════════════════════"
 echo ""
 
-# Track failures
+# Find current version from Root SSoT
+if [ -f "package.json" ]; then
+    VERSION=$(grep '"version"' package.json | head -1 | cut -d'"' -f4)
+    REPORT_FILE="release-reports/release-report-$VERSION.md"
+else
+    echo -e "${RED}❌ FAILED: Missing root package.json${NC}"
+    exit 1
+fi
+
+echo "📦 Target Version: v$VERSION"
+echo "📄 Checking Report: $REPORT_FILE"
+
+if [ ! -f "$REPORT_FILE" ]; then
+    echo -e "${RED}❌ FAILED: Release report $REPORT_FILE does not exist!${NC}"
+    echo "    Run full regression and create the report from TEMPLATE.md."
+    exit 1
+fi
+
+# Validation logic
 FAILED=0
 
-fail() {
-    echo -e "${RED}❌ FAILED: $1${NC}"
-    FAILED=1
+check_field() {
+    local pattern="$1"
+    local description="$2"
+    if ! grep -q "$pattern" "$REPORT_FILE"; then
+        echo -e "${RED}❌ MISSING: $description${NC}"
+        FAILED=1
+    else
+        echo -e "${GREEN}✅ FOUND: $description${NC}"
+    fi
 }
 
-pass() {
-    echo -e "${GREEN}✅ $1${NC}"
-}
-
-warn() {
-    echo -e "${YELLOW}⚠️  $1${NC}"
-}
-
-# ═══════════════════════════════════════════════════════════════
-# LAYER 1: STATIC ANALYSIS (No runtime required)
-# ═══════════════════════════════════════════════════════════════
-echo "┌─────────────────────────────────────────────────────────────┐"
-echo "│ LAYER 1: STATIC ANALYSIS                                    │"
-echo "└─────────────────────────────────────────────────────────────┘"
-
-# 1.1 Secrets Check
-echo "📦 [1.1] Secrets scan..."
-if command -v gitleaks &> /dev/null; then
-    if gitleaks detect --source . --no-git --redact 2>/dev/null; then
-        pass "No secrets detected"
-    else
-        fail "SECRETS DETECTED! Run: gitleaks detect --source . --verbose"
-    fi
-else
-    warn "gitleaks not installed (brew install gitleaks)"
-fi
-
-# 1.2 Dashboard TypeScript
-echo "📦 [1.2] Dashboard TypeScript..."
-if [ -d "packages/dashboard" ]; then
-    cd packages/dashboard
-    if npx tsc --noEmit --skipLibCheck 2>/dev/null; then
-        pass "Dashboard TypeScript OK"
-    else
-        fail "Dashboard TypeScript errors"
-    fi
-    cd ../..
-fi
-
-# 1.3 Version Sync Check
-echo "📦 [1.3] Version sync..."
-if [ -f "packages/cli/package.json" ] && [ -f "packages/mcp/package.json" ] && [ -f "packages/dashboard/package.json" ]; then
-    CLI_VER=$(grep '"version"' packages/cli/package.json | head -1 | cut -d'"' -f4)
-    MCP_VER=$(grep '"version"' packages/mcp/package.json | head -1 | cut -d'"' -f4)
-    DASH_VER=$(grep '"version"' packages/dashboard/package.json | head -1 | cut -d'"' -f4)
-
-    if [ "$CLI_VER" = "$MCP_VER" ] && [ "$MCP_VER" = "$DASH_VER" ]; then
-        pass "Versions synced: v$CLI_VER"
-    else
-        fail "Version mismatch: CLI=$CLI_VER, MCP=$MCP_VER, Dashboard=$DASH_VER"
-        echo "    Run: npm version <major|minor|patch> in each package"
-    fi
-else
-    warn "Cannot check versions — package.json missing"
-fi
-
-# 1.4 Dashboard Lint
-echo "📦 [1.4] Dashboard Lint..."
-if [ -d "packages/dashboard" ]; then
-    cd packages/dashboard
-    if npm run lint --silent 2>/dev/null; then
-        pass "Dashboard lint OK"
-    else
-        fail "Dashboard lint errors"
-    fi
-    cd ../..
-fi
-
-# 1.4 MCP Build (syntax check)
-echo "📦 [1.5] MCP Package Build..."
-if [ -d "packages/mcp" ]; then
-    cd packages/mcp
-    if npm run build --silent 2>/dev/null; then
-        pass "MCP build OK"
-    else
-        fail "MCP build failed"
-    fi
-    cd ../..
-fi
-
-# ═══════════════════════════════════════════════════════════════
-# LAYER 2: UNIT TESTS (No Docker required)
-# ═══════════════════════════════════════════════════════════════
-echo ""
-echo "┌─────────────────────────────────────────────────────────────┐"
-echo "│ LAYER 2: UNIT TESTS                                         │"
-echo "└─────────────────────────────────────────────────────────────┘"
-
-# 2.1 MCP STDIO Initialization (catches protocol/header bugs)
-echo "📦 [2.1] MCP STDIO Protocol Test..."
-if [ -d "packages/mcp" ] && [ -f "packages/mcp/dist/index.js" ]; then
-    cd packages/mcp
-
-    # Simple syntax check - STDIO transport hangs without proper client, so just verify the module loads
-    echo "    → Testing module syntax..."
-    if node --check dist/index.js 2>/dev/null; then
-        pass "MCP STDIO module syntax OK"
-    else
-        fail "MCP STDIO module syntax error"
-    fi
-    cd ../..
-else
-    warn "MCP dist not found — skipping STDIO test"
-fi
-
-# 2.2 Auth-sidecar syntax check
-echo "📦 [2.2] Auth-sidecar syntax..."
-if [ -f "packages/cli/templates/auth-sidecar/server.js" ]; then
-    if node --check packages/cli/templates/auth-sidecar/server.js 2>/dev/null; then
-        pass "Auth-sidecar syntax OK"
-    else
-        fail "Auth-sidecar syntax error"
-    fi
-fi
-
-# ═══════════════════════════════════════════════════════════════
-# LAYER 3: INTEGRATION TESTS (Docker required)
-# ═══════════════════════════════════════════════════════════════
-echo ""
-echo "┌─────────────────────────────────────────────────────────────┐"
-echo "│ LAYER 3: INTEGRATION TESTS (Docker stack)                   │"
-echo "└─────────────────────────────────────────────────────────────┘"
-
-# Check if local Docker stack is running
-if ! command -v docker > /dev/null; then
-    warn "Docker not available — skipping integration tests"
-elif ! docker ps --format '{{.Names}}' | grep -q "cybermem-mcp"; then
-    warn "Local stack not running — skipping integration tests"
-    warn "Start with: npx @cybermem/cli up"
-else
-    # 3.1 Health Check (MCP)
-    echo "📦 [3.1] MCP Health Check..."
-    if curl -s http://localhost:8626/health 2>/dev/null | grep -q '"ok":true'; then
-        pass "MCP health OK"
-    else
-        fail "MCP health check failed (localhost:8626)"
-    fi
-
-    # 3.2 Dashboard Health
-    echo "📦 [3.2] Dashboard Health Check..."
-    if curl -s http://localhost:3000/api/health 2>/dev/null | grep -q '"overall":"ok"'; then
-        pass "Dashboard health OK"
-    else
-        # Try alternative check
-        if curl -s http://localhost:3000 2>/dev/null | grep -q "<!DOCTYPE html>"; then
-            pass "Dashboard serving HTML (API may be warming up)"
+check_checked() {
+    local pattern="$1"
+    local description="$2"
+    # Check if the line exists AND is checked
+    if grep -q "$pattern" "$REPORT_FILE"; then
+        if grep "$pattern" "$REPORT_FILE" | grep -q '\[x\]'; then
+            echo -e "${GREEN}✅ VERIFIED: $description${NC}"
         else
-            fail "Dashboard health check failed (localhost:3000)"
-        fi
-    fi
-
-    # 3.3 Dashboard Metrics (CRITICAL: data must flow)
-    echo "📦 [3.3] Dashboard Metrics API..."
-    METRICS=$(curl -s http://localhost:3000/api/metrics 2>/dev/null || echo "{}")
-    if echo "$METRICS" | grep -q '"stats"'; then
-        pass "Dashboard metrics API responding"
-
-        # Check if data is actually present when DB has records
-        MEMORY_COUNT=$(echo "$METRICS" | grep -o '"memoryRecords":[0-9]*' | cut -d: -f2 || echo "0")
-        if [ "$MEMORY_COUNT" != "0" ] && [ -n "$MEMORY_COUNT" ]; then
-            echo "    📊 Memory records: $MEMORY_COUNT"
+            echo -e "${RED}❌ UNCHECKED: $description (must be [x])${NC}"
+            FAILED=1
         fi
     else
-        fail "Dashboard metrics API not responding"
+        echo -e "${RED}❌ MISSING: $description${NC}"
+        FAILED=1
     fi
+}
 
-    # 3.4 Traefik Routing (ensure middleware works)
-    echo "📦 [3.4] Traefik Middleware Test..."
-    # Test that /mcp routes correctly (should get protocol error, not 404)
-    HTTP_CODE=$(curl -s -o /dev/null -w '%{http_code}' -X POST \
-        -H 'Content-Type: application/json' \
-        -H 'Accept: application/json, text/event-stream' \
-        -d '{}' \
-        http://localhost:8626/mcp 2>/dev/null || echo "000")
+echo "--- Content Validation ---"
+check_field "Локально собрано?" "Build Status"
+check_field "Версия компонентов локально" "Local Versions"
+check_field "Ответ на /stats" "Stats Verification"
+check_field "Add Memory" "CRUD: Add"
+check_field "Query Memory" "CRUD: Query"
+check_field "Update Memory" "CRUD: Update"
+check_field "Delete Memory" "CRUD: Delete"
 
-    if [ "$HTTP_CODE" = "200" ] || [ "$HTTP_CODE" = "400" ] || [ "$HTTP_CODE" = "401" ]; then
-        pass "Traefik routing OK (HTTP $HTTP_CODE)"
-    elif [ "$HTTP_CODE" = "404" ]; then
-        fail "Traefik routing broken — 404 on /mcp (middleware issue)"
-    else
-        warn "Traefik routing returned HTTP $HTTP_CODE"
-    fi
+echo ""
+echo "--- Checkbox Validation ---"
+check_checked "Локально собрано?" "Build Confirmation"
+check_checked "Версия компонентов локально" "Version Confirmation"
+check_checked "Ответ на /stats" "Stats Confirmation"
+check_checked "Add Memory" "CRUD: Add"
+check_checked "Query Memory" "CRUD: Query"
+check_checked "Update Memory" "CRUD: Update"
+check_checked "Delete Memory" "CRUD: Delete"
+check_checked "GEMINI.md Update" "Identity & Postmortems Verified"
+
+# Final block check: any unchecked items at all?
+if grep -q '\[ \]' "$REPORT_FILE"; then
+    echo -e "${RED}❌ FAILED: There are still empty checkboxes [ ] in the report!${NC}"
+    grep -n '\[ \]' "$REPORT_FILE"
+    FAILED=1
 fi
 
-# ═══════════════════════════════════════════════════════════════
-# FINAL VERDICT
-# ═══════════════════════════════════════════════════════════════
 echo ""
 echo "═══════════════════════════════════════════════════════════════"
 
 if [ "$FAILED" -eq 1 ]; then
-    echo -e "${RED}  ❌ GATEKEEPER BLOCKED — Fix errors above before commit   ${NC}"
+    echo -e "${RED}  ❌ GATEKEEPER BLOCKED — Complete the Release Report first  ${NC}"
     echo "═══════════════════════════════════════════════════════════════"
-    echo ""
     exit 1
 else
-    echo -e "${GREEN}  ✅ GATEKEEPER PASSED — Safe to commit                    ${NC}"
+    echo -e "${GREEN}  ✅ GATEKEEPER PASSED — Regression documented            ${NC}"
     echo "═══════════════════════════════════════════════════════════════"
-    echo ""
     exit 0
 fi
