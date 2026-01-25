@@ -39,8 +39,11 @@ COPY --from=builder /app/public ./public
 COPY --from=builder /app/.next/standalone ./
 COPY --from=builder /app/.next/static ./.next/static
 
+# Copy package files for native build support
+COPY package.json pnpm-lock.yaml* ./
+
 # Fix sqlite3 bindings by installing it explicitly in the production image
-RUN npm install sqlite3@5.1.7
+RUN npm install sqlite3@5.1.7 --no-save
 
 # Expose port
 EXPOSE 3000
