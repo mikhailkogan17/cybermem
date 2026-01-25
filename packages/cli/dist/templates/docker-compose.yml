@@ -79,9 +79,11 @@ services:
     container_name: cybermem-auth-sidecar
     environment:
       PORT: "3001"
+      OM_DB_PATH: /data/openmemory.sqlite
       API_KEY_FILE: /.env
     volumes:
       - ${CYBERMEM_ENV_PATH:-${HOME}/.cybermem/.env}:/.env:ro
+      - ${HOME}/.cybermem/data:/data:ro
     labels:
       - traefik.enable=true
     healthcheck:
@@ -173,6 +175,8 @@ services:
       CYBERMEM_URL: http://mcp-server:8080
       OM_DB_PATH: /data/openmemory.sqlite
       OM_API_KEY: ${OM_API_KEY:-dev-secret-key}
+      # Tailscale domain for remote config (optional, auto-detected if not set)
+      TAILSCALE_DOMAIN: ${TAILSCALE_DOMAIN:-}
     ports:
       - "3000:3000"
     volumes:
