@@ -310,6 +310,14 @@ sequenceDiagram
 - **Cause**: `auth-sidecar` expected the root path `/` while Traefik was sending `/auth`.
 - **Fix**: Removed the `/cybermem` prefix project-wide. Dashboard is now the root service at port 8626. Consolidated all authenticated routes directly under `/mcp` and `/sse`. Added a Traefik regex redirect to handle legacy `/cybermem` requests for backwards compatibility.
 
+### 4. RPi 32-bit Userland Platform Mismatch
+- **Problem**: RPi OS may have a 64-bit kernel (`aarch64`) but 32-bit userspace (`linux/arm/v7`). Running standard ARM64 images causes `SIGSEGV` (exit code 159).
+- **Cause**: Minimal Docker images (Alpine) often lack the compatibility layers for this mismatch during native binding loading.
+- **Fix**: 
+  1. Force `DOCKER_DEFAULT_PLATFORM=linux/arm64` if the hardware supports it.
+  2. Use multi-arch Docker builds (buildx) to ensure compatible binaries are included.
+  3. stabilized on forced ARM64 builds for modern RPi OS (Bullseye/Bookworm 64-bit).
+
 # 💀 Postmortem: The "Missing Memories" Incident
 
 - **Date**: 2026-01-25
