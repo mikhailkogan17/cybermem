@@ -1,15 +1,11 @@
 {
   "folders": [
     {
-      "name": "CyberMem",
+      "name": "CyberMem (monorepo)",
       "path": ".",
     },
     {
-      "name": "OpenMemory (submodule)",
-      "path": "external/openmemory",
-    },
-    {
-      "name": "Landing",
+      "name": "Landing (../cybermem-landing)",
       "path": "../cybermem-landing",
     },
   ],

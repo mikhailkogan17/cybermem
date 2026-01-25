@@ -19,9 +19,10 @@ RUN npm run build
 RUN npm prune --production
 
 
-FROM node:18-alpine AS runner
+FROM node:20-alpine AS runner
 
 WORKDIR /app
+RUN apk add --no-cache libc6-compat
 # Install runtime dependencies for native modules if needed (usually just glibc/musl compatibility, but better-sqlite3 bundles binaries or needs rebuild.
 # We copy node_modules from builder so native addons should work if arc matches.
 # For cross-platform (building amd64 on arm64 or vice versa), we might need QEMU or specific handling.

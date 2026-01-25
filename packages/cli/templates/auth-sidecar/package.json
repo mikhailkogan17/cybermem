@@ -1,0 +1,9 @@
+{
+  "name": "cybermem-auth-sidecar",
+  "version": "0.1.0",
+  "description": "Auth sidecar for CyberMem",
+  "main": "server.js",
+  "dependencies": {
+    "sqlite3": "5.1.7"
+  }
+}

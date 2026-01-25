@@ -5,10 +5,15 @@ const nextConfig = {
   },
   output: "standalone",
   transpilePackages: ["recharts"],
-  serverExternalPackages: ["dockerode", "ssh2"],
+  serverExternalPackages: ["dockerode", "ssh2", "sqlite3"],
   experimental: {},
   webpack: (config) => {
-    config.externals = [...(config.externals || []), "ssh2", "dockerode"];
+    config.externals = [
+      ...(config.externals || []),
+      "ssh2",
+      "dockerode",
+      "sqlite3",
+    ];
     return config;
   },
   async rewrites() {
