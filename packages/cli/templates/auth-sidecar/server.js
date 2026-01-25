@@ -11,6 +11,7 @@
 const http = require("http");
 const crypto = require("crypto");
 const path = require("path");
+const sqlite3 = require("sqlite3").verbose();
 
 const PORT = process.env.PORT || 3001;
 const DB_PATH = process.env.OM_DB_PATH || "/data/openmemory.sqlite";
@@ -33,7 +34,6 @@ function hashToken(token) {
 // Verify token against SQLite access_keys table
 async function verifyToken(token) {
   try {
-    const sqlite3 = require("sqlite3").verbose();
     const db = new sqlite3.Database(DB_PATH);
 
     const tokenHash = await hashToken(token);
