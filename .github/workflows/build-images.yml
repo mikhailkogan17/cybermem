@@ -82,7 +82,7 @@ jobs:
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}-dashboard
           tags: |
-            type=sha,prefix=${{ matrix.platform }}-
+            type=sha,prefix=${{ matrix.platform }}-sha-
 
       - name: Build and push Dashboard image
         uses: docker/build-push-action@v5
