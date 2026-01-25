@@ -16,7 +16,31 @@ env:
   IMAGE_PREFIX: ${{ github.repository_owner }}/cybermem
 
 jobs:
+  filter:
+    runs-on: ubuntu-latest
+    outputs:
+      dashboard: ${{ steps.filter.outputs.dashboard }}
+      mcp: ${{ steps.filter.outputs.mcp }}
+      auth: ${{ steps.filter.outputs.auth }}
+      exporters: ${{ steps.filter.outputs.exporters }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            dashboard:
+              - 'packages/dashboard/**'
+            mcp:
+              - 'packages/mcp/**'
+            auth:
+              - 'packages/cli/templates/auth-sidecar/**'
+            exporters:
+              - 'packages/cli/templates/monitoring/**'
+
   build-dashboard:
+    needs: filter
+    if: needs.filter.outputs.dashboard == 'true' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -62,6 +86,8 @@ jobs:
           cache-to: type=gha,mode=max
 
   build-exporters:
+    needs: filter
+    if: needs.filter.outputs.exporters == 'true' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -109,6 +135,8 @@ jobs:
           cache-to: type=gha,mode=max
 
   build-auth-sidecar:
+    needs: filter
+    if: needs.filter.outputs.auth == 'true' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -153,6 +181,8 @@ jobs:
           cache-to: type=gha,mode=max
 
   build-mcp:
+    needs: filter
+    if: needs.filter.outputs.mcp == 'true' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     permissions:
       contents: read
