@@ -295,12 +295,20 @@ sequenceDiagram
 ### 1. SQLite Binding Crisis (Jan 2026)
 - **Problem**: `auth-sidecar` and `dashboard` containers crashed with "Cannot find module 'sqlite3'" or "Could not locate bindings file" on RPi (ARM64/Alpine).
 - **Cause**: Minimal Dockerfiles didn't install `python3`, `make`, `g++` required to build native `sqlite3` bindings for Alpine.
-- **Fix**: Implemented multi-stage Docker builds with build dependencies and added `sqlite3` to `serverExternalPackages` in Next.js.
+- **Fix**: Implemented multi-stage Docker builds with build dependencies. For the Dashboard, had to add an explicit `npm install sqlite3` in the production stage after copying the standalone files to force building the correct native binary for the target architecture.
 
-### 2. Tailscale Funnel /cybermem Prefix
-- **Problem**: 404/401 errors when accessing via Tailscale Funnel.
-- **Cause**: Tailscale proxy mandates `/cybermem` prefix which wasn't accounted for in all dynamic URL generation and Traefik routing rules.
-- **Fix**: Hard-coded `/cybermem` as mandatory suffix in `api/environment` and updated Traefik routers to catch `/api/*` routes properly.
+### 2. SQLITE_READONLY & Volume Permissions
+- **Problem**: `auth-sidecar` failed to auto-initialize the `access_keys` table with `SQLITE_READONLY: attempt to write a readonly database`.
+- **Cause**: 
+  1. The database file on the RPi host was owned by `root`.
+  2. The `docker-compose.yml` template had the volume mounted as `:ro` (read-only) for `auth-sidecar`.
+  3. SQLite needs write access to the *parent directory* to create journal/WAL files.
+- **Fix**: Changed host file ownership to `pi` user, updated `docker-compose.yml` to allow read-write access, and set directory permissions to `777` temporarily on the host.
+
+### 3. Traefik Routing & Prefix Simplification (v0.9.2)
+- **Problem**: Complex routing with `/cybermem` prefix caused 404s for the Dashboard and environment API due to Traefik `ForwardAuth` path mismatches.
+- **Cause**: `auth-sidecar` expected the root path `/` while Traefik was sending `/auth`.
+- **Fix**: Removed the `/cybermem` prefix project-wide. Dashboard is now the root service at port 8626. Consolidated all authenticated routes directly under `/mcp` and `/sse`. Added a Traefik regex redirect to handle legacy `/cybermem` requests for backwards compatibility.
 
 # 💀 Postmortem: The "Missing Memories" Incident
 
