@@ -1,4 +1,4 @@
-name: Build Docker Images
+name: Build Docker Images (Hybrid CI)
 
 on:
   push:
@@ -10,6 +10,25 @@ on:
       - "packages/mcp/**"
       - ".github/workflows/build-images.yml"
   workflow_dispatch:
+    inputs:
+      force_build:
+        description: "Force build all images"
+        type: boolean
+        default: false
+      service:
+        description: "Specific service to build"
+        type: choice
+        options:
+          - all
+          - dashboard
+          - mcp
+          - auth
+          - exporters
+        default: all
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 env:
   REGISTRY: ghcr.io
@@ -42,16 +61,50 @@ jobs:
               - 'packages/cli/templates/monitoring/**'
               - '.github/workflows/build-images.yml'
 
+      - name: Generate Filter Summary
+        run: |
+          echo "### 🔍 Filtering Results" >> $GITHUB_STEP_SUMMARY
+          echo "| Service | Build Triggered |" >> $GITHUB_STEP_SUMMARY
+          echo "| :--- | :--- |" >> $GITHUB_STEP_SUMMARY
+          echo "| Dashboard | ${{ steps.filter.outputs.dashboard == 'true' || inputs.force_build || inputs.service == 'dashboard' || inputs.service == 'all' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| MCP | ${{ steps.filter.outputs.mcp == 'true' || inputs.force_build || inputs.service == 'mcp' || inputs.service == 'all' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Auth | ${{ steps.filter.outputs.auth == 'true' || inputs.force_build || inputs.service == 'auth' || inputs.service == 'all' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Exporters | ${{ steps.filter.outputs.exporters == 'true' || inputs.force_build || inputs.service == 'exporters' || inputs.service == 'all' }} |" >> $GITHUB_STEP_SUMMARY
+
+  detect-runner:
+    runs-on: ubuntu-latest
+    outputs:
+      arm64_runner: ${{ steps.set-runner.outputs.runner }}
+    steps:
+      - name: Check RPi Runner availability
+        id: set-runner
+        shell: bash
+        run: |
+          # Detect if any runner with label 'arm' is online
+          # Falls back to ubuntu-latest if RPi is offline
+          RUNNERS=$(gh api repos/${{ github.repository }}/actions/runners --jq '.runners[] | select(.labels[].name == "arm" and .status == "online") | .name')
+          if [ -n "$RUNNERS" ]; then
+            echo "RPi Runner detected: $RUNNERS"
+            echo "runner=[\"self-hosted\", \"linux\", \"arm\"]" >> $GITHUB_OUTPUT
+            echo "### 🚀 CI Mode: Native ARM64 (RPi)" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "No RPi Runner detected. Falling back to QEMU."
+            echo "runner=\"ubuntu-latest\"" >> $GITHUB_OUTPUT
+            echo "### 🐢 CI Mode: QEMU Emulation (Fallback)" >> $GITHUB_STEP_SUMMARY
+          fi
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
   build-dashboard:
-    needs: filter
-    if: needs.filter.outputs.dashboard == 'true' || github.event_name == 'workflow_dispatch'
+    needs: [filter, detect-runner]
+    if: needs.filter.outputs.dashboard == 'true' || inputs.force_build || inputs.service == 'dashboard' || inputs.service == 'all'
     strategy:
       matrix:
         include:
           - platform: amd64
-            runner: ubuntu-latest
+            runner: "ubuntu-latest"
           - platform: arm64
-            runner: [self-hosted, linux, arm]
+            runner: ${{ fromJSON(needs.detect-runner.outputs.arm64_runner) }}
     runs-on: ${{ matrix.runner }}
     permissions:
       contents: read
@@ -96,6 +149,11 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
+      - name: Build Summary
+        run: |
+          echo "### 📦 Dashboard Build: ${{ matrix.platform }}" >> $GITHUB_STEP_SUMMARY
+          echo "Successfully pushed \`${{ matrix.platform }}\` image to GHCR." >> $GITHUB_STEP_SUMMARY
+
   merge-dashboard:
     needs: build-dashboard
     runs-on: ubuntu-latest
@@ -132,12 +190,19 @@ jobs:
 
           # Create and push combined manifest for each tag
           for tag in $TAGS; do
+            echo "Creating manifest for tag: $tag"
             docker buildx imagetools create -t $tag $AMD64_IMAGE $ARM64_IMAGE
           done
 
+      - name: Final Summary
+        run: |
+          echo "### 🚀 Multi-Arch Manifest Created" >> $GITHUB_STEP_SUMMARY
+          echo "The Dashboard is now available as a multi-architecture image (amd64/arm64)." >> $GITHUB_STEP_SUMMARY
+          echo "- **Image**: \`${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}-dashboard:latest\`" >> $GITHUB_STEP_SUMMARY
+
   build-exporters:
     needs: filter
-    if: needs.filter.outputs.exporters == 'true' || github.event_name == 'workflow_dispatch'
+    if: needs.filter.outputs.exporters == 'true' || inputs.force_build || inputs.service == 'exporters' || inputs.service == 'all'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -184,9 +249,15 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
+      - name: Build Summary
+        run: |
+          echo "### 📦 Exporter Build: ${{ matrix.exporter }}" >> $GITHUB_STEP_SUMMARY
+          echo "Successfully pushed multi-arch image (amd64/arm64) to GHCR." >> $GITHUB_STEP_SUMMARY
+          echo "- **Image**: \`${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}-${{ matrix.exporter }}:latest\`" >> $GITHUB_STEP_SUMMARY
+
   build-auth-sidecar:
     needs: filter
-    if: needs.filter.outputs.auth == 'true' || github.event_name == 'workflow_dispatch'
+    if: needs.filter.outputs.auth == 'true' || inputs.force_build || inputs.service == 'auth' || inputs.service == 'all'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -230,9 +301,15 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
+      - name: Build Summary
+        run: |
+          echo "### 🛡️ Auth-Sidecar Build" >> $GITHUB_STEP_SUMMARY
+          echo "Successfully pushed multi-arch image (amd64/arm64) to GHCR." >> $GITHUB_STEP_SUMMARY
+          echo "- **Image**: \`${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}-auth-sidecar:latest\`" >> $GITHUB_STEP_SUMMARY
+
   build-mcp:
     needs: filter
-    if: needs.filter.outputs.mcp == 'true' || github.event_name == 'workflow_dispatch'
+    if: needs.filter.outputs.mcp == 'true' || inputs.force_build || inputs.service == 'mcp' || inputs.service == 'all'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -275,3 +352,9 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+      - name: Build Summary
+        run: |
+          echo "### 🧩 MCP Server Build" >> $GITHUB_STEP_SUMMARY
+          echo "Successfully pushed multi-arch image (amd64/arm64) to GHCR." >> $GITHUB_STEP_SUMMARY
+          echo "- **Image**: \`${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}-mcp:latest\`" >> $GITHUB_STEP_SUMMARY
