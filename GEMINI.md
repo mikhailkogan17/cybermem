@@ -294,8 +294,11 @@ sequenceDiagram
 
 ### 1. SQLite Binding Crisis (Jan 2026)
 - **Problem**: `auth-sidecar` and `dashboard` containers crashed with "Cannot find module 'sqlite3'" or "Could not locate bindings file" on RPi (ARM64/Alpine).
-- **Cause**: Minimal Dockerfiles didn't install `python3`, `make`, `g++` required to build native `sqlite3` bindings for Alpine.
-- **Fix**: Implemented multi-stage Docker builds with build dependencies. For the Dashboard, had to add an explicit `npm install sqlite3` in the production stage after copying the standalone files to force building the correct native binary for the target architecture.
+- **Cause**: Minimal Dockerfiles didn't install `python3`, `make`, `g++` required to build native `sqlite3` for Alpine. Additionally, Next.js standalone's pre-bundled `node_modules` often contained the wrong binary for the target architecture.
+- **Fix (The Isolated Native-Builder Pattern)**: 
+  1. Use a dedicated `native-builder` stage to install dependencies in a fresh `/native` directory.
+  2. For Dashboard (Next.js), specifically copy only the required packages (`sqlite3`, `sqlite`) into the final image's `node_modules`.
+  3. This avoids directory/file conflicts (`cannot copy to non-directory`) while guaranteeing correct ARM64 binaries.
 
 ### 2. SQLITE_READONLY & Volume Permissions
 - **Problem**: `auth-sidecar` failed to auto-initialize the `access_keys` table with `SQLITE_READONLY: attempt to write a readonly database`.
