@@ -1,3 +1,32 @@
+# CyberMem - GEMINI.md
+
+# 🔴 Important Findings (Tech Audit)
+
+### 1. SQLite Binding Crisis (Jan 2026)
+- **Problem**: `auth-sidecar` and `dashboard` containers crashed with "Cannot find module 'sqlite3'" or "Could not locate bindings file" on RPi (ARM64/Alpine).
+- **Cause**: Minimal Dockerfiles didn't install `python3`, `make`, `g++` required to build native `sqlite3` bindings for Alpine.
+- **Fix**: Implemented multi-stage Docker builds with build dependencies and added `sqlite3` to `serverExternalPackages` in Next.js.
+
+### 2. Tailscale Funnel /cybermem Prefix
+- **Problem**: 404/401 errors when accessing via Tailscale Funnel.
+- **Cause**: Tailscale proxy mandates `/cybermem` prefix which wasn't accounted for in all dynamic URL generation and Traefik routing rules.
+- **Fix**: Hard-coded `/cybermem` as mandatory suffix in `api/environment` and updated Traefik routers to catch `/api/*` routes properly.
+
+# 💀 Postmortem: The "Missing Memories" Incident
+
+- **Date**: 2026-01-25
+- **Status**: Resolved (Data Wiped per user request)
+- **What happened**: User reported "memories are gone" on RPi. Investigation showed RPi was running stale v0.7.5 images and the DB file was from Jan 14. 
+- **Root Cause**: 
+  1. No build/publish was triggered for previous UX changes, so RPi update pulled nothing new.
+  2. Local Macbook DB had 0 records (likely due to a `/reset` or E2E test wipe). 
+  3. `auth-sidecar` 401 masked the true state of the DB.
+- **Action Items**: 
+  - [ ] Implement `pre-deploy` check to verify if images in GHCR match current `main` branch.
+  - [ ] Add "Production Warning" when running `npx @cybermem/cli reset` on local macbook if it detects an RPi on the network.
+
+---
+
 ## 1. CyberMem Project Overview
 
 **CyberMem** is a production-grade AI memory system that provides persistent context for AI agents.
