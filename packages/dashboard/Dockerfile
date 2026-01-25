@@ -26,9 +26,15 @@ RUN --mount=type=cache,target=/root/.pnpm-store \
     --mount=type=cache,target=/app/.next/cache \
     pnpm build
 
+# Native stage for sqlite3 bindings
+FROM node:20-alpine AS native-builder
+RUN apk add --no-cache python3 make g++
+WORKDIR /app
+RUN npm init -y && npm install sqlite3@5.1.7
+
 # Production stage
 FROM node:20-alpine AS production
-RUN apk add --no-cache libc6-compat python3 make g++
+RUN apk add --no-cache libc6-compat
 WORKDIR /app
 
 ENV NODE_ENV=production
@@ -39,10 +45,8 @@ COPY --from=builder /app/public ./public
 COPY --from=builder /app/.next/standalone ./
 COPY --from=builder /app/.next/static ./.next/static
 
-# Fix sqlite3 bindings by installing it explicitly in the production image
-# We install it in the root to ensure it's available and then let Next.js find it
-RUN npm init -y && npm install sqlite3@5.1.7 --no-save && \
-    apk del python3 make g++
+# Copy compiled native modules
+COPY --from=native-builder /app/node_modules ./node_modules
 
 # Expose port
 EXPOSE 3000
