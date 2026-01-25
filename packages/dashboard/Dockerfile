@@ -39,9 +39,10 @@ COPY --from=builder /app/public ./public
 COPY --from=builder /app/.next/standalone ./
 COPY --from=builder /app/.next/static ./.next/static
 
-# Fix sqlite3 bindings by installing it explicitly in the production image node_modules
-# standalone has its own node_modules, we install there to ensure it's found
-RUN npm install sqlite3@5.1.7 --no-save
+# Fix sqlite3 bindings by installing it explicitly in the production image
+# We install it in the root to ensure it's available and then let Next.js find it
+RUN npm init -y && npm install sqlite3@5.1.7 --no-save && \
+    apk del python3 make g++
 
 # Expose port
 EXPOSE 3000
