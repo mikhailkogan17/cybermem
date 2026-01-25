@@ -16,6 +16,32 @@ const sqlite3 = require("sqlite3").verbose();
 const PORT = process.env.PORT || 3001;
 const DB_PATH = process.env.OM_DB_PATH || "/data/openmemory.sqlite";
 
+// Ensure schema exists
+function initSchema() {
+  const db = new sqlite3.Database(DB_PATH);
+  db.serialize(() => {
+    db.run(
+      `
+      CREATE TABLE IF NOT EXISTS access_keys (
+        key_id TEXT PRIMARY KEY,
+        key_hash TEXT UNIQUE NOT NULL,
+        user_id TEXT NOT NULL,
+        name TEXT,
+        is_active INTEGER DEFAULT 1,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      )
+    `,
+      (err) => {
+        if (err) console.error("SCHEMA ERROR:", err.message);
+        else console.log("Schema verified for access_keys");
+        db.close();
+      },
+    );
+  });
+}
+
+initSchema();
+
 // Hash token using same PBKDF2 as CLI (for verification)
 function hashToken(token) {
   return new Promise((resolve, reject) => {
