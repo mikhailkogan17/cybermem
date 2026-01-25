@@ -39,6 +39,9 @@ COPY --from=builder /app/public ./public
 COPY --from=builder /app/.next/standalone ./
 COPY --from=builder /app/.next/static ./.next/static
 
+# Fix sqlite3 bindings by installing it explicitly in the production image
+RUN npm install sqlite3@5.1.7 --os=linux --cpu=arm64
+
 # Expose port
 EXPOSE 3000
 
