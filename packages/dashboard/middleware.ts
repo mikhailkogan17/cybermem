@@ -60,6 +60,6 @@ export const config = {
     // - Next.js internals
     // - Static files
     // - Health check (for monitoring)
-    "/((?!api/auth|api/health|_next|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
+    "/((?!api/auth|api/health|api/environment|_next|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
   ],
 };
