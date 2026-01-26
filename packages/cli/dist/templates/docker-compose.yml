@@ -118,8 +118,9 @@ services:
       DB_PATH: /data/openmemory.sqlite
       SCRAPE_INTERVAL: "15"
       EXPORTER_PORT: "8000"
-    ports:
-      - "8000:8000"
+    # Expose only via Traefik in production/strict modes
+    # ports:
+    #   - "8000:8000"
     volumes:
       # Mount host openmemory data dir (created by SDK)
       - ${HOME}/.cybermem/data:/data
@@ -179,13 +180,14 @@ services:
     environment:
       DB_EXPORTER_URL: http://db-exporter:8000
       # Required for Health Check to find the MCP API internally
-      CYBERMEM_URL: http://mcp-server:8080
+      INTERNAL_MCP_URL: http://mcp-server:8080
       OM_DB_PATH: /data/openmemory.sqlite
       OM_API_KEY: ${OM_API_KEY:-dev-secret-key}
       # Tailscale domain for remote config (optional, auto-detected if not set)
       TAILSCALE_DOMAIN: ${TAILSCALE_DOMAIN:-}
-    ports:
-      - "3000:3000"
+    # Expose only via Traefik (port 8626) to enforce authentication
+    # ports:
+    #   - "3000:3000"
     volumes:
       - ${HOME}/.cybermem/data:/data
       - /var/run/docker.sock:/var/run/docker.sock

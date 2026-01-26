@@ -30,3 +30,6 @@ providers:
 entryPoints:
   web:
     address: ":8626"
+
+ping:
+  entryPoint: web

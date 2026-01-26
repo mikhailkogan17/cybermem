@@ -2,9 +2,10 @@
 import { Command } from "commander";
 import { backup } from "./commands/backup";
 import { dashboard } from "./commands/dashboard";
-import { init } from "./commands/init";
+import { install } from "./commands/install";
 import { reset } from "./commands/reset";
 import { restore } from "./commands/restore";
+import { uninstall } from "./commands/uninstall";
 import { upgrade } from "./commands/upgrade";
 
 const program = new Command();
@@ -14,14 +15,23 @@ program
   .description("CyberMem - Deploy your AI memory server in one command")
   .version("1.0.0");
 
-// Command: Init (formerly deploy)
+// Command: Install
 program
-  .command("init")
-  .description("Initialize CyberMem (Scaffold & Start)")
+  .command("install")
+  .description("Install CyberMem (Scaffold & Start)")
   .option("--rpi", "Deploy to Raspberry Pi")
   .option("--vps", "Deploy to VPS/Cloud server")
   .option("--remote-access", "Enable Tailscale Funnel for HTTPS remote access")
-  .action(init);
+  .action(install);
+
+// Command: Uninstall
+program
+  .command("uninstall")
+  .description("Uninstall CyberMem (Teardown services)")
+  .option("--rpi", "Uninstall from Raspberry Pi")
+  .option("--vps", "Uninstall from VPS/Cloud server")
+  .option("--host <host>", "SSH host for remote uninstall")
+  .action(uninstall);
 
 // Command: Upgrade
 program

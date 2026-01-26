@@ -4,23 +4,32 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const commander_1 = require("commander");
 const backup_1 = require("./commands/backup");
 const dashboard_1 = require("./commands/dashboard");
-const init_1 = require("./commands/init");
+const install_1 = require("./commands/install");
 const reset_1 = require("./commands/reset");
 const restore_1 = require("./commands/restore");
+const uninstall_1 = require("./commands/uninstall");
 const upgrade_1 = require("./commands/upgrade");
 const program = new commander_1.Command();
 program
     .name("mcp")
     .description("CyberMem - Deploy your AI memory server in one command")
     .version("1.0.0");
-// Command: Init (formerly deploy)
+// Command: Install
 program
-    .command("init")
-    .description("Initialize CyberMem (Scaffold & Start)")
+    .command("install")
+    .description("Install CyberMem (Scaffold & Start)")
     .option("--rpi", "Deploy to Raspberry Pi")
     .option("--vps", "Deploy to VPS/Cloud server")
     .option("--remote-access", "Enable Tailscale Funnel for HTTPS remote access")
-    .action(init_1.init);
+    .action(install_1.install);
+// Command: Uninstall
+program
+    .command("uninstall")
+    .description("Uninstall CyberMem (Teardown services)")
+    .option("--rpi", "Uninstall from Raspberry Pi")
+    .option("--vps", "Uninstall from VPS/Cloud server")
+    .option("--host <host>", "SSH host for remote uninstall")
+    .action(uninstall_1.uninstall);
 // Command: Upgrade
 program
     .command("upgrade")

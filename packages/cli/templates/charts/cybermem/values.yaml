@@ -2,7 +2,7 @@
 
 openmemory:
   image:
-    repository: cybermem-openmemory
+    repository: ghcr.io/mikhailkogan17/cybermem-mcp
     pullPolicy: IfNotPresent
     tag: "latest"
   replicaCount: 1
@@ -26,7 +26,7 @@ openmemory:
 
 dashboard:
   image:
-    repository: cybermem-dashboard
+    repository: ghcr.io/mikhailkogan17/cybermem-dashboard
     pullPolicy: IfNotPresent
     tag: "latest"
   replicaCount: 1

@@ -34,12 +34,10 @@
 | **Hybrid CI/CD**           | **Self-Hosted RPi Runner** for native 64-bit ARM builds + GitHub Cloud for x86        |
 | **Security**               | Traefik reverse proxy, Tailscale Funnel for zero-config HTTPS                         |
 
-## Try It Out!
-
-To try CyberMem on your local machine, run:
+To install CyberMem on your local machine, run:
 
 ```bash
-npx @cybermem/cli init
+npx @cybermem/cli install
 ```
 
 and follow the instructions in terminal.
@@ -118,6 +116,23 @@ graph TD
     Ansible -.-> Traefik
     Helm -.-> Traefik
 ```
+
+## CLI Reference
+
+CyberMem CLI provides a standardized set of commands for complete lifecycle management:
+
+```bash
+npx @cybermem/cli install    # Install/Initialize services (Mac/RPi/VPS)
+npx @cybermem/cli uninstall  # Stop and teardown services
+npx @cybermem/cli upgrade    # Pull latest images and update instance
+npx @cybermem/cli backup     # Create a data backup (.tar.gz)
+npx @cybermem/cli restore    # Restore from a backup file
+npx @cybermem/cli reset      # Wipe database (Destructive!)
+npx @cybermem/cli dashboard  # Open monitoring dashboard
+```
+
+> [!IMPORTANT]
+> **Ansible-First Prod**: For Raspberry Pi or remote servers, the CLI automatically leverages **Ansible** to ensure state-consistent, safe, and verifiable deployments.
 
 ## Project Structure (Monorepo)
 

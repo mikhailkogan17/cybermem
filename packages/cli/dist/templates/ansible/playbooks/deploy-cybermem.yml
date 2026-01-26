@@ -39,33 +39,64 @@
         group: "{{ ansible_user }}"
         mode: "0755"
 
-    - name: Synchronize project files
-      synchronize:
-        src: "{{ playbook_dir }}/../../"
-        dest: "{{ project_dir }}"
-        rsync_opts:
-          - "--exclude=.git"
-          - "--exclude=node_modules"
-          - "--exclude=.next"
-          - "--exclude=dashboard/.next"
-          - "--exclude=*.log"
-          - "--exclude=tmp"
-          - "--exclude=__pycache__"
-
-    - name: Copy environment file
+    - name: Copy Docker Compose template
       copy:
-        src: "../../{{ env_file }}"
+        src: "../../docker-compose.yml"
+        dest: "{{ project_dir }}/docker-compose.yml"
+        owner: "{{ ansible_user }}"
+        group: "{{ ansible_user }}"
+        mode: "0644"
+
+    - name: Sync monitoring configuration
+      synchronize:
+        src: "../../monitoring"
+        dest: "{{ project_dir }}/"
+        recursive: yes
+        delete: yes
+
+    - name: Ensure .env is present (template if missing)
+      copy:
+        content: |
+          CYBERMEM_INSTANCE=rpi
+          # Add other envs as needed
         dest: "{{ project_dir }}/.env"
+        force: no
         owner: "{{ ansible_user }}"
         group: "{{ ansible_user }}"
         mode: "0600"
 
-    - name: Pull and start services
-      command: docker-compose -f docker-compose.prod.yml --profile ollama up -d --pull always
+    - name: Load global version from package.json
+      set_fact:
+        global_version: "{{ (lookup('file', playbook_dir + '/../../../../../package.json') | from_json).version }}"
+
+    - name: Pull latest images from GHCR
+      command: docker-compose pull
       args:
         chdir: "{{ project_dir }}"
-      register: compose_output
 
-    - name: Show deployment status
+    - name: Start services
+      command: docker-compose up -d --remove-orphans
+      args:
+        chdir: "{{ project_dir }}"
+
+    - name: Wait for Traefik to be ready
+      uri:
+        url: "http://localhost:8626/ping"
+        status_code: 200
+      register: traefik_ping
+      until: traefik_ping.status == 200
+      retries: 10
+      delay: 5
+
+    - name: Verify Dashboard Version and Identity
+      uri:
+        url: "http://localhost:8626/api/settings"
+        return_content: yes
+      register: settings_info
+      until: "global_version in settings_info.content"
+      retries: 5
+      delay: 5
+
+    - name: Deployment Summary
       debug:
-        var: compose_output.stdout_lines
+        msg: "CyberMem v{{ global_version }} successfully deployed to {{ ansible_host }} (Identity: {{ (settings_info.content | from_json).instanceType }})"

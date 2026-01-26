@@ -90,7 +90,7 @@ async function upgrade(options) {
             console.log(chalk_1.default.green("✅ Upgrade complete!"));
         }
         else if (target === "rpi" || target === "vps") {
-            // Remote upgrade
+            // Remote upgrade via Ansible
             let sshHost = options.host;
             if (!sshHost) {
                 const answers = await inquirer_1.default.prompt([
@@ -103,9 +103,8 @@ async function upgrade(options) {
                 ]);
                 sshHost = answers.host;
             }
-            console.log(chalk_1.default.blue(`Upgrading remote host ${sshHost}...`));
-            // 1. Upload NEW docker-compose.yml (from this CLI version)
-            // Resolve Template Directory
+            console.log(chalk_1.default.blue(`Upgrading remote host ${sshHost} via Ansible...`));
+            // 1. Resolve Template Directory
             let templateDir = path_1.default.resolve(__dirname, "../../templates");
             if (!fs_1.default.existsSync(templateDir)) {
                 templateDir = path_1.default.resolve(__dirname, "../../../templates");
@@ -113,25 +112,25 @@ async function upgrade(options) {
             if (!fs_1.default.existsSync(templateDir)) {
                 templateDir = path_1.default.resolve(process.cwd(), "packages/cli/templates");
             }
-            if (!fs_1.default.existsSync(templateDir)) {
-                templateDir = path_1.default.resolve(__dirname, "../templates");
-            }
-            const composeFile = path_1.default.join(templateDir, "docker-compose.yml");
-            console.log(chalk_1.default.blue("Uploading newest definitions..."));
-            await (0, execa_1.default)("scp", [
-                composeFile,
-                `${sshHost}:~/.cybermem/docker-compose.yml`,
-            ]);
-            // 2. Pull and Up on Remote
-            const remoteCmd = `
-                export CYBERMEM_ENV_PATH=~/.cybermem/.env
-                export DATA_DIR=~/.cybermem/data
-                export DOCKER_DEFAULT_PLATFORM=linux/arm64
-                docker-compose -f ~/.cybermem/docker-compose.yml pull
-                docker-compose -f ~/.cybermem/docker-compose.yml up -d --remove-orphans
-            `;
-            await (0, execa_1.default)("ssh", [sshHost, remoteCmd], { stdio: "inherit" });
-            console.log(chalk_1.default.green("✅ Remote upgrade complete!"));
+            const playbookPath = path_1.default.join(templateDir, "ansible/playbooks/deploy-cybermem.yml");
+            const ansibleDir = path_1.default.join(templateDir, "ansible");
+            const [sshUser, host] = sshHost.split("@");
+            // 2. Run Ansible Playbook
+            // For upgrade, the playbook's default state (started) will pull latest images
+            // if we ensure it performs a pull. Our playbook already pulls images.
+            await (0, execa_1.default)("ansible-playbook", [
+                "-i",
+                `${host},`,
+                "-u",
+                sshUser,
+                playbookPath,
+                "--extra-vars",
+                `ansible_ssh_extra_args='-o StrictHostKeyChecking=no'`,
+            ], {
+                stdio: "inherit",
+                cwd: ansibleDir,
+            });
+            console.log(chalk_1.default.green("✅ Remote upgrade complete via Ansible!"));
         }
     }
     catch (error) {
