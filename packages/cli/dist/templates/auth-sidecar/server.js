@@ -180,6 +180,7 @@ const server = http.createServer(async (req, res) => {
 
   // 4. Unauthorized
   console.log("Auth FAILED: No valid token");
+  console.log("Headers:", JSON.stringify(req.headers));
   res.writeHead(401, { "Content-Type": "application/json" });
   res.end(
     JSON.stringify({
