@@ -29,6 +29,9 @@ export default function SettingsModal({ onClose }: { onClose: () => void }) {
   const [apiKey, setApiKey] = useState("");
   const [endpoint, setEndpoint] = useState("");
   const [isManaged, setIsManaged] = useState(false);
+  const [instanceType, setInstanceType] = useState<"local" | "rpi" | "vps">(
+    "local",
+  );
   const [settings, setSettings] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -64,8 +67,9 @@ export default function SettingsModal({ onClose }: { onClose: () => void }) {
     fetch("/api/settings")
       .then((res) => res.json())
       .then((data) => {
-        // Enforce Local Mode if server says so
-        setIsManaged(data.isManaged || false);
+        // Enforce Local Mode ONLY if it's truly local hardware AND accessed via localhost
+        setIsManaged(data.isManaged && data.instanceType === "local");
+        setInstanceType(data.instanceType || "local");
         setSettings(data);
 
         if (localKey && !data.isManaged) {
@@ -311,10 +315,14 @@ export default function SettingsModal({ onClose }: { onClose: () => void }) {
                       <div className="w-2 h-2 bg-emerald-400 rounded-full animate-pulse" />
                       <div className="flex-1">
                         <p className="text-sm text-emerald-300 font-medium">
-                          Local Mode Active
+                          {instanceType === "local"
+                            ? "Local Mode Active"
+                            : "LAN / RPi Mode Active"}
                         </p>
                         <p className="text-xs text-neutral-500">
-                          No token needed for local connections
+                          {instanceType === "local"
+                            ? "No token needed for local connections"
+                            : "Connect from other devices using the secure token"}
                         </p>
                       </div>
                     </>

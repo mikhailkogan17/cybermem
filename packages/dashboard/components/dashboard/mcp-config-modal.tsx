@@ -5,14 +5,14 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useDashboard } from "@/lib/data/dashboard-context";
 import {
-  Check,
-  Copy,
-  Eye,
-  EyeOff,
-  FileCode,
-  Info,
-  Monitor,
-  X,
+    Check,
+    Copy,
+    Eye,
+    EyeOff,
+    FileCode,
+    Info,
+    Monitor,
+    X,
 } from "lucide-react";
 import Image from "next/image";
 import { useEffect, useState } from "react";
@@ -29,7 +29,10 @@ export default function MCPConfigModal({ onClose }: { onClose: () => void }) {
   const [isKeyVisible, setIsKeyVisible] = useState(false);
   const [showRegenConfirm, setShowRegenConfirm] = useState(false);
   const [regenInputValue, setRegenInputValue] = useState("");
-  const [isManaged, setIsManaged] = useState(false); // true = local mode, no API key needed
+  const [isManaged, setIsManaged] = useState(false); // local mode (localhost only)
+  const [instanceType, setInstanceType] = useState<"local" | "rpi" | "vps">(
+    "local",
+  );
 
   useEffect(() => {
     // Try to get key from local storage first (simulating persistence)
@@ -58,7 +61,10 @@ export default function MCPConfigModal({ onClose }: { onClose: () => void }) {
         .then((res) => res.json())
         .then((data) => {
           setApiKey(data.apiKey !== "not-set" ? data.apiKey : "");
-          setIsManaged(data.isManaged || false);
+          // True local mode only if the server is running on 'local' hardware
+          // and we are accessing it via localhost (isLocal = true)
+          setIsManaged(data.isManaged && data.instanceType === "local");
+          setInstanceType(data.instanceType || "local");
           let srvEndpoint = data.endpoint;
           // Dynamically detect endpoint if accessed via local network or Tailscale
           if (typeof window !== "undefined") {
@@ -458,11 +464,14 @@ export default function MCPConfigModal({ onClose }: { onClose: () => void }) {
                     <Info className="h-4 w-4 shrink-0 text-emerald-400 mt-0.5" />
                     <div className="space-y-1">
                       <p className="text-sm font-medium text-emerald-200">
-                        Local Mode Active
+                        {instanceType === "local"
+                          ? "Local Mode Active"
+                          : "LAN / RPi Mode Active"}
                       </p>
                       <p className="text-xs text-emerald-200/60">
-                        No token required for connection from your laptop. Just
-                        copy the config below.
+                        {instanceType === "local"
+                          ? "No token required since you're on the same machine. Just copy the config below."
+                          : "Connect from your laptop using the secure token and RPi endpoint shown below."}
                       </p>
                     </div>
                   </div>

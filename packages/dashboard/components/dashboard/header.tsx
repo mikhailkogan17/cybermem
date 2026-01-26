@@ -22,6 +22,7 @@ export default function DashboardHeader({
 }) {
   const [isScrolled, setIsScrolled] = useState(false);
   const [showHealthPopup, setShowHealthPopup] = useState(false);
+  const [instanceType, setInstanceType] = useState<string>("local");
   const { systemHealth } = useDashboard();
 
   useEffect(() => {
@@ -32,6 +33,13 @@ export default function DashboardHeader({
       setIsScrolled(window.scrollY > 10);
     };
     window.addEventListener("scroll", handleScroll);
+
+    // Fetch identity for subtitle
+    fetch("/api/settings")
+      .then((res) => res.json())
+      .then((data) => setInstanceType(data.instanceType || "local"))
+      .catch(() => {});
+
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
@@ -188,7 +196,15 @@ export default function DashboardHeader({
                   )}
                 </div>
               </div>
-              <p className="text-sm text-neutral-400 mt-1">Memory MCP Server</p>
+              <p className="text-sm text-neutral-400 mt-1">
+                Memory MCP Server (
+                {instanceType === "rpi"
+                  ? "Raspberry Pi"
+                  : instanceType === "vps"
+                    ? "Cloud / VPS"
+                    : "Local Machine"}
+                )
+              </p>
             </div>
           </div>
 
