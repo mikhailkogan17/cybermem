@@ -47,6 +47,13 @@
         group: "{{ ansible_user }}"
         mode: "0644"
 
+    - name: Sync monitoring configuration
+      synchronize:
+        src: "../../monitoring"
+        dest: "{{ project_dir }}/"
+        recursive: yes
+        delete: yes
+
     - name: Ensure .env is present (template if missing)
       copy:
         content: |
@@ -58,6 +65,10 @@
         group: "{{ ansible_user }}"
         mode: "0600"
 
+    - name: Load global version from package.json
+      set_fact:
+        global_version: "{{ (lookup('file', playbook_dir + '/../../../../../package.json') | from_json).version }}"
+
     - name: Pull latest images from GHCR
       command: docker-compose pull
       args:
@@ -68,22 +79,24 @@
       args:
         chdir: "{{ project_dir }}"
 
-    - name: Wait for service health (Traefik/Gateway)
+    - name: Wait for Traefik to be ready
       uri:
-        url: "http://localhost:8626/health"
+        url: "http://localhost:8626/ping"
         status_code: 200
-      register: health_check
-      until: health_check.status == 200
+      register: traefik_ping
+      until: traefik_ping.status == 200
       retries: 10
       delay: 5
 
-    - name: Verify Dashboard Version
+    - name: Verify Dashboard Version and Identity
       uri:
         url: "http://localhost:8626/api/settings"
         return_content: yes
       register: settings_info
-      failed_when: "'v0.11' not in settings_info.content"
+      until: "global_version in settings_info.content"
+      retries: 5
+      delay: 5
 
     - name: Deployment Summary
       debug:
-        msg: "CyberMem {{ (settings_info.content | from_json).dashboardVersion }} successfully deployed to {{ ansible_host }}"
+        msg: "CyberMem v{{ global_version }} successfully deployed to {{ ansible_host }} (Identity: {{ (settings_info.content | from_json).instanceType }})"

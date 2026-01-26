@@ -1,0 +1,130 @@
+#!/bin/bash
+# 💀 [СМЕРТЕЛЬНЫЙ ЗАПРЕТ] — ГЕЙТКИПЕР НЕ ДОЛЖЕН МЕНЯТЬСЯ БЕЗ ЯВНОГО СОГЛАСИЯ ЮЗЕРА!
+# 💀 [LETHAL PROHIBITION] — DO NOT MODIFY GATEKEEPER WITHOUT EXPLICIT USER CONSENT!
+
+# CyberMem GATEKEEPER — Regression Report Checker
+# Source of Truth: .hooks/pre-commit
+
+set -e
+
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+NC='\033[0m' # No Color
+
+echo ""
+echo "═══════════════════════════════════════════════════════════════"
+echo "  🔒 CyberMem GATEKEEPER — Regression Checker                  "
+echo "═══════════════════════════════════════════════════════════════"
+echo ""
+
+# Find current version from Root SSoT
+if [ -f "package.json" ]; then
+    VERSION=$(grep '"version"' package.json | head -1 | cut -d'"' -f4)
+    REPORT_FILE="release-reports/release-report-$VERSION.md"
+else
+    echo -e "${RED}❌ FAILED: Missing root package.json${NC}"
+    exit 1
+fi
+
+echo "📦 Target Version: v$VERSION"
+echo "📄 Checking Report: $REPORT_FILE"
+
+if [ ! -f "$REPORT_FILE" ]; then
+    echo -e "${RED}❌ FAILED: Release report $REPORT_FILE does not exist!${NC}"
+    echo "    Run full regression and create the report from TEMPLATE.md."
+    exit 1
+fi
+
+# Validation logic
+FAILED=0
+
+check_field() {
+    local pattern="$1"
+    local description="$2"
+    if ! grep -q "$pattern" "$REPORT_FILE"; then
+        echo -e "${RED}❌ MISSING: $description${NC}"
+        FAILED=1
+    else
+        echo -e "${GREEN}✅ FOUND: $description${NC}"
+    fi
+}
+
+check_checked() {
+    local pattern="$1"
+    local description="$2"
+    # Check if the line exists AND is checked
+    if grep -q "$pattern" "$REPORT_FILE"; then
+        if grep "$pattern" "$REPORT_FILE" | grep -q '\[x\]'; then
+            echo -e "${GREEN}✅ VERIFIED: $description${NC}"
+        else
+            echo -e "${RED}❌ UNCHECKED: $description (must be [x])${NC}"
+            FAILED=1
+        fi
+    else
+        echo -e "${RED}❌ MISSING: $description${NC}"
+        FAILED=1
+    fi
+}
+
+echo "--- Content Validation ---"
+check_field "Локально собрано?" "Build Status"
+check_field "Версия компонентов локально" "Local Versions"
+check_field "Ответ на /stats" "Stats Verification"
+check_field "Add Memory" "CRUD: Add"
+check_field "Query Memory" "CRUD: Query"
+check_field "Update Memory" "CRUD: Update"
+check_field "Delete Memory" "CRUD: Delete"
+
+echo ""
+echo "--- Checkbox Validation ---"
+check_checked "Локально собрано?" "Build Confirmation"
+check_checked "Версия компонентов локально" "Version Confirmation"
+check_checked "Ответ на /stats" "Stats Confirmation"
+check_checked "Add Memory" "CRUD: Add"
+check_checked "Query Memory" "CRUD: Query"
+check_checked "Update Memory" "CRUD: Update"
+check_checked "Delete Memory" "CRUD: Delete"
+check_checked "GEMINI.md Update" "Identity & Postmortems Verified"
+
+# Final block check: any unchecked items at all?
+if grep -q '\[ \]' "$REPORT_FILE"; then
+    echo -e "${RED}❌ FAILED: There are still empty checkboxes [ ] in the report!${NC}"
+    grep -n '\[ \]' "$REPORT_FILE"
+    FAILED=1
+fi
+
+echo ""
+echo "═══════════════════════════════════════════════════════════════"
+
+# pre-commit hook updates
+echo "🔍 Checking Hook Integrity..."
+
+# 1. Check if the tracked hook itself has uncommitted changes
+if ! git diff --quiet HEAD -- .hooks/pre-commit; then
+    echo -e "${RED}❌ FAILED: .hooks/pre-commit has been modified but not committed!${NC}"
+    echo "    Force commit ONLY after you received STRICT user consent."
+    FAILED=1
+else
+    echo -e "${GREEN}✅ VERIFIED: Tracked hook is clean${NC}"
+fi
+
+# 2. Check if the active git hook is actually pointing to our tracked hooks
+# Or at least check that they are identical
+if [ -f ".git/hooks/pre-commit" ] && ! diff -q .hooks/pre-commit .git/hooks/pre-commit > /dev/null; then
+    echo -e "${RED}❌ FAILED: Active hook (.git/hooks/pre-commit) does not match tracked hook (.hooks/pre-commit)!${NC}"
+    echo "    Run: cp .hooks/pre-commit .git/hooks/pre-commit"
+    FAILED=1
+else
+    echo -e "${GREEN}✅ VERIFIED: Active hook matches source of truth${NC}"
+fi
+
+if [ "$FAILED" -eq 1 ]; then
+    echo -e "${RED}  ❌ GATEKEEPER BLOCKED — Resolve hook conflicts or report first  ${NC}"
+    echo "═══════════════════════════════════════════════════════════════"
+    exit 1
+else
+    echo -e "${GREEN}  ✅ GATEKEEPER PASSED — System Integrity Verified            ${NC}"
+    echo "═══════════════════════════════════════════════════════════════"
+    exit 0
+fi

@@ -29,6 +29,7 @@
 ## 4. Documentation & Cleanup
 
 - [x] **GEMINI.md Update**: Ansible-First policy and RPi data safety enforced.
+- [x] **Ansible Verification**: Playbook successfully deployed v0.11.5 to RPi with dynamic version lookup and health checks.
 - [x] **Git Diff**: Verified GHCR image usage in Ansible.
 
 ---
