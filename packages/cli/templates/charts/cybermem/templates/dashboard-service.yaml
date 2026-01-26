@@ -1,20 +1,20 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{ .Chart.Name }}-dashboard
+  name: {{ .Chart.Name }}-{{ .Values.global.dashboard.serviceName }}
 spec:
   type: {{ .Values.dashboard.service.type }}
   ports:
-    - port: {{ .Values.dashboard.service.port }}
+    - port: {{ .Values.global.dashboard.port }}
       targetPort: http
       protocol: TCP
       name: http
     {{- if eq .Values.dashboard.service.type "NodePort" }}
-    - port: {{ .Values.dashboard.service.port }}
+    - port: {{ .Values.global.dashboard.port }}
       targetPort: http
       nodePort: {{ .Values.dashboard.service.nodePort }}
       protocol: TCP
       name: http-node
     {{- end }}
   selector:
-    app.kubernetes.io/name: dashboard
+    app.kubernetes.io/name: {{ .Values.global.dashboard.serviceName }}

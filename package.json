@@ -22,5 +22,5 @@
     "@icons-pack/react-simple-icons": "^13.8.0",
     "openmemory-js": "^1.3.2"
   },
-  "version": "0.11.7"
+  "version": "0.12.0"
 }

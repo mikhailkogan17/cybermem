@@ -6,6 +6,36 @@ import inquirer from "inquirer";
 import os from "os";
 import path from "path";
 
+// Helper to handle and suggest fixes for common errors
+function handleExecError(error: any, context: string) {
+  const stderr = error.stderr || "";
+  let suggestion = "";
+
+  if (stderr.includes("Permission denied") || stderr.includes("publickey")) {
+    suggestion =
+      "\n💡 Next Step: Ensure your SSH keys are added to the remote host: `ssh-copy-id user@host`";
+  } else if (
+    stderr.includes("Connection timed out") ||
+    stderr.includes("Could not resolve host")
+  ) {
+    suggestion =
+      "\n💡 Next Step: Check your network connection or the remote host's availability.";
+  } else if (stderr.includes("ansible-playbook: command not found")) {
+    suggestion =
+      "\n💡 Next Step: Install Ansible: `brew install ansible` (on macOS).";
+  } else if (stderr.includes("docker-compose: command not found")) {
+    suggestion =
+      "\n💡 Next Step: Install Docker and ensure docker-compose is in your PATH.";
+  } else if (stderr.includes("port is already allocated")) {
+    suggestion =
+      "\n💡 Next Step: Check for port conflicts (8626, 3000, 8080) and stop competing services.";
+  }
+
+  console.error(chalk.red(`\n❌ ${context} failed:`), error.message);
+  if (suggestion) console.log(chalk.yellow(suggestion));
+  process.exit(1);
+}
+
 // Hash token using PBKDF2 (built-in, no bcrypt dependency)
 async function hashToken(token: string): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -86,29 +116,33 @@ export async function install(options: any) {
 
       console.log(chalk.blue("Starting CyberMem services in Local Mode..."));
 
-      await execa(
-        "docker-compose",
-        [
-          "-f",
-          composeFile,
-          "--env-file",
-          envFile,
-          "--project-name",
-          "cybermem",
-          "up",
-          "-d",
-          "--remove-orphans",
-        ],
-        {
-          stdio: "inherit",
-          env: {
-            ...process.env,
-            DATA_DIR: dataDir,
-            CYBERMEM_ENV_PATH: envFile,
-            OM_API_KEY: "",
+      try {
+        await execa(
+          "docker-compose",
+          [
+            "-f",
+            composeFile,
+            "--env-file",
+            envFile,
+            "--project-name",
+            "cybermem",
+            "up",
+            "-d",
+            "--remove-orphans",
+          ],
+          {
+            stdio: "inherit",
+            env: {
+              ...process.env,
+              DATA_DIR: dataDir,
+              CYBERMEM_ENV_PATH: envFile,
+              OM_API_KEY: "",
+            },
           },
-        },
-      );
+        );
+      } catch (e) {
+        handleExecError(e, "Local deployment");
+      }
 
       // Generate access token and store hash in SQLite
       const accessToken = `sk-${crypto.randomBytes(24).toString("base64url")}`;
@@ -124,8 +158,21 @@ export async function install(options: any) {
         const sqlite3 = await import("sqlite3");
         const db = new sqlite3.default.Database(dbPath);
 
-        // Create table if not exists (in case MCP hasn't run yet)
-        db.run(`CREATE TABLE IF NOT EXISTS access_keys (
+        // Promisify db.run and db.get for cleaner logic
+        const run = (sql: string, params: any[] = []) =>
+          new Promise<void>((resolve, reject) => {
+            db.run(sql, params, (err) => (err ? reject(err) : resolve()));
+          });
+
+        const get = (sql: string, params: any[] = []) =>
+          new Promise<any>((resolve, reject) => {
+            db.get(sql, params, (err, row) =>
+              err ? reject(err) : resolve(row),
+            );
+          });
+
+        // Create table if not exists
+        await run(`CREATE TABLE IF NOT EXISTS access_keys (
           id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
           key_hash TEXT NOT NULL,
           name TEXT DEFAULT 'default',
@@ -135,44 +182,29 @@ export async function install(options: any) {
           is_active INTEGER DEFAULT 1
         );`);
 
-        // Check for existing key
-        db.get(
+        const row = await get(
           "SELECT COUNT(*) as count FROM access_keys WHERE is_active = 1",
-          [],
-          (err: any, row: any) => {
-            if (err || (row && row.count > 0)) {
-              db.close();
-              // Token exists, don't regenerate
-              console.log(chalk.gray("Access token already configured."));
-              printSuccessMessage(false);
-              return;
-            }
-
-            // Insert new key
-            db.run(
-              "INSERT INTO access_keys (id, key_hash, name, user_id) VALUES (?, ?, ?, ?)",
-              [
-                crypto.randomBytes(8).toString("hex"),
-                bcryptHash,
-                "default",
-                "default",
-              ],
-              (err: any) => {
-                db.close();
-                if (err) {
-                  console.warn(
-                    chalk.yellow(
-                      "Could not store access token: " + err.message,
-                    ),
-                  );
-                  printSuccessMessage(false);
-                } else {
-                  printSuccessMessage(true, accessToken);
-                }
-              },
-            );
-          },
         );
+
+        if (row && row.count > 0) {
+          db.close();
+          console.log(chalk.gray("Access token already configured."));
+          await printSuccessMessage(false);
+          return;
+        }
+
+        // Insert new key
+        await run(
+          "INSERT INTO access_keys (id, key_hash, name, user_id) VALUES (?, ?, ?, ?)",
+          [
+            crypto.randomBytes(8).toString("hex"),
+            bcryptHash,
+            "default",
+            "default",
+          ],
+        );
+        db.close();
+        await printSuccessMessage(true, accessToken);
       } catch (e: any) {
         console.warn(
           chalk.yellow("Could not initialize access token: " + e.message),
@@ -180,10 +212,10 @@ export async function install(options: any) {
         console.log(
           chalk.gray("You can generate a token from the Dashboard Settings."),
         );
-        printSuccessMessage(false);
+        await printSuccessMessage(false);
       }
 
-      function printSuccessMessage(showToken: boolean, token?: string) {
+      async function printSuccessMessage(showToken: boolean, token?: string) {
         console.log(chalk.green("\n🎉 CyberMem Installed!"));
         console.log("");
 
@@ -215,6 +247,28 @@ export async function install(options: any) {
             "Local mode is active: No auth required for connections from this device.",
           ),
         );
+
+        // Network Awareness: Check for k3d mappings
+        try {
+          const { stdout } = await execa("k3d", [
+            "cluster",
+            "list",
+            "--no-headers",
+          ]);
+          if (stdout.includes("cybermem")) {
+            console.log(
+              chalk.cyan("\nℹ️ Detected k3d cluster. Mapping check:"),
+            );
+            console.log(
+              chalk.gray("  LoadBalancer 8626 -> http://localhost:8626"),
+            );
+            console.log(
+              chalk.gray("  Dashboard 3000 -> http://localhost:3000"),
+            );
+          }
+        } catch (e) {
+          // ignore if k3d not present
+        }
       }
     } else if (target === "rpi" || target === "vps") {
       const composeFile = path.join(templateDir, "docker-compose.yml");
@@ -264,22 +318,26 @@ export async function install(options: any) {
       // We use the comma-separated inventory trick for single host
       const inventory = `${host},`;
 
-      await execa(
-        "ansible-playbook",
-        [
-          "-i",
-          inventory,
-          "-u",
-          sshUser,
-          playbookPath,
-          "--extra-vars",
-          `ansible_ssh_extra_args='-o StrictHostKeyChecking=no'`,
-        ],
-        {
-          stdio: "inherit",
-          cwd: ansibleDir, // Run from ansible template dir so it finds roles/etc
-        },
-      );
+      try {
+        await execa(
+          "ansible-playbook",
+          [
+            "-i",
+            inventory,
+            "-u",
+            sshUser,
+            playbookPath,
+            "--extra-vars",
+            `ansible_ssh_extra_args='-o StrictHostKeyChecking=no'`,
+          ],
+          {
+            stdio: "inherit",
+            cwd: ansibleDir, // Run from ansible template dir so it finds roles/etc
+          },
+        );
+      } catch (e) {
+        handleExecError(e, "Remote deployment");
+      }
 
       console.log(
         chalk.green("\n✅ Remote deployment successful via Ansible!"),

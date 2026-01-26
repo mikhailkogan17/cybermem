@@ -86,6 +86,8 @@ check_checked "Query Memory" "CRUD: Query"
 check_checked "Update Memory" "CRUD: Update"
 check_checked "Delete Memory" "CRUD: Delete"
 check_checked "GEMINI.md Update" "Identity & Postmortems Verified"
+check_checked "k3d Deployment verified" "K8s Deployment Verified"
+check_checked "Documentation Sync verified" "Documentation Sync Verified"
 
 # Final block check: any unchecked items at all?
 if grep -q '\[ \]' "$REPORT_FILE"; then
@@ -97,7 +99,54 @@ fi
 echo ""
 echo "═══════════════════════════════════════════════════════════════"
 
+echo ""
+echo "--- CLI Spec Validation ---"
+# Verify CLI commands exist and report help correctly
+echo "🔍 Checking 'cybermem-cli' spec..."
+# We use npx to run the local version if not installed globally
+# Assuming the package is linked or we can run from source
+CLI_BIN="npx ts-node packages/cli/src/index.ts"
+
+check_cli_cmd() {
+    local cmd="$1"
+    if $CLI_BIN "$cmd" --help | grep -q "$cmd"; then
+        echo -e "${GREEN}✅ SPEC PASSED: $cmd reports help${NC}"
+    else
+        echo -e "${RED}❌ SPEC FAILED: $cmd help verification failed${NC}"
+        FAILED=1
+    fi
+}
+
+check_cli_cmd "install"
+check_cli_cmd "uninstall"
+check_cli_cmd "upgrade"
+
+echo ""
+echo "--- Infrastructure Linting ---"
+# Placeholder for linters - will be expanded
+if command -v ansible-lint &> /dev/null; then
+    echo "🔍 Running ansible-lint..."
+    ansible-lint packages/cli/templates/ansible/
+else
+    echo -e "${YELLOW}⚠️ WARN: ansible-lint not found, skipping${NC}"
+fi
+
+if command -v yamllint &> /dev/null; then
+    echo "🔍 Running yamllint..."
+    yamllint packages/cli/templates/
+else
+    echo -e "${YELLOW}⚠️ WARN: yamllint not found, skipping${NC}"
+fi
+
+if command -v helm &> /dev/null; then
+    echo "🔍 Running helm lint..."
+    helm lint packages/cli/templates/charts/cybermem
+else
+    echo -e "${YELLOW}⚠️ WARN: helm not found, skipping${NC}"
+fi
+
 # pre-commit hook updates
+echo ""
 echo "🔍 Checking Hook Integrity..."
 
 # 1. Check if the tracked hook itself has uncommitted changes

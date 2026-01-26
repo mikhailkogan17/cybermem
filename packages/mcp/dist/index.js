@@ -109,9 +109,10 @@ For full protocol: https://docs.cybermem.dev/agent-protocol`;
     else {
         // LOCAL SDK MODE
         const homedir = process.env.HOME || process.env.USERPROFILE || "";
-        // FORCE absolute standardized path for consistency across components
+        // FORCE absolute standardized path for consistency across components, but allow override
         const path = await import("path");
-        const dbPath = path.resolve(homedir, ".cybermem/data/openmemory.sqlite");
+        const dbPath = process.env.OM_DB_PATH ||
+            path.resolve(homedir, ".cybermem/data/openmemory.sqlite");
         process.env.OM_DB_PATH = dbPath;
         // Ensure directory exists
         const fs = await import("fs");
@@ -543,6 +544,50 @@ For full protocol: https://docs.cybermem.dev/agent-protocol`;
                         client: "rest-api",
                         method: "GET",
                         endpoint: "/all",
+                        status: 500,
+                    });
+                    res.status(500).json({ error: e.message });
+                }
+            });
+            app.delete("/:id", async (req, res) => {
+                try {
+                    const { id } = req.params;
+                    // Direct scrub as in the tool implementation
+                    const dbPath = process.env.OM_DB_PATH;
+                    const sqlite3 = await import("sqlite3");
+                    const db = new sqlite3.default.Database(dbPath);
+                    db.configure("busyTimeout", 5000);
+                    await new Promise((resolve, reject) => {
+                        db.serialize(() => {
+                            db.run("BEGIN TRANSACTION");
+                            db.run("DELETE FROM memories WHERE id = ?", [id]);
+                            db.run("DELETE FROM vectors WHERE id = ?", [id]);
+                            db.run("DELETE FROM waypoints WHERE src_id = ? OR dst_id = ?", [
+                                id,
+                                id,
+                            ]);
+                            db.run("COMMIT", async (err) => {
+                                db.close();
+                                if (err)
+                                    reject(err);
+                                else
+                                    resolve();
+                            });
+                        });
+                    });
+                    await logActivity("delete", {
+                        client: "rest-api",
+                        method: "DELETE",
+                        endpoint: `/${id}`,
+                        status: 200,
+                    });
+                    res.json({ ok: true, message: `Memory ${id} deleted` });
+                }
+                catch (e) {
+                    await logActivity("delete", {
+                        client: "rest-api",
+                        method: "DELETE",
+                        endpoint: `/${req.params.id}`,
                         status: 500,
                     });
                     res.status(500).json({ error: e.message });

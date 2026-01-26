@@ -5,6 +5,24 @@ import inquirer from "inquirer";
 import os from "os";
 import path from "path";
 
+// Helper to handle and suggest fixes for common errors
+function handleExecError(error: any, context: string) {
+  const stderr = error.stderr || "";
+  let suggestion = "";
+
+  if (stderr.includes("Permission denied") || stderr.includes("publickey")) {
+    suggestion =
+      "\n💡 Next Step: Ensure your SSH keys are added to the remote host: `ssh-copy-id user@host`";
+  } else if (stderr.includes("docker-compose: command not found")) {
+    suggestion =
+      "\n💡 Next Step: Install Docker and ensure docker-compose is in your PATH.";
+  }
+
+  console.error(chalk.red(`\n❌ ${context} failed:`), error.message);
+  if (suggestion) console.log(chalk.yellow(suggestion));
+  // process.exit(1); // Don't always exit on uninstall failure so we can try data wipe?
+}
+
 export async function uninstall(options: any) {
   let target = "local";
   if (options.rpi) target = "rpi";
@@ -54,27 +72,31 @@ export async function uninstall(options: any) {
       const envFile = path.join(configDir, ".env");
 
       console.log(chalk.blue("Stopping services..."));
-      await execa(
-        "docker-compose",
-        [
-          "-f",
-          composeFile,
-          "--env-file",
-          envFile,
-          "--project-name",
-          "cybermem",
-          "down",
-        ],
-        {
-          stdio: "inherit",
-          env: {
-            ...process.env,
-            DATA_DIR: path.join(configDir, "data"),
-            CYBERMEM_ENV_PATH: envFile,
-            OM_API_KEY: "",
+      try {
+        await execa(
+          "docker-compose",
+          [
+            "-f",
+            composeFile,
+            "--env-file",
+            envFile,
+            "--project-name",
+            "cybermem",
+            "down",
+          ],
+          {
+            stdio: "inherit",
+            env: {
+              ...process.env,
+              DATA_DIR: path.join(configDir, "data"),
+              CYBERMEM_ENV_PATH: envFile,
+              OM_API_KEY: "",
+            },
           },
-        },
-      );
+        );
+      } catch (e) {
+        handleExecError(e, "Local uninstall");
+      }
 
       if (answers.wipeData) {
         console.log(chalk.yellow(`Wiping configuration at ${configDir}...`));
@@ -127,7 +149,11 @@ export async function uninstall(options: any) {
             rm -rf ~/.cybermem/docker-compose.yml
         `;
 
-      await execa("ssh", [sshHost, remoteCmd], { stdio: "inherit" });
+      try {
+        await execa("ssh", [sshHost, remoteCmd], { stdio: "inherit" });
+      } catch (e) {
+        handleExecError(e, "Remote uninstall");
+      }
       console.log(chalk.green("✅ Remote uninstallation complete!"));
     }
   } catch (error) {

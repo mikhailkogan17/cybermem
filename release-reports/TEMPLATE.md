@@ -30,6 +30,11 @@
 - [ ] **GEMINI.md Update**: Postmortems and Identity rules verified.
 - [ ] **Git Diff**: No accidental secrets or internal Docker hostnames.
 
+## 5. Advanced Infrastructure & K8s (Stabilization)
+
+- [ ] **k3d Deployment verified**: `tools/test-k8s.sh` passed.
+- [ ] **Documentation Sync verified**: `/refresh-docs` workflow completed and submodule synced.
+
 ---
 
 **Signed off by**: [Agent Name / Username]

@@ -1,13 +1,13 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{ .Chart.Name }}-openmemory
+  name: {{ .Chart.Name }}-{{ .Values.global.openmemory.serviceName }}
 spec:
   type: {{ .Values.openmemory.service.type }}
   ports:
-    - port: {{ .Values.openmemory.service.port }}
+    - port: {{ .Values.global.openmemory.port }}
       targetPort: http
       protocol: TCP
       name: http
   selector:
-    app.kubernetes.io/name: openmemory
+    app.kubernetes.io/name: {{ .Values.global.openmemory.serviceName }}

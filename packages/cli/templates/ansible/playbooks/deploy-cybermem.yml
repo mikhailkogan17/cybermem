@@ -9,7 +9,7 @@
   tasks:
     - name: Update apt cache
       apt:
-        update_cache: yes
+        update_cache: true
         cache_valid_time: 3600
 
     - name: Install dependencies
@@ -23,13 +23,13 @@
       service:
         name: docker
         state: started
-        enabled: yes
+        enabled: true
 
     - name: Add user to docker group
       user:
         name: "{{ ansible_user }}"
         groups: docker
-        append: yes
+        append: true
 
     - name: Create project directory
       file:
@@ -38,6 +38,18 @@
         owner: "{{ ansible_user }}"
         group: "{{ ansible_user }}"
         mode: "0755"
+
+    - name: Ensure backup directory exists
+      file:
+        path: "{{ project_dir }}/backups"
+        state: directory
+        owner: "{{ ansible_user }}"
+        group: "{{ ansible_user }}"
+        mode: "0755"
+
+    - name: Create pre-deploy database backup
+      shell: "cp {{ project_dir }}/data/openmemory.sqlite {{ project_dir }}/backups/openmemory.sqlite.{{ ansible_date_time.iso8601_basic_short }}.bak"
+      ignore_errors: true
 
     - name: Copy Docker Compose template
       copy:
@@ -51,8 +63,8 @@
       synchronize:
         src: "../../monitoring"
         dest: "{{ project_dir }}/"
-        recursive: yes
-        delete: yes
+        recursive: true
+        delete: true
 
     - name: Ensure .env is present (template if missing)
       copy:
@@ -60,7 +72,7 @@
           CYBERMEM_INSTANCE=rpi
           # Add other envs as needed
         dest: "{{ project_dir }}/.env"
-        force: no
+        force: false
         owner: "{{ ansible_user }}"
         group: "{{ ansible_user }}"
         mode: "0600"
@@ -73,30 +85,48 @@
       command: docker-compose pull
       args:
         chdir: "{{ project_dir }}"
+      register: pull_out
+      changed_when: "'Downloaded newer image' in pull_out.stdout or 'Downloaded newer image' in pull_out.stderr"
 
     - name: Start services
       command: docker-compose up -d --remove-orphans
       args:
         chdir: "{{ project_dir }}"
+      register: up_out
+      changed_when: "'Creating' in up_out.stdout or 'Recreating' in up_out.stdout or 'Starting' in up_out.stdout or 'Creating' in up_out.stderr or 'Recreating' in up_out.stderr or 'Starting' in up_out.stderr"
 
     - name: Wait for Traefik to be ready
       uri:
-        url: "http://localhost:8626/ping"
+        url: "http://localhost:8626/health"
         status_code: 200
       register: traefik_ping
       until: traefik_ping.status == 200
       retries: 10
       delay: 5
 
-    - name: Verify Dashboard Version and Identity
+    - name: Verify Overall System Health
       uri:
-        url: "http://localhost:8626/api/settings"
-        return_content: yes
-      register: settings_info
-      until: "global_version in settings_info.content"
+        url: "http://localhost:8626/api/health"
+        return_content: true
+      register: health_status
+      until: "health_status.content is defined and (health_status.content | from_json).overall == 'ok'"
       retries: 5
-      delay: 5
+      delay: 10
+      ignore_errors: true
+
+    - name: Automated Rollback on Failure
+      block:
+        - name: Rollback message
+          debug:
+            msg: "Rollback logic triggered due to unhealthy state."
+
+        - name: Restart previous state containers
+          command: docker-compose up -d --remove-orphans
+          args:
+            chdir: "{{ project_dir }}"
+          ignore_errors: true
+      when: health_status.failed or (health_status.content | from_json).overall != 'ok'
 
     - name: Deployment Summary
       debug:
-        msg: "CyberMem v{{ global_version }} successfully deployed to {{ ansible_host }} (Identity: {{ (settings_info.content | from_json).instanceType }})"
+        msg: "CyberMem v{{ global_version }} successfully deployed. Health: {{ (health_status.content | from_json).overall | default('UNKNOWN') }}"

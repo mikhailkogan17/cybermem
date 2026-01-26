@@ -1,0 +1,61 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Chart.Name }}-traefik-config
+data:
+  traefik.yml: |
+    accessLog: {}
+    entryPoints:
+      web:
+        address: ":{{ .Values.global.traefik.port }}"
+    providers:
+      file:
+        filename: /etc/traefik/dynamic.yml
+  dynamic.yml: |
+    http:
+      routers:
+        mcp-delete:
+          rule: "Method(`DELETE`)"
+          service: mcp-service
+          entryPoints:
+            - web
+          priority: 300
+        mcp-add:
+          rule: "PathPrefix(`/add`)"
+          service: mcp-service
+          entryPoints:
+            - web
+          priority: 250
+        mcp-query:
+          rule: "PathPrefix(`/query`)"
+          service: mcp-service
+          entryPoints:
+            - web
+          priority: 250
+        mcp-all:
+          rule: "PathPrefix(`/all`)"
+          service: mcp-service
+          entryPoints:
+            - web
+          priority: 250
+        mcp-api:
+          rule: "PathPrefix(`/mcp`, `/sse`)"
+          service: mcp-service
+          entryPoints:
+            - web
+          priority: 200
+        dashboard:
+          rule: "PathPrefix(`/`)"
+          service: dashboard-service
+          entryPoints:
+            - web
+          priority: 1
+      services:
+        mcp-service:
+          loadBalancer:
+            servers:
+              - url: "http://{{ .Chart.Name }}-{{ .Values.global.openmemory.serviceName }}:{{ .Values.global.openmemory.port }}"
+        dashboard-service:
+          loadBalancer:
+            servers:
+              - url: "http://{{ .Chart.Name }}-{{ .Values.global.dashboard.serviceName }}:{{ .Values.global.dashboard.port }}"

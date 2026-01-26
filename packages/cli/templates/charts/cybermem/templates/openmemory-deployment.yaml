@@ -1,34 +1,36 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ .Chart.Name }}-openmemory
+  name: {{ .Chart.Name }}-{{ .Values.global.openmemory.serviceName }}
   labels:
-    app.kubernetes.io/name: openmemory
+    app.kubernetes.io/name: {{ .Values.global.openmemory.serviceName }}
 spec:
   replicas: {{ .Values.openmemory.replicaCount }}
   selector:
     matchLabels:
-      app.kubernetes.io/name: openmemory
+      app.kubernetes.io/name: {{ .Values.global.openmemory.serviceName }}
   template:
     metadata:
       labels:
-        app.kubernetes.io/name: openmemory
+        app.kubernetes.io/name: {{ .Values.global.openmemory.serviceName }}
     spec:
       containers:
-        - name: openmemory
+        - name: {{ .Values.global.openmemory.serviceName }}
           image: "{{ .Values.openmemory.image.repository }}:{{ .Values.openmemory.image.tag }}"
           imagePullPolicy: {{ .Values.openmemory.image.pullPolicy }}
           ports:
             - name: http
-              containerPort: 8080
+              containerPort: {{ .Values.global.openmemory.port }}
               protocol: TCP
           env:
             - name: OPENMEMORY_API_KEY
               value: {{ .Values.env.OPENMEMORY_API_KEY | quote }}
             - name: OPENAI_API_KEY
               value: {{ .Values.env.OPENAI_API_KEY | quote }}
-            - name: DB_PATH
+            - name: OM_DB_PATH
               value: "/data/openmemory.sqlite"
+            - name: OM_PORT
+              value: {{ .Values.global.openmemory.port | quote }}
           volumeMounts:
             - name: data
               mountPath: /data
@@ -37,4 +39,4 @@ spec:
       volumes:
         - name: data
           persistentVolumeClaim:
-            claimName: {{ .Chart.Name }}-openmemory-pvc
+            claimName: {{ .Chart.Name }}-{{ .Values.global.openmemory.serviceName }}-pvc

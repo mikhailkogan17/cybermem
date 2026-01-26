@@ -35,7 +35,6 @@ services:
       context: ../../mcp
       dockerfile: Dockerfile
     image: ghcr.io/mikhailkogan17/cybermem-mcp:latest
-    # Note: platform omitted - docker auto-detects (amd64 for CI, arm64 for RPi)
     restart: unless-stopped
     container_name: cybermem-mcp
     environment:
@@ -51,27 +50,21 @@ services:
       - auth-sidecar
     labels:
       - traefik.enable=true
-      # Middleware definitions (must be on a service that starts BEFORE routes reference them)
-      # Authenticated routes
       - traefik.http.routers.mcp.rule=PathPrefix(`/mcp`) || PathPrefix(`/sse`)
       - traefik.http.routers.mcp.entrypoints=web
       - traefik.http.routers.mcp.priority=100
       - traefik.http.routers.mcp.service=mcp-service
       - traefik.http.routers.mcp.middlewares=auth-check
-      # Public routes (Health/Metrics)
       - traefik.http.routers.mcp-public.rule=PathPrefix(`/health`) || PathPrefix(`/metrics`)
       - traefik.http.routers.mcp-public.entrypoints=web
       - traefik.http.routers.mcp-public.priority=100
       - traefik.http.routers.mcp-public.service=mcp-service
       - traefik.http.services.mcp-service.loadbalancer.server.port=8080
-      # Legacy API support (for simple REST clients)
       - traefik.http.routers.legacy-api.rule=PathPrefix(`/add`) || PathPrefix(`/query`) || PathPrefix(`/all`)
       - traefik.http.routers.legacy-api.entrypoints=web
       - traefik.http.routers.legacy-api.priority=100
       - traefik.http.routers.legacy-api.service=mcp-service
       - traefik.http.routers.legacy-api.middlewares=auth-check
-
-      # Support legacy /cybermem redirect to root
       - traefik.http.middlewares.cybermem-redirect.redirectregex.regex=^https?://[^/]+/cybermem(/.*)?$$
       - traefik.http.middlewares.cybermem-redirect.redirectregex.replacement=/$${1}
       - traefik.http.middlewares.cybermem-redirect.redirectregex.permanent=false
@@ -108,9 +101,6 @@ services:
       retries: 3
     restart: unless-stopped
 
-  # Memory engine (MCP + Persistence)
-  # Uses embedded SQLite stored at ~/.cybermem/data/openmemory.sqlite
-
   db-exporter:
     image: ghcr.io/mikhailkogan17/cybermem-db_exporter:latest
     container_name: cybermem-db-exporter
@@ -118,11 +108,7 @@ services:
       DB_PATH: /data/openmemory.sqlite
       SCRAPE_INTERVAL: "15"
       EXPORTER_PORT: "8000"
-    # Expose only via Traefik in production/strict modes
-    # ports:
-    #   - "8000:8000"
     volumes:
-      # Mount host openmemory data dir (created by SDK)
       - ${HOME}/.cybermem/data:/data
     restart: unless-stopped
 
@@ -175,26 +161,19 @@ services:
 
   dashboard:
     image: ghcr.io/mikhailkogan17/cybermem-dashboard:latest
-    # Note: platform omitted - docker auto-detects (amd64 for CI, arm64 for RPi)
     container_name: cybermem-dashboard
     environment:
       DB_EXPORTER_URL: http://db-exporter:8000
-      # Required for Health Check to find the MCP API internally
       INTERNAL_MCP_URL: http://mcp-server:8080
       OM_DB_PATH: /data/openmemory.sqlite
       OM_API_KEY: ${OM_API_KEY:-dev-secret-key}
-      # Tailscale domain for remote config (optional, auto-detected if not set)
       TAILSCALE_DOMAIN: ${TAILSCALE_DOMAIN:-}
-    # Expose only via Traefik (port 8626) to enforce authentication
-    # ports:
-    #   - "3000:3000"
     volumes:
       - ${HOME}/.cybermem/data:/data
       - /var/run/docker.sock:/var/run/docker.sock
       - ${CYBERMEM_ENV_PATH:-${HOME}/.cybermem/.env}:/app/shared.env
     labels:
       - traefik.enable=true
-      # Dashboard route: root -> dashboard on port 3000
       - traefik.http.routers.dashboard.entrypoints=web
       - traefik.http.routers.dashboard.rule=PathPrefix(`/`)
       - traefik.http.routers.dashboard.priority=1

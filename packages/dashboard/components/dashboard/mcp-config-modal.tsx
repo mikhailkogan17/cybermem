@@ -44,13 +44,9 @@ export default function MCPConfigModal({ onClose }: { onClose: () => void }) {
         .then((res) => res.json())
         .then((data) => {
           let srvEndpoint = data.endpoint;
-          if (
-            srvEndpoint.includes("localhost") &&
-            typeof window !== "undefined" &&
-            !window.location.hostname.includes("localhost")
-          ) {
-            const port = srvEndpoint.split(":").pop()?.split("/")[0] || "8626";
-            srvEndpoint = `${window.location.protocol}//${window.location.hostname}:${port}`;
+          if (typeof window !== "undefined") {
+            // Force 8626 for the MCP endpoint to ensure it goes through Traefik/LoadBalancer
+            srvEndpoint = `${window.location.protocol}//${window.location.hostname}:8626/mcp`;
           }
           setBaseUrl(srvEndpoint);
           setIsLoading(false);
@@ -69,25 +65,44 @@ export default function MCPConfigModal({ onClose }: { onClose: () => void }) {
           // Dynamically detect endpoint if accessed via local network or Tailscale
           if (typeof window !== "undefined") {
             const currentHost = window.location.hostname;
-            const currentOrigin = window.location.origin;
 
-            // If the server suggests a Docker internal name or localhost, override it with current origin
-            if (srvEndpoint.includes("localhost")) {
-              srvEndpoint = `${currentOrigin}/mcp`;
-            } else if (
+            // Always prioritize 8626 for the actual MCP tool connection
+            // to support '3000 should be closed' prod-security model.
+            if (
+              srvEndpoint.includes("localhost") ||
+              srvEndpoint.includes("mcp-server") ||
               currentHost.endsWith(".local") ||
               currentHost.includes(".ts.net")
             ) {
-              // Ensure we use the correct protocol/host the user is actually using
-              srvEndpoint = `${currentOrigin}/mcp`;
+              srvEndpoint = `${window.location.protocol}//${currentHost}:8626/mcp`;
             }
           }
           setBaseUrl(srvEndpoint);
           setIsLoading(false);
+
+          // Force VPS/Remote mode if accessed via 8626 or if instanceType is vps
+          if (
+            typeof window !== "undefined" &&
+            window.location.port === "8626"
+          ) {
+            setInstanceType("vps");
+            setIsManaged(false);
+          }
         })
         .catch((err) => {
           console.error("Failed to fetch settings:", err);
           setIsLoading(false);
+          // Fallback logic for 404: If on 8626, assume VPS mode
+          if (
+            typeof window !== "undefined" &&
+            window.location.port === "8626"
+          ) {
+            setInstanceType("vps");
+            setIsManaged(false);
+            setBaseUrl(
+              `${window.location.protocol}//${window.location.hostname}:8626/mcp`,
+            );
+          }
         });
     }
   }, []);
@@ -132,7 +147,16 @@ export default function MCPConfigModal({ onClose }: { onClose: () => void }) {
       };
     }
 
-    // Remote mode: use stdio with --url and --token
+    // Force 8626 for the suggestion to support '3000 should be closed' model
+    let suggestedUrl = baseUrl
+      .replace(/:3000/, ":8626")
+      .replace(/:8080/, ":8626");
+
+    // Ensure it ends with /mcp if it doesn't
+    if (!suggestedUrl.endsWith("/mcp") && !suggestedUrl.includes("/mcp?")) {
+      suggestedUrl = suggestedUrl.replace(/\/$/, "") + "/mcp";
+    }
+
     return {
       mcpServers: {
         cybermem: {
@@ -141,7 +165,7 @@ export default function MCPConfigModal({ onClose }: { onClose: () => void }) {
             "-y",
             "@cybermem/mcp",
             "--url",
-            baseUrl,
+            suggestedUrl,
             "--token",
             apiKey || "sk-your-generated-token",
           ],
@@ -377,12 +401,16 @@ export default function MCPConfigModal({ onClose }: { onClose: () => void }) {
                     <p className="text-sm font-medium text-emerald-200">
                       {instanceType === "local"
                         ? "Local Mode Active"
-                        : "LAN / RPi Mode Active"}
+                        : instanceType === "vps"
+                          ? "Cloud / VPS Mode Active"
+                          : "LAN / RPi Mode Active"}
                     </p>
                     <p className="text-xs text-emerald-200/60">
                       {instanceType === "local"
                         ? "No token required since you're on the same machine. Just copy the config below."
-                        : "Connect from your laptop using the secure token and RPi endpoint shown below."}
+                        : instanceType === "vps"
+                          ? "Connect from your laptop using the secure token and LoadBalancer endpoint shown below."
+                          : "Connect from your laptop using the secure token and RPi endpoint shown below."}
                     </p>
                   </div>
                 </div>
