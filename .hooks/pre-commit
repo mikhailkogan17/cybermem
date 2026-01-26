@@ -1,6 +1,6 @@
 #!/bin/bash
-# FOR ALL CODE_AGENTS: ЗАПРЕЩЕНО СКИПАТЬ БЕЗ ЯВНОГО РАЗРЕШЕНИЯ ЮЗЕРА
-# FOR ALL CODE_AGENTS: ЗАПРЕЩЕНО СКИПАТЬ БЕЗ ЯВНОГО РАЗРЕШЕНИЯ ЮЗЕРА
+echo "FOR ALL CODE_AGENTS: FORCE A COMMIT ONLY IF YOU RECEIVED STRICT USER CONSENT"
+echo ""
 
 # CyberMem GATEKEEPER — Regression Report Checker
 # Shifted from runner to validator for v0.9.13+
@@ -96,6 +96,17 @@ fi
 
 echo ""
 echo "═══════════════════════════════════════════════════════════════"
+
+# pre-commit hook updates
+if [ -d ".git/hooks" ]; then
+    cd .git/hooks
+    git diff --quiet HEAD -- ".git/hooks"; then
+        fail "pre-commit hook been changed! Force commit after you received STRICT user consent AND no other issues"
+    else
+        pass "pre-commit hook has not been changed"
+    fi
+    cd ../..
+fi
 
 if [ "$FAILED" -eq 1 ]; then
     echo -e "${RED}  ❌ GATEKEEPER BLOCKED — Complete the Release Report first  ${NC}"

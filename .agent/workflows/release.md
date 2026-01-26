@@ -62,15 +62,19 @@ gh release list --limit 1
 git pull
 ```
 
-## Step 5: Deploy to RPi
+## Step 5: Deploy to RPi (Ansible-First)
 
 ```bash
-# Pull new images
-ssh pi@raspberrypi.local 'cd ~/.cybermem && docker-compose pull && docker-compose up -d'
-
-# Verify versions
-ssh pi@raspberrypi.local 'docker images --format "{{.Repository}}:{{.Tag}}" | grep cybermem.*latest'
+# Deploy using modern registry-based playbook
+cd packages/cli/templates/ansible
+ansible-playbook -i inventory/hosts.ini playbooks/deploy-cybermem.yml
 ```
+
+**Ansible does:**
+- Verifies hardware state
+- Pulls images from GHCR
+- Restarts containers
+- **Waits for health checks** (Traefik + Dashboard version check)
 
 ---
 
