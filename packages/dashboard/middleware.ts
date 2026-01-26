@@ -11,25 +11,31 @@ import { NextResponse } from "next/server";
 export async function middleware(request: NextRequest) {
   const host = request.headers.get("host") || "";
 
-  // LOCAL BYPASS: Skip auth for local development and trusted networks
+  // 1. LOCAL BYPASS: Skip auth for local development and trusted networks
+  const authMethod = request.headers.get("x-auth-method");
+  const userId = request.headers.get("x-user-id");
+
   const isLocal =
     host.includes("localhost") ||
     host.includes("127.0.0.1") ||
-    host.includes("raspberrypi.local");
+    host.includes("raspberrypi.local") ||
+    authMethod === "local" ||
+    userId === "local";
 
   if (!isLocal) {
     // REMOTE: Check cookie token
     const token = request.cookies.get("cybermem_token")?.value;
 
-    if (!token) {
-      // Redirect to token auth page with error
-      const authUrl = new URL("/api/auth/token", request.url);
-      authUrl.searchParams.set("error", "no_token");
-      return NextResponse.redirect(authUrl);
+    // We do NOT redirect here anymore to avoid 307 loops and respect Law #6.
+    // Unauthorized requests will simply not have the X-User-Id header,
+    // and the UI (app/page.tsx) will render the LoginModal with a 200 OK.
+    if (
+      !token &&
+      !userId &&
+      !request.nextUrl.pathname.startsWith("/api/auth")
+    ) {
+      console.log("MiddleWare: No token/userId found for remote request");
     }
-
-    // Note: Full token verification happens in the token endpoint
-    // Cookie existence is enough for middleware (token was validated when set)
   }
 
   // CSRF Protection for mutating requests
