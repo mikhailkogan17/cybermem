@@ -369,8 +369,27 @@ export default function MCPConfigModal({ onClose }: { onClose: () => void }) {
 
               {renderInstructions()}
 
+              {/* Hardware / Mode Badge - Show always at the top of integration section */}
+              <div className="bg-emerald-500/5 border border-emerald-500/20 rounded-lg p-4 mb-4">
+                <div className="flex items-start gap-3">
+                  <Info className="h-4 w-4 shrink-0 text-emerald-400 mt-0.5" />
+                  <div className="space-y-1">
+                    <p className="text-sm font-medium text-emerald-200">
+                      {instanceType === "local"
+                        ? "Local Mode Active"
+                        : "LAN / RPi Mode Active"}
+                    </p>
+                    <p className="text-xs text-emerald-200/60">
+                      {instanceType === "local"
+                        ? "No token required since you're on the same machine. Just copy the config below."
+                        : "Connect from your laptop using the secure token and RPi endpoint shown below."}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
               {/* API Key Control Row - Only show in remote mode */}
-              {!isManaged ? (
+              {!isManaged && (
                 <div className="bg-white/5 border border-white/10 rounded-lg p-5 space-y-4 shadow-[inset_0_0_20px_rgba(255,255,255,0.02)] backdrop-blur-sm mb-4">
                   <div className="space-y-2">
                     <Label htmlFor="mcp-api-key" className="text-neutral-200">
@@ -455,24 +474,6 @@ export default function MCPConfigModal({ onClose }: { onClose: () => void }) {
                           Regenerate Key
                         </Button>
                       )}
-                    </div>
-                  </div>
-                </div>
-              ) : (
-                <div className="bg-emerald-500/5 border border-emerald-500/20 rounded-lg p-4 mb-4">
-                  <div className="flex items-start gap-3">
-                    <Info className="h-4 w-4 shrink-0 text-emerald-400 mt-0.5" />
-                    <div className="space-y-1">
-                      <p className="text-sm font-medium text-emerald-200">
-                        {instanceType === "local"
-                          ? "Local Mode Active"
-                          : "LAN / RPi Mode Active"}
-                      </p>
-                      <p className="text-xs text-emerald-200/60">
-                        {instanceType === "local"
-                          ? "No token required since you're on the same machine. Just copy the config below."
-                          : "Connect from your laptop using the secure token and RPi endpoint shown below."}
-                      </p>
                     </div>
                   </div>
                 </div>

@@ -1,4 +1,4 @@
-# Release Report (REGRESSION CHECK) - v0.11.5
+# Release Report (REGRESSION CHECK) - v0.11.6
 
 > [!IMPORTANT]
 > This report MUST be verified and checked before every commit to main/release.
@@ -7,7 +7,7 @@
 ## 1. Environment & Build Validation
 
 - [x] **Локально собрано?**: `npm run build` (Verified via previous runs)
-- [x] **Версия компонентов локально**: v0.11.5
+- [x] **Версия компонентов локально**: v0.11.6
 - [x] **Lock-file Sync**: Node 22+ and clean `npm i`.
 
 ## 2. API & Connectivity (Regression)

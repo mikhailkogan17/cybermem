@@ -331,10 +331,16 @@ export default function SettingsModal({ onClose }: { onClose: () => void }) {
                       <div className="w-2 h-2 bg-yellow-400 rounded-full" />
                       <div className="flex-1">
                         <p className="text-sm text-yellow-300 font-medium">
-                          Remote Mode
+                          {instanceType === "rpi"
+                            ? "LAN / RPi Mode"
+                            : instanceType === "vps"
+                              ? "Cloud Mode"
+                              : "Remote Mode"}
                         </p>
                         <p className="text-xs text-neutral-500">
-                          Token required for MCP client connections
+                          {instanceType === "rpi"
+                            ? "Connecting from your laptop to RPi"
+                            : "Token required for remote MCP connections"}
                         </p>
                       </div>
                     </>
