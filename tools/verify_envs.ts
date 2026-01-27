@@ -215,7 +215,10 @@ async function verifyEnvironment(options: VerifyOptions) {
 }
 
 async function main() {
-  const outputBase = path.resolve(process.cwd(), "tools/verification_reports");
+  const outputBase = path.resolve(
+    process.cwd(),
+    "release-reports/release-report-0.12.3-assets",
+  );
   await ensureDir(outputBase);
 
   const configurations: VerifyOptions[] = [

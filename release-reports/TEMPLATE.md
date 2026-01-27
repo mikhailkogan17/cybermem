@@ -17,8 +17,9 @@
 
 #### 1.1 Dashboard (`1.1_dashboard.png`)
 ![1.1 Dashboard](path/to/screenshot)
-- [ ] **Top/Last Reader/Writer**: Not empty, Client Name IS CONCRETE APP (e.g. `antigravity-client`).
-- [ ] **Time Series**: Not empty (shows graph data/bars).
+- [x] **Top/Last Reader/Writer**: Not empty.
+- [x] **Identity Law**: Client Name IS CONCRETE APP (No `rest-api`, `curl`, `node`, `cybermem`, `mcp`).
+- [x] **Time Series**: Not empty (shows graph data/bars).
 - [ ] **Audit Logs**: Does not have errors (unless expected).
 
 #### 1.2 MCP Integration (`1.2_mcp.png`)
