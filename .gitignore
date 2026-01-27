@@ -91,3 +91,4 @@ docs/.vitepress/build
 dashboard/public/docs/
 private-context.md
 cybermem-backup-*.tar.gz
+*.tar.gz
