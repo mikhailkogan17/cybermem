@@ -31,6 +31,10 @@ spec:
               value: "/data/openmemory.sqlite"
             - name: OM_PORT
               value: {{ .Values.global.openmemory.port | quote }}
+            - name: CYBERMEM_INSTANCE
+              value: "vps"
+            - name: CYBERMEM_ENV
+              value: "staging"
           volumeMounts:
             - name: data
               mountPath: /data
