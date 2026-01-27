@@ -193,16 +193,10 @@ def parse_and_export():
             client_name = data.get("request_X-Client-Name", "unknown").lower()
             client_version = data.get("request_X-Client-Version", "unknown")
 
-            # Fallback to User-Agent ONLY if client_name is unknown AND its not a bot
+            # Fallback invalid
             if client_name == "unknown":
-                ua = data.get("request_User-Agent", "")
-                if ua and ua != "-" and "Mozilla" not in ua and "curl" not in ua:
-                    # Simple heuristic: take the first part before '/' or space
-                    parts = ua.split("/")
-                    if len(parts) > 0:
-                        potential_name = parts[0].split(" ")[0].strip().lower()
-                        if potential_name:
-                            client_name = potential_name
+                # STRICT mode: Do NOT fallback to User-Agent
+                pass
 
             # Remove query params first
             endpoint = path.split("?")[0]

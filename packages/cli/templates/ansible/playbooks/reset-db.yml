@@ -1,0 +1,44 @@
+---
+- name: Reset CyberMem Database on Raspberry Pi
+  hosts: rpi
+  become: yes
+  vars:
+    project_dir: /home/{{ ansible_user }}/cybermem
+    db_path: "{{ project_dir }}/data/openmemory.sqlite"
+
+  tasks:
+    - name: Stop CyberMem services
+      command: docker-compose down
+      args:
+        chdir: "{{ project_dir }}"
+
+    - name: Wipe database file
+      file:
+        path: "{{ db_path }}"
+        state: absent
+
+    - name: Ensure data directory exists
+      file:
+        path: "{{ project_dir }}/data"
+        state: directory
+        owner: "{{ ansible_user }}"
+        group: "{{ ansible_user }}"
+        mode: "0755"
+
+    - name: Start CyberMem services
+      command: docker-compose up -d
+      args:
+        chdir: "{{ project_dir }}"
+
+    - name: Wait for Traefik to be ready
+      uri:
+        url: "http://localhost:8626/health"
+        status_code: 200
+      register: traefik_ping
+      until: traefik_ping.status == 200
+      retries: 10
+      delay: 5
+
+    - name: Database Reset Summary
+      debug:
+        msg: "CyberMem database at {{ db_path }} has been wiped and services are back online."

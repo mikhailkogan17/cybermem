@@ -37,24 +37,17 @@ export async function upgrade(options: any) {
   if (options.rpi) target = "rpi";
   if (options.vps) target = "vps";
 
-  console.log(chalk.blue(`Upgrading CyberMem (${target})...`));
+  const isStaging = !!options.staging;
+  const envType = isStaging ? "staging" : "prod";
+  const projectSuffix = isStaging ? "-staging" : "";
+
+  console.log(chalk.blue(`Upgrading CyberMem (${target}-${envType})...`));
 
   try {
     if (target === "local") {
       console.log(chalk.blue("Pulling latest Docker images..."));
 
-      // Re-use logic: find compose file from template if needed, OR use installed ~/.cybermem one?
-      // "upgrade" implies updating running instance.
-      // running instance uses ~/.cybermem/docker-compose.yml (if init copied it?)
-      // Wait, init uses template directly?
-      // "deploy/init" logic for local:
-      // "docker-compose -f composeFile ...". composeFile was from templateDir.
-      // It did NOT copy compose file to ~/.cybermem for local.
-      // It uses the installed package's template.
-
-      // So for upgrade (which might be run from newer CLI version), we use the NEW CLI's template.
-
-      // Resolve Template Directory (Same logic as init)
+      // Resolve Template Directory
       let templateDir = path.resolve(__dirname, "../../templates");
       if (!fs.existsSync(templateDir)) {
         templateDir = path.resolve(__dirname, "../../../templates");
@@ -74,7 +67,7 @@ export async function upgrade(options: any) {
       const homeDir = os.homedir();
       const configDir = path.join(homeDir, ".cybermem");
       const envFile = path.join(configDir, ".env");
-      const dataDir = path.join(configDir, "data");
+      const dataDir = path.join(configDir, isStaging ? "data-staging" : "data");
 
       // Pull images
       try {
@@ -86,7 +79,7 @@ export async function upgrade(options: any) {
             "--env-file",
             envFile,
             "--project-name",
-            "cybermem",
+            `cybermem${projectSuffix}`,
             "pull",
           ],
           {
@@ -96,6 +89,11 @@ export async function upgrade(options: any) {
               DATA_DIR: dataDir,
               CYBERMEM_ENV_PATH: envFile,
               OM_API_KEY: "", // Local bypass
+              PROJECT_NAME: `cybermem${projectSuffix}`,
+              TRAEFIK_PORT: isStaging ? "8625" : "8626",
+              DASHBOARD_PORT: isStaging ? "3001" : "3000",
+              CYBERMEM_ENV: envType,
+              CYBERMEM_INSTANCE: target,
             },
           },
         );
@@ -113,7 +111,7 @@ export async function upgrade(options: any) {
           "--env-file",
           envFile,
           "--project-name",
-          "cybermem",
+          `cybermem${projectSuffix}`,
           "up",
           "-d",
           "--remove-orphans",
@@ -125,6 +123,11 @@ export async function upgrade(options: any) {
             DATA_DIR: dataDir,
             CYBERMEM_ENV_PATH: envFile,
             OM_API_KEY: "", // Local bypass
+            PROJECT_NAME: `cybermem${projectSuffix}`,
+            TRAEFIK_PORT: isStaging ? "8625" : "8626",
+            DASHBOARD_PORT: isStaging ? "3001" : "3000",
+            CYBERMEM_ENV: envType,
+            CYBERMEM_INSTANCE: target,
           },
         },
       );
@@ -180,7 +183,7 @@ export async function upgrade(options: any) {
             sshUser,
             playbookPath,
             "--extra-vars",
-            `ansible_ssh_extra_args='-o StrictHostKeyChecking=no'`,
+            `ansible_ssh_extra_args='-o StrictHostKeyChecking=no' CYBERMEM_ENV=${envType} TRAEFIK_PORT=${isStaging ? "8625" : "8626"} PROJECT_NAME=cybermem${projectSuffix} project_dir=/home/${sshUser}/cybermem${projectSuffix}`,
           ],
           {
             stdio: "inherit",

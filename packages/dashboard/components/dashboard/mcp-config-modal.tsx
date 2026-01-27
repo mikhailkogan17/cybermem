@@ -5,14 +5,14 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useDashboard } from "@/lib/data/dashboard-context";
 import {
-    Check,
-    Copy,
-    Eye,
-    EyeOff,
-    FileCode,
-    Info,
-    Monitor,
-    X,
+  Check,
+  Copy,
+  Eye,
+  EyeOff,
+  FileCode,
+  Info,
+  Monitor,
+  X,
 } from "lucide-react";
 import Image from "next/image";
 import { useEffect, useState } from "react";
@@ -33,6 +33,7 @@ export default function MCPConfigModal({ onClose }: { onClose: () => void }) {
   const [instanceType, setInstanceType] = useState<"local" | "rpi" | "vps">(
     "local",
   );
+  const [env, setEnv] = useState("prod");
 
   useEffect(() => {
     // Try to get key from local storage first (simulating persistence)
@@ -57,6 +58,7 @@ export default function MCPConfigModal({ onClose }: { onClose: () => void }) {
         .then((res) => res.json())
         .then((data) => {
           setApiKey(data.apiKey !== "not-set" ? data.apiKey : "");
+          setEnv(data.env || "prod");
           // True local mode only if the server is running on 'local' hardware
           // and we are accessing it via localhost (isLocal = true)
           setIsManaged(data.isManaged && data.instanceType === "local");
@@ -137,11 +139,15 @@ export default function MCPConfigModal({ onClose }: { onClose: () => void }) {
   const getMcpConfig = (clientId: string) => {
     // Local mode: use stdio (command-based) - no server needed, runs via npx
     if (isManaged) {
+      const localArgs = ["-y", "@cybermem/mcp"];
+      if (env === "staging") {
+        localArgs.push("--staging");
+      }
       return {
         mcpServers: {
           cybermem: {
             command: "npx",
-            args: ["@cybermem/mcp"],
+            args: localArgs,
           },
         },
       };
@@ -157,18 +163,24 @@ export default function MCPConfigModal({ onClose }: { onClose: () => void }) {
       suggestedUrl = suggestedUrl.replace(/\/$/, "") + "/mcp";
     }
 
+    const args = [
+      "-y",
+      "@cybermem/mcp",
+      "--url",
+      suggestedUrl,
+      "--token",
+      apiKey || "sk-your-generated-token",
+    ];
+
+    if (env === "staging") {
+      args.push("--env", "staging");
+    }
+
     return {
       mcpServers: {
         cybermem: {
           command: "npx",
-          args: [
-            "-y",
-            "@cybermem/mcp",
-            "--url",
-            suggestedUrl,
-            "--token",
-            apiKey || "sk-your-generated-token",
-          ],
+          args: args,
         },
       },
     };

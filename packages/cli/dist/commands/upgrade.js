@@ -10,6 +10,32 @@ const fs_1 = __importDefault(require("fs"));
 const inquirer_1 = __importDefault(require("inquirer"));
 const os_1 = __importDefault(require("os"));
 const path_1 = __importDefault(require("path"));
+// Helper to handle and suggest fixes for common errors
+function handleExecError(error, context) {
+    const stderr = error.stderr || "";
+    let suggestion = "";
+    if (stderr.includes("Permission denied") || stderr.includes("publickey")) {
+        suggestion =
+            "\n💡 Next Step: Ensure your SSH keys are added to the remote host: `ssh-copy-id user@host`";
+    }
+    else if (stderr.includes("Connection timed out") ||
+        stderr.includes("Could not resolve host")) {
+        suggestion =
+            "\n💡 Next Step: Check your network connection or the remote host's availability.";
+    }
+    else if (stderr.includes("ansible-playbook: command not found")) {
+        suggestion =
+            "\n💡 Next Step: Install Ansible: `brew install ansible` (on macOS).";
+    }
+    else if (stderr.includes("docker-compose: command not found")) {
+        suggestion =
+            "\n💡 Next Step: Install Docker and ensure docker-compose is in your PATH.";
+    }
+    console.error(chalk_1.default.red(`\n❌ ${context} failed:`), error.message);
+    if (suggestion)
+        console.log(chalk_1.default.yellow(suggestion));
+    process.exit(1);
+}
 async function upgrade(options) {
     let target = "local";
     if (options.rpi)
@@ -49,23 +75,28 @@ async function upgrade(options) {
             const envFile = path_1.default.join(configDir, ".env");
             const dataDir = path_1.default.join(configDir, "data");
             // Pull images
-            await (0, execa_1.default)("docker-compose", [
-                "-f",
-                composeFile,
-                "--env-file",
-                envFile,
-                "--project-name",
-                "cybermem",
-                "pull",
-            ], {
-                stdio: "inherit",
-                env: {
-                    ...process.env,
-                    DATA_DIR: dataDir,
-                    CYBERMEM_ENV_PATH: envFile,
-                    OM_API_KEY: "", // Local bypass
-                },
-            });
+            try {
+                await (0, execa_1.default)("docker-compose", [
+                    "-f",
+                    composeFile,
+                    "--env-file",
+                    envFile,
+                    "--project-name",
+                    "cybermem",
+                    "pull",
+                ], {
+                    stdio: "inherit",
+                    env: {
+                        ...process.env,
+                        DATA_DIR: dataDir,
+                        CYBERMEM_ENV_PATH: envFile,
+                        OM_API_KEY: "", // Local bypass
+                    },
+                });
+            }
+            catch (e) {
+                handleExecError(e, "Local image pull");
+            }
             // Up (recreate)
             console.log(chalk_1.default.blue("Restarting services..."));
             await (0, execa_1.default)("docker-compose", [
@@ -118,18 +149,23 @@ async function upgrade(options) {
             // 2. Run Ansible Playbook
             // For upgrade, the playbook's default state (started) will pull latest images
             // if we ensure it performs a pull. Our playbook already pulls images.
-            await (0, execa_1.default)("ansible-playbook", [
-                "-i",
-                `${host},`,
-                "-u",
-                sshUser,
-                playbookPath,
-                "--extra-vars",
-                `ansible_ssh_extra_args='-o StrictHostKeyChecking=no'`,
-            ], {
-                stdio: "inherit",
-                cwd: ansibleDir,
-            });
+            try {
+                await (0, execa_1.default)("ansible-playbook", [
+                    "-i",
+                    `${host},`,
+                    "-u",
+                    sshUser,
+                    playbookPath,
+                    "--extra-vars",
+                    `ansible_ssh_extra_args='-o StrictHostKeyChecking=no'`,
+                ], {
+                    stdio: "inherit",
+                    cwd: ansibleDir,
+                });
+            }
+            catch (e) {
+                handleExecError(e, "Remote upgrade");
+            }
             console.log(chalk_1.default.green("✅ Remote upgrade complete via Ansible!"));
         }
     }

@@ -1,7 +1,7 @@
 ---
 - name: Deploy CyberMem to Raspberry Pi
-  hosts: rpi
-  become: yes
+  hosts: all
+  become: true
   vars:
     project_dir: /home/{{ ansible_user }}/cybermem
     env_file: .env.rpi
@@ -66,13 +66,22 @@
         recursive: true
         delete: true
 
+    - name: Patch Traefik configuration
+      replace:
+        path: "{{ project_dir }}/monitoring/traefik/traefik.yml"
+        regexp: 'address: ":8626"'
+        replace: 'address: ":{{ TRAEFIK_PORT | default("8626") }}"'
+
     - name: Ensure .env is present (template if missing)
       copy:
         content: |
           CYBERMEM_INSTANCE=rpi
+          CYBERMEM_ENV={{ CYBERMEM_ENV | default('prod') }}
+          PROJECT_NAME={{ PROJECT_NAME | default('cybermem') }}
+          TRAEFIK_PORT={{ TRAEFIK_PORT | default('8626') }}
           # Add other envs as needed
         dest: "{{ project_dir }}/.env"
-        force: false
+        force: true
         owner: "{{ ansible_user }}"
         group: "{{ ansible_user }}"
         mode: "0600"
@@ -95,9 +104,30 @@
       register: up_out
       changed_when: "'Creating' in up_out.stdout or 'Recreating' in up_out.stdout or 'Starting' in up_out.stdout or 'Creating' in up_out.stderr or 'Recreating' in up_out.stderr or 'Starting' in up_out.stderr"
 
+    - name: Install sqlite3 for token injection
+      apt:
+        name: sqlite3
+        state: present
+
+    - name: Inject Authentication Token
+      shell: |
+        sqlite3 {{ project_dir }}/data/openmemory.sqlite "CREATE TABLE IF NOT EXISTS access_keys (
+          id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
+          key_hash TEXT NOT NULL,
+          name TEXT DEFAULT 'default',
+          user_id TEXT DEFAULT 'default',
+          created_at TEXT DEFAULT (datetime('now')),
+          last_used_at TEXT,
+          is_active INTEGER DEFAULT 1
+        );"
+        sqlite3 {{ project_dir }}/data/openmemory.sqlite "DELETE FROM access_keys WHERE name='{{ auth_token_name | default('ansible-generated') }}';"
+        sqlite3 {{ project_dir }}/data/openmemory.sqlite "INSERT INTO access_keys (id, key_hash, name, user_id) VALUES ('{{ auth_token_id }}', '{{ auth_token_hash }}', '{{ auth_token_name | default('ansible-generated') }}', 'admin');"
+      when: auth_token_hash is defined
+      ignore_errors: true
+
     - name: Wait for Traefik to be ready
       uri:
-        url: "http://localhost:8626/health"
+        url: "http://localhost:{{ TRAEFIK_PORT | default('8626') }}/health"
         status_code: 200
       register: traefik_ping
       until: traefik_ping.status == 200
@@ -106,7 +136,7 @@
 
     - name: Verify Overall System Health
       uri:
-        url: "http://localhost:8626/api/health"
+        url: "http://localhost:{{ TRAEFIK_PORT | default('8626') }}/api/health"
         return_content: true
       register: health_status
       until: "health_status.content is defined and (health_status.content | from_json).overall == 'ok'"

@@ -79,7 +79,7 @@ export function DashboardProvider({
     const checkHealth = async () => {
       try {
         const res = await fetch("/api/health", {
-          signal: AbortSignal.timeout(5000),
+          signal: AbortSignal.timeout(10000),
         });
         if (res.ok) {
           const data = await res.json();

@@ -1,14 +1,24 @@
 # Default values for cybermem.
 
+# Global settings for SSoT
+global:
+  traefik:
+    port: 8626
+  openmemory:
+    serviceName: "openmemory"
+    port: 8080
+  dashboard:
+    serviceName: "dashboard"
+    port: 3000
+
 openmemory:
   image:
-    repository: ghcr.io/mikhailkogan17/cybermem-mcp
+    repository: cybermem-openmemory
     pullPolicy: IfNotPresent
-    tag: "latest"
+    tag: "v0.11.9"
   replicaCount: 1
   service:
     type: ClusterIP
-    port: 8080
   persistence:
     enabled: true
     size: 10Gi
@@ -20,9 +30,7 @@ openmemory:
     requests:
       cpu: 100m
       memory: 256Mi
-  env:
-    # Passed to the container
-    OM_PORT: "8080"
+  env: {}
 
 dashboard:
   image:
@@ -32,7 +40,6 @@ dashboard:
   replicaCount: 1
   service:
     type: ClusterIP
-    port: 3000
     nodePort: 30000 # For k3d/local access if needed
   resources: {}
 

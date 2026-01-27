@@ -2,23 +2,14 @@
 description: Backup RPi production data and restore to local for testing
 ---
 
-# RPi Sync Workflow
+# Sync From RPi
 
 // turbo-all
 
 > [!CAUTION]
-> This pulls data FROM production. Ensure local DB is NOT in use.
+> This will overwrite your local database with RPi production data.
 
 1. Run sync script:
 ```bash
-./tools/sync-from-rpi.sh
+./tools/sync-rpi.sh
 ```
-
-2. Verify local health after sync:
-```bash
-/check-dashboard
-```
-
-**Expected Results:**
-- `openmemory.sqlite` backed up and copied to local data directory.
-- Local dashboard reflects RPi data.

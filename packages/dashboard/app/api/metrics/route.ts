@@ -79,13 +79,18 @@ export async function GET(request: Request) {
 
     if (fs.existsSync(dbPath)) {
       console.error(`[STATS-API] Reading SQLite from ${dbPath}`);
+      let db: any = null;
       try {
         const sqlite3 = require("sqlite3").verbose();
         const { open } = require("sqlite");
-        const db = await open({
+        db = await open({
           filename: dbPath,
           driver: sqlite3.Database,
+          mode: sqlite3.OPEN_READONLY,
         });
+
+        // Wait for locks if needed
+        await db.exec("PRAGMA busy_timeout=5000");
 
         // Basic Stats
         const memories = await db.get("SELECT COUNT(*) as count FROM memories");
@@ -115,23 +120,17 @@ export async function GET(request: Request) {
               100
             : 100;
 
-        console.error(
-          `[STATS-API] SQLite stats: ${stats.totalRequests} total requests, ${stats.memoryRecords} records`,
-        );
-
         if (lastWrite) {
           stats.lastWriter = {
             name: normalizeClientName(lastWrite.client_name),
             timestamp: lastWrite.timestamp,
           };
-          console.error(`[STATS-API] Last writer: ${stats.lastWriter.name}`);
         }
         if (lastRead) {
           stats.lastReader = {
             name: normalizeClientName(lastRead.client_name),
             timestamp: lastRead.timestamp,
           };
-          console.error(`[STATS-API] Last reader: ${stats.lastReader.name}`);
         }
 
         // Top activity
@@ -154,46 +153,30 @@ export async function GET(request: Request) {
           };
 
         // --- TIME SERIES AGGREGATION (Robust Linear Sampling) ---
-        let periodMs = 24 * 60 * 60 * 1000; // Default 24h
+        let periodMs = 24 * 60 * 60 * 1000;
         if (period === "1h") periodMs = 60 * 60 * 1000;
         else if (period === "7d") periodMs = 7 * 24 * 60 * 60 * 1000;
         else if (period === "30d") periodMs = 30 * 24 * 60 * 60 * 1000;
-        else if (period === "90d") periodMs = 90 * 24 * 60 * 60 * 1000;
         else if (period === "24h") periodMs = 24 * 60 * 60 * 1000;
 
         const now = Date.now();
         const startTime = now - periodMs;
 
-        console.error(
-          `[STATS-API] Fetching cumulative chart data since ${new Date(startTime).toISOString()}`,
-        );
-
-        // Get all logs in period
-        const allLogs = await db.all(
-          `
-          SELECT timestamp, operation, client_name
-          FROM cybermem_access_log
-          WHERE timestamp > ?
-          ORDER BY timestamp ASC
-        `,
+        // Strip any potential native proxy bits from sqlite3 results
+        const rawAllLogs = await db.all(
+          `SELECT timestamp, operation, client_name FROM cybermem_access_log WHERE timestamp > ? ORDER BY timestamp ASC`,
           [startTime],
         );
+        const allLogs = JSON.parse(JSON.stringify(rawAllLogs || []));
 
-        // Get base counts (before startTime) to start the cumulative graph correctly
-        const baseCounts = await db.all(
-          `
-          SELECT operation, client_name, COUNT(*) as count
-          FROM cybermem_access_log
-          WHERE timestamp <= ?
-          GROUP BY 1, 2
-        `,
+        const rawBaseCounts = await db.all(
+          `SELECT operation, client_name, COUNT(*) as count FROM cybermem_access_log WHERE timestamp <= ? GROUP BY 1, 2`,
           [startTime],
         );
+        const baseCounts = JSON.parse(JSON.stringify(rawBaseCounts || []));
 
         const buildBeautifulSeries = (targetOp: string) => {
           const clientTotals: Record<string, number> = {};
-
-          // 1. Initialize with base counts
           baseCounts
             .filter((b: any) => b.operation === targetOp)
             .forEach((b: any) => {
@@ -202,16 +185,12 @@ export async function GET(request: Request) {
 
           const series: any[] = [];
           const opLogs = allLogs.filter((l: any) => l.operation === targetOp);
-
-          // 2. Linear Sampling (60 points)
           const SAMPLES = 60;
           const interval = (now - startTime) / SAMPLES;
           let currentLogIdx = 0;
 
           for (let i = 0; i <= SAMPLES; i++) {
             const timePoint = startTime + i * interval;
-
-            // Catch up logs that happened before this timePoint
             while (
               currentLogIdx < opLogs.length &&
               opLogs[currentLogIdx].timestamp <= timePoint
@@ -221,14 +200,11 @@ export async function GET(request: Request) {
                 (clientTotals[log.client_name] || 0) + 1;
               currentLogIdx++;
             }
-
-            // Record state at this exact linear time point
             series.push({
               time: Math.floor(timePoint / 1000),
               ...clientTotals,
             });
           }
-
           return series;
         };
 
@@ -237,44 +213,19 @@ export async function GET(request: Request) {
         timeseries.updates = buildBeautifulSeries("update");
         timeseries.deletes = buildBeautifulSeries("delete");
 
-        console.error(`[STATS-API] SQLite Stats & Beautiful Charts processed.`);
-
-        await db.close();
+        console.error(`[STATS-API] SQLite + Charts processed successfully.`);
       } catch (dbErr) {
-        console.error(
-          "[STATS-API] Direct SQLite metrics fetch failed, trying db-exporter fallback:",
-          dbErr,
-        );
-        try {
-          const exporterRes = await fetch(`${DB_EXPORTER_URL}/metrics`, {
-            signal: controller.signal,
-          });
-          if (exporterRes.ok) {
-            const text = await exporterRes.text();
-            const getValue = (name: string) => {
-              const match = text.match(new RegExp(`${name}\\s+([\\d.]+)`));
-              return match ? parseFloat(match[1]) : 0;
-            };
-            stats.memoryRecords = getValue("openmemory_memories_total");
-            stats.totalRequests = getValue(
-              "openmemory_requests_aggregate_total",
-            );
-            stats.successRate = getValue("openmemory_success_rate_aggregate");
-            console.error(
-              `[STATS-API] Fallback stats from db-exporter: ${stats.totalRequests} total requests`,
-            );
-          }
-        } catch (exporterErr) {
-          console.error("[STATS-API] Fallback fetch failed:", exporterErr);
+        console.error("[STATS-API] Direct SQLite metrics fetch failed:", dbErr);
+      } finally {
+        if (db) {
+          await db.close();
         }
       }
-    } else {
-      console.error(`[STATS-API] SQLite DB NOT FOUND at ${dbPath}`);
     }
 
     clearTimeout(timeoutId);
 
-    return NextResponse.json({
+    const responseData = {
       stats: {
         ...stats,
         topWriter: {
@@ -300,7 +251,8 @@ export async function GET(request: Request) {
         updates: normalizeTimeSeries(timeseries.updates || []),
         deletes: normalizeTimeSeries(timeseries.deletes || []),
       },
-    });
+    };
+    return NextResponse.json(responseData);
   } catch (error) {
     console.error("Failed to fetch metrics:", error);
     return NextResponse.json(

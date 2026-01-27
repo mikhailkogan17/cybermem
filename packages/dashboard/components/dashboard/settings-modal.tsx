@@ -475,8 +475,14 @@ export default function SettingsModal({ onClose }: { onClose: () => void }) {
                   <div className="space-y-3">
                     <div className="flex justify-between items-center">
                       <span className="text-xs text-neutral-400">Status</span>
-                      <code className="text-[13px] font-mono text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">
-                        Production
+                      <code
+                        className={`text-[13px] font-mono px-2 py-0.5 rounded border ${
+                          settings?.env === "staging"
+                            ? "text-yellow-400 bg-yellow-500/10 border-yellow-500/20"
+                            : "text-emerald-400 bg-emerald-500/10 border-emerald-500/20"
+                        }`}
+                      >
+                        {settings?.env === "staging" ? "Staging" : "Production"}
                       </code>
                     </div>
                     <div className="flex justify-between items-center">

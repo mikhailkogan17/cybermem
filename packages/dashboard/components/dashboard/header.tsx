@@ -3,12 +3,12 @@
 import { Button } from "@/components/ui/button";
 import { useDashboard } from "@/lib/data/dashboard-context";
 import {
-    AlertCircle,
-    Book,
-    CheckCircle2,
-    Loader2,
-    Settings,
-    XCircle,
+  AlertCircle,
+  Book,
+  CheckCircle2,
+  Loader2,
+  Settings,
+  XCircle,
 } from "lucide-react";
 import Image from "next/image";
 import { useEffect, useState } from "react";
@@ -22,7 +22,7 @@ export default function DashboardHeader({
 }) {
   const [isScrolled, setIsScrolled] = useState(false);
   const [showHealthPopup, setShowHealthPopup] = useState(false);
-  const [instanceType, setInstanceType] = useState<string>("local");
+  const [instanceLabel, setInstanceLabel] = useState<string>("Local Machine");
   const { systemHealth } = useDashboard();
 
   useEffect(() => {
@@ -37,7 +37,12 @@ export default function DashboardHeader({
     // Fetch identity for subtitle
     fetch("/api/settings")
       .then((res) => res.json())
-      .then((data) => setInstanceType(data.instanceType || "local"))
+      .then((data) => {
+        const { env, instance, tailscale } = data;
+        const tsSuffix =
+          instance === "rpi" ? `-${tailscale ? "ts" : "local"}` : "";
+        setInstanceLabel(`${instance}-${env}${tsSuffix}`);
+      })
       .catch(() => {});
 
     return () => window.removeEventListener("scroll", handleScroll);
@@ -197,13 +202,7 @@ export default function DashboardHeader({
                 </div>
               </div>
               <p className="text-sm text-neutral-400 mt-1">
-                Memory MCP Server (
-                {instanceType === "rpi"
-                  ? "Raspberry Pi"
-                  : instanceType === "vps"
-                    ? "Cloud / VPS"
-                    : "Local Machine"}
-                )
+                Memory MCP Server ({instanceLabel})
               </p>
             </div>
           </div>

@@ -58,8 +58,15 @@ export async function install(options: any) {
   if (options.rpi) target = "rpi";
   if (options.vps) target = "vps";
 
-  const useTailscale = options.remoteAccess;
-  console.log(chalk.blue(`Initializing CyberMem (${target})...`));
+  const isStaging = !!options.staging;
+  const envType = isStaging ? "staging" : "prod";
+  const useTailscale = !!options.remoteAccess;
+
+  console.log(
+    chalk.blue(
+      `Initializing CyberMem (${target}-${envType}${useTailscale ? "-ts" : "-local"})...`,
+    ),
+  );
 
   try {
     // Resolve Template Directory (Support both Dev and Prod)
@@ -81,6 +88,12 @@ export async function install(options: any) {
       );
     }
 
+    // Generate secure token for ALL deployment types
+    const accessToken = `sk-${crypto.randomBytes(24).toString("base64url")}`;
+    const tokenHash = await hashToken(accessToken); // PBKDF2 hash
+    const tokenId = crypto.randomBytes(8).toString("hex");
+    const tokenName = isStaging ? "staging-verifier" : "admin-cli";
+
     if (target === "local") {
       const composeFile = path.join(templateDir, "docker-compose.yml");
 
@@ -95,11 +108,13 @@ export async function install(options: any) {
       const homeDir = os.homedir();
       const configDir = path.join(homeDir, ".cybermem");
       const envFile = path.join(configDir, ".env");
-      const dataDir = path.join(configDir, "data");
+      const dataDir = path.join(configDir, isStaging ? "data-staging" : "data");
 
       // 1. Ensure ~/.cybermem exists
       if (!fs.existsSync(configDir)) {
         fs.mkdirSync(configDir, { recursive: true });
+      }
+      if (!fs.existsSync(dataDir)) {
         fs.mkdirSync(dataDir, { recursive: true });
       }
 
@@ -114,46 +129,12 @@ export async function install(options: any) {
         console.log(chalk.green(`Created .env at ${envFile}`));
       }
 
-      console.log(chalk.blue("Starting CyberMem services in Local Mode..."));
-
-      try {
-        await execa(
-          "docker-compose",
-          [
-            "-f",
-            composeFile,
-            "--env-file",
-            envFile,
-            "--project-name",
-            "cybermem",
-            "up",
-            "-d",
-            "--remove-orphans",
-          ],
-          {
-            stdio: "inherit",
-            env: {
-              ...process.env,
-              DATA_DIR: dataDir,
-              CYBERMEM_ENV_PATH: envFile,
-              OM_API_KEY: "",
-            },
-          },
-        );
-      } catch (e) {
-        handleExecError(e, "Local deployment");
-      }
-
-      // Generate access token and store hash in SQLite
-      const accessToken = `sk-${crypto.randomBytes(24).toString("base64url")}`;
-      const bcryptHash = await hashToken(accessToken);
       const dbPath = path.join(dataDir, "openmemory.sqlite");
 
-      // Wait for SQLite DB to be created by MCP server
+      // Initialize access token and store hash in SQLite (BEFORE starting containers to avoid race/lock)
       console.log(chalk.blue("Initializing access token..."));
-      await new Promise((resolve) => setTimeout(resolve, 3000));
 
-      // Check if token already exists
+      // Check if token key already exists (idempotency)
       try {
         const sqlite3 = await import("sqlite3");
         const db = new sqlite3.default.Database(dbPath);
@@ -170,6 +151,23 @@ export async function install(options: any) {
               err ? reject(err) : resolve(row),
             );
           });
+
+        // Check if table exists and has correct schema
+        const tableInfo = await new Promise<any[]>((resolve, reject) => {
+          db.all("PRAGMA table_info(access_keys)", (err, rows) => {
+            if (err) reject(err);
+            else resolve(rows);
+          });
+        });
+
+        const hasIdColumn = tableInfo.some((col) => col.name === "id");
+
+        if (tableInfo.length > 0 && !hasIdColumn) {
+          console.warn(
+            chalk.yellow("Detected malformed access_keys table. Recreating..."),
+          );
+          await run("DROP TABLE access_keys");
+        }
 
         // Create table if not exists
         await run(`CREATE TABLE IF NOT EXISTS access_keys (
@@ -188,32 +186,73 @@ export async function install(options: any) {
 
         if (row && row.count > 0) {
           db.close();
-          console.log(chalk.gray("Access token already configured."));
-          await printSuccessMessage(false);
-          return;
-        }
+          console.log(chalk.gray("Access token configuration preserved."));
+          // proceed without showing token
+        } else {
+          // Insert new key
+          await run(
+            "INSERT INTO access_keys (id, key_hash, name, user_id) VALUES (?, ?, ?, ?)",
+            [tokenId, tokenHash, tokenName, "admin"],
+          );
+          db.close();
+          // Store token as Docker Secret (File)
+          const secretsDir = path.join(configDir, "secrets");
+          if (!fs.existsSync(secretsDir))
+            fs.mkdirSync(secretsDir, { recursive: true });
 
-        // Insert new key
-        await run(
-          "INSERT INTO access_keys (id, key_hash, name, user_id) VALUES (?, ?, ?, ?)",
-          [
-            crypto.randomBytes(8).toString("hex"),
-            bcryptHash,
-            "default",
-            "default",
-          ],
-        );
-        db.close();
-        await printSuccessMessage(true, accessToken);
+          const secretPath = path.join(secretsDir, "om_api_key");
+          fs.writeFileSync(secretPath, accessToken, {
+            encoding: "utf-8",
+            mode: 0o600,
+          });
+        }
       } catch (e: any) {
         console.warn(
           chalk.yellow("Could not initialize access token: " + e.message),
         );
-        console.log(
-          chalk.gray("You can generate a token from the Dashboard Settings."),
-        );
-        await printSuccessMessage(false);
       }
+
+      console.log(chalk.blue("Starting CyberMem services in Local Mode..."));
+
+      try {
+        await execa(
+          "docker-compose",
+          [
+            "-f",
+            composeFile,
+            "--env-file",
+            envFile,
+            "--project-name",
+            "cybermem" + (isStaging ? "-staging" : ""),
+            "up",
+            "-d",
+            "--build",
+            "--remove-orphans",
+          ],
+          {
+            stdio: "inherit",
+            env: {
+              ...process.env,
+              DATA_DIR: dataDir,
+              SECRETS_DIR: path.join(configDir, "secrets"), // Pass secrets dir context
+              CYBERMEM_ENV_PATH: envFile,
+              OM_API_KEY: "", // Legacy env var disabled
+              PROJECT_NAME: "cybermem" + (isStaging ? "-staging" : ""),
+              // Refined environment tagging
+              CYBERMEM_ENV: envType,
+              CYBERMEM_INSTANCE: target,
+              CYBERMEM_TAILSCALE: useTailscale ? "true" : "false",
+              // Port parameterization
+              TRAEFIK_PORT: isStaging ? "8625" : "8626",
+              DASHBOARD_PORT: isStaging ? "3001" : "3000",
+            },
+          },
+        );
+      } catch (e) {
+        handleExecError(e, "Local deployment");
+      }
+
+      await printSuccessMessage(true, accessToken);
 
       async function printSuccessMessage(showToken: boolean, token?: string) {
         console.log(chalk.green("\n🎉 CyberMem Installed!"));
@@ -234,9 +273,10 @@ export async function install(options: any) {
           console.log("");
         }
 
+        const entryPort = isStaging ? "8625" : "8626";
         console.log(chalk.bold("Next Steps:"));
         console.log(
-          `  1. Open ${chalk.underline("http://localhost:3000/client-setup")} to connect your MCP clients`,
+          `  1. Open ${chalk.underline(`http://localhost:${entryPort}/client-setup`)} to connect your MCP clients`,
         );
         console.log(
           `  2. Local access is auto-authenticated (no token needed on localhost)`,
@@ -260,10 +300,14 @@ export async function install(options: any) {
               chalk.cyan("\nℹ️ Detected k3d cluster. Mapping check:"),
             );
             console.log(
-              chalk.gray("  LoadBalancer 8626 -> http://localhost:8626"),
+              chalk.gray(
+                `  LoadBalancer ${isStaging ? "8625" : "8626"} -> http://localhost:${isStaging ? "8625" : "8626"}`,
+              ),
             );
             console.log(
-              chalk.gray("  Dashboard 3000 -> http://localhost:3000"),
+              chalk.gray(
+                `  Dashboard ${isStaging ? "3001" : "3000"} -> http://localhost:${isStaging ? "3001" : "3000"}`,
+              ),
             );
           }
         } catch (e) {
@@ -312,7 +356,7 @@ export async function install(options: any) {
         throw new Error(`Ansible playbook not found at ${playbookPath}`);
       }
 
-      // 4. Run Ansible Playbook
+      // 4. Run Ansible Playbook with Token Injection
       console.log(chalk.blue("Running CyberMem Deployment Playbook..."));
 
       // We use the comma-separated inventory trick for single host
@@ -329,6 +373,18 @@ export async function install(options: any) {
             playbookPath,
             "--extra-vars",
             `ansible_ssh_extra_args='-o StrictHostKeyChecking=no'`,
+            "--extra-vars",
+            `auth_token_hash=${tokenHash}`, // Pass the hash
+            "--extra-vars",
+            `auth_token_id=${tokenId}`,
+            "--extra-vars",
+            `auth_token_name=${tokenName}`,
+            "--extra-vars",
+            `CYBERMEM_ENV=${envType}`, // Ensure ENV propogates
+            "--extra-vars",
+            `TRAEFIK_PORT=${isStaging ? "8625" : "8626"}`,
+            "--extra-vars",
+            `PROJECT_NAME=${isStaging ? "cybermem-staging" : "cybermem"}`,
           ],
           {
             stdio: "inherit",
@@ -342,9 +398,12 @@ export async function install(options: any) {
       console.log(
         chalk.green("\n✅ Remote deployment successful via Ansible!"),
       );
+      console.log(chalk.bold("⚡ Your Initial Access Token:"));
+      console.log(chalk.cyan.bold(`   ${accessToken}`));
+      console.log("");
       console.log(
         chalk.bold(
-          `Dashboard should be available at: http://${host}:3000 (once images are pulled)`,
+          `Dashboard should be available at: http://${host}:${isStaging ? "3001" : "3000"} (once images are pulled)`,
         ),
       );
     }

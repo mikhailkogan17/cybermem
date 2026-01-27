@@ -44,6 +44,9 @@ FAILURE TO FOLLOW THIS PROTOCOL IS UNACCEPTABLE AND CAUSES PRODUCTION DOWN-TIME.
 > 2. **MANDATORY IDENTIFICATION**: Every request from a tool (pre-commit), script (load_test), or sub-component MUST send a valid `X-Client-Name`.
 > 3. **NO ENV LEAKAGE**: Public MCP configuration (suggested JSON/TOML) MUST NEVER use internal Docker environment variables (e.g., `mcp-server:8080`). Use dynamic URL detection based on the request origin.
 > 4. **ARGS > ENVS**: High-level configuration MUST be passed via command line arguments (`--url`, `--token`) to the MCP server, never solely through implicitly inherited environment variables in the public-facing documentation.
+> 5. **IDENTITY LAW**: `X-Client-Name` MUST be strictly `antigravity` (dashboard/UI) or `antigravity-client` (tools/scripts). USAGE OF `rest-api` IS PUNISHABLE BY TERMINATION.
+> 6. **CLI-ONLY DEPLOYMENT**: ALL deployments (Local, RPi, VPS) MUST be performed via `@cybermem/cli`. Manual `docker-compose` or `npm start` without CLI tagging is STRICTLY FORBIDDEN.
+> 7. **MANDATORY ENV TAGGING**: Every CyberMem instance MUST have `CYBERMEM_ENV` (staging|prod), `CYBERMEM_INSTANCE` (local|rpi|vps), and `CYBERMEM_TAILSCALE` (true|false) set. The MCP server MUST fail fast if `CYBERMEM_INSTANCE` is missing.
 
 ---
 
@@ -232,7 +235,7 @@ sequenceDiagram
     CM-->>Traefik: Response (CRUD result)
     Traefik-->>Test: HTTP 200
     CM->>DB: Store access log
-    Dash->>DBE: GET /api/stats
+    Dash->>DBE: GET /api/metrics
     DBE->>DB: Query SQLite
     DBE-->>Dash: Return normalized stats
     Dash-->>Test: Display "Last Writer: Antigravity"
@@ -372,3 +375,24 @@ sequenceDiagram
 - **Fix**: 
   1. Mandated `X-Client-Name: antigravity-client` for ALL internal system calls (Dashboard, Health, Gatekeeper).
   2. Updated `log-exporter` to prioritize verified identities and stop opportunistic UA parsing for stats aggregation.
+
+---
+
+## 1.7 VERIFICATION STANDARD (The 16-Screen Rule)
+
+> [!IMPORTANT]
+> **Every release MUST prove stability across 4 environments with 4 distinct screenshots each (16 total).**
+
+### Required Screenshots per Environment:
+1.  **Dashboard Home**: Validates UI load and Data presence (0 or N records).
+2.  **Health Check**: `/health` (JSON) validates API baseline.
+3.  **Stats/Identity**: `/api/metrics` (JSON) or Dashboard Card proves `Last Writer: antigravity-client`.
+4.  **Auth State**:
+    - **Local/RPi**: Direct Dashboard access (No Login).
+    - **Zero Trust**: Login Page (Redirect) or Authenticated view.
+
+### Environments:
+1.  **Local** (`localhost:8626`)
+2.  **Kubernetes** (`k3d`, `localhost:8626`)
+3.  **RPi Local** (`raspberrypi.local:8626`)
+4.  **Zero Trust** (`https://raspberrypi...ts.net`)

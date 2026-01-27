@@ -112,6 +112,17 @@ export async function GET(request: NextRequest) {
     // ignore
   }
 
+  // Priority: Docker Secrets (Standard production way)
+  try {
+    const secretPath = "/run/secrets/om_api_key";
+    if (fs.existsSync(secretPath)) {
+      const secret = fs.readFileSync(secretPath, "utf-8").trim();
+      if (secret) apiKey = secret;
+    }
+  } catch (e) {
+    // ignore
+  }
+
   // Get dynamic endpoint based on request host
   const { endpoint, isLocal } = getMcpEndpoint(request);
 
@@ -141,6 +152,9 @@ export async function GET(request: NextRequest) {
       isManaged,
       isLocal,
       instanceType,
+      env: process.env.CYBERMEM_ENV || "prod",
+      instance: process.env.CYBERMEM_INSTANCE || "local",
+      tailscale: process.env.CYBERMEM_TAILSCALE === "true",
       dashboardVersion: version,
       mcpVersion: version,
     },

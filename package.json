@@ -16,6 +16,8 @@
     "postinstall": "cd external/openmemory && git apply ../../patches/openmemory-auth.patch || echo 'Warning: OpenMemory patch failed (might be already applied)'"
   },
   "devDependencies": {
+    "playwright": "^1.58.0",
+    "ts-node": "^10.9.2",
     "typescript": "^5.0.0"
   },
   "dependencies": {

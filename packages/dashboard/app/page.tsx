@@ -118,7 +118,23 @@ export default function Dashboard() {
 
   useEffect(() => {
     setMounted(true);
+
+    // Auto-open MCP Config modal on first visit for better onboarding
+    const hasSeenModal = localStorage.getItem("om_mcp_modal_seen");
+    const isReturningFromConnect = sessionStorage.getItem("fromClientConnect");
+
+    if (!hasSeenModal || isReturningFromConnect) {
+      setShowMCPConfig(true);
+      localStorage.setItem("om_mcp_modal_seen", "true");
+      if (isReturningFromConnect) {
+        sessionStorage.removeItem("fromClientConnect");
+      }
+    }
   }, []);
+
+  const closeMCPConfig = () => {
+    setShowMCPConfig(false);
+  };
 
   // Show login modal if not authenticated
   if (!isAuthenticated) {

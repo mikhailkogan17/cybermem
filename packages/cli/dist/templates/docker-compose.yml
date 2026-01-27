@@ -6,7 +6,7 @@
 services:
   traefik:
     image: traefik:v3.0
-    container_name: cybermem-traefik
+    # container_name removed for simultaneity
     command:
       - --api.dashboard=true
       - --api.insecure=true
@@ -17,7 +17,7 @@ services:
       - --accesslog.filepath=/var/log/traefik/access.log
       - --accesslog.format=json
     ports:
-      - "8626:8626"
+      - "${TRAEFIK_PORT:-8626}:8626"
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - ./monitoring/traefik/traefik.yml:/etc/traefik/traefik.yml:ro
@@ -35,43 +35,36 @@ services:
       context: ../../mcp
       dockerfile: Dockerfile
     image: ghcr.io/mikhailkogan17/cybermem-mcp:latest
-    # Note: platform omitted - docker auto-detects (amd64 for CI, arm64 for RPi)
     restart: unless-stopped
-    container_name: cybermem-mcp
+    # container_name removed for simultaneity
     environment:
-      OM_TIER: "hybrid"
-      PORT: "8080"
-      OM_PORT: "0"
       OM_DB_PATH: /data/openmemory.sqlite
+      CYBERMEM_ENV: ${CYBERMEM_ENV:-prod}
+      CYBERMEM_INSTANCE: ${CYBERMEM_INSTANCE:-local}
+      CYBERMEM_TAILSCALE: ${CYBERMEM_TAILSCALE:-false}
     volumes:
       - ${CYBERMEM_ENV_PATH:-${HOME}/.cybermem/.env}:/.env
-      - ${HOME}/.cybermem/data:/data
+      - ${DATA_DIR:-${HOME}/.cybermem/data}:/data
     depends_on:
       - traefik
       - auth-sidecar
     labels:
       - traefik.enable=true
-      # Middleware definitions (must be on a service that starts BEFORE routes reference them)
-      # Authenticated routes
       - traefik.http.routers.mcp.rule=PathPrefix(`/mcp`) || PathPrefix(`/sse`)
       - traefik.http.routers.mcp.entrypoints=web
       - traefik.http.routers.mcp.priority=100
       - traefik.http.routers.mcp.service=mcp-service
       - traefik.http.routers.mcp.middlewares=auth-check
-      # Public routes (Health/Metrics)
       - traefik.http.routers.mcp-public.rule=PathPrefix(`/health`) || PathPrefix(`/metrics`)
       - traefik.http.routers.mcp-public.entrypoints=web
       - traefik.http.routers.mcp-public.priority=100
       - traefik.http.routers.mcp-public.service=mcp-service
       - traefik.http.services.mcp-service.loadbalancer.server.port=8080
-      # Legacy API support (for simple REST clients)
       - traefik.http.routers.legacy-api.rule=PathPrefix(`/add`) || PathPrefix(`/query`) || PathPrefix(`/all`)
       - traefik.http.routers.legacy-api.entrypoints=web
       - traefik.http.routers.legacy-api.priority=100
       - traefik.http.routers.legacy-api.service=mcp-service
       - traefik.http.routers.legacy-api.middlewares=auth-check
-
-      # Support legacy /cybermem redirect to root
       - traefik.http.middlewares.cybermem-redirect.redirectregex.regex=^https?://[^/]+/cybermem(/.*)?$$
       - traefik.http.middlewares.cybermem-redirect.redirectregex.replacement=/$${1}
       - traefik.http.middlewares.cybermem-redirect.redirectregex.permanent=false
@@ -80,17 +73,22 @@ services:
       - traefik.http.routers.cybermem-legacy.middlewares=cybermem-redirect
       - traefik.http.routers.cybermem-legacy.priority=50
 
-  # Auth sidecar for JWT/API key validation (ForwardAuth)
   auth-sidecar:
+    build:
+      context: ./auth-sidecar
+      dockerfile: Dockerfile
     image: ghcr.io/mikhailkogan17/cybermem-auth-sidecar:latest
-    container_name: cybermem-auth-sidecar
+    # container_name removed for simultaneity
     environment:
       PORT: "3001"
       OM_DB_PATH: /data/openmemory.sqlite
       API_KEY_FILE: /.env
+      CYBERMEM_ENV: ${CYBERMEM_ENV:-prod}
+      CYBERMEM_INSTANCE: ${CYBERMEM_INSTANCE:-local}
+      CYBERMEM_TAILSCALE: ${CYBERMEM_TAILSCALE:-false}
     volumes:
       - ${CYBERMEM_ENV_PATH:-${HOME}/.cybermem/.env}:/.env:ro
-      - ${HOME}/.cybermem/data:/data
+      - ${DATA_DIR:-${HOME}/.cybermem/data}:/data
     labels:
       - traefik.enable=true
     healthcheck:
@@ -108,27 +106,26 @@ services:
       retries: 3
     restart: unless-stopped
 
-  # Memory engine (MCP + Persistence)
-  # Uses embedded SQLite stored at ~/.cybermem/data/openmemory.sqlite
-
   db-exporter:
+    build:
+      context: ./monitoring/db_exporter
+      dockerfile: Dockerfile
     image: ghcr.io/mikhailkogan17/cybermem-db_exporter:latest
-    container_name: cybermem-db-exporter
+    # container_name removed for simultaneity
     environment:
       DB_PATH: /data/openmemory.sqlite
       SCRAPE_INTERVAL: "15"
       EXPORTER_PORT: "8000"
-    # Expose only via Traefik in production/strict modes
-    # ports:
-    #   - "8000:8000"
     volumes:
-      # Mount host openmemory data dir (created by SDK)
-      - ${HOME}/.cybermem/data:/data
+      - ${DATA_DIR:-${HOME}/.cybermem/data}:/data
     restart: unless-stopped
 
   log-exporter:
+    build:
+      context: ./monitoring/log_exporter
+      dockerfile: Dockerfile
     image: ghcr.io/mikhailkogan17/cybermem-log_exporter:latest
-    container_name: cybermem-log-exporter
+    # container_name removed for simultaneity
     environment:
       LOG_FILE: /var/log/traefik/access.log
       SCRAPE_INTERVAL: "5"
@@ -136,7 +133,7 @@ services:
       DB_PATH: /data/openmemory.sqlite
     volumes:
       - traefik-logs:/var/log/traefik:ro
-      - ${HOME}/.cybermem/data:/data
+      - ${DATA_DIR:-${HOME}/.cybermem/data}:/data
       - ./monitoring/log_exporter/exporter.py:/app/exporter.py:ro
     restart: unless-stopped
     depends_on:
@@ -144,7 +141,7 @@ services:
 
   postgres:
     image: postgres:15-alpine
-    container_name: cybermem-postgres
+    # container_name removed for simultaneity
     environment:
       POSTGRES_DB: ${PG_DB:-openmemory}
       POSTGRES_USER: ${PG_USER:-openmemory}
@@ -164,7 +161,7 @@ services:
 
   ollama:
     image: ollama/ollama:latest
-    container_name: cybermem-ollama
+    # container_name removed for simultaneity
     ports:
       - "11434:11434"
     volumes:
@@ -174,31 +171,29 @@ services:
       - ollama
 
   dashboard:
+    build:
+      context: ../../dashboard
+      dockerfile: Dockerfile
     image: ghcr.io/mikhailkogan17/cybermem-dashboard:latest
-    # Note: platform omitted - docker auto-detects (amd64 for CI, arm64 for RPi)
-    container_name: cybermem-dashboard
+    # container_name removed for simultaneity
     environment:
       DB_EXPORTER_URL: http://db-exporter:8000
-      # Required for Health Check to find the MCP API internally
       INTERNAL_MCP_URL: http://mcp-server:8080
       OM_DB_PATH: /data/openmemory.sqlite
       OM_API_KEY: ${OM_API_KEY:-dev-secret-key}
-      # Tailscale domain for remote config (optional, auto-detected if not set)
       TAILSCALE_DOMAIN: ${TAILSCALE_DOMAIN:-}
-    # Expose only via Traefik (port 8626) to enforce authentication
-    # ports:
-    #   - "3000:3000"
+      CYBERMEM_ENV: ${CYBERMEM_ENV:-prod}
+      CYBERMEM_INSTANCE: ${CYBERMEM_INSTANCE:-local}
+      CYBERMEM_TAILSCALE: ${CYBERMEM_TAILSCALE:-false}
     volumes:
-      - ${HOME}/.cybermem/data:/data
+      - ${DATA_DIR:-${HOME}/.cybermem/data}:/data
       - /var/run/docker.sock:/var/run/docker.sock
       - ${CYBERMEM_ENV_PATH:-${HOME}/.cybermem/.env}:/app/shared.env
     labels:
       - traefik.enable=true
-      # Dashboard route: root -> dashboard on port 3000
       - traefik.http.routers.dashboard.entrypoints=web
       - traefik.http.routers.dashboard.rule=PathPrefix(`/`)
       - traefik.http.routers.dashboard.priority=1
-      - traefik.http.routers.dashboard.middlewares=auth-check
       - traefik.http.services.dashboard.loadbalancer.server.port=3000
     restart: unless-stopped
     depends_on:
@@ -206,18 +201,18 @@ services:
 
 volumes:
   openmemory-data:
-    name: cybermem-data
+    name: ${PROJECT_NAME:-cybermem}-data
     driver: local
   postgres-data:
-    name: cybermem-postgres-data
+    name: ${PROJECT_NAME:-cybermem}-postgres-data
     driver: local
   ollama-models:
-    name: cybermem-ollama-models
+    name: ${PROJECT_NAME:-cybermem}-ollama-models
     driver: local
   traefik-logs:
-    name: cybermem-traefik-logs
+    name: ${PROJECT_NAME:-cybermem}-traefik-logs
     driver: local
 
 networks:
   default:
-    name: cybermem-network
+    name: ${PROJECT_NAME:-cybermem}-network

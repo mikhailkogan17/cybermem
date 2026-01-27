@@ -19,6 +19,7 @@ export async function middleware(request: NextRequest) {
     host.includes("localhost") ||
     host.includes("127.0.0.1") ||
     host.includes("raspberrypi.local") ||
+    host.startsWith("10.") ||
     authMethod === "local" ||
     userId === "local";
 

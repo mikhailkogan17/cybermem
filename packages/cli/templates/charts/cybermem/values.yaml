@@ -13,9 +13,9 @@ global:
 
 openmemory:
   image:
-    repository: cybermem-openmemory
-    pullPolicy: IfNotPresent
-    tag: "v0.11.9"
+    repository: ghcr.io/mikhailkogan17/cybermem-mcp
+    pullPolicy: Always
+    tag: "latest"
   replicaCount: 1
   service:
     type: ClusterIP

@@ -20,6 +20,7 @@ program
     .description("Install CyberMem (Scaffold & Start)")
     .option("--rpi", "Deploy to Raspberry Pi")
     .option("--vps", "Deploy to VPS/Cloud server")
+    .option("--staging", "Deploy to staging environment (different ports/data)")
     .option("--remote-access", "Enable Tailscale Funnel for HTTPS remote access")
     .action(install_1.install);
 // Command: Uninstall

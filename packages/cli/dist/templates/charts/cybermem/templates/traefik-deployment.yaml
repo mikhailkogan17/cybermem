@@ -1,0 +1,53 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: "{{ .Chart.Name }}-traefik"
+  labels:
+    app.kubernetes.io/name: traefik
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: traefik
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: traefik
+      annotations:
+        # Standard k8s pattern to trigger restart when ConfigMap changes
+        checksum/config: {{ include (print $.Template.BasePath "/traefik-config.yaml") . | sha256sum }}
+    spec:
+      containers:
+        - name: traefik
+          image: traefik:v3.0
+          args:
+            - --api.dashboard=true
+            - --api.insecure=true
+            - --providers.kubernetes-ingress=false
+            - --providers.kubernetes-crd=false
+            - --entrypoints.web.address=:{{ .Values.global.traefik.port }}
+          ports:
+            - name: web
+              containerPort: {{ .Values.global.traefik.port }}
+            - name: admin
+              containerPort: 8080
+          volumeMounts:
+            - name: config
+              mountPath: /etc/traefik/traefik.yml
+              subPath: traefik.yml
+            - name: dynamic
+              mountPath: /etc/traefik/dynamic.yml
+              subPath: dynamic.yml
+      volumes:
+        - name: config
+          configMap:
+            name: {{ .Chart.Name }}-traefik-config
+            items:
+              - key: traefik.yml
+                path: traefik.yml
+        - name: dynamic
+          configMap:
+            name: {{ .Chart.Name }}-traefik-config
+            items:
+              - key: dynamic.yml
+                path: dynamic.yml

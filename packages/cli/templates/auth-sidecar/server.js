@@ -107,6 +107,7 @@ function isLocalRequest(req) {
     ip === "127.0.0.1" ||
     ip === "::1" ||
     ip === "::ffff:127.0.0.1" ||
+    ip?.startsWith("10.") ||
     ip === "localhost";
 
   // Host-based local check (raspberrypi.local, localhost, *.local)
@@ -114,6 +115,7 @@ function isLocalRequest(req) {
     host.includes("localhost") ||
     host.includes("127.0.0.1") ||
     host.includes("raspberrypi.local") ||
+    host.startsWith("10.") ||
     host.match(/\.local(:\d+)?$/);
 
   return isLocalIp || isLocalHost;

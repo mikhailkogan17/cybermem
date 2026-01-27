@@ -21,6 +21,7 @@ program
   .description("Install CyberMem (Scaffold & Start)")
   .option("--rpi", "Deploy to Raspberry Pi")
   .option("--vps", "Deploy to VPS/Cloud server")
+  .option("--staging", "Deploy to staging environment (different ports/data)")
   .option("--remote-access", "Enable Tailscale Funnel for HTTPS remote access")
   .action(install);
 
@@ -40,6 +41,7 @@ program
   .option("--local", "Upgrade local instance (default)")
   .option("--rpi", "Upgrade remote RPi")
   .option("--vps", "Upgrade remote VPS")
+  .option("--staging", "Upgrade staging environment")
   .option(
     "--host <host>",
     "SSH host for remote upgrade (e.g. pi@raspberrypi.local)",

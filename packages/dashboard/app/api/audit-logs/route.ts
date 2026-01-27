@@ -71,23 +71,26 @@ export async function GET(request: Request) {
     const db = await open({
       filename: dbPath,
       driver: sqlite3.Database,
+      mode: sqlite3.OPEN_READONLY,
     });
 
-    const rawLogs = await db.all(
+    await db.run("PRAGMA busy_timeout=5000");
+
+    const rawLogsResults = await db.all(
       "SELECT * FROM cybermem_access_log ORDER BY timestamp DESC LIMIT 100",
     );
+    const rawLogs = JSON.parse(JSON.stringify(rawLogsResults || []));
     await db.close();
 
     console.error(`[AUDIT-LOGS-API] Found ${rawLogs.length} logs in SQLite`);
 
-    const logs = rawLogs.map((log: any) => {
+    const logs = (rawLogs || []).map((log: any) => {
       const statusCode = parseInt(log.status) || 0;
       let status = "Success";
       if (log.is_error === 1 || statusCode >= 400 || statusCode === 0)
         status = "Error";
       else if (statusCode >= 300) status = "Warning";
 
-      // Capitalize operation
       const operation =
         log.operation.charAt(0).toUpperCase() + log.operation.slice(1);
 
@@ -105,7 +108,6 @@ export async function GET(request: Request) {
     return NextResponse.json({ logs });
   } catch (error) {
     console.error("[AUDIT-LOGS-API] Error fetching audit logs:", error);
-    // Return empty list on error to avoid breaking UI with 500
     return NextResponse.json({ logs: [] });
   }
 }

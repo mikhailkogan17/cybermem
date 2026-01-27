@@ -2,23 +2,11 @@
 description: Quick UI status check for CyberMem (8626)
 ---
 
-# Dashboard Health Workflow
+# Check Dashboard
 
 // turbo-all
 
-> [!IMPORTANT]
-> Verifies that the dashboard and metrics APIs are reachable via the Zero Trust gateway.
-
-1. Run health check:
+1. Open local dashboard:
 ```bash
-curl -s http://localhost:8626/api/health | jq -e '.overall == "ok"'
+open http://localhost:8626
 ```
-
-2. Check metrics endpoint:
-```bash
-curl -s http://localhost:8626/api/stats | jq -r '.lastWriter'
-```
-
-**Expected Results:**
-- Healthy status (200 OK + `overall: ok`).
-- Metrics available (not empty).
