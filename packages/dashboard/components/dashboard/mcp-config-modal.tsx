@@ -83,6 +83,9 @@ export default function MCPConfigModal({ onClose }: { onClose: () => void }) {
           setIsLoading(false);
 
           // Force VPS/Remote mode if accessed via 8626 or if instanceType is vps
+          // Force VPS/Remote mode if accessed via 8626 or if instanceType is vps
+          // REMOVED: User wants localhost:8626 to be treated as Local Managed if possible
+          /*
           if (
             typeof window !== "undefined" &&
             window.location.port === "8626"
@@ -90,6 +93,7 @@ export default function MCPConfigModal({ onClose }: { onClose: () => void }) {
             setInstanceType("vps");
             setIsManaged(false);
           }
+          */
         })
         .catch((err) => {
           console.error("Failed to fetch settings:", err);

@@ -20,6 +20,7 @@ const homedir = os.homedir();
 process.env.OM_DB_PATH =
   process.env.OM_DB_PATH ||
   path.resolve(homedir, ".cybermem/data/openmemory.sqlite");
+process.env.DB_PATH = process.env.OM_DB_PATH;
 
 process.env.OM_TIER = process.env.OM_TIER || "hybrid";
 process.env.OM_PORT = process.env.OM_PORT || "0";

@@ -1,3 +1,4 @@
+/// <reference lib="dom" />
 import fs from "fs";
 import path from "path";
 import { chromium } from "playwright";
@@ -113,12 +114,37 @@ async function verifyEnvironment(options: VerifyOptions) {
     const closeBtn = page.getByRole("button", { name: /Close/i });
     const backdrop = page.locator("div.fixed.inset-0.bg-black\\/60").first();
 
-    // Stage 2: Dashboard Home (x.1)
+    // Stage 2: Dashboard Home
     console.log(`  - 2: Dashboard Home...`);
-    // If modal is open, close it first for a clean dashboard shot
-    if (await backdrop.isVisible()) {
+    // Ensure dashboard loads data
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await page.waitForTimeout(2000); // Wait for API fetch
+
+    // Wait for at least one stat to be non-zero (Total Memories) -- implies data loaded
+    try {
+      await page.waitForFunction(
+        () => {
+          const stats = document.querySelectorAll(".text-2xl.font-bold");
+          for (let i = 0; i < stats.length; i++) {
+            if (parseInt(stats[i].textContent || "0") > 0) return true;
+          }
+          return false;
+        },
+        { timeout: 5000 },
+      );
+      await page.waitForTimeout(1000); // Stabilize UI
+    } catch (e) {
+      console.warn(
+        "    [UI] Warning: Dashboard stats didn't load in time (or 0 data)",
+      );
+    }
+
+    // Close auto-opened modal if present
+    const closeBtnForModal = page.locator('button:has-text("Close")'); // Renamed to avoid redeclaration
+    if (await closeBtnForModal.isVisible({ timeout: 2000 })) {
       console.log("    Closing auto-opened MCP modal for dashboard shot...");
-      await closeBtn.click().catch(() => page.keyboard.press("Escape"));
+      await closeBtnForModal.click();
+      await page.waitForTimeout(500);
       await backdrop
         .waitFor({ state: "hidden", timeout: 5000 })
         .catch(() => {});
@@ -209,7 +235,7 @@ async function main() {
     },
     {
       name: "rpi-local",
-      url: "http://127.0.0.1:9000",
+      url: "http://raspberrypi.local:8625",
       isRemote: true,
       outputDir: outputBase,
       prefix: "3.",
