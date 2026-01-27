@@ -4,8 +4,7 @@
 set -e
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-MCP_CLI="${SCRIPT_DIR}/../packages/mcp/dist/index.js"
-RPI_URL="${RPI_MCP_URL:-https://raspberrypi.tail7242ed.ts.net/cybermem}"
+RPI_URL="${TAILSCALE_URL:-https://raspberrypi.ts.net/cybermem}"
 RPI_TOKEN="${RPI_MCP_TOKEN:-}"
 
 RED='\033[0;31m'

@@ -185,8 +185,8 @@ services:
       dockerfile: Dockerfile
     image: ghcr.io/mikhailkogan17/cybermem-dashboard:latest
     # container_name removed for simultaneity
-    ports:
-      - "${DASHBOARD_PORT:-3000}:3000"
+    # ports:
+    #   - "${DASHBOARD_PORT:-3000}:3000"
     environment:
       DB_EXPORTER_URL: http://db-exporter:8000
       INTERNAL_MCP_URL: http://mcp-server:8080
@@ -202,10 +202,15 @@ services:
       - ${CYBERMEM_ENV_PATH:-${HOME}/.cybermem/.env}:/app/shared.env
     labels:
       - traefik.enable=true
+      - traefik.http.routers.${PROJECT_NAME:-cybermem}-dashboard-public.rule=PathPrefix(`/auth`) || PathPrefix(`/_next`) || PathPrefix(`/static`) || PathPrefix(`/api/auth`)
+      - traefik.http.routers.${PROJECT_NAME:-cybermem}-dashboard-public.entrypoints=web
+      - traefik.http.routers.${PROJECT_NAME:-cybermem}-dashboard-public.priority=20
+      - traefik.http.routers.${PROJECT_NAME:-cybermem}-dashboard-public.service=${PROJECT_NAME:-cybermem}-dashboard
       - traefik.http.routers.${PROJECT_NAME:-cybermem}-dashboard.entrypoints=web
       - traefik.http.routers.${PROJECT_NAME:-cybermem}-dashboard.rule=PathPrefix(`/`)
       - traefik.http.routers.${PROJECT_NAME:-cybermem}-dashboard.priority=1
-      - traefik.http.services.dashboard.loadbalancer.server.port=3000
+      - traefik.http.routers.${PROJECT_NAME:-cybermem}-dashboard.middlewares=auth-check
+      - traefik.http.services.${PROJECT_NAME:-cybermem}-dashboard.loadbalancer.server.port=3000
     restart: unless-stopped
     secrets:
       - om_api_key

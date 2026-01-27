@@ -63,6 +63,7 @@ function ClientCard({
         <div className="text-sm font-medium text-slate-400 mb-2">{label}</div>
         <div
           className={`text-4xl font-bold mb-1 truncate ${isEmpty ? "text-slate-500" : "text-white"}`}
+          data-testid="stat-value"
         >
           {name}
         </div>

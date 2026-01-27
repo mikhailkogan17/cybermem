@@ -40,80 +40,36 @@ jobs:
         env:
           DOCKER_DEFAULT_PLATFORM: linux/amd64
         run: |
-          docker version
-          docker compose version
-          # Set env path for auth-sidecar volume mount
+          mkdir -p ~/.cybermem/data
+          echo "OM_API_KEY=sk-test-key-for-ci" > ~/.cybermem/.env # gitleaks:allow
           export CYBERMEM_ENV_PATH=$HOME/.cybermem/.env
           docker compose up -d
-          docker compose ps
-          # Show what auth-sidecar sees
-          docker exec cybermem-auth-sidecar cat /.env || echo "No .env found"
-          sleep 60 # Wait for services to be ready
+          sleep 45
 
-      - name: Install CLI Dependencies
-        working-directory: packages/cli
+      - name: Install Dependencies
         run: npm ci
 
-      - name: Run E2E Tests (MCP)
-        working-directory: packages/cli
+      - name: Install Playwright Browsers
+        run: npx playwright install --with-deps chromium
+
+      - name: Run Uniform Verification Matrix (CI Mode)
+        run: npm run test:e2e:ci
         env:
+          CI: true
           OM_API_KEY: sk-test-key-for-ci # gitleaks:allow
-        run: npm run test:e2e local
 
       - name: Verify MCP STDIO Protocol
         run: |
           cd packages/mcp
-          npm ci --ignore-scripts --silent
           npm run build --silent
           echo '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","clientInfo":{"name":"ci-stdio-test","version":"1.0"},"capabilities":{}}}' | \
           node dist/index.js 2>&1 | grep -q '"serverInfo"' || (echo "❌ MCP STDIO Protocol Check Failed" && exit 1)
           echo "✅ MCP STDIO Protocol Verified"
-
-      - name: Install Dashboard Dependencies
-        working-directory: packages/dashboard
-        run: npm ci
-
-      - name: Install Playwright Browsers
-        working-directory: packages/dashboard
-        run: npx playwright install --with-deps chromium
-
-        env:
-          CI: true
-          OM_API_KEY: sk-test-key-for-ci # gitleaks:allow
-          DB_EXPORTER_URL: http://127.0.0.1:8000
-          PROMETHEUS_URL: http://127.0.0.1:9092
-          NEXT_PUBLIC_PROMETHEUS_URL: http://127.0.0.1:9092
-
-      - name: Wait for Exporters (Health Check)
-        run: |
-          echo "Waiting for DB Exporter..."
-          # Non-blocking: Playwright tests will verify dashboard functionality
-          timeout 90s bash -c 'until curl --silent --fail http://127.0.0.1:8000/api/stats; do sleep 2; done' || echo "⚠️ DB Exporter not ready, continuing..."
-          echo "Proceeding to Playwright tests"
-
-      - name: Run Playwright Tests (Dashboard)
-        working-directory: packages/dashboard
-        run: npm run test:e2e -- e2e/auth.spec.ts e2e/metrics.spec.ts
-        env:
-          CI: true
-          OM_API_KEY: sk-test-key-for-ci # gitleaks:allow
-          DB_EXPORTER_URL: http://127.0.0.1:8000
-          PROMETHEUS_URL: http://127.0.0.1:9092
-          NEXT_PUBLIC_PROMETHEUS_URL: http://127.0.0.1:9092
-          BASE_URL: http://127.0.0.1:3000
-
-      - name: Wipe Database (Cleanup)
-        if: always()
-        run: |
-          # Direct docker cleanup - more reliable than ts-node in CI
-          docker exec cybermem-mcp sh -c 'rm -f /data/openmemory.sqlite*' || true
-          docker restart cybermem-mcp || true
-          echo "✅ Database wiped"
 
       - name: Upload Playwright Report
         if: failure()
         uses: actions/upload-artifact@v4
         with:
           name: playwright-report
-          path: packages/dashboard/playwright-report/
+          path: release-reports/release-report-*-assets/
           retention-days: 7

@@ -287,32 +287,6 @@ export async function install(options: any) {
             "Local mode is active: No auth required for connections from this device.",
           ),
         );
-
-        // Network Awareness: Check for k3d mappings
-        try {
-          const { stdout } = await execa("k3d", [
-            "cluster",
-            "list",
-            "--no-headers",
-          ]);
-          if (stdout.includes("cybermem")) {
-            console.log(
-              chalk.cyan("\nℹ️ Detected k3d cluster. Mapping check:"),
-            );
-            console.log(
-              chalk.gray(
-                `  LoadBalancer ${isStaging ? "8625" : "8626"} -> http://localhost:${isStaging ? "8625" : "8626"}`,
-              ),
-            );
-            console.log(
-              chalk.gray(
-                `  Dashboard ${isStaging ? "3001" : "3000"} -> http://localhost:${isStaging ? "3001" : "3000"}`,
-              ),
-            );
-          }
-        } catch (e) {
-          // ignore if k3d not present
-        }
       }
     } else if (target === "rpi" || target === "vps") {
       const composeFile = path.join(templateDir, "docker-compose.yml");

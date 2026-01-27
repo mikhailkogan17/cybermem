@@ -283,7 +283,7 @@ export default function AuditLogTable({
                         </td>
                         <td className="py-4 px-3">
                           <span
-                            className={`px-3 py-1 rounded-full text-xs font-medium border ${config.bg} ${config.text} ${config.border}`}
+                            className={`status-pill px-3 py-1 rounded-full text-xs font-medium border ${config.bg} ${config.text} ${config.border}`}
                           >
                             {log.status}
                           </span>

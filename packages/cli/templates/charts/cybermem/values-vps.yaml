@@ -2,7 +2,7 @@
 
 openmemory:
   image:
-    repository: ghcr.io/mikhailkogan17/cybermem-openmemory
+    repository: ghcr.io/mikhailkogan17/cybermem-mcp
     pullPolicy: Always
   service:
     type: ClusterIP

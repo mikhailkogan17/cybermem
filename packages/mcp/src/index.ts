@@ -159,11 +159,8 @@ For full protocol: https://docs.cybermem.dev/agent-protocol`;
       const db = new sqlite3.default.Database(dbPath);
       db.configure("busyTimeout", 5000);
       db.serialize(() => {
-        db.run("PRAGMA journal_mode=WAL;", (err: any) => {
-          if (err) console.error("[MCP] Init WAL error:", err.message);
-        });
-        db.run(
-          `CREATE TABLE IF NOT EXISTS cybermem_stats (
+        // --- 1. Infrastructure Tables ---
+        db.run(`CREATE TABLE IF NOT EXISTS cybermem_stats (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             client_name TEXT NOT NULL,
             operation TEXT NOT NULL,
@@ -171,14 +168,9 @@ For full protocol: https://docs.cybermem.dev/agent-protocol`;
             errors INTEGER DEFAULT 0,
             last_updated INTEGER NOT NULL,
             UNIQUE(client_name, operation)
-        );`,
-          (err: any) => {
-            if (err)
-              console.error("[MCP] Init stats table error:", err.message);
-          },
-        );
-        db.run(
-          `CREATE TABLE IF NOT EXISTS cybermem_access_log (
+        );`);
+
+        db.run(`CREATE TABLE IF NOT EXISTS cybermem_access_log (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             timestamp INTEGER NOT NULL,
             client_name TEXT NOT NULL,
@@ -188,15 +180,9 @@ For full protocol: https://docs.cybermem.dev/agent-protocol`;
             operation TEXT NOT NULL,
             status TEXT NOT NULL,
             is_error INTEGER DEFAULT 0
-        );`,
-          (err: any) => {
-            if (err)
-              console.error("[MCP] Init access_log table error:", err.message);
-          },
-        );
-        // Access keys table for token-based auth
-        db.run(
-          `CREATE TABLE IF NOT EXISTS access_keys (
+        );`);
+
+        db.run(`CREATE TABLE IF NOT EXISTS access_keys (
             id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
             key_hash TEXT NOT NULL,
             name TEXT DEFAULT 'default',
@@ -204,12 +190,31 @@ For full protocol: https://docs.cybermem.dev/agent-protocol`;
             created_at TEXT DEFAULT (datetime('now')),
             last_used_at TEXT,
             is_active INTEGER DEFAULT 1
-        );`,
-          (err: any) => {
-            if (err)
-              console.error("[MCP] Init access_keys table error:", err.message);
+        );`);
+
+        // --- 2. Dynamic Migrations (Resilience Layer) ---
+        // We only add columns if they are missing. We don't block the startup.
+        const migrations = [
+          {
+            table: "access_keys",
+            col: "user_id",
+            def: "TEXT DEFAULT 'default'",
           },
-        );
+          { table: "access_keys", col: "last_used_at", def: "TEXT" },
+          { table: "memories", col: "user_id", def: "TEXT" },
+          { table: "vectors", col: "user_id", def: "TEXT" },
+          { table: "waypoints", col: "user_id", def: "TEXT" },
+          { table: "memories", col: "feedback_score", def: "REAL DEFAULT 0" },
+        ];
+
+        for (const m of migrations) {
+          db.run(
+            `ALTER TABLE ${m.table} ADD COLUMN ${m.col} ${m.def};`,
+            (err: any) => {
+              // Silently ignore if column already exists (SQLITE_ERROR: duplicate column name)
+            },
+          );
+        }
       });
       db.close();
     } catch (e) {

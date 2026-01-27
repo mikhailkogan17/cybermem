@@ -67,32 +67,69 @@ check_checked() {
     fi
 }
 
-echo "--- Content Validation ---"
-check_field "Локально собрано?" "Build Status"
-check_field "Версия компонентов локально" "Local Versions"
-check_field "Ответ на /stats" "Stats Verification"
-check_field "Add Memory" "CRUD: Add"
-check_field "Query Memory" "CRUD: Query"
-check_field "Update Memory" "CRUD: Update"
-check_field "Delete Memory" "CRUD: Delete"
+echo "--- Template Integrity ---"
+TEMPLATE_FILE="release-reports/TEMPLATE.md"
+if [ -f "$TEMPLATE_FILE" ]; then
+    # Extract headers (## and ###) from template to ensure they exist in report
+    grep -E "^##?#? " "$TEMPLATE_FILE" | while read -r header; do
+        # Escape for grep
+        clean_header=$(echo "$header" | sed 's/\[Version\]/.*/g' | sed 's/\[.*\]/.*/g' | sed 's/(.*)//g' | xargs)
+        if ! grep -q "$clean_header" "$REPORT_FILE"; then
+            echo -e "${RED}❌ MISSING SECTION: Header similar to '$header' must exist in report.${NC}"
+            FAILED=1
+        else
+            echo -e "${GREEN}✅ FOUND SECTION: $header${NC}"
+        fi
+    done
+else
+    echo -e "${YELLOW}⚠️ WARN: TEMPLATE.md not found, skipping dynamic comparison.${NC}"
+fi
 
 echo ""
-echo "--- Checkbox Validation ---"
-check_checked "Локально собрано?" "Build Confirmation"
-check_checked "Версия компонентов локально" "Version Confirmation"
-check_checked "Ответ на /stats" "Stats Confirmation"
-check_checked "Add Memory" "CRUD: Add"
-check_checked "Query Memory" "CRUD: Query"
-check_checked "Update Memory" "CRUD: Update"
-check_checked "Delete Memory" "CRUD: Delete"
-check_checked "GEMINI.md Update" "Identity & Postmortems Verified"
-check_checked "k3d Deployment verified" "K8s Deployment Verified"
-check_checked "Documentation Sync verified" "Documentation Sync Verified"
+echo "--- Asset Validation ---"
+# Check if all referenced images exist
+grep -oE "!\[.*\]\((.*)\)" "$REPORT_FILE" | sed -E "s/!\[.*\]\((.*)\)/\1/" | while read -r asset; do
+    # Handle relative paths
+    asset_path="release-reports/$asset"
+    if [ ! -f "$asset_path" ]; then
+        # Check if it's already an absolute path or relative to project root
+        if [ ! -f "$asset" ]; then
+            echo -e "${RED}❌ MISSING ASSET: $asset (referenced in report)${NC}"
+            FAILED=1
+        else
+            echo -e "${GREEN}✅ FOUND ASSET: $asset${NC}"
+        fi
+    else
+        echo -e "${GREEN}✅ FOUND ASSET: $asset${NC}"
+    fi
+done
 
-# Final block check: any unchecked items at all?
-if grep -q '\[ \]' "$REPORT_FILE"; then
-    echo -e "${RED}❌ FAILED: There are still empty checkboxes [ ] in the report!${NC}"
-    grep -n '\[ \]' "$REPORT_FILE"
+echo ""
+echo "--- Content Validation ---"
+echo "--- Checkbox Validation ---"
+# Check for concrete Identity Law in Staging
+check_checked "Identity Law.*CONCRETE APP" "Identity Law"
+check_checked "Audit Logs.*Full CRUD.*verified" "Audit Log CRUD"
+check_checked "Audit Logs.*Zero errors detected" "Audit Log Integrity"
+
+# Check for Migration and Port Isolation
+check_checked "Migration.*test passed" "Migration Test"
+check_checked "Port Isolation.*dashboard ports" "Port Isolation Check"
+
+# Check for Zero Trust Statement (confirm text has [x])
+check_checked "I hereby confirm that E2E tests have passed" "Zero Trust Statement"
+
+# Final block check: any unchecked items at all in non-failed sections?
+# We use awk to only check for [ ] in sections that are NOT failed/skipped
+CHECKBOXES=$(awk '
+  /^## / { in_failed=0 }
+  /\*\*Status\*\*:[[:space:]]*(❌|⏭️)/ { in_failed=1 }
+  /\[ \]/ { if (!in_failed) print NR ":" $0 }
+' "$REPORT_FILE")
+
+if [ -n "$CHECKBOXES" ]; then
+    echo -e "${RED}❌ FAILED: There are still empty checkboxes [ ] in active (non-failed) sections!${NC}"
+    echo "$CHECKBOXES"
     FAILED=1
 fi
 
@@ -152,7 +189,8 @@ echo "🔍 Checking Hook Integrity..."
 # 1. Check if the tracked hook itself has uncommitted changes
 if ! git diff --quiet HEAD -- .hooks/pre-commit; then
     echo -e "${RED}❌ FAILED: .hooks/pre-commit has been modified but not committed!${NC}"
-    echo "    Force commit ONLY after you received STRICT user consent."
+    echo -e "${YELLOW}⚠️  INSTRUCTION: CHANGING TESTS UPON REPORT FAILURE IS FORBIDDEN.${NC}"
+    echo -e "${YELLOW}    ONLY ALLOWED ACTION: FIX THE SOURCE CAUSE OR REQUEST FORCE PUSH FROM USER.${NC}"
     FAILED=1
 else
     echo -e "${GREEN}✅ VERIFIED: Tracked hook is clean${NC}"

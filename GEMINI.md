@@ -47,6 +47,7 @@ FAILURE TO FOLLOW THIS PROTOCOL IS UNACCEPTABLE AND CAUSES PRODUCTION DOWN-TIME.
 > 5. **IDENTITY LAW**: `X-Client-Name` MUST be strictly `antigravity` (dashboard/UI) or `antigravity-client` (tools/scripts). USAGE OF `rest-api` IS PUNISHABLE BY TERMINATION.
 > 6. **CLI-ONLY DEPLOYMENT**: ALL deployments (Local, RPi, VPS) MUST be performed via `@cybermem/cli`. Manual `docker-compose` or `npm start` without CLI tagging is STRICTLY FORBIDDEN.
 > 7. **MANDATORY ENV TAGGING**: Every CyberMem instance MUST have `CYBERMEM_ENV` (staging|prod), `CYBERMEM_INSTANCE` (local|rpi|vps), and `CYBERMEM_TAILSCALE` (true|false) set. The MCP server MUST fail fast if `CYBERMEM_INSTANCE` is missing.
+> 8. **ZERO DIRECT PORT EXPOSURE**: It is STRICTLY FORBIDDEN to expose internal service ports like `3000`, `3001`, or `8080` to the host machine in `docker-compose.yml`. ALL external/host access MUST be routed through the Traefik entrypoint (`8625` or `8626`). Local development MUST use the Traefik port to access the Dashboard and API. Direct port maps are a security violation.
 
 ---
 

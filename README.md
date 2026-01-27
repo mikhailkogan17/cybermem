@@ -15,6 +15,7 @@
 
   <h3>Your AI Memory — Deploy Anywhere</h3>
   <p><em>Platform Engineering MCP Server for DevOps & AI Teams</em></p>
+  <p><strong><a href="https://cybermem.dev">cybermem.dev</a></strong></p>
 
 ---
 
