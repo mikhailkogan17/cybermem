@@ -38,9 +38,9 @@ async function verifyEnvironment(options: VerifyOptions) {
       const axios = (await import("axios")).default;
       const https = await import("https");
       const httpsAgent = new https.Agent({ rejectUnauthorized: false });
-      const headers: any = { 
+      const headers: any = {
         "X-Client-Name": "antigravity-client",
-        "X-Client-Version": "0.12.4"
+        "X-Client-Version": "0.12.6",
       };
       if (isRemote) {
         headers["Authorization"] =
@@ -73,18 +73,23 @@ async function verifyEnvironment(options: VerifyOptions) {
         { query: "verification memory", k: 1 },
         config,
       );
-      const results = Array.isArray(queryRes.data) ? queryRes.data : queryRes.data?.results;
+      const results = Array.isArray(queryRes.data)
+        ? queryRes.data
+        : queryRes.data?.results;
       if (!results?.length) throw new Error("Read failed: Memory not found");
 
       // 3. Update (PATCH)
-      console.log(`    [CRUD] Update: Patching verification memory [${memoryId}]...`);
+      console.log(
+        `    [CRUD] Update: Patching verification memory [${memoryId}]...`,
+      );
       // We use the direct endpoint /memory/:id which is handled by Traefik correctly
       const patchRes = await axios.patch(
         `${url}/memory/${memoryId}`,
         { tags: ["verification", "staging", "auto-test", "updated"] },
-        config
+        config,
       );
-      if (patchRes.status !== 200) console.warn("    ⚠️ Update (PATCH) returned non-200. Continuing...");
+      if (patchRes.status !== 200)
+        console.warn("    ⚠️ Update (PATCH) returned non-200. Continuing...");
 
       // 4. Delete
       console.log(`    [CRUD] Delete: Removing [${memoryId}]...`);
@@ -121,16 +126,27 @@ async function verifyEnvironment(options: VerifyOptions) {
 
     if (isRemote) {
       const bodyText = await page.textContent("body");
-      if (bodyText?.includes("Valid access token required") || bodyText?.includes("Unauthorized")) {
-        await page.goto(`${url.replace(/\/$/, "")}/auth/signin`, { waitUntil: "domcontentloaded" });
+      if (
+        bodyText?.includes("Valid access token required") ||
+        bodyText?.includes("Unauthorized")
+      ) {
+        await page.goto(`${url.replace(/\/$/, "")}/auth/signin`, {
+          waitUntil: "domcontentloaded",
+        });
         await page.waitForTimeout(2000);
       }
 
-      if (page.url().includes("/auth/signin") || await page.locator("text=/Login with Token/i").isVisible()) {
+      if (
+        page.url().includes("/auth/signin") ||
+        (await page.locator("text=/Login with Token/i").isVisible())
+      ) {
         console.log("    ✅ Public Bypass Verified: Login Screen visible.");
-        await page.screenshot({ path: path.join(envDir, `${prefix}1_login_proof.png`) });
+        await page.screenshot({
+          path: path.join(envDir, `${prefix}1_login_proof.png`),
+        });
         console.log(`    [Auth] Performing Token Login via UI...`);
-        const token = process.env.CYBERMEM_TOKEN || "sk-staging-verified-key-vf7";
+        const token =
+          process.env.CYBERMEM_TOKEN || "sk-staging-verified-key-vf7";
         const passInput = page.locator('input[type="password"]');
         await passInput.waitFor({ state: "visible", timeout: 10000 });
         await passInput.fill(token);
@@ -147,7 +163,10 @@ async function verifyEnvironment(options: VerifyOptions) {
 
     // Stage 2: Dashboard Home
     console.log(`  - 2: Dashboard Home...`);
-    await page.screenshot({ path: path.join(envDir, `${prefix}1_dashboard.png`), fullPage: true });
+    await page.screenshot({
+      path: path.join(envDir, `${prefix}1_dashboard.png`),
+      fullPage: true,
+    });
 
     // Audit logs
     console.log(`  - 2b: Checking Audit Logs...`);
@@ -155,18 +174,23 @@ async function verifyEnvironment(options: VerifyOptions) {
     await page.waitForTimeout(2000);
     const auditStatus = await page.locator(".status-pill").allTextContents();
     if (auditStatus.length === 0) {
-       console.warn(`    ⚠️ Audit Log Warning: No success entries found in [${name}] logs (latency?).`);
+      console.warn(
+        `    ⚠️ Audit Log Warning: No success entries found in [${name}] logs (latency?).`,
+      );
     } else {
-       console.log(`       ✅ Audit Logs Valid (${auditStatus.length} entries)`);
+      console.log(`       ✅ Audit Logs Valid (${auditStatus.length} entries)`);
     }
 
     // Stage 3: MCP Modal
     console.log(`  - 3: MCP Modal...`);
-    const mcpBtn = page.getByRole("button", { name: /Connect MCP/i });
+    const mcpBtn = page.locator('button:has(img[alt="MCP"])').first();
     if (await mcpBtn.isVisible()) {
       await mcpBtn.click();
       await page.waitForTimeout(2000);
-      await page.screenshot({ path: path.join(envDir, `${prefix}2_mcp.png`), fullPage: true });
+      await page.screenshot({
+        path: path.join(envDir, `${prefix}2_mcp.png`),
+        fullPage: true,
+      });
       await page.keyboard.press("Escape");
       await page.waitForTimeout(1000);
     }
@@ -178,18 +202,29 @@ async function verifyEnvironment(options: VerifyOptions) {
     await settingsBtn.click();
     await page.waitForTimeout(2000);
 
-    const eyeBtn = page.locator("button:has(svg.lucide-eye), button.absolute.right-3").first();
+    const eyeBtn = page
+      .locator("button:has(svg.lucide-eye), button.absolute.right-3")
+      .first();
     if (await eyeBtn.isVisible()) {
       await eyeBtn.click();
       await page.waitForTimeout(1000);
-      const tokenValue = await page.inputValue("#access-token").catch(() => "N/A");
+      const tokenValue = await page
+        .inputValue("#access-token")
+        .catch(() => "N/A");
       if (tokenValue?.match(/sk-[a-f0-9]{32}/)) {
-        console.log(`       ✅ [Stage 4] Token Format Verified: "${tokenValue}"`);
+        console.log(
+          `       ✅ [Stage 4] Token Format Verified: "${tokenValue}"`,
+        );
       } else {
-        console.error(`    ❌ [Stage 4] TOKEN FORMAT VIOLATION: "${tokenValue}"`);
+        console.error(
+          `    ❌ [Stage 4] TOKEN FORMAT VIOLATION: "${tokenValue}"`,
+        );
       }
     }
-    await page.screenshot({ path: path.join(envDir, `${prefix}3_settings.png`), fullPage: true });
+    await page.screenshot({
+      path: path.join(envDir, `${prefix}3_settings.png`),
+      fullPage: true,
+    });
 
     console.log(`✅ Verified [${name}]`);
   } catch (error: any) {
@@ -200,11 +235,15 @@ async function verifyEnvironment(options: VerifyOptions) {
 }
 
 async function main() {
-  const outputBase = path.join(process.cwd(), "release-reports", `release-report-0.12.4-assets`);
+  const outputBase = path.join(
+    process.cwd(),
+    "release-reports",
+    `release-report-0.12.6-assets`,
+  );
   if (fs.existsSync(outputBase)) fs.rmSync(outputBase, { recursive: true });
   fs.mkdirSync(outputBase, { recursive: true });
 
-  console.log(`🚀 Starting CyberMem E2E Release Check (v0.12.4)`);
+  console.log(`🚀 Starting CyberMem E2E Release Check (v0.12.6)`);
 
   const allConfigs: VerifyOptions[] = [
     {
@@ -230,7 +269,9 @@ async function main() {
     },
     {
       name: "rpi-ts-staging",
-      url: process.env.TAILSCALE_URL ? `${process.env.TAILSCALE_URL}/cybermem-staging` : "",
+      url: process.env.TAILSCALE_URL
+        ? `${process.env.TAILSCALE_URL}/cybermem-staging`
+        : "",
       isRemote: true,
       outputDir: outputBase,
       prefix: "4.",
@@ -244,13 +285,13 @@ async function main() {
     },
   ];
 
-  let configurations = onlyTesting 
-    ? allConfigs.filter(c => c.name === onlyTestingValue)
+  let configurations = onlyTesting
+    ? allConfigs.filter((c) => c.name === onlyTestingValue)
     : allConfigs;
 
   if (configurations.length === 0 && onlyTesting) {
-      console.error(`No configuration found with name: ${onlyTestingValue}`);
-      process.exit(1);
+    console.error(`No configuration found with name: ${onlyTestingValue}`);
+    process.exit(1);
   }
 
   for (const config of configurations) {

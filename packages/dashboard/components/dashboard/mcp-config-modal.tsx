@@ -360,7 +360,7 @@ export default function MCPConfigModal({ onClose }: { onClose: () => void }) {
                 {selectedConfig?.steps?.map((step: string, index: number) => (
                   <div
                     key={index}
-                    className="relative flex items-start gap-4 pb-4 group/step"
+                    className={`relative flex items-start gap-4 group/step ${index === (selectedConfig?.steps?.length || 0) - 1 ? "pb-2" : "pb-4"}`}
                   >
                     {/* Vertical Line - Digit to Digit */}
                     {index < (selectedConfig?.steps?.length || 0) - 1 && (
@@ -409,16 +409,23 @@ export default function MCPConfigModal({ onClose }: { onClose: () => void }) {
                         const config = (clients as any[]).find(
                           (c) => c.id === selectedClient,
                         );
+                        // 1. Force "Terminal" for specific CLI clients
                         if (
                           ["claude-code", "gemini-cli"].includes(selectedClient)
                         )
                           return "Terminal";
+
+                        // 2. Use specific filename from JSON (e.g., claude_desktop_config.json)
                         if (config?.filename) return config.filename;
+
+                        // 3. Fallback to "Terminal" for generic command/cmd types
                         if (
                           config?.configType === "command" ||
                           config?.configType === "cmd"
                         )
                           return "Terminal";
+
+                        // 4. Default for all other JSON/config types
                         return "mcp.json";
                       })()}
                     </div>

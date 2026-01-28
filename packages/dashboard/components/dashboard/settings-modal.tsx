@@ -223,39 +223,43 @@ export default function SettingsModal({ onClose }: { onClose: () => void }) {
 
   return (
     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-      <div
-        className="bg-[#0B1116]/80 backdrop-blur-xl border border-emerald-500/20 rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto relative overflow-hidden"
-        style={{
-          backgroundImage: `radial-gradient(circle at 0% 0%, oklch(0.7 0 0 / 0.05) 0%, transparent 50%), radial-gradient(circle at 100% 0%, oklch(0.6 0 0 / 0.05) 0%, transparent 50%), radial-gradient(circle at 100% 100%, oklch(0.65 0 0 / 0.05) 0%, transparent 50%), radial-gradient(circle at 0% 100%, oklch(0.6 0 0 / 0.05) 0%, transparent 50%)`,
-        }}
-      >
-        {/* Header */}
-        <div className="flex items-center justify-between px-6 pt-6 pb-2">
-          <div className="flex items-center gap-3">
-            <div className="p-2 bg-white/5 rounded-lg border border-white/10 shadow-inner">
-              <Settings className="w-5 h-5 text-white shadow-lg" />
+      <div className="bg-[#05100F] border border-white/10 rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.5)] max-w-2xl w-full max-h-[90vh] overflow-hidden relative flex flex-col">
+        {/* macOS-style Window Chrome (Finder style) */}
+        <div className="relative rounded-t-lg bg-[#05100F] px-4 py-4 flex items-center justify-between border-b border-white/[0.03]">
+          <div className="flex items-center gap-4">
+            {/* Traffic Lights */}
+            <div className="flex items-center gap-2">
+              <div className="w-3 h-3 rounded-full bg-[#FF5F57] shadow-sm" />
+              <div className="w-3 h-3 rounded-full bg-[#FEBC2E] shadow-sm" />
+              <div className="w-3 h-3 rounded-full bg-[#28C840] shadow-sm" />
             </div>
-            <h2 className="text-xl font-semibold text-white">Settings</h2>
+
+            {/* Title */}
+            <div className="text-sm text-white font-semibold flex items-center gap-2">
+              <Settings className="w-4 h-4 opacity-70" />
+              <span>Settings</span>
+            </div>
           </div>
+
           <Button
             variant="ghost"
             size="icon"
             onClick={onClose}
-            className="text-neutral-400 hover:text-white rounded-full"
+            className="text-neutral-400 hover:text-white hover:bg-white/10 rounded-lg w-8 h-8"
           >
-            <X className="w-5 h-5" />
+            <X className="w-4 h-4" />
           </Button>
         </div>
 
         {/* Content */}
-        <div className="p-6 space-y-6">
+        <div className="flex-1 overflow-y-auto p-8 space-y-8">
           {/* Access Token */}
           <section>
-            <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
-              <Shield className="w-5 h-5" />
+            <h3 className="text-sm font-medium text-neutral-400 uppercase tracking-widest mb-4 flex items-center gap-2">
+              <Shield className="w-4 h-4" />
               Access Token
             </h3>
-            <div className="bg-white/5 border border-white/10 rounded-lg p-5 space-y-4 shadow-[inset_0_0_20px_rgba(255,255,255,0.02)] backdrop-blur-sm">
+            <div className="bg-white/[0.03] border border-white/10 rounded-xl p-6 space-y-4">
               {/* Token Display with inline regenerate */}
               <div className="space-y-2">
                 <Label htmlFor="access-token">Your Access Token</Label>
@@ -352,8 +356,8 @@ export default function SettingsModal({ onClose }: { onClose: () => void }) {
 
           {/* Data Management */}
           <section>
-            <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
-              <Database className="w-5 h-5" />
+            <h3 className="text-sm font-medium text-neutral-400 uppercase tracking-widest mb-4 flex items-center gap-2">
+              <Database className="w-4 h-4" />
               Data Management
             </h3>
             <div className="flex flex-col gap-3">
@@ -438,10 +442,10 @@ export default function SettingsModal({ onClose }: { onClose: () => void }) {
           </section>
 
           {/* System Info */}
-          <section>
-            <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
-              <Server className="w-5 h-5" />
-              System
+          <section className="pb-4">
+            <h3 className="text-sm font-medium text-neutral-400 uppercase tracking-widest mb-4 flex items-center gap-2">
+              <Server className="w-4 h-4" />
+              System Information
             </h3>
             <div className="bg-white/5 border border-white/10 rounded-xl p-6 shadow-[inset_0_0_30px_rgba(255,255,255,0.01)] backdrop-blur-md space-y-6">
               <div className="grid grid-cols-2 gap-12">
@@ -520,8 +524,13 @@ export default function SettingsModal({ onClose }: { onClose: () => void }) {
         </div>
 
         {/* Footer */}
-        <div className="sticky bottom-0 bg-[#0B1116]/80 backdrop-blur-md border-t border-emerald-500/20 px-6 py-4 flex justify-end gap-3 z-10">
-          <TintButton tint="neutral" variant="ghost" onClick={onClose}>
+        <div className="bg-[#05100F] border-t border-white/[0.03] px-8 py-5 flex justify-end gap-3 z-10">
+          <TintButton
+            tint="neutral"
+            variant="ghost"
+            onClick={onClose}
+            className="hover:bg-white/5"
+          >
             Close
           </TintButton>
         </div>
