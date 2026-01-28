@@ -5,6 +5,7 @@
     "match": "claude|antigravity",
     "color": "#e65c40",
     "icon": "/icons/claude.png",
+    "filename": "claude_desktop_config.json",
     "description": "Configure Claude Desktop to use CyberMem for persistent memory across conversations.",
     "steps": [
       "Open Claude Desktop",
@@ -54,6 +55,7 @@
     "match": "windsurf",
     "color": "#3b82f6",
     "icon": "/icons/windsurf.png",
+    "filename": "mcp_config.json",
     "description": "Windsurf (Codeium) supports MCP via a dedicated config file.",
     "steps": [
       "Open the config file: `~/.codeium/windsurf/mcp_config.json`",
@@ -116,6 +118,7 @@
     "match": "codex",
     "color": "#6366f1",
     "icon": "/icons/codex.png",
+    "filename": "config.toml",
     "description": "Codex CLI uses TOML format for MCP configuration.",
     "steps": [
       "Edit `~/.codex/config.toml`",
@@ -165,9 +168,8 @@
     "icon": null,
     "description": "For any other MCP-compliant client, use the following connection details:",
     "steps": [
-      "**Transport**: stdio (via npx command)",
-      "**Command**: `npx @cybermem/mcp` with `--url {{ENDPOINT}}` and `--token {{TOKEN}}` args",
-      "Refer to your client's documentation for config file location"
+      "Locate the configuration file for your client",
+      "Insert the following JSON configuration:"
     ],
     "configType": "json"
   }

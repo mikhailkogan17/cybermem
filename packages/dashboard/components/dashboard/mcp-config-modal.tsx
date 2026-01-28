@@ -1,22 +1,10 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { useDashboard } from "@/lib/data/dashboard-context";
-import {
-  Check,
-  Copy,
-  Eye,
-  EyeOff,
-  FileCode,
-  Info,
-  Monitor,
-  X,
-} from "lucide-react";
+import { Check, Copy, Eye, EyeOff, Terminal, X } from "lucide-react";
 import Image from "next/image";
 import { useEffect, useState } from "react";
-import { toast } from "sonner";
 
 export default function MCPConfigModal({ onClose }: { onClose: () => void }) {
   const { clientConfigs } = useDashboard();
@@ -29,25 +17,23 @@ export default function MCPConfigModal({ onClose }: { onClose: () => void }) {
   const [isKeyVisible, setIsKeyVisible] = useState(false);
   const [showRegenConfirm, setShowRegenConfirm] = useState(false);
   const [regenInputValue, setRegenInputValue] = useState("");
-  const [isManaged, setIsManaged] = useState(false); // local mode (localhost only)
-  const [instanceType, setInstanceType] = useState<"local" | "rpi" | "vps">(
-    "local",
-  );
-  const [env, setEnv] = useState("prod");
+  const [isManaged, setIsManaged] = useState(false);
 
   useEffect(() => {
-    // Try to get key from local storage first (simulating persistence)
     const localKey = localStorage.getItem("om_api_key");
     if (localKey) {
       setApiKey(localKey);
-      // We still fetch settings for the endpoint
       fetch("/api/settings")
         .then((res) => res.json())
         .then((data) => {
           let srvEndpoint = data.endpoint;
-          if (typeof window !== "undefined") {
-            // Force 8626 for the MCP endpoint to ensure it goes through Traefik/LoadBalancer
-            srvEndpoint = `${window.location.protocol}//${window.location.hostname}:8626/mcp`;
+          if (
+            srvEndpoint.includes("localhost") &&
+            typeof window !== "undefined" &&
+            !window.location.hostname.includes("localhost")
+          ) {
+            const port = srvEndpoint.split(":").pop()?.split("/")[0] || "8626";
+            srvEndpoint = `${window.location.protocol}//${window.location.hostname}:${port}`;
           }
           setBaseUrl(srvEndpoint);
           setIsLoading(false);
@@ -58,64 +44,25 @@ export default function MCPConfigModal({ onClose }: { onClose: () => void }) {
         .then((res) => res.json())
         .then((data) => {
           setApiKey(data.apiKey !== "not-set" ? data.apiKey : "");
-          setEnv(data.env || "prod");
-          // True local mode only if the server is running on 'local' hardware
-          // and we are accessing it via localhost (isLocal = true)
-          setIsManaged(data.isManaged && data.instanceType === "local");
-          setInstanceType(data.instanceType || "local");
+          setIsManaged(data.isManaged || false);
           let srvEndpoint = data.endpoint;
-          // Dynamically detect endpoint if accessed via local network or Tailscale
-          if (typeof window !== "undefined") {
-            const currentHost = window.location.hostname;
-
-            // Always prioritize 8626 for the actual MCP tool connection
-            // to support '3000 should be closed' prod-security model.
-            if (
-              srvEndpoint.includes("localhost") ||
-              srvEndpoint.includes("mcp-server") ||
-              currentHost.endsWith(".local") ||
-              currentHost.includes(".ts.net")
-            ) {
-              srvEndpoint = `${window.location.protocol}//${currentHost}:8626/mcp`;
-            }
+          if (
+            srvEndpoint.includes("localhost") &&
+            typeof window !== "undefined" &&
+            !window.location.hostname.includes("localhost")
+          ) {
+            const port = srvEndpoint.split(":").pop()?.split("/")[0] || "8626";
+            srvEndpoint = `${window.location.protocol}//${window.location.hostname}:${port}`;
           }
           setBaseUrl(srvEndpoint);
           setIsLoading(false);
-
-          // Force VPS/Remote mode if accessed via 8626 or if instanceType is vps
-          // Force VPS/Remote mode if accessed via 8626 or if instanceType is vps
-          // REMOVED: User wants localhost:8626 to be treated as Local Managed if possible
-          /*
-          if (
-            typeof window !== "undefined" &&
-            window.location.port === "8626"
-          ) {
-            setInstanceType("vps");
-            setIsManaged(false);
-          }
-          */
         })
         .catch((err) => {
           console.error("Failed to fetch settings:", err);
           setIsLoading(false);
-          // Fallback logic for 404: If on 8626, assume VPS mode
-          if (
-            typeof window !== "undefined" &&
-            window.location.port === "8626"
-          ) {
-            setInstanceType("vps");
-            setIsManaged(false);
-            setBaseUrl(
-              `${window.location.protocol}//${window.location.hostname}:8626/mcp`,
-            );
-          }
         });
     }
   }, []);
-
-  const generateApiKey = () => {
-    // Legacy - redirected to confirmRegenerate logic via UI state
-  };
 
   const confirmRegenerate = async () => {
     try {
@@ -129,62 +76,36 @@ export default function MCPConfigModal({ onClose }: { onClose: () => void }) {
       setIsKeyVisible(true);
       setShowRegenConfirm(false);
       setRegenInputValue("");
-      toast.success("Token Regenerated!", {
-        description: "All existing client connections will need to be updated.",
-      });
     } catch (e) {
       console.error(e);
-      toast.error("Failed to regenerate token", {
-        description: "Please check if the server is running.",
-      });
+      alert("Failed to regenerate key on server.");
     }
   };
 
   const getMcpConfig = (clientId: string) => {
-    // Local mode: use stdio (command-based) - no server needed, runs via npx
     if (isManaged) {
-      const localArgs = ["-y", "@cybermem/mcp"];
-      if (env === "staging") {
-        localArgs.push("--staging");
-      }
       return {
         mcpServers: {
           cybermem: {
             command: "npx",
-            args: localArgs,
+            args: ["@cybermem/mcp"],
           },
         },
       };
-    }
-
-    // Force 8626 for the suggestion to support '3000 should be closed' model
-    let suggestedUrl = baseUrl
-      .replace(/:3000/, ":8626")
-      .replace(/:8080/, ":8626");
-
-    // Ensure it ends with /mcp if it doesn't
-    if (!suggestedUrl.endsWith("/mcp") && !suggestedUrl.includes("/mcp?")) {
-      suggestedUrl = suggestedUrl.replace(/\/$/, "") + "/mcp";
-    }
-
-    const args = [
-      "-y",
-      "@cybermem/mcp",
-      "--url",
-      suggestedUrl,
-      "--token",
-      apiKey || "sk-your-generated-token",
-    ];
-
-    if (env === "staging") {
-      args.push("--env", "staging");
     }
 
     return {
       mcpServers: {
         cybermem: {
           command: "npx",
-          args: args,
+          args: [
+            "-y",
+            "@cybermem/mcp",
+            "--url",
+            baseUrl,
+            "--token",
+            apiKey || "sk-your-generated-token",
+          ],
         },
       },
     };
@@ -197,7 +118,6 @@ export default function MCPConfigModal({ onClose }: { onClose: () => void }) {
       : apiKey || "sk-your-generated-token";
     const actualKey = apiKey || "sk-your-generated-token";
 
-    // Handle TOML config (Codex)
     if (config?.configType === "toml") {
       if (isManaged) {
         return `# CyberMem Configuration (Local Mode)\n[mcp]\ncommand = "npx"\nargs = ["@cybermem/mcp"]`;
@@ -205,17 +125,13 @@ export default function MCPConfigModal({ onClose }: { onClose: () => void }) {
       return `# CyberMem Configuration (Remote Mode)\n[mcp]\ncommand = "npx"\nargs = ["@cybermem/mcp", "--url", "${baseUrl}", "--token", "${maskKey ? displayKey : actualKey}"]`;
     }
 
-    // Handle command-based configs (Claude Code, Gemini CLI, etc.)
     if (config?.configType === "command" || config?.configType === "cmd") {
-      // Select command based on mode
       let cmd = isManaged ? config?.localCommand : config?.remoteCommand;
 
-      // Fallback to legacy 'command' field if new fields not present
       if (!cmd) {
         cmd = config?.command?.replace("http://localhost:8080", baseUrl) || "";
       }
 
-      // Substitute placeholders with actual values
       cmd = cmd.replace("{{ENDPOINT}}", baseUrl);
       cmd = cmd.replace("{{API_KEY}}", maskKey ? displayKey : actualKey);
       cmd = cmd.replace("{{TOKEN}}", maskKey ? displayKey : actualKey);
@@ -223,8 +139,14 @@ export default function MCPConfigModal({ onClose }: { onClose: () => void }) {
       return cmd;
     }
 
-    // Default to JSON config
     const jsonConfig = getMcpConfig(selectedClient);
+    if (!isManaged && maskKey) {
+      const args = (jsonConfig.mcpServers.cybermem as any).args;
+      const tokenIdx = args.indexOf("--token");
+      if (tokenIdx !== -1 && args[tokenIdx + 1]) {
+        args[tokenIdx + 1] = displayKey;
+      }
+    }
     return JSON.stringify(jsonConfig, null, 2);
   };
 
@@ -232,7 +154,6 @@ export default function MCPConfigModal({ onClose }: { onClose: () => void }) {
     navigator.clipboard.writeText(text);
     setCopiedId(id);
     setTimeout(() => setCopiedId(null), 2000);
-    toast.success("Copied to clipboard!");
   };
 
   const highlightJSON = (obj: any) => {
@@ -296,7 +217,7 @@ export default function MCPConfigModal({ onClose }: { onClose: () => void }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
       <div
-        className="w-full max-w-4xl bg-[#0B1116]/80 backdrop-blur-xl border border-emerald-500/20 rounded-2xl shadow-2xl animate-in zoom-in-95 duration-200 flex flex-col max-h-[85vh] relative overflow-hidden"
+        className="w-full max-w-6xl bg-[#0B1116]/80 backdrop-blur-xl border-[0.5px] border-white/10 rounded-3xl shadow-2xl animate-in zoom-in-95 duration-200 flex flex-col max-h-[90vh] relative overflow-hidden"
         style={{
           backgroundImage: `
             radial-gradient(circle at 0% 0%, oklch(0.7 0 0 / 0.05) 0%, transparent 50%),
@@ -306,301 +227,329 @@ export default function MCPConfigModal({ onClose }: { onClose: () => void }) {
           `,
         }}
       >
-        {/* Header */}
-        <div className="flex items-center justify-between px-6 pt-6 pb-2 flex-none">
-          <div className="flex items-center gap-3">
-            <div className="p-2 bg-white/5 rounded-lg border border-white/10 shadow-inner">
-              <Image
-                src="/icons/mcp.png"
-                alt="MCP Logo"
-                width={20}
-                height={20}
-                className="drop-shadow-[0_0_5px_rgba(255,255,255,0.3)]"
-              />
-            </div>
-            <h2 className="text-xl font-semibold text-white text-shadow-sm">
-              Integrate MCP Client
-            </h2>
-          </div>
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={onClose}
-            className="text-neutral-400 hover:text-white hover:bg-white/10 rounded-full"
-          >
-            <X className="w-5 h-5" />
-          </Button>
-        </div>
+        {/* Close Button (Top Right) */}
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={onClose}
+          className="absolute top-6 right-6 z-10 text-neutral-400 hover:text-white hover:bg-white/10 rounded-full"
+        >
+          <X className="w-5 h-5" />
+        </Button>
 
-        {/* Content */}
-        <div className="p-6 space-y-6 overflow-y-auto flex-1 min-h-0">
-          {/* Client Selector */}
-          <section>
-            <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2 text-shadow-sm">
-              <Monitor className="w-5 h-5 text-white drop-shadow-[0_0_8px_rgba(255,255,255,0.5)]" />
-              Select Client
-            </h3>
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
-              {clients.map((client) => (
-                <button
-                  key={client.id}
-                  onClick={() => setSelectedClient(client.id)}
-                  className={`
-                      relative group flex flex-col items-center justify-center p-3 rounded-xl transition-all duration-300 border
+        {/* Master-Details Layout */}
+        <div className="flex flex-1 min-h-0">
+          {/* Master: Client List (Left Sidebar) */}
+          <div className="w-80 border-r-[0.5px] border-white/10 flex-none overflow-y-auto overscroll-none bg-white/[0.015] rounded-l-3xl">
+            <div className="p-6">
+              <div className="flex items-center gap-2 mb-3">
+                <div className="h-2 w-2 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]" />
+                <h3 className="text-xs font-semibold text-neutral-400 uppercase tracking-wider">
+                  Clients
+                </h3>
+              </div>
+              <h2 className="text-2xl font-bold text-white mb-6">
+                Integrations
+              </h2>
+              <div className="space-y-2">
+                {clients.map((client) => (
+                  <button
+                    key={client.id}
+                    onClick={() => setSelectedClient(client.id)}
+                    className={`
+                      w-full flex items-center gap-4 px-4 py-3.5 rounded-xl transition-all duration-200 relative
                       ${
                         selectedClient === client.id
-                          ? "bg-emerald-500/10 border-emerald-500/50 shadow-[0_0_15px_rgba(16,185,129,0.1)] backdrop-blur-sm"
-                          : "bg-white/5 border-white/5 hover:bg-white/10 hover:border-white/20 backdrop-blur-sm"
+                          ? "bg-white/[0.03] border-[0.5px] border-white/[0.05]"
+                          : "hover:bg-white/5"
                       }
                     `}
-                >
-                  <div className="mb-2 transition-transform duration-300 group-hover:scale-110">
+                  >
+                    {selectedClient === client.id && (
+                      <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-5 bg-emerald-500 rounded-full shadow-[0_0_8px_rgba(16,185,129,0.6)]" />
+                    )}
                     {client.icon ? (
-                      <Image
-                        src={client.icon}
-                        alt={client.name}
-                        width={32}
-                        height={32}
-                        className="object-contain drop-shadow-lg"
-                      />
+                      <div
+                        className={`w-10 h-10 flex-shrink-0 relative overflow-hidden rounded-lg border border-white/5 ${
+                          [
+                            "claude-desktop",
+                            "claude-code",
+                            "chatgpt",
+                            "gemini-cli",
+                            "perplexity",
+                          ].includes(client.id)
+                            ? ""
+                            : "bg-white/5 p-1.5"
+                        }`}
+                      >
+                        <Image
+                          src={client.icon}
+                          alt={client.name}
+                          fill
+                          className={`
+                            ${
+                              [
+                                "claude-desktop",
+                                "claude-code",
+                                "chatgpt",
+                                "gemini-cli",
+                                "perplexity",
+                              ].includes(client.id)
+                                ? "object-cover"
+                                : "object-contain"
+                            } ${selectedClient === client.id ? "opacity-100" : "opacity-50 grayscale"}
+                          `}
+                        />
+                      </div>
                     ) : (
-                      <div className="w-8 h-8 flex items-center justify-center text-white/50 bg-white/5 rounded-full border border-white/10 transition-transform duration-300">
-                        <span className="text-sm font-bold">?</span>
+                      <div className="w-7 h-7 flex items-center justify-center text-white/50 bg-white/5 rounded-full border border-white/10 flex-shrink-0">
+                        <span className="text-xs font-bold">?</span>
                       </div>
                     )}
-                  </div>
-                  <span
-                    className={`text-[10px] font-medium text-center transition-colors ${selectedClient === client.id ? "text-emerald-400 text-shadow-emerald" : "text-neutral-400 group-hover:text-white"}`}
-                  >
-                    {client.name}
-                  </span>
-                </button>
-              ))}
-            </div>
-          </section>
-
-          {/* Instructions */}
-          <section>
-            <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2 text-shadow-sm">
-              <FileCode className="w-5 h-5 text-white drop-shadow-[0_0_8px_rgba(255,255,255,0.5)]" />
-              {selectedClient === "codex"
-                ? "Configuration"
-                : selectedClient === "other"
-                  ? "Configuration JSON"
-                  : "Integration Instructions"}
-            </h3>
-
-            <div className="bg-white/5 border border-white/10 rounded-lg p-5 space-y-4 shadow-[inset_0_0_20px_rgba(255,255,255,0.02)] backdrop-blur-sm">
-              {selectedClient === "chatgpt" && (
-                <div className="px-3 py-2 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-xs text-emerald-200">
-                  <p>
-                    Requires Developer Mode.{" "}
-                    <a
-                      href="https://platform.openai.com/docs/guides/developer-mode"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="underline hover:text-white"
+                    <span
+                      className={`text-sm font-medium truncate ${
+                        selectedClient === client.id
+                          ? "text-white"
+                          : "text-neutral-400"
+                      }`}
                     >
-                      Read OpenAI Documentation
-                    </a>
-                  </p>
-                </div>
-              )}
+                      {client.name}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
 
-              {renderInstructions()}
-
-              {/* Hardware / Mode Badge - Show always at the top of integration section */}
-              <div className="bg-emerald-500/5 border border-emerald-500/20 rounded-lg p-4 mb-4">
-                <div className="flex items-start gap-3">
-                  <Info className="h-4 w-4 shrink-0 text-emerald-400 mt-0.5" />
-                  <div className="space-y-1">
-                    <p className="text-sm font-medium text-emerald-200">
-                      {instanceType === "local"
-                        ? "Local Mode Active"
-                        : instanceType === "vps"
-                          ? "Cloud / VPS Mode Active"
-                          : "LAN / RPi Mode Active"}
-                    </p>
-                    <p className="text-xs text-emerald-200/60">
-                      {instanceType === "local"
-                        ? "No token required since you're on the same machine. Just copy the config below."
-                        : instanceType === "vps"
-                          ? "Connect from your laptop using the secure token and LoadBalancer endpoint shown below."
-                          : "Connect from your laptop using the secure token and RPi endpoint shown below."}
-                    </p>
+          {/* Details: Configuration Steps (Right Panel) */}
+          <div className="flex-1 flex flex-col bg-white/[0.032]">
+            <div className="flex-1 overflow-y-auto overscroll-none p-8">
+              {/* Client Header */}
+              <div className="flex items-center gap-4">
+                {selectedConfig?.icon && (
+                  <div className="w-14 h-14 flex-shrink-0 relative overflow-hidden">
+                    <Image
+                      src={selectedConfig.icon}
+                      alt={selectedConfig.name}
+                      fill
+                      className={
+                        [
+                          "claude-desktop",
+                          "claude-code",
+                          "chatgpt",
+                          "gemini-cli",
+                          "perplexity",
+                        ].includes(selectedClient)
+                          ? "object-cover"
+                          : "object-contain"
+                      }
+                    />
                   </div>
+                )}
+                <div>
+                  <h3 className="text-2xl font-bold text-white">
+                    {selectedConfig?.name}
+                  </h3>
+                  <p className="text-sm text-neutral-400 uppercase tracking-wider">
+                    Integrate MCP Client
+                  </p>
                 </div>
               </div>
 
-              {/* API Key Control Row - Only show in remote mode */}
-              {!isManaged && (
-                <div className="bg-white/5 border border-white/10 rounded-lg p-5 space-y-4 shadow-[inset_0_0_20px_rgba(255,255,255,0.02)] backdrop-blur-sm mb-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="mcp-api-key" className="text-neutral-200">
-                      Security Token
-                    </Label>
-                    <div className="flex gap-2">
-                      <div className="relative flex-1">
-                        <Input
-                          id="mcp-api-key"
-                          value={apiKey || "sk-not-generated-yet"}
-                          readOnly
-                          className="bg-black/40 border-white/10 text-white focus-visible:border-emerald-500/30 focus-visible:ring-emerald-500/10 placeholder:text-neutral-600 shadow-inner pr-10 font-mono"
-                          type={isKeyVisible ? "text" : "password"}
-                        />
-                        <button
-                          type="button"
-                          onClick={() => setIsKeyVisible(!isKeyVisible)}
-                          className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-white transition-colors"
-                        >
-                          {isKeyVisible ? (
-                            <EyeOff className="w-4 h-4" />
-                          ) : (
-                            <Eye className="w-4 h-4" />
-                          )}
-                        </button>
-                      </div>
-                      <Button
-                        size="icon"
-                        variant="ghost"
-                        className="h-10 w-10 border border-white/10 bg-white/5 hover:bg-white/10 text-neutral-400 hover:text-white"
-                        onClick={() => copyToClipboard(apiKey, "apikey")}
-                        title="Copy API Key"
-                      >
-                        {copiedId === "apikey" ? (
-                          <Check className="h-4 w-4 text-emerald-400" />
-                        ) : (
-                          <Copy className="h-4 w-4" />
-                        )}
-                      </Button>
+              <div className="space-y-0 pt-2">
+                {selectedConfig?.steps?.map((step: string, index: number) => (
+                  <div
+                    key={index}
+                    className="relative flex items-start gap-4 pb-4 group/step"
+                  >
+                    {/* Vertical Line - Digit to Digit */}
+                    {index < (selectedConfig?.steps?.length || 0) - 1 && (
+                      <div className="absolute top-6 bottom-0 left-[11.5px] w-px bg-emerald-500/20" />
+                    )}
+
+                    {/* Step Number */}
+                    <div className="flex-shrink-0 flex items-center justify-center w-6 h-6 rounded-full bg-emerald-500/20 border border-emerald-500/50 text-emerald-400 text-xs font-bold z-10">
+                      {index + 1}
                     </div>
 
-                    {/* Regeneration Controls */}
-                    <div className="flex justify-end pt-2">
-                      {showRegenConfirm ? (
-                        <div className="flex items-center gap-2 animate-in fade-in slide-in-from-right-4 duration-200">
-                          <span className="text-xs text-red-400 font-medium">
-                            Warning: Disconnects clients.
-                          </span>
-                          <Input
-                            value={regenInputValue}
-                            onChange={(e) => setRegenInputValue(e.target.value)}
-                            placeholder="Type 'agree'"
-                            className="h-8 w-28 bg-red-500/10 border-red-500/30 text-red-200 text-xs placeholder:text-red-500/30 focus-visible:border-red-500/50"
-                          />
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            className="h-8 px-3 text-neutral-400 hover:text-white hover:bg-white/10"
-                            onClick={() => {
-                              setShowRegenConfirm(false);
-                              setRegenInputValue("");
-                            }}
-                          >
-                            Cancel
-                          </Button>
-                          <Button
-                            size="sm"
-                            disabled={regenInputValue !== "agree"}
-                            className="h-8 px-3 bg-red-500/20 text-red-400 hover:bg-red-500/30 border border-red-500/20 disabled:opacity-50 disabled:cursor-not-allowed"
-                            onClick={confirmRegenerate}
-                          >
-                            Confirm
-                          </Button>
-                        </div>
-                      ) : (
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          className="h-8 px-2 text-neutral-400 hover:text-white hover:bg-white/10"
-                          onClick={() => setShowRegenConfirm(true)}
-                        >
-                          Regenerate Key
-                        </Button>
-                      )}
+                    {/* Step Text */}
+                    <div
+                      className="flex-1 text-sm text-neutral-300 leading-relaxed"
+                      dangerouslySetInnerHTML={{
+                        __html: step
+                          .replace(
+                            /\*\*(.+?)\*\*/g,
+                            '<strong class="text-white font-semibold">$1</strong>',
+                          )
+                          .replace(
+                            /`(.+?)`/g,
+                            '<code class="px-1.5 py-0.5 rounded bg-white/10 text-emerald-400 font-mono text-xs">$1</code>',
+                          ),
+                      }}
+                    />
+                  </div>
+                ))}
+              </div>
+
+              {/* Config Code Block */}
+              <div className="relative group w-full overflow-hidden border border-white/10 rounded-lg shadow-[0_20px_50px_rgba(0,0,0,0.5)]">
+                {/* macOS-style Window Chrome (Finder style) */}
+                <div className="relative rounded-t-lg bg-[#05100F] px-4 py-4 flex items-center justify-between border-b border-white/[0.03]">
+                  <div className="flex items-center gap-4">
+                    {/* Traffic Lights */}
+                    <div className="flex items-center gap-2">
+                      <div className="w-3 h-3 rounded-full bg-[#FF5F57] shadow-sm" />
+                      <div className="w-3 h-3 rounded-full bg-[#FEBC2E] shadow-sm" />
+                      <div className="w-3 h-3 rounded-full bg-[#28C840] shadow-sm" />
+                    </div>
+
+                    {/* Title */}
+                    <div className="text-sm text-white font-semibold">
+                      {(() => {
+                        const config = (clients as any[]).find(
+                          (c) => c.id === selectedClient,
+                        );
+                        if (
+                          ["claude-code", "gemini-cli"].includes(selectedClient)
+                        )
+                          return "Terminal";
+                        if (config?.filename) return config.filename;
+                        if (
+                          config?.configType === "command" ||
+                          config?.configType === "cmd"
+                        )
+                          return "Terminal";
+                        return "mcp.json";
+                      })()}
                     </div>
                   </div>
-                </div>
-              )}
 
-              <div className="relative group">
-                <div className="relative pl-5 py-5 pr-24 rounded-lg bg-[#0F161C] border border-white/10 font-mono text-xs md:text-sm text-white overflow-x-auto shadow-[0_0_20px_rgba(0,0,0,0.3)] inset-shadow">
-                  <pre className="text-shadow-sm">
-                    {(() => {
+                  {/* Header Controls (Finder style) */}
+                  <div className="flex items-center gap-2">
+                    {/* Unhide Token Button */}
+                    {!isManaged && (
+                      <button
+                        type="button"
+                        onClick={() => setIsKeyVisible(!isKeyVisible)}
+                        className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 transition-all text-xs font-medium text-neutral-300 hover:text-white"
+                        title="Unhide Token"
+                      >
+                        {isKeyVisible ? (
+                          <EyeOff className="w-3.5 h-3.5" />
+                        ) : (
+                          <Eye className="w-3.5 h-3.5" />
+                        )}
+                        <span>Unhide Token</span>
+                        <div
+                          className={`relative inline-flex h-3.5 w-6.5 items-center rounded-full transition-colors ml-1 ${
+                            isKeyVisible ? "bg-emerald-500" : "bg-neutral-600"
+                          }`}
+                        >
+                          <span
+                            className={`inline-block h-2.5 w-2.5 transform rounded-full bg-white transition-transform ${
+                              isKeyVisible
+                                ? "translate-x-3.5"
+                                : "translate-x-0.5"
+                            }`}
+                          />
+                        </div>
+                      </button>
+                    )}
+
+                    {/* Copy Button */}
+                    <button
+                      onClick={() =>
+                        copyToClipboard(getConfigContent(false), "config")
+                      }
+                      className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 transition-all text-xs font-medium text-neutral-300 hover:text-white"
+                      title="Copy"
+                    >
+                      {copiedId === "config" ? (
+                        <>
+                          <Check className="w-3.5 h-3.5 text-emerald-400" />
+                          <span className="text-emerald-400">Copied</span>
+                        </>
+                      ) : (
+                        <>
+                          <Copy className="w-3.5 h-3.5" />
+                          <span>Copy</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </div>
+
+                {/* Code Block Content */}
+                <div className="relative">
+                  <div
+                    className={`relative rounded-b-lg bg-[#05100F] font-mono text-xs md:text-sm text-white overflow-x-auto ${(() => {
                       const config = (clients as any[]).find(
                         (c) => c.id === selectedClient,
                       );
-                      if (config?.configType === "json") {
-                        return (
-                          <code
-                            dangerouslySetInnerHTML={{
-                              __html: highlightJSON(
-                                JSON.parse(getConfigContent(!isKeyVisible)),
-                              ),
-                            }}
-                          />
-                        );
-                      } else {
-                        return getConfigContent(!isKeyVisible);
-                      }
-                    })()}
-                  </pre>
-                </div>
-                <div className="absolute top-5 right-4 opacity-0 group-hover:opacity-100 transition-opacity">
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    className="h-8 px-3 text-white bg-black/40 backdrop-blur border border-white/5 shadow-[0_0_10px_rgba(255,255,255,0.05)] hover:bg-white/10 hover:text-white font-medium"
-                    onClick={() =>
-                      copyToClipboard(getConfigContent(false), "config")
-                    }
+                      return config?.configType === "command" ||
+                        config?.configType === "cmd"
+                        ? "px-4 py-3"
+                        : "pl-5 py-5 pr-5";
+                    })()}`}
                   >
-                    {copiedId === "config" ? (
-                      <Check className="h-4 w-4 stroke-[2.5] text-emerald-400 mr-2 drop-shadow-[0_0_5px_rgba(52,211,153,0.5)]" />
-                    ) : (
-                      <Copy className="h-4 w-4 stroke-[2.5] mr-2 text-white drop-shadow-[0_0_5px_rgba(255,255,255,0.3)]" />
-                    )}
-                    {copiedId === "config" ? (
-                      <span className="text-emerald-400 text-shadow-sm">
-                        Copied
-                      </span>
-                    ) : (
-                      <span className="text-white text-shadow-sm">Copy</span>
-                    )}
-                  </Button>
+                    <pre className="text-shadow-sm">
+                      {(() => {
+                        const config = (clients as any[]).find(
+                          (c) => c.id === selectedClient,
+                        );
+                        if (config?.configType === "json") {
+                          return (
+                            <code
+                              dangerouslySetInnerHTML={{
+                                __html: highlightJSON(
+                                  JSON.parse(getConfigContent(!isKeyVisible)),
+                                ),
+                              }}
+                            />
+                          );
+                        } else {
+                          const config = (clients as any[]).find(
+                            (c) => c.id === selectedClient,
+                          );
+                          const isCommand =
+                            config?.configType === "command" ||
+                            config?.configType === "cmd";
+
+                          return (
+                            <code className="whitespace-pre-wrap break-all flex items-start gap-2">
+                              {isCommand && (
+                                <Terminal className="w-4 h-4 mt-0.5 flex-shrink-0 text-emerald-400" />
+                              )}
+                              <span>{getConfigContent(!isKeyVisible)}</span>
+                            </code>
+                          );
+                        }
+                      })()}
+                    </pre>
+                  </div>
                 </div>
               </div>
-
-              {!isManaged && (
-                <div className="flex items-start gap-3 p-3 rounded-lg bg-emerald-500/5 border border-emerald-500/10 text-emerald-200/70 text-xs mt-4">
-                  <Info className="h-4 w-4 shrink-0 text-white mt-0.5" />
-                  <p>
-                    This configuration includes your generated Security Token.
-                    Keep it secure and do not share it publicly.
-                  </p>
-                </div>
-              )}
             </div>
-          </section>
-        </div>
 
-        {/* Footer */}
-        <div className="border-t border-emerald-500/20 px-6 py-4 flex justify-end gap-3 flex-none bg-[#0B1116]/30">
-          <Button
-            asChild
-            variant="ghost"
-            className="bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/20 text-emerald-400 hover:text-emerald-300 mr-auto"
-          >
-            <a href="https://docs.cybermem.dev" target="_blank">
-              Read Documentation
-            </a>
-          </Button>
-          <Button
-            onClick={onClose}
-            className="bg-white/5 hover:bg-white/10 border border-white/10 text-neutral-300 transition-colors"
-          >
-            Close
-          </Button>
+            {/* Footer - Pinned in details column */}
+            <div className="border-t-[0.5px] border-white/10 px-8 py-4 flex justify-end gap-3 flex-none">
+              <Button
+                asChild
+                variant="ghost"
+                className="bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/20 text-emerald-400 hover:text-emerald-300 mr-auto"
+              >
+                <a href="https://docs.cybermem.dev" target="_blank">
+                  Read Documentation
+                </a>
+              </Button>
+              <Button
+                onClick={onClose}
+                className="bg-white/5 hover:bg-white/10 border border-white/10 text-neutral-300 transition-colors"
+              >
+                Close
+              </Button>
+            </div>
+          </div>
         </div>
       </div>
     </div>

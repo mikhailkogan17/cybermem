@@ -17,8 +17,14 @@ export default function DashboardPage() {
   const [data, setData] = useState<DashboardData | null>(null);
   const [showSettings, setShowSettings] = useState(false);
   const [showMCPConfig, setShowMCPConfig] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [sortField, setSortField] = useState("date");
+  const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc");
+
   const params = useSearchParams();
   const router = useRouter();
+
+  const pageSize = 10;
 
   useEffect(() => {
     async function fetchData() {
@@ -44,6 +50,23 @@ export default function DashboardPage() {
       router.replace(`/?${newParams.toString()}`);
     }
   }, [params, router]);
+
+  // Handle sorting locally for now since we have a limited set (100 logs)
+  const sortedLogs = data?.logs
+    ? [...data.logs].sort((a: any, b: any) => {
+        const aVal = a[sortField];
+        const bVal = b[sortField];
+
+        if (aVal < bVal) return sortDirection === "asc" ? -1 : 1;
+        if (aVal > bVal) return sortDirection === "asc" ? 1 : -1;
+        return 0;
+      })
+    : [];
+
+  const paginatedLogs = sortedLogs.slice(
+    (currentPage - 1) * pageSize,
+    currentPage * pageSize,
+  );
 
   // Transform data for MetricsGrid
   const metricsStats = data
@@ -113,14 +136,21 @@ export default function DashboardPage() {
         />
         <ChartsSection period="all" />
         <AuditLogTable
-          logs={data?.logs || []}
+          logs={paginatedLogs}
           loading={!data}
-          currentPage={1}
-          totalPages={1}
-          onPageChange={() => {}}
-          sortField="date"
-          sortDirection="desc"
-          onSort={() => {}}
+          currentPage={currentPage}
+          totalPages={Math.ceil((data?.logs.length || 0) / pageSize)}
+          onPageChange={setCurrentPage}
+          sortField={sortField}
+          sortDirection={sortDirection}
+          onSort={(field) => {
+            if (field === sortField) {
+              setSortDirection(sortDirection === "asc" ? "desc" : "asc");
+            } else {
+              setSortField(field);
+              setSortDirection("desc");
+            }
+          }}
         />
       </div>
 
