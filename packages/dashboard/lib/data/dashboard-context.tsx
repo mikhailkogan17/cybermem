@@ -14,6 +14,8 @@ interface ClientConfig {
   description: string;
   steps: string[];
   configType: string;
+  isComingSoon?: boolean;
+  path?: string;
 }
 
 interface ServiceStatus {

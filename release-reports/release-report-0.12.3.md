@@ -73,7 +73,7 @@
 
 ## 4. Remote: RPi Tailscale Staging (`rpi.ts.net`)
 **Status**: ✅ Connectivity OK (401 Verified)
-**URL**: `https://raspberrypi.tail7242ed.ts.net/cybermem-staging`
+**URL**: `https://raspberrypi.ts.net`
 
 #### 4.1 Dashboard (`4.1_dashboard.png`)
 ![4.1 Dashboard](release-report-0.12.3-assets/4.1_dashboard.png)

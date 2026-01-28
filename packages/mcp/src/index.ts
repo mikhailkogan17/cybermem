@@ -1,12 +1,5 @@
 #!/usr/bin/env node
 import "./env.js";
-/**
- * CyberMem MCP Server
- *
- * Supports two modes:
- * 1. Local/Server Mode (default): Uses openmemory-js SDK directly.
- * 2. Remote Client Mode (with --url): Proxies requests to a remote CyberMem server via HTTP.
- */
 
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
@@ -22,7 +15,6 @@ import { z } from "zod";
 const originalStdoutWrite = process.stdout.write.bind(process.stdout);
 (process.stdout as any).write = (chunk: any, encoding: any, callback: any) => {
   const str = typeof chunk === "string" ? chunk : chunk.toString();
-  // Allow ONLY protocol messages (must be JSON-RPC)
   if (str.includes('"jsonrpc":')) {
     return originalStdoutWrite(chunk, encoding, callback);
   }
@@ -66,12 +58,14 @@ async function startServer() {
   const CYBERMEM_INSTRUCTIONS = `CyberMem is a persistent context daemon for AI agents.
 PROTOCOL:
 1. On session start: call query_memory("user context profile")
-2. Store new insights immediately with add_memory (FULL content)
-3. Always include tags: [topic, year, source:your-client-name]
+2. Store new insights immediately with add_memory (STABLE data)
+3. For corrections: use update_memory (STRUCTURAL mutation, high cost)
+4. To prevent decay: use reinforce_memory (METABOLIC boost, low cost)
+5. Always include tags: [topic, year, source:your-client-name]
 For full protocol: https://docs.cybermem.dev/agent-protocol`;
 
   const server = new McpServer(
-    { name: "cybermem", version: "0.7.5" },
+    { name: "cybermem", version: "0.12.4" },
     {
       instructions: CYBERMEM_INSTRUCTIONS,
     },
@@ -105,7 +99,7 @@ For full protocol: https://docs.cybermem.dev/agent-protocol`;
       },
       serverInfo: {
         name: "cybermem",
-        version: "0.7.5",
+        version: "0.12.4",
       },
     };
   });
@@ -114,6 +108,8 @@ For full protocol: https://docs.cybermem.dev/agent-protocol`;
 
   let memory: any = null;
   let apiClient: any = null;
+  let sdk_update_memory: any = null;
+  let sdk_reinforce_memory: any = null;
 
   if (cliUrl) {
     // REMOTE CLIENT MODE
@@ -126,7 +122,6 @@ For full protocol: https://docs.cybermem.dev/agent-protocol`;
         "Content-Type": "application/json",
       },
     });
-    // Dynamically inject client name from context or discovery
     apiClient.interceptors.request.use((config: any) => {
       const ctx = requestContext.getStore();
       config.headers["X-Client-Name"] =
@@ -135,10 +130,7 @@ For full protocol: https://docs.cybermem.dev/agent-protocol`;
     });
   } else {
     // LOCAL SDK MODE
-    // DB Path is now normalized in env.ts
     const dbPath = process.env.OM_DB_PATH!;
-
-    // Ensure directory exists
     const fs = await import("fs");
     const path = await import("path");
     try {
@@ -147,74 +139,21 @@ For full protocol: https://docs.cybermem.dev/agent-protocol`;
     } catch {}
 
     try {
-      // Dynamic import to ensure env vars are set before loading SDK
-      // We import from dist/core/memory directly to avoid triggering the server side-effects in openmemory-js/dist/index.js
-      // @ts-ignore
       const { Memory } = await import("openmemory-js/dist/core/memory.js");
+      const hsg = await import("openmemory-js/dist/memory/hsg.js");
+      sdk_update_memory = hsg.update_memory;
+      sdk_reinforce_memory = hsg.reinforce_memory;
       memory = new Memory();
       (server as any)._memoryReady = true;
 
-      // --- INITIALIZE LOGGING TABLES ---
+      // Initialize Tables
       const sqlite3 = await import("sqlite3");
       const db = new sqlite3.default.Database(dbPath);
       db.configure("busyTimeout", 5000);
       db.serialize(() => {
-        // --- 1. Infrastructure Tables ---
-        db.run(`CREATE TABLE IF NOT EXISTS cybermem_stats (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            client_name TEXT NOT NULL,
-            operation TEXT NOT NULL,
-            count INTEGER DEFAULT 0,
-            errors INTEGER DEFAULT 0,
-            last_updated INTEGER NOT NULL,
-            UNIQUE(client_name, operation)
-        );`);
-
-        db.run(`CREATE TABLE IF NOT EXISTS cybermem_access_log (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            timestamp INTEGER NOT NULL,
-            client_name TEXT NOT NULL,
-            client_version TEXT,
-            method TEXT NOT NULL,
-            endpoint TEXT NOT NULL,
-            operation TEXT NOT NULL,
-            status TEXT NOT NULL,
-            is_error INTEGER DEFAULT 0
-        );`);
-
-        db.run(`CREATE TABLE IF NOT EXISTS access_keys (
-            id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
-            key_hash TEXT NOT NULL,
-            name TEXT DEFAULT 'default',
-            user_id TEXT DEFAULT 'default',
-            created_at TEXT DEFAULT (datetime('now')),
-            last_used_at TEXT,
-            is_active INTEGER DEFAULT 1
-        );`);
-
-        // --- 2. Dynamic Migrations (Resilience Layer) ---
-        // We only add columns if they are missing. We don't block the startup.
-        const migrations = [
-          {
-            table: "access_keys",
-            col: "user_id",
-            def: "TEXT DEFAULT 'default'",
-          },
-          { table: "access_keys", col: "last_used_at", def: "TEXT" },
-          { table: "memories", col: "user_id", def: "TEXT" },
-          { table: "vectors", col: "user_id", def: "TEXT" },
-          { table: "waypoints", col: "user_id", def: "TEXT" },
-          { table: "memories", col: "feedback_score", def: "REAL DEFAULT 0" },
-        ];
-
-        for (const m of migrations) {
-          db.run(
-            `ALTER TABLE ${m.table} ADD COLUMN ${m.col} ${m.def};`,
-            (err: any) => {
-              // Silently ignore if column already exists (SQLITE_ERROR: duplicate column name)
-            },
-          );
-        }
+        db.run("CREATE TABLE IF NOT EXISTS cybermem_stats (id INTEGER PRIMARY KEY AUTOINCREMENT, client_name TEXT NOT NULL, operation TEXT NOT NULL, count INTEGER DEFAULT 0, errors INTEGER DEFAULT 0, last_updated INTEGER NOT NULL, UNIQUE(client_name, operation));");
+        db.run("CREATE TABLE IF NOT EXISTS cybermem_access_log (id INTEGER PRIMARY KEY AUTOINCREMENT, timestamp INTEGER NOT NULL, client_name TEXT NOT NULL, client_version TEXT, method TEXT NOT NULL, endpoint TEXT NOT NULL, operation TEXT NOT NULL, status TEXT NOT NULL, is_error INTEGER DEFAULT 0);");
+        db.run("CREATE TABLE IF NOT EXISTS access_keys (id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))), key_hash TEXT NOT NULL, name TEXT DEFAULT 'default', user_id TEXT DEFAULT 'default', created_at TEXT DEFAULT (datetime('now')), last_used_at TEXT, is_active INTEGER DEFAULT 1);");
       });
       db.close();
     } catch (e) {
@@ -223,7 +162,7 @@ For full protocol: https://docs.cybermem.dev/agent-protocol`;
     }
   }
 
-  // --- PERSISTENT LOGGING DB ---
+  // PERSISTENT LOGGING DB
   let loggingDb: any = null;
   const initLoggingDb = async () => {
     if (loggingDb || cliUrl) return loggingDb;
@@ -239,527 +178,181 @@ For full protocol: https://docs.cybermem.dev/agent-protocol`;
     });
   };
 
-  // Helper to log activity to SQLite (Local SDK Mode only)
   const logActivity = async (
     operation: string,
-    opts: {
-      client?: string;
-      method?: string;
-      endpoint?: string;
-      status?: number;
-    } = {},
+    opts: { client?: string; method?: string; endpoint?: string; status?: number } = {},
   ) => {
     if (cliUrl || !memory) return;
-
-    const {
-      client: providedClient,
-      method = "POST",
-      endpoint = "/mcp",
-      status = 200,
-    } = opts;
-
+    const { client: providedClient, method = "POST", endpoint = "/mcp", status = 200 } = opts;
     const ctx = requestContext.getStore();
-    const client =
-      providedClient ||
-      ctx?.clientName ||
-      stdioClientName ||
-      "antigravity-client";
-
+    const client = providedClient || ctx?.clientName || stdioClientName || "antigravity-client";
     try {
-      const db = await initLoggingDb();
+      const db = await initLoggingDb() as any;
       const ts = Date.now();
       const is_error = status >= 400 ? 1 : 0;
-
-      console.error(
-        `[MCP] Logging ${operation} for ${client} (status: ${status})`,
-      );
-
       db.serialize(() => {
-        // Log to access_log
-        db.run(
-          `INSERT INTO cybermem_access_log
-          (timestamp, client_name, client_version, method, endpoint, operation, status, is_error)
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-          [
-            ts,
-            client,
-            "0.7.0",
-            method,
-            endpoint,
-            operation,
-            status.toString(),
-            is_error,
-          ],
-        );
-
-        // Log to stats (Upsert)
-        db.run(
-          `INSERT INTO cybermem_stats (client_name, operation, count, errors, last_updated)
-          VALUES (?, ?, 1, ?, ?)
-          ON CONFLICT(client_name, operation) DO UPDATE SET
-            count = count + 1,
-            errors = errors + ?,
-            last_updated = ?`,
-          [client, operation, is_error, ts, is_error, ts],
-        );
+        db.run("INSERT INTO cybermem_access_log (timestamp, client_name, client_version, method, endpoint, operation, status, is_error) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+          [ts, client, "0.12.4", method, endpoint, operation, status.toString(), is_error]);
+        db.run("INSERT INTO cybermem_stats (client_name, operation, count, errors, last_updated) VALUES (?, ?, 1, ?, ?) ON CONFLICT(client_name, operation) DO UPDATE SET count = count + 1, errors = errors + ?, last_updated = ?",
+          [client, operation, is_error, ts, is_error, ts]);
       });
-    } catch (e) {
-      console.error("Failed to log activity to SQLite:", e);
+    } catch {}
+  };
+
+  // TOOLS
+  server.registerTool("add_memory", {
+    description: "Store a new memory. Use for high-quality, stable data. " + CYBERMEM_INSTRUCTIONS,
+    inputSchema: z.object({ content: z.string(), tags: z.array(z.string()).optional() }),
+  }, async (args: any) => {
+    if (cliUrl) {
+      const res = await apiClient.post("/add", args);
+      return { content: [{ type: "text", text: JSON.stringify(res.data) }] };
+    } else {
+      const res = await memory!.add(args.content, { tags: args.tags });
+      await logActivity("create", { method: "POST", endpoint: "/memory/add", status: 200 });
+      return { content: [{ type: "text", text: JSON.stringify(res) }] };
     }
-  };
+  });
 
-  const addSourceTag = (tags: string[] = []) => {
-    if (!tags.some((t) => t.startsWith("source:"))) {
-      const clientName =
-        requestContext.getStore()?.clientName || stdioClientName || "unknown";
-      tags.push(`source:${clientName}`);
+  server.registerTool("query_memory", {
+    description: "Search memories.",
+    inputSchema: z.object({ query: z.string(), k: z.number().default(5) }),
+  }, async (args: any) => {
+    if (cliUrl) {
+      const res = await apiClient.post("/query", args);
+      return { content: [{ type: "text", text: JSON.stringify(res.data) }] };
+    } else {
+      const res = await memory!.search(args.query, { limit: args.k });
+      await logActivity("read", { method: "POST", endpoint: "/memory/query", status: 200 });
+      return { content: [{ type: "text", text: JSON.stringify(res) }] };
     }
-    return tags;
-  };
+  });
 
-  // Helper to get current User ID from context or args
-  const getContextUserId = (argsUserId?: string) => {
-    const store = requestContext.getStore();
-    return argsUserId || store?.userId;
-  };
+  server.registerTool("update_memory", {
+    description: "Mutate existing memory (content/tags). HIGH COST: re-embeds and re-links. Use for corrections.",
+    inputSchema: z.object({ id: z.string(), content: z.string().optional(), tags: z.array(z.string()).optional() }),
+  }, async (args: any) => {
+    if (cliUrl) {
+      const res = await apiClient.patch(`/memory/${args.id}`, args);
+      return { content: [{ type: "text", text: JSON.stringify(res.data) }] };
+    } else {
+      if (!sdk_update_memory) throw new Error("Update not available in SDK");
+      const res = await sdk_update_memory(args.id, args.content, args.tags);
+      await logActivity("update", { method: "PATCH", endpoint: `/memory/${args.id}`, status: 200 });
+      return { content: [{ type: "text", text: JSON.stringify(res) }] };
+    }
+  });
 
-  // --- TOOLS ---
-
-  server.registerTool(
-    "add_memory",
-    {
-      description: "Store a new memory. " + CYBERMEM_INSTRUCTIONS,
-      inputSchema: z.object({
-        content: z.string(),
-        user_id: z.string().optional(),
-        tags: z.array(z.string()).optional(),
-      }),
-    },
-    async (args: any) => {
-      const tags = addSourceTag(args.tags);
-      const userId = getContextUserId(args.user_id);
-
+  server.registerTool("reinforce_memory", {
+    description: "Metabolic boost (salience). LOW COST: prevents decay without mutation. Use for active topics.",
+    inputSchema: z.object({ id: z.string(), boost: z.number().default(0.1) }),
+  }, async (args: any) => {
       if (cliUrl) {
-        const res = await apiClient.post("/add", {
-          ...args,
-          user_id: userId,
-          tags,
-        });
-        return { content: [{ type: "text", text: JSON.stringify(res.data) }] };
+          const res = await apiClient.post(`/memory/${args.id}/reinforce`, args);
+          return { content: [{ type: "text", text: JSON.stringify(res.data) }] };
       } else {
-        try {
-          const res = await memory!.add(args.content, {
-            user_id: userId,
-            tags,
-          });
-          await logActivity("create", {
-            method: "POST",
-            endpoint: "/memory/add",
-            status: 200,
-          });
-          return { content: [{ type: "text", text: JSON.stringify(res) }] };
-        } catch (e: any) {
-          await logActivity("create", {
-            method: "POST",
-            endpoint: "/memory/add",
-            status: 500,
-          });
-          throw e;
-        }
+          if (!sdk_reinforce_memory) throw new Error("Reinforce not available in SDK");
+          await sdk_reinforce_memory(args.id, args.boost);
+          await logActivity("update", { method: "POST", endpoint: `/memory/${args.id}/reinforce`, status: 200 });
+          return { content: [{ type: "text", text: "Reinforced" }] };
       }
-    },
-  );
+  });
 
-  server.registerTool(
-    "query_memory",
-    {
-      description: "Search memories.",
-      inputSchema: z.object({ query: z.string(), k: z.number().default(5) }),
-    },
-    async (args: any) => {
-      const userId = getContextUserId(); // Search is scoped to user if provided
-
-      if (cliUrl) {
-        const res = await apiClient.post("/query", args);
-        return { content: [{ type: "text", text: JSON.stringify(res.data) }] };
-      } else {
-        try {
-          const res = await memory!.search(args.query, {
-            limit: args.k,
-            user_id: userId,
-          });
-          await logActivity("read", {
-            method: "POST",
-            endpoint: "/memory/query",
-            status: 200,
-          });
-          return { content: [{ type: "text", text: JSON.stringify(res) }] };
-        } catch (e: any) {
-          await logActivity("read", {
-            method: "POST",
-            endpoint: "/memory/query",
-            status: 500,
-          });
-          throw e;
-        }
-      }
-    },
-  );
-
-  server.registerTool(
-    "list_memories",
-    {
-      description: "List recent memories",
-      inputSchema: z.object({ limit: z.number().default(10) }),
-    },
-    async (args) => {
-      const userId = getContextUserId();
-
-      if (cliUrl) {
-        try {
-          const res = await apiClient.get(`/all?limit=${args.limit}`);
-          return {
-            content: [{ type: "text", text: JSON.stringify(res.data) }],
-          };
-        } catch {
-          const res = await apiClient.post("/query", {
-            query: "",
-            k: args.limit,
-          });
-          return {
-            content: [{ type: "text", text: JSON.stringify(res.data) }],
-          };
-        }
-      } else {
-        const res = await memory!.search("", {
-          limit: args.limit,
-          user_id: userId,
-        });
-        await logActivity("read", {
-          method: "GET",
-          endpoint: "/memory/all",
-          status: 200,
-        });
-        return { content: [{ type: "text", text: JSON.stringify(res) }] };
-      }
-    },
-  );
-
-  server.registerTool(
-    "delete_memory",
-    {
-      description: "Delete memory by ID",
-      inputSchema: z.object({ id: z.string() }),
-    },
-    async (args: any) => {
-      if (cliUrl) {
-        const res = await apiClient.delete(`/${args.id}`);
-        return { content: [{ type: "text", text: JSON.stringify(res.data) }] };
-      } else {
-        const dbPath = process.env.OM_DB_PATH!;
-        const sqlite3 = await import("sqlite3");
-        const db = new sqlite3.default.Database(dbPath);
-        db.configure("busyTimeout", 5000);
-
-        return new Promise((resolve, reject) => {
-          db.serialize(() => {
-            db.run("BEGIN TRANSACTION");
-            db.run("DELETE FROM memories WHERE id = ?", [args.id]);
-            db.run("DELETE FROM vectors WHERE id = ?", [args.id]);
-            db.run("DELETE FROM waypoints WHERE src_id = ? OR dst_id = ?", [
-              args.id,
-              args.id,
-            ]);
-            db.run("COMMIT", async (err: any) => {
-              db.close();
-              if (err) {
-                await logActivity("delete", {
-                  method: "DELETE",
-                  endpoint: `/memory/${args.id}`,
-                  status: 500,
-                });
-                reject(
-                  new Error(
-                    `Failed to delete memory ${args.id}: ${err.message}`,
-                  ),
-                );
-              } else {
-                await logActivity("delete", {
-                  method: "DELETE",
-                  endpoint: `/memory/${args.id}`,
-                  status: 200,
-                });
-                resolve({
-                  content: [
-                    { type: "text", text: `Memory ${args.id} deleted` },
-                  ],
-                });
-              }
-            });
+  server.registerTool("delete_memory", {
+    description: "Delete memory",
+    inputSchema: z.object({ id: z.string() }),
+  }, async (args: any) => {
+    if (cliUrl) {
+      const res = await apiClient.delete(`/memory/${args.id}`);
+      return { content: [{ type: "text", text: JSON.stringify(res.data) }] };
+    } else {
+      const dbPath = process.env.OM_DB_PATH!;
+      const sqlite3 = await import("sqlite3");
+      const db = new sqlite3.default.Database(dbPath);
+      return new Promise((resolve, reject) => {
+        db.serialize(() => {
+          db.run("DELETE FROM memories WHERE id = ?", [args.id]);
+          db.run("DELETE FROM vectors WHERE id = ?", [args.id], async (err: any) => {
+            db.close();
+            await logActivity("delete", { method: "DELETE", endpoint: `/memory/${args.id}`, status: err ? 500 : 200 });
+            if (err) reject(err); else resolve({ content: [{ type: "text", text: "Deleted" }] });
           });
         });
-      }
-    },
-  );
-
-  server.registerTool(
-    "update_memory",
-    {
-      description: "Update memory",
-      inputSchema: z.object({ id: z.string(), content: z.string().optional() }),
-    },
-    async (args: any) => {
-      await logActivity("update", {
-        method: "PATCH",
-        endpoint: `/memory/${args.id}`,
-        status: 501,
       });
-      return { content: [{ type: "text", text: "Update not implemented" }] };
-    },
-  );
+    }
+  });
 
-  // --- TRANSPORT ---
-
+  // EXPRESS SERVER
   const useHttp = args.includes("--http") || args.includes("--port");
-
   if (useHttp) {
     const port = parseInt(getArg("--port") || "3100", 10);
     const app = express();
-    app.use(cors());
-    app.use(express.json());
+    app.use(cors()); app.use(express.json());
+    app.get("/health", (req, res) => res.json({ ok: true, version: "0.12.4" }));
 
-    app.get("/health", (req: express.Request, res: express.Response) =>
-      res.json({
-        ok: (server as any)._memoryReady,
-        version: "0.7.5",
-        mode: cliUrl ? "proxy" : "sdk",
-        ready: (server as any)._memoryReady,
-      }),
-    );
+    app.use((req, res, next) => {
+      const clientName = (req.headers["x-client-name"] as string) || "antigravity-client";
+      requestContext.run({ clientName }, next);
+      // next(); // DELETED! Correctly handled by requestContext.run
+    });
 
-    app.get("/metrics", async (req: express.Request, res: express.Response) => {
-      try {
+    if (!cliUrl && memory) {
+      app.post("/add", async (req, res) => {
+        try {
+          const result = await (memory as any)!.add(req.body.content, { id: req.body.id, tags: req.body.tags });
+          await logActivity("create", { method: "POST", endpoint: "/add", status: 200 });
+          res.json(result);
+        } catch (e: any) { res.status(500).json({ error: e.message }); }
+      });
+      app.post("/query", async (req, res) => {
+        try {
+          const result = await memory!.search(req.body.query || "", { limit: req.body.k || 5 });
+          await logActivity("read", { method: "POST", endpoint: "/query", status: 200 });
+          res.json(result);
+        } catch (e: any) { res.status(500).json({ error: e.message }); }
+      });
+      app.get("/all", async (req, res) => {
+        try {
+          const result = await memory!.search("", { limit: 10 });
+          await logActivity("read", { method: "GET", endpoint: "/all", status: 200 });
+          res.json(result);
+        } catch (e: any) { res.status(500).json({ error: e.message }); }
+      });
+      app.patch("/memory/:id", async (req, res) => {
+        try {
+          const result = await sdk_update_memory(req.params.id, req.body.content, req.body.tags, req.body.metadata);
+          await logActivity("update", { method: "PATCH", endpoint: `/memory/${req.params.id}`, status: 200 });
+          res.json(result);
+        } catch (e: any) { res.status(500).json({ error: e.message }); }
+      });
+      app.post("/memory/:id/reinforce", async (req, res) => {
+          try {
+              await sdk_reinforce_memory(req.params.id, req.body.boost);
+              await logActivity("update", { method: "POST", endpoint: `/memory/${req.params.id}/reinforce`, status: 200 });
+              res.json({ ok: true });
+          } catch (e: any) { res.status(500).json({ error: e.message }); }
+      });
+      app.delete("/memory/:id", async (req, res) => {
         const dbPath = process.env.OM_DB_PATH!;
         const sqlite3 = await import("sqlite3");
         const db = new sqlite3.default.Database(dbPath);
-        db.configure("busyTimeout", 5000);
-
-        const getCount = (query: string): Promise<number> =>
-          new Promise((resolve) =>
-            db.get(query, (err, row: any) => resolve(row?.count || 0)),
-          );
-
-        const memoriesCount = await getCount(
-          "SELECT COUNT(*) as count FROM memories",
-        );
-        const totalRequests = await getCount(
-          "SELECT COUNT(*) as count FROM cybermem_access_log",
-        );
-        const errorRequests = await getCount(
-          "SELECT COUNT(*) as count FROM cybermem_access_log WHERE is_error = 1",
-        );
-        const uniqueClients = await getCount(
-          "SELECT COUNT(DISTINCT client_name) as count FROM cybermem_access_log",
-        );
-
-        db.close();
-
-        const metrics = [
-          "# HELP openmemory_memories_total Total number of memories",
-          "# TYPE openmemory_memories_total gauge",
-          `openmemory_memories_total ${memoriesCount}`,
-          "# HELP openmemory_requests_aggregate_total Total requests logged in SQLite",
-          "# TYPE openmemory_requests_aggregate_total counter",
-          `openmemory_requests_aggregate_total ${totalRequests}`,
-          "# HELP openmemory_errors_total Total errors logged in SQLite",
-          "# TYPE openmemory_errors_total counter",
-          `openmemory_errors_total ${errorRequests}`,
-          "# HELP openmemory_clients_total Total unique clients logged in SQLite",
-          "# TYPE openmemory_clients_total gauge",
-          `openmemory_clients_total ${uniqueClients}`,
-          "# HELP openmemory_success_rate_aggregate Success rate from SQLite logs",
-          "# TYPE openmemory_success_rate_aggregate gauge",
-          `openmemory_success_rate_aggregate ${totalRequests > 0 ? ((totalRequests - errorRequests) / totalRequests) * 100 : 100}`,
-        ].join("\n");
-
-        res.set("Content-Type", "text/plain").send(metrics);
-      } catch (e: any) {
-        res.status(500).send(`# Error: ${e.message}`);
-      }
-    });
-
-    app.use(
-      (
-        req: express.Request,
-        res: express.Response,
-        next: express.NextFunction,
-      ) => {
-        const userId = req.headers["x-user-id"] as string | undefined;
-        const clientName =
-          (req.headers["x-client-name"] as string) ||
-          (req.headers["user-agent"] as string);
-        requestContext.run({ userId, clientName }, next);
-      },
-    );
-
-    if (!cliUrl && memory) {
-      app.post("/add", async (req: express.Request, res: express.Response) => {
-        try {
-          const contextUserId = requestContext.getStore()?.userId;
-          const { content, user_id, tags } = req.body;
-          const finalTags = addSourceTag(tags);
-          const result = await memory!.add(content, {
-            user_id: user_id || contextUserId,
-            tags: finalTags,
-          });
-          await logActivity("create", {
-            client: "antigravity-client",
-            method: "POST",
-            endpoint: "/add",
-            status: 200,
-          });
-          res.json(result);
-        } catch (e: any) {
-          await logActivity("create", {
-            client: "antigravity-client",
-            method: "POST",
-            endpoint: "/add",
-            status: 500,
-          });
-          res.status(500).json({ error: e.message });
-        }
+        db.run("DELETE FROM memories WHERE id = ?", [req.params.id], async () => {
+          db.close();
+          await logActivity("delete", { method: "DELETE", endpoint: `/memory/${req.params.id}`, status: 200 });
+          res.json({ ok: true });
+        });
       });
-
-      app.post(
-        "/query",
-        async (req: express.Request, res: express.Response) => {
-          try {
-            const contextUserId = requestContext.getStore()?.userId;
-            const { query, k } = req.body;
-            const result = await memory!.search(query || "", {
-              limit: k || 5,
-              user_id: contextUserId,
-            });
-            await logActivity("read", {
-              client: "antigravity-client",
-              method: "POST",
-              endpoint: "/query",
-              status: 200,
-            });
-            res.json(result);
-          } catch (e: any) {
-            await logActivity("read", {
-              client: "antigravity-client",
-              method: "POST",
-              endpoint: "/query",
-              status: 500,
-            });
-            res.status(500).json({ error: e.message });
-          }
-        },
-      );
-
-      app.get("/all", async (req: express.Request, res: express.Response) => {
-        try {
-          const contextUserId = requestContext.getStore()?.userId;
-          const limit = parseInt(req.query.limit as string) || 10;
-          const result = await memory!.search("", {
-            limit,
-            user_id: contextUserId,
-          });
-          await logActivity("read", {
-            client: "antigravity-client",
-            method: "GET",
-            endpoint: "/all",
-            status: 200,
-          });
-          res.json(result);
-        } catch (e: any) {
-          await logActivity("read", {
-            client: "antigravity-client",
-            method: "GET",
-            endpoint: "/all",
-            status: 500,
-          });
-          res.status(500).json({ error: e.message });
-        }
-      });
-
-      app.delete(
-        "/:id",
-        async (req: express.Request, res: express.Response) => {
-          try {
-            const { id } = req.params;
-            // Direct scrub as in the tool implementation
-            const dbPath = process.env.OM_DB_PATH!;
-            const sqlite3 = await import("sqlite3");
-            const db = new sqlite3.default.Database(dbPath);
-            db.configure("busyTimeout", 5000);
-
-            await new Promise<void>((resolve, reject) => {
-              db.serialize(() => {
-                db.run("BEGIN TRANSACTION");
-                db.run("DELETE FROM memories WHERE id = ?", [id]);
-                db.run("DELETE FROM vectors WHERE id = ?", [id]);
-                db.run("DELETE FROM waypoints WHERE src_id = ? OR dst_id = ?", [
-                  id,
-                  id,
-                ]);
-                db.run("COMMIT", async (err: any) => {
-                  db.close();
-                  if (err) reject(err);
-                  else resolve();
-                });
-              });
-            });
-
-            await logActivity("delete", {
-              client: "antigravity-client",
-              method: "DELETE",
-              endpoint: `/${id}`,
-              status: 200,
-            });
-            res.json({ ok: true, message: `Memory ${id} deleted` });
-          } catch (e: any) {
-            await logActivity("delete", {
-              client: "antigravity-client",
-              method: "DELETE",
-              endpoint: `/${req.params.id}`,
-              status: 500,
-            });
-            res.status(500).json({ error: e.message });
-          }
-        },
-      );
     }
 
-    const transport = new StreamableHTTPServerTransport({
-      sessionIdGenerator: () => crypto.randomUUID(),
-    });
-
-    app.all(
-      "/mcp",
-      async (req: express.Request, res: express.Response) =>
-        await transport.handleRequest(req, res, req.body),
-    );
-
-    app.all(
-      "/sse",
-      async (req: express.Request, res: express.Response) =>
-        await transport.handleRequest(req, res, req.body),
-    );
+    const transport = new StreamableHTTPServerTransport({ sessionIdGenerator: () => crypto.randomUUID() });
+    app.all("/mcp", async (req, res) => await transport.handleRequest(req, res, req.body));
+    app.all("/sse", async (req, res) => await transport.handleRequest(req, res, req.body));
 
     server.connect(transport).then(() => {
-      app.listen(port, () => {
-        console.error(
-          `CyberMem MCP (ready: ${(server as any)._memoryReady}) running on http://localhost:${port}`,
-        );
-      });
+      app.listen(port, () => console.error(`CyberMem MCP running on http://localhost:${port}`));
     });
   } else {
     const transport = new StdioServerTransport();
-    server
-      .connect(transport)
-      .then(() => console.error("CyberMem MCP connected via STDIO"));
+    server.connect(transport).then(() => console.error("CyberMem MCP connected via STDIO"));
   }
 }

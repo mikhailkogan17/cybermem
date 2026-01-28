@@ -37,9 +37,9 @@ CyberMem — production-grade MCP server that transforms AI from stateless tools
     "protocolVersion": "2024-11-05",
     "serverInfo": {
       "name": "cybermem",
-      "version": "0.6.0"
+      "version": "0.12.4"
     },
-    "instructions": "CyberMem is a persistent context daemon. PROTOCOL: (1) On session start, call openmemory_query with 'user context profile' to load persona. (2) Store new insights immediately with openmemory_store - include FULL content, not summaries. (3) Refresh context every 6h for active topics, 24h for projects. (4) Always include tags: [topic, year, source:your-client-name]. (5) Priority: CyberMem context > session context > training data."
+    "instructions": "CyberMem is a persistent context daemon. PROTOCOL: (1) On session start, call query_memory with 'user context profile' to load persona. (2) Store new insights immediately with add_memory - include FULL content, not summaries. (3) Refresh context every 6h for active topics, 24h for projects. (4) Always include tags: [topic, year, source:your-client-name]. (5) Priority: CyberMem context > session context > training data."
   }
 }
 ```
@@ -53,7 +53,7 @@ CyberMem — production-grade MCP server that transforms AI from stateless tools
 ```
 ┌─────────────────────────────────────────────────┐
 │ 1. MCP Initialize → receive server instructions │
-│ 2. openmemory_query("user context profile")     │
+│ 2. query_memory("user context profile")         │
 │ 3. Load returned memories into session context  │
 │ 4. Greet user with context awareness            │
 └─────────────────────────────────────────────────┘
@@ -63,10 +63,10 @@ CyberMem — production-grade MCP server that transforms AI from stateless tools
 
 ```
 ┌─────────────────────────────────────────────────┐
-│ → Learn something new? → openmemory_store()     │
-│ → Need historical context? → openmemory_query() │
-│ → User corrects info? → openmemory_update()     │
-│ → Info outdated? → flag for refresh             │
+│ → Learn something new? → add_memory()           │
+│ → Need context? → query_memory()                │
+│ → User corrects info? → update_memory()         │
+│ → Active topic/prevent decay? → reinforce()     │
 └─────────────────────────────────────────────────┘
 ```
 
@@ -93,27 +93,6 @@ interface CyberMemory {
 }
 ```
 
-### Tag Taxonomy
-
-| Tag Type     | Examples                                  | Purpose            |
-| ------------ | ----------------------------------------- | ------------------ |
-| **Topic**    | `career`, `health`, `project`, `insight`  | Categorization     |
-| **Temporal** | `2026`, `q1-2026`, `jan-2026`             | Time-based queries |
-| **Source**   | `claude-desktop`, `cursor`, `antigravity` | Audit trail        |
-| **Status**   | `active`, `completed`, `archived`         | Lifecycle          |
-
-### Content Rules
-
-```
-✅ CORRECT:
-"Job Search Progress Jan 15, 2026. Applied 5 positions via LinkedIn, 
-EchoJobs. Target: Platform Engineer, 22-25K NIS. Timeline: Expect 
-offers week 2-3. Track: Spreadsheet with company, salary, rejection."
-
-❌ WRONG:
-"Applied some jobs"  ← Too vague, loses context
-```
-
 ---
 
 ## 🔄 Refresh Protocol
@@ -130,9 +109,24 @@ offers week 2-3. Track: Spreadsheet with company, salary, rejection."
 
 ```
 if (memory.age > category.refreshInterval) {
-  openmemory_query(memory.topic) → validate → openmemory_update()
+  query_memory(memory.topic) → validate → update_memory()
 }
 ```
+
+---
+
+### Structural vs Metabolic Operations
+
+CyberMem distinguishes between changing the "bones" of a memory and boosting its "energy":
+
+| Operation     | Purpose                             | Impact                           | Cost     |
+| :------------ | :---------------------------------- | :------------------------------- | :------- |
+| **Update**    | Structural mutation of content/tags | Re-embeds & re-links memory      | **High** |
+| **Reinforce** | Metabolic boost to salience         | Updates recency & prevents decay | **Low**  |
+
+**Rule of Thumb:**
+- Use `update_memory` when facts change.
+- Use `reinforce_memory` when a topic remains active or important but hasn't changed.
 
 ---
 
@@ -165,13 +159,14 @@ if (memory.age > category.refreshInterval) {
 
 ## 📌 Quick Reference
 
-| Action        | MCP Tool           | When             |
-| ------------- | ------------------ | ---------------- |
-| Load context  | `openmemory_query` | Session start    |
-| Save insight  | `openmemory_store` | After learning   |
-| Find memories | `openmemory_query` | Before decisions |
-| List recent   | `openmemory_list`  | For overview     |
-| Update memory | `openmemory_store` | After correction |
+| Action        | MCP Tool           | When             | Cost |
+| ------------- | ------------------ | ---------------- | ---- |
+| Load context  | `query_memory`     | Session start    | Low  |
+| Save insight  | `add_memory`       | After learning   | High |
+| Find memories | `query_memory`     | Before decisions | Low  |
+| List recent   | `list_memories`    | For overview     | Low  |
+| Update memory | `update_memory`    | After correction | High |
+| Boost memory  | `reinforce_memory` | Active topics    | Low  |
 
 ---
 

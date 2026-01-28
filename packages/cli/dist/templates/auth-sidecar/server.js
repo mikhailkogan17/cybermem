@@ -2,96 +2,51 @@
  * CyberMem Auth Sidecar
  *
  * ForwardAuth service for Traefik that validates:
- * 1. Bearer tokens (sk-xxx) against SQLite access_keys table
+ * 1. Bearer tokens (sk-xxx) against Docker Secret file (SSoT)
  * 2. Local requests bypass (localhost, *.local domains)
  *
- * NO EXTERNAL DEPENDENCIES - uses built-in crypto and sqlite3.
+ * NO EXTERNAL DEPENDENCIES - uses built-in crypto and fs.
  */
 
 const http = require("http");
 const crypto = require("crypto");
 const path = require("path");
-const sqlite3 = require("sqlite3").verbose();
+const fs = require("fs");
+const SECRET_PATH = process.env.API_KEY_FILE || "/run/secrets/om_api_key";
+let cachedToken = null;
 
 const PORT = process.env.PORT || 3001;
-const DB_PATH = process.env.OM_DB_PATH || "/data/openmemory.sqlite";
 
-// Ensure schema exists
-function initSchema() {
-  const db = new sqlite3.Database(DB_PATH);
-  db.serialize(() => {
-    db.run(
-      `
-      CREATE TABLE IF NOT EXISTS access_keys (
-        key_id TEXT PRIMARY KEY,
-        key_hash TEXT UNIQUE NOT NULL,
-        user_id TEXT NOT NULL,
-        name TEXT,
-        is_active INTEGER DEFAULT 1,
-        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-      )
-    `,
-      (err) => {
-        if (err) console.error("SCHEMA ERROR:", err.message);
-        else console.log("Schema verified for access_keys");
-        db.close();
-      },
-    );
-  });
-}
-
-initSchema();
-
-// Hash token using same PBKDF2 as CLI (for verification)
-function hashToken(token) {
-  return new Promise((resolve, reject) => {
-    const salt = crypto
-      .createHash("sha256")
-      .update("cybermem-salt-v1")
-      .digest("hex")
-      .slice(0, 16);
-    crypto.pbkdf2(token, salt, 100000, 64, "sha512", (err, key) => {
-      if (err) reject(err);
-      else resolve(key.toString("hex"));
-    });
-  });
-}
-
-// Verify token against SQLite access_keys table
-async function verifyToken(token) {
+// Load token from secret file once at startup (SSoT)
+function loadSecret() {
   try {
-    const db = new sqlite3.Database(DB_PATH);
-
-    const tokenHash = await hashToken(token);
-
-    return new Promise((resolve, reject) => {
-      db.get(
-        "SELECT user_id, name FROM access_keys WHERE key_hash = ? AND is_active = 1",
-        [tokenHash],
-        (err, row) => {
-          db.close();
-          if (err) {
-            console.log("DB error:", err.message);
-            resolve(null);
-          } else if (row) {
-            // Update last_used_at
-            const updateDb = new sqlite3.Database(DB_PATH);
-            updateDb.run(
-              "UPDATE access_keys SET last_used_at = datetime('now') WHERE key_hash = ?",
-              [tokenHash],
-            );
-            updateDb.close();
-            resolve({ userId: row.user_id, name: row.name });
-          } else {
-            resolve(null);
-          }
-        },
+    if (fs.existsSync(SECRET_PATH)) {
+      cachedToken = fs.readFileSync(SECRET_PATH, "utf8").trim();
+      console.log(`SSoT Token loaded from ${SECRET_PATH}`);
+    } else {
+      console.warn(
+        `SECRET WARNING: ${SECRET_PATH} not found. Remote auth will fail.`,
       );
-    });
+    }
   } catch (err) {
-    console.log("Token verification error:", err.message);
-    return null;
+    console.error("SECRET LOAD ERROR:", err.message);
   }
+}
+
+loadSecret();
+
+// Verify token against SSoT (file-based)
+async function verifyToken(token) {
+  if (!cachedToken) {
+    // Try one more time if not loaded (e.g. race condition/debug)
+    loadSecret();
+  }
+
+  if (cachedToken && token === cachedToken) {
+    return { userId: "admin", name: "SSoT-Admin" };
+  }
+
+  return null;
 }
 
 // Check if request is from localhost or local network
@@ -107,6 +62,7 @@ function isLocalRequest(req) {
     ip === "127.0.0.1" ||
     ip === "::1" ||
     ip === "::ffff:127.0.0.1" ||
+    ip?.startsWith("10.") ||
     ip === "localhost";
 
   // Host-based local check (raspberrypi.local, localhost, *.local)
@@ -114,6 +70,7 @@ function isLocalRequest(req) {
     host.includes("localhost") ||
     host.includes("127.0.0.1") ||
     host.includes("raspberrypi.local") ||
+    host.startsWith("10.") ||
     host.match(/\.local(:\d+)?$/);
 
   return isLocalIp || isLocalHost;
@@ -131,9 +88,53 @@ const server = http.createServer(async (req, res) => {
   const authHeader = req.headers["authorization"];
   const apiKeyHeader = req.headers["x-api-key"];
 
-  // 1. Local bypass - no auth required for localhost
-  if (isLocalRequest(req)) {
-    console.log("Auth OK: Local bypass");
+  // 1. Resolve URI
+  const requestUri = req.headers["x-forwarded-uri"] || req.url || "/";
+  console.log(`[Auth-Sidecar] Processing ${req.method} ${requestUri}`);
+
+  // 2. Public Paths Bypass
+  // We allow Dashboard roots, login paths and essential assets to bypass SSoT token check
+  // The Dashboard itself handles its own session auth.
+  const prefixPublicPaths = [
+    "/auth",
+    "/api/auth",
+    "/api/health",
+    "/api/metrics",
+    "/api/stats",
+    "/api/settings",
+    "/_next",
+    "/favicon",
+    "/static",
+    "/public",
+    "/health",
+    "/login",
+    "/metrics",
+    "/clients.json",
+  ];
+
+  const exactPublicPaths = [
+    "/",
+    "/cybermem",
+    "/cybermem-staging",
+    "/cybermem/",
+    "/cybermem-staging/",
+  ];
+
+  const isPublic =
+    exactPublicPaths.includes(requestUri) ||
+    prefixPublicPaths.some((p) => requestUri.startsWith(p));
+
+  if (isPublic) {
+    console.log(`[Auth-Sidecar] ✅ Public bypass: ${requestUri}`);
+    res.writeHead(200, { "X-Auth-Method": "public" });
+    res.end();
+    return;
+  }
+
+  // 3. Local bypass
+  const isK3d = process.env.CYBERMEM_INSTANCE === "k3d";
+  if (!isK3d && isLocalRequest(req)) {
+    console.log(`[Auth-Sidecar] ✅ Local bypass: ${requestUri}`);
     res.writeHead(200, {
       "X-Auth-Method": "local",
       "X-User-Id": "local",
@@ -142,32 +143,41 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
-  // 2. Check Bearer token (sk-xxx format)
+  // 4. Token Auth Verification Helper
+  const verifyRequestToken = async (received) => {
+    if (!received) return null;
+    const result = await verifyToken(received);
+    if (!result) {
+      console.log(
+        `[Auth-Sidecar] DEBUG Mismatch: received [${received.substring(0, 5)}...] (len:${received.length}) vs cached [${cachedToken?.substring(0, 5)}...] (len:${cachedToken?.length})`,
+      );
+    }
+    return result;
+  };
+
   if (authHeader?.startsWith("Bearer ")) {
     const token = authHeader.substring(7);
-
-    if (token.startsWith("sk-")) {
-      const result = await verifyToken(token);
-
-      if (result) {
-        console.log(`Auth OK: Token (${result.name || result.userId})`);
-        res.writeHead(200, {
-          "X-User-Id": result.userId,
-          "X-Auth-Method": "token",
-          "X-Token-Name": result.name || "",
-        });
-        res.end();
-        return;
-      }
+    const result = await verifyRequestToken(token);
+    if (result) {
+      console.log(
+        `[Auth-Sidecar] ✅ Auth OK (Bearer): ${result.name || result.userId}`,
+      );
+      res.writeHead(200, {
+        "X-User-Id": result.userId,
+        "X-Auth-Method": "token",
+        "X-Token-Name": result.name || "",
+      });
+      res.end();
+      return;
     }
   }
 
-  // 3. Check X-API-Key header (sk-xxx format)
   if (apiKeyHeader?.startsWith("sk-")) {
-    const result = await verifyToken(apiKeyHeader);
-
+    const result = await verifyRequestToken(apiKeyHeader);
     if (result) {
-      console.log(`Auth OK: API-Key Header (${result.name || result.userId})`);
+      console.log(
+        `[Auth-Sidecar] ✅ Auth OK (X-API-Key): ${result.name || result.userId}`,
+      );
       res.writeHead(200, {
         "X-User-Id": result.userId,
         "X-Auth-Method": "api-key",
@@ -178,9 +188,8 @@ const server = http.createServer(async (req, res) => {
     }
   }
 
-  // 4. Unauthorized
-  console.log("Auth FAILED: No valid token");
-  console.log("Headers:", JSON.stringify(req.headers));
+  // 5. Unauthorized
+  console.log(`[Auth-Sidecar] ❌ Auth FAILED: ${requestUri}`);
   res.writeHead(401, { "Content-Type": "application/json" });
   res.end(
     JSON.stringify({
@@ -193,5 +202,4 @@ const server = http.createServer(async (req, res) => {
 
 server.listen(PORT, () => {
   console.log(`Auth sidecar (token-auth) listening on port ${PORT}`);
-  console.log(`DB path: ${DB_PATH}`);
 });

@@ -2,14 +2,14 @@
 
 import { useDashboard } from "@/lib/data/dashboard-context";
 import {
-    ArrowDown,
-    ArrowUp,
-    ArrowUpDown,
-    ChevronDown,
-    ChevronLeft,
-    ChevronRight,
-    Download,
-    RefreshCw,
+  ArrowDown,
+  ArrowUp,
+  ArrowUpDown,
+  ChevronDown,
+  ChevronLeft,
+  ChevronRight,
+  Download,
+  RefreshCw,
 } from "lucide-react";
 import { useState } from "react";
 
@@ -260,8 +260,10 @@ export default function AuditLogTable({
                         key={log.id}
                         className="border-b border-white/5 hover:bg-white/10 transition-colors even:bg-white/[0.02] group/row"
                       >
-                        <td className="py-4 px-3 text-neutral-300 group-hover/row:text-white transition-colors">
-                          {log.date}
+                        <td className="py-4 px-3 text-neutral-300">
+                          {log.date
+                            ? new Date(log.date).toLocaleString()
+                            : "N/A"}
                         </td>
                         <td className="py-4 px-3 text-white font-medium">
                           <div className="flex items-center gap-2">

@@ -8,15 +8,20 @@ export const dynamic = "force-dynamic";
 
 const CONFIG_PATH = "/data/config.json";
 
-// Detect the correct MCP endpoint based on request host
+// Detect the correct MCP endpoint based on request host and environment
 function getMcpEndpoint(request: NextRequest): {
   endpoint: string;
   isLocal: boolean;
 } {
-  const host = request.headers.get("host") || "localhost:3000";
+  const host = request.headers.get("host") || "localhost:8626";
   const hostname = host.split(":")[0];
+  const port = host.split(":")[1] || "";
+  const env = process.env.CYBERMEM_ENV || "prod";
+  const isStaging = env === "staging";
+  const isTailscale =
+    process.env.CYBERMEM_TAILSCALE === "true" || host.includes(".ts.net");
 
-  // Priority 1: Explicit public override (for VPS/Proxy)
+  // Priority 1: Explicit public override
   if (process.env.CYBERMEM_PUBLIC_URL) {
     const url = process.env.CYBERMEM_PUBLIC_URL;
     return {
@@ -25,36 +30,53 @@ function getMcpEndpoint(request: NextRequest): {
     };
   }
 
-  // Priority 2: Tailscale domain (from env or detect)
-  const tailscaleDomain = process.env.TAILSCALE_DOMAIN;
-
-  // Priority 3: Based on request host
-  if (hostname === "localhost" || hostname === "127.0.0.1") {
-    // Local development
-    return { endpoint: "http://localhost:8626/mcp", isLocal: true };
+  // Priority 2: Tailscale / Funnel Subpaths (No port, explicit subpath)
+  if (isTailscale) {
+    const protocol = request.headers.get("x-forwarded-proto") || "https";
+    const subpath = isStaging ? "/cybermem-staging" : "/cybermem";
+    return {
+      endpoint: `${protocol}://${hostname}${subpath}/mcp`,
+      isLocal: false,
+    };
   }
 
-  if (hostname.endsWith(".local")) {
-    // LAN access (raspberrypi.local)
-    // If Tailscale domain is available, prefer it for remote config
-    if (tailscaleDomain) {
-      return {
-        endpoint: `https://${tailscaleDomain}/cybermem/mcp`,
-        isLocal: false,
-        // Also provide LAN endpoint as fallback
-      };
-    }
-    return { endpoint: `http://${hostname}:8626/mcp`, isLocal: true };
+  // Priority 3: Localhost / LAN
+  if (
+    hostname === "localhost" ||
+    hostname === "127.0.0.1" ||
+    hostname.endsWith(".local")
+  ) {
+    // Port detection priority: Host header > X-Forwarded-Port > TRAEFIK_PORT env > env-based default
+    const forwardedPort = request.headers.get("x-forwarded-port") || "";
+    const traefikPort = process.env.TRAEFIK_PORT || "";
+    const effectivePort = port || forwardedPort || traefikPort;
+
+    const isStandardPort = effectivePort === "8625" || effectivePort === "8626";
+    // If accessed via non-standard port (k3d 8081), suggest placeholder
+    const isLoopback = hostname === "localhost" || hostname === "127.0.0.1";
+    const isRemote = !isStandardPort && isLoopback;
+
+    const displayHost = isRemote ? "YOUR_VPS_IP" : hostname;
+    // Use detected port if standard, otherwise fall back to env-based default
+    const displayPort = isStandardPort
+      ? effectivePort
+      : isStaging
+        ? "8625"
+        : "8626";
+
+    return {
+      endpoint: `http://${displayHost}:${displayPort}/mcp`,
+      isLocal: isLoopback && !isRemote,
+    };
   }
 
-  if (hostname.includes(".ts.net")) {
-    // Tailscale Funnel access
-    return { endpoint: `https://${hostname}/cybermem/mcp`, isLocal: false };
-  }
-
-  // Fallback: use request host
+  // Fallback
   const protocol = request.headers.get("x-forwarded-proto") || "http";
-  return { endpoint: `${protocol}://${hostname}:8626/mcp`, isLocal: false };
+  const displayPort = port || (isStaging ? "8625" : "8626");
+  return {
+    endpoint: `${protocol}://${hostname}:${displayPort}/mcp`,
+    isLocal: false,
+  };
 }
 
 // Detect hardware type
@@ -144,6 +166,10 @@ export async function GET(request: NextRequest) {
     // ignore
   }
 
+  // Environment detection SSoT: Trust environment variables set during stack start
+  const env = process.env.CYBERMEM_ENV || "prod";
+  const instance = process.env.CYBERMEM_INSTANCE || "local";
+
   return NextResponse.json(
     {
       token: apiKey,
@@ -152,8 +178,8 @@ export async function GET(request: NextRequest) {
       isManaged,
       isLocal,
       instanceType,
-      env: process.env.CYBERMEM_ENV || "prod",
-      instance: process.env.CYBERMEM_INSTANCE || "local",
+      env: env,
+      instance: instance,
       tailscale: process.env.CYBERMEM_TAILSCALE === "true",
       dashboardVersion: version,
       mcpVersion: version,

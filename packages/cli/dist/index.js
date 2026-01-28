@@ -38,6 +38,7 @@ program
     .option("--local", "Upgrade local instance (default)")
     .option("--rpi", "Upgrade remote RPi")
     .option("--vps", "Upgrade remote VPS")
+    .option("--staging", "Upgrade staging environment")
     .option("--host <host>", "SSH host for remote upgrade (e.g. pi@raspberrypi.local)")
     .action(upgrade_1.upgrade);
 program

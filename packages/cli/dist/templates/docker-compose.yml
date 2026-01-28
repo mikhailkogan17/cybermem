@@ -8,19 +8,26 @@ services:
     image: traefik:v3.0
     # container_name removed for simultaneity
     command:
-      - --api.dashboard=true
-      - --api.insecure=true
-      - --providers.docker=true
-      - --providers.docker.exposedbydefault=false
-      - --entrypoints.web.address=:8626
+      - --entryPoints.web.address=:${TRAEFIK_PORT:-8626}
+      - --ping=true
+      - --ping.entryPoint=web
+      - --log.level=INFO
       - --accesslog=true
       - --accesslog.filepath=/var/log/traefik/access.log
       - --accesslog.format=json
+      - --accesslog.fields.headers.names.X-Client-Name=keep
+      - --accesslog.fields.headers.names.X-Client-Version=keep
+      - --providers.docker=true
+      - --providers.docker.exposedbydefault=false
+      - --providers.docker.constraints=Label(`com.docker.compose.project`, `${PROJECT_NAME:-cybermem}`)
+      - --providers.file.directory=/etc/traefik/dynamic
+      - --providers.file.watch=true
+      - --api.dashboard=true
+      - --api.insecure=true
     ports:
-      - "${TRAEFIK_PORT:-8626}:8626"
+      - "${TRAEFIK_PORT:-8626}:${TRAEFIK_PORT:-8626}"
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
-      - ./monitoring/traefik/traefik.yml:/etc/traefik/traefik.yml:ro
       - ./monitoring/traefik/dynamic:/etc/traefik/dynamic:ro
       - traefik-logs:/var/log/traefik
     labels:
@@ -45,33 +52,33 @@ services:
     volumes:
       - ${CYBERMEM_ENV_PATH:-${HOME}/.cybermem/.env}:/.env
       - ${DATA_DIR:-${HOME}/.cybermem/data}:/data
+      - ${SECRETS_DIR:-${HOME}/.cybermem/secrets}:/run/secrets:ro
     depends_on:
       - traefik
       - auth-sidecar
     labels:
       - traefik.enable=true
-      - traefik.http.routers.mcp.rule=PathPrefix(`/mcp`) || PathPrefix(`/sse`)
-      - traefik.http.routers.mcp.entrypoints=web
-      - traefik.http.routers.mcp.priority=100
-      - traefik.http.routers.mcp.service=mcp-service
-      - traefik.http.routers.mcp.middlewares=auth-check
-      - traefik.http.routers.mcp-public.rule=PathPrefix(`/health`) || PathPrefix(`/metrics`)
-      - traefik.http.routers.mcp-public.entrypoints=web
-      - traefik.http.routers.mcp-public.priority=100
-      - traefik.http.routers.mcp-public.service=mcp-service
-      - traefik.http.services.mcp-service.loadbalancer.server.port=8080
-      - traefik.http.routers.legacy-api.rule=PathPrefix(`/add`) || PathPrefix(`/query`) || PathPrefix(`/all`)
-      - traefik.http.routers.legacy-api.entrypoints=web
-      - traefik.http.routers.legacy-api.priority=100
-      - traefik.http.routers.legacy-api.service=mcp-service
-      - traefik.http.routers.legacy-api.middlewares=auth-check
-      - traefik.http.middlewares.cybermem-redirect.redirectregex.regex=^https?://[^/]+/cybermem(/.*)?$$
-      - traefik.http.middlewares.cybermem-redirect.redirectregex.replacement=/$${1}
-      - traefik.http.middlewares.cybermem-redirect.redirectregex.permanent=false
-      - traefik.http.routers.cybermem-legacy.rule=PathPrefix(`/cybermem`)
-      - traefik.http.routers.cybermem-legacy.entrypoints=web
-      - traefik.http.routers.cybermem-legacy.middlewares=cybermem-redirect
-      - traefik.http.routers.cybermem-legacy.priority=50
+      - traefik.http.routers.${PROJECT_NAME:-cybermem}-mcp.rule=PathPrefix(`/mcp`) || PathPrefix(`/sse`)
+      - traefik.http.routers.${PROJECT_NAME:-cybermem}-mcp.entrypoints=web
+      - traefik.http.routers.${PROJECT_NAME:-cybermem}-mcp.priority=100
+      - traefik.http.routers.${PROJECT_NAME:-cybermem}-mcp.service=${PROJECT_NAME:-cybermem}-mcp-service
+      - traefik.http.routers.${PROJECT_NAME:-cybermem}-mcp.middlewares=auth-check
+      - traefik.http.routers.${PROJECT_NAME:-cybermem}-mcp-public.rule=PathPrefix(`/health`) || PathPrefix(`/metrics`)
+      - traefik.http.routers.${PROJECT_NAME:-cybermem}-mcp-public.entrypoints=web
+      - traefik.http.routers.${PROJECT_NAME:-cybermem}-mcp-public.priority=100
+      - traefik.http.routers.${PROJECT_NAME:-cybermem}-mcp-public.service=${PROJECT_NAME:-cybermem}-mcp-service
+      - traefik.http.services.${PROJECT_NAME:-cybermem}-mcp-service.loadbalancer.server.port=8080
+      - traefik.http.routers.${PROJECT_NAME:-cybermem}-legacy-api.rule=PathPrefix(`/add`) || PathPrefix(`/${PROJECT_NAME:-cybermem}/add`) || PathPrefix(`/query`) || PathPrefix(`/${PROJECT_NAME:-cybermem}/query`) || PathPrefix(`/all`) || PathPrefix(`/${PROJECT_NAME:-cybermem}/all`) || PathPrefix(`/memory`) || PathPrefix(`/${PROJECT_NAME:-cybermem}/memory`)
+      - traefik.http.routers.${PROJECT_NAME:-cybermem}-legacy-api.entrypoints=web
+      - traefik.http.routers.${PROJECT_NAME:-cybermem}-legacy-api.priority=130
+      - traefik.http.routers.${PROJECT_NAME:-cybermem}-legacy-api.service=${PROJECT_NAME:-cybermem}-mcp-service
+      - traefik.http.routers.${PROJECT_NAME:-cybermem}-legacy-api.middlewares=auth-check,${PROJECT_NAME:-cybermem}-strip
+      - traefik.http.middlewares.${PROJECT_NAME:-cybermem}-strip.stripprefix.prefixes=/${PROJECT_NAME:-cybermem},/${PROJECT_NAME:-cybermem}-staging
+      - traefik.http.middlewares.${PROJECT_NAME:-cybermem}-strip.stripprefix.forceSlash=false
+      - traefik.http.routers.${PROJECT_NAME:-cybermem}-cybermem-legacy.rule=PathPrefix(`/${PROJECT_NAME:-cybermem}`)
+      - traefik.http.routers.${PROJECT_NAME:-cybermem}-cybermem-legacy.entrypoints=web
+      - traefik.http.routers.${PROJECT_NAME:-cybermem}-cybermem-legacy.middlewares=auth-check,${PROJECT_NAME:-cybermem}-strip
+      - traefik.http.routers.${PROJECT_NAME:-cybermem}-cybermem-legacy.priority=50
 
   auth-sidecar:
     build:
@@ -82,13 +89,13 @@ services:
     environment:
       PORT: "3001"
       OM_DB_PATH: /data/openmemory.sqlite
-      API_KEY_FILE: /.env
       CYBERMEM_ENV: ${CYBERMEM_ENV:-prod}
       CYBERMEM_INSTANCE: ${CYBERMEM_INSTANCE:-local}
       CYBERMEM_TAILSCALE: ${CYBERMEM_TAILSCALE:-false}
     volumes:
       - ${CYBERMEM_ENV_PATH:-${HOME}/.cybermem/.env}:/.env:ro
       - ${DATA_DIR:-${HOME}/.cybermem/data}:/data
+      - ${SECRETS_DIR:-${HOME}/.cybermem/secrets}:/run/secrets:ro
     labels:
       - traefik.enable=true
     healthcheck:
@@ -105,6 +112,8 @@ services:
       timeout: 5s
       retries: 3
     restart: unless-stopped
+    secrets:
+      - om_api_key
 
   db-exporter:
     build:
@@ -176,11 +185,12 @@ services:
       dockerfile: Dockerfile
     image: ghcr.io/mikhailkogan17/cybermem-dashboard:latest
     # container_name removed for simultaneity
+    # ports:
+    #   - "${DASHBOARD_PORT:-3000}:3000"
     environment:
       DB_EXPORTER_URL: http://db-exporter:8000
       INTERNAL_MCP_URL: http://mcp-server:8080
       OM_DB_PATH: /data/openmemory.sqlite
-      OM_API_KEY: ${OM_API_KEY:-dev-secret-key}
       TAILSCALE_DOMAIN: ${TAILSCALE_DOMAIN:-}
       CYBERMEM_ENV: ${CYBERMEM_ENV:-prod}
       CYBERMEM_INSTANCE: ${CYBERMEM_INSTANCE:-local}
@@ -188,14 +198,23 @@ services:
     volumes:
       - ${DATA_DIR:-${HOME}/.cybermem/data}:/data
       - /var/run/docker.sock:/var/run/docker.sock
+      - ${SECRETS_DIR:-${HOME}/.cybermem/secrets}:/run/secrets:ro
       - ${CYBERMEM_ENV_PATH:-${HOME}/.cybermem/.env}:/app/shared.env
     labels:
       - traefik.enable=true
-      - traefik.http.routers.dashboard.entrypoints=web
-      - traefik.http.routers.dashboard.rule=PathPrefix(`/`)
-      - traefik.http.routers.dashboard.priority=1
-      - traefik.http.services.dashboard.loadbalancer.server.port=3000
+      - traefik.http.routers.${PROJECT_NAME:-cybermem}-dashboard-public.rule=PathPrefix(`/auth`) || PathPrefix(`/${PROJECT_NAME:-cybermem}/auth`) || PathPrefix(`/_next`) || PathPrefix(`/${PROJECT_NAME:-cybermem}/_next`) || PathPrefix(`/static`) || PathPrefix(`/${PROJECT_NAME:-cybermem}/static`) || PathPrefix(`/api/auth`) || PathPrefix(`/${PROJECT_NAME:-cybermem}/api/auth`) || PathPrefix(`/${PROJECT_NAME:-cybermem}`)
+      - traefik.http.routers.${PROJECT_NAME:-cybermem}-dashboard-public.entrypoints=web
+      - traefik.http.routers.${PROJECT_NAME:-cybermem}-dashboard-public.priority=120
+      - traefik.http.routers.${PROJECT_NAME:-cybermem}-dashboard-public.service=${PROJECT_NAME:-cybermem}-dashboard
+      - traefik.http.routers.${PROJECT_NAME:-cybermem}-dashboard-public.middlewares=${PROJECT_NAME:-cybermem}-strip
+      - traefik.http.routers.${PROJECT_NAME:-cybermem}-dashboard.rule=PathPrefix(`/`)
+      - traefik.http.routers.${PROJECT_NAME:-cybermem}-dashboard.entrypoints=web
+      - traefik.http.routers.${PROJECT_NAME:-cybermem}-dashboard.priority=1
+      - traefik.http.routers.${PROJECT_NAME:-cybermem}-dashboard.middlewares=auth-check,${PROJECT_NAME:-cybermem}-strip
+      - traefik.http.services.${PROJECT_NAME:-cybermem}-dashboard.loadbalancer.server.port=3000
     restart: unless-stopped
+    secrets:
+      - om_api_key
     depends_on:
       - db-exporter
 
@@ -212,6 +231,10 @@ volumes:
   traefik-logs:
     name: ${PROJECT_NAME:-cybermem}-traefik-logs
     driver: local
+
+secrets:
+  om_api_key:
+    file: ${SECRETS_DIR:-./secrets}/om_api_key
 
 networks:
   default:

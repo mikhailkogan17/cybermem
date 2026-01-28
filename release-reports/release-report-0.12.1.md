@@ -75,7 +75,7 @@
 
 ## 4. Remote: RPi Tailscale Staging (`rpi.ts.net`)
 **Status**: ❌ Failed (`ERR_CONNECTION_CLOSED`)
-**URL**: `https://raspberrypi.tail7242ed.ts.net/cybermem-staging`
+**URL**: `https://raspberrypi.ts.net/cybermem-staging`
 
 #### 4.1 Login (`4.1_login.png`)
 ![4.1 Login](release-report-0.12.1-assets/error_screenshot.png)

@@ -232,24 +232,24 @@ def parse_and_export():
                 # Check if it's an error (4xx or 5xx)
                 is_error = status.startswith("4") or status.startswith("5")
 
-                # Write aggregate stats ONLY for known clients
+                # Write aggregate stats AND audit log ONLY for known clients
                 if client_name != "unknown" and "health" not in endpoint:
                     increment_stat(client_name, operation, is_error)
 
-                # Log individual request to access_log (always log for audit)
-                log_access(
-                    client_name,
-                    client_version,
-                    method,
-                    endpoint,
-                    operation,
-                    status,
-                    is_error,
-                )
+                    # Log individual request to access_log
+                    log_access(
+                        client_name,
+                        client_version,
+                        method,
+                        endpoint,
+                        operation,
+                        status,
+                        is_error,
+                    )
 
-                print(
-                    f"[{time.strftime('%H:%M:%S')}] {client_name}/{client_version} {method} {endpoint} ({operation}) -> {status}"
-                )
+                    print(
+                        f"[{time.strftime('%H:%M:%S')}] {client_name}/{client_version} {method} {endpoint} ({operation}) -> {status}"
+                    )
 
         except json.JSONDecodeError:
             # Skip invalid JSON lines

@@ -47,6 +47,11 @@ async function startServer() {
     };
     const cliUrl = getArg("--url");
     const cliToken = getArg("--token") || getArg("--api-key");
+    const cliEnv = getArg("--env");
+    if (cliEnv === "staging") {
+        console.error("[MCP] Running in Staging environment");
+        process.env.CYBERMEM_ENV = "staging";
+    }
     let stdioClientName = undefined;
     // Protocol Instructions
     const CYBERMEM_INSTRUCTIONS = `CyberMem is a persistent context daemon for AI agents.
@@ -102,20 +107,17 @@ For full protocol: https://docs.cybermem.dev/agent-protocol`;
         apiClient.interceptors.request.use((config) => {
             const ctx = requestContext.getStore();
             config.headers["X-Client-Name"] =
-                ctx?.clientName || stdioClientName || "unknown-mcp-client";
+                ctx?.clientName || stdioClientName || "antigravity-client";
             return config;
         });
     }
     else {
         // LOCAL SDK MODE
-        const homedir = process.env.HOME || process.env.USERPROFILE || "";
-        // FORCE absolute standardized path for consistency across components, but allow override
-        const path = await import("path");
-        const dbPath = process.env.OM_DB_PATH ||
-            path.resolve(homedir, ".cybermem/data/openmemory.sqlite");
-        process.env.OM_DB_PATH = dbPath;
+        // DB Path is now normalized in env.ts
+        const dbPath = process.env.OM_DB_PATH;
         // Ensure directory exists
         const fs = await import("fs");
+        const path = await import("path");
         try {
             const dir = path.dirname(dbPath);
             if (dir)
@@ -134,10 +136,7 @@ For full protocol: https://docs.cybermem.dev/agent-protocol`;
             const db = new sqlite3.default.Database(dbPath);
             db.configure("busyTimeout", 5000);
             db.serialize(() => {
-                db.run("PRAGMA journal_mode=WAL;", (err) => {
-                    if (err)
-                        console.error("[MCP] Init WAL error:", err.message);
-                });
+                // --- 1. Infrastructure Tables ---
                 db.run(`CREATE TABLE IF NOT EXISTS cybermem_stats (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             client_name TEXT NOT NULL,
@@ -146,10 +145,7 @@ For full protocol: https://docs.cybermem.dev/agent-protocol`;
             errors INTEGER DEFAULT 0,
             last_updated INTEGER NOT NULL,
             UNIQUE(client_name, operation)
-        );`, (err) => {
-                    if (err)
-                        console.error("[MCP] Init stats table error:", err.message);
-                });
+        );`);
                 db.run(`CREATE TABLE IF NOT EXISTS cybermem_access_log (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             timestamp INTEGER NOT NULL,
@@ -160,11 +156,7 @@ For full protocol: https://docs.cybermem.dev/agent-protocol`;
             operation TEXT NOT NULL,
             status TEXT NOT NULL,
             is_error INTEGER DEFAULT 0
-        );`, (err) => {
-                    if (err)
-                        console.error("[MCP] Init access_log table error:", err.message);
-                });
-                // Access keys table for token-based auth
+        );`);
                 db.run(`CREATE TABLE IF NOT EXISTS access_keys (
             id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
             key_hash TEXT NOT NULL,
@@ -173,10 +165,26 @@ For full protocol: https://docs.cybermem.dev/agent-protocol`;
             created_at TEXT DEFAULT (datetime('now')),
             last_used_at TEXT,
             is_active INTEGER DEFAULT 1
-        );`, (err) => {
-                    if (err)
-                        console.error("[MCP] Init access_keys table error:", err.message);
-                });
+        );`);
+                // --- 2. Dynamic Migrations (Resilience Layer) ---
+                // We only add columns if they are missing. We don't block the startup.
+                const migrations = [
+                    {
+                        table: "access_keys",
+                        col: "user_id",
+                        def: "TEXT DEFAULT 'default'",
+                    },
+                    { table: "access_keys", col: "last_used_at", def: "TEXT" },
+                    { table: "memories", col: "user_id", def: "TEXT" },
+                    { table: "vectors", col: "user_id", def: "TEXT" },
+                    { table: "waypoints", col: "user_id", def: "TEXT" },
+                    { table: "memories", col: "feedback_score", def: "REAL DEFAULT 0" },
+                ];
+                for (const m of migrations) {
+                    db.run(`ALTER TABLE ${m.table} ADD COLUMN ${m.col} ${m.def};`, (err) => {
+                        // Silently ignore if column already exists (SQLITE_ERROR: duplicate column name)
+                    });
+                }
             });
             db.close();
         }
@@ -185,18 +193,34 @@ For full protocol: https://docs.cybermem.dev/agent-protocol`;
             server._memoryReady = false;
         }
     }
+    // --- PERSISTENT LOGGING DB ---
+    let loggingDb = null;
+    const initLoggingDb = async () => {
+        if (loggingDb || cliUrl)
+            return loggingDb;
+        const dbPath = process.env.OM_DB_PATH;
+        const sqlite3 = await import("sqlite3");
+        loggingDb = new sqlite3.default.Database(dbPath);
+        loggingDb.configure("busyTimeout", 10000);
+        return new Promise((resolve) => {
+            loggingDb.serialize(() => {
+                loggingDb.run("PRAGMA journal_mode=WAL;");
+                loggingDb.run("PRAGMA synchronous=NORMAL;", () => resolve(loggingDb));
+            });
+        });
+    };
     // Helper to log activity to SQLite (Local SDK Mode only)
     const logActivity = async (operation, opts = {}) => {
         if (cliUrl || !memory)
             return;
         const { client: providedClient, method = "POST", endpoint = "/mcp", status = 200, } = opts;
         const ctx = requestContext.getStore();
-        const client = providedClient || ctx?.clientName || stdioClientName || "unknown-client";
+        const client = providedClient ||
+            ctx?.clientName ||
+            stdioClientName ||
+            "antigravity-client";
         try {
-            const dbPath = process.env.OM_DB_PATH;
-            const sqlite3 = await import("sqlite3");
-            const db = new sqlite3.default.Database(dbPath);
-            db.configure("busyTimeout", 5000);
+            const db = await initLoggingDb();
             const ts = Date.now();
             const is_error = status >= 400 ? 1 : 0;
             console.error(`[MCP] Logging ${operation} for ${client} (status: ${status})`);
@@ -213,22 +237,15 @@ For full protocol: https://docs.cybermem.dev/agent-protocol`;
                     operation,
                     status.toString(),
                     is_error,
-                ], (err) => {
-                    if (err)
-                        console.error("[MCP] Log access error:", err.message);
-                });
+                ]);
                 // Log to stats (Upsert)
                 db.run(`INSERT INTO cybermem_stats (client_name, operation, count, errors, last_updated)
           VALUES (?, ?, 1, ?, ?)
           ON CONFLICT(client_name, operation) DO UPDATE SET
             count = count + 1,
             errors = errors + ?,
-            last_updated = ?`, [client, operation, is_error, ts, is_error, ts], (err) => {
-                    if (err)
-                        console.error("[MCP] Log stats error:", err.message);
-                });
+            last_updated = ?`, [client, operation, is_error, ts, is_error, ts]);
             });
-            db.close();
         }
         catch (e) {
             console.error("Failed to log activity to SQLite:", e);
@@ -473,14 +490,15 @@ For full protocol: https://docs.cybermem.dev/agent-protocol`;
             app.post("/add", async (req, res) => {
                 try {
                     const contextUserId = requestContext.getStore()?.userId;
-                    const { content, user_id, tags } = req.body;
+                    const { content, user_id, tags, id } = req.body;
                     const finalTags = addSourceTag(tags);
                     const result = await memory.add(content, {
+                        id,
                         user_id: user_id || contextUserId,
                         tags: finalTags,
                     });
                     await logActivity("create", {
-                        client: "rest-api",
+                        client: "antigravity-client",
                         method: "POST",
                         endpoint: "/add",
                         status: 200,
@@ -489,7 +507,7 @@ For full protocol: https://docs.cybermem.dev/agent-protocol`;
                 }
                 catch (e) {
                     await logActivity("create", {
-                        client: "rest-api",
+                        client: "antigravity-client",
                         method: "POST",
                         endpoint: "/add",
                         status: 500,
@@ -506,7 +524,7 @@ For full protocol: https://docs.cybermem.dev/agent-protocol`;
                         user_id: contextUserId,
                     });
                     await logActivity("read", {
-                        client: "rest-api",
+                        client: "antigravity-client",
                         method: "POST",
                         endpoint: "/query",
                         status: 200,
@@ -515,7 +533,7 @@ For full protocol: https://docs.cybermem.dev/agent-protocol`;
                 }
                 catch (e) {
                     await logActivity("read", {
-                        client: "rest-api",
+                        client: "antigravity-client",
                         method: "POST",
                         endpoint: "/query",
                         status: 500,
@@ -532,7 +550,7 @@ For full protocol: https://docs.cybermem.dev/agent-protocol`;
                         user_id: contextUserId,
                     });
                     await logActivity("read", {
-                        client: "rest-api",
+                        client: "antigravity-client",
                         method: "GET",
                         endpoint: "/all",
                         status: 200,
@@ -541,7 +559,7 @@ For full protocol: https://docs.cybermem.dev/agent-protocol`;
                 }
                 catch (e) {
                     await logActivity("read", {
-                        client: "rest-api",
+                        client: "antigravity-client",
                         method: "GET",
                         endpoint: "/all",
                         status: 500,
@@ -549,7 +567,7 @@ For full protocol: https://docs.cybermem.dev/agent-protocol`;
                     res.status(500).json({ error: e.message });
                 }
             });
-            app.delete("/:id", async (req, res) => {
+            app.delete("/memory/:id", async (req, res) => {
                 try {
                     const { id } = req.params;
                     // Direct scrub as in the tool implementation
@@ -576,7 +594,7 @@ For full protocol: https://docs.cybermem.dev/agent-protocol`;
                         });
                     });
                     await logActivity("delete", {
-                        client: "rest-api",
+                        client: "antigravity-client",
                         method: "DELETE",
                         endpoint: `/${id}`,
                         status: 200,
@@ -585,7 +603,7 @@ For full protocol: https://docs.cybermem.dev/agent-protocol`;
                 }
                 catch (e) {
                     await logActivity("delete", {
-                        client: "rest-api",
+                        client: "antigravity-client",
                         method: "DELETE",
                         endpoint: `/${req.params.id}`,
                         status: 500,

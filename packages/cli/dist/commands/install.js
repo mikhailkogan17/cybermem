@@ -118,6 +118,12 @@ async function install(options) {
         if (!fs_1.default.existsSync(templateDir)) {
             throw new Error(`Templates not found at ${templateDir}. Please ensure package is built correctly.`);
         }
+        // Generate secure token for ALL deployment types
+        // Format: sk- + 32 chars (16 bytes hex)
+        const accessToken = `sk-${crypto_1.default.randomBytes(16).toString("hex")}`;
+        const tokenHash = await hashToken(accessToken); // PBKDF2 hash
+        const tokenId = crypto_1.default.randomBytes(8).toString("hex");
+        const tokenName = isStaging ? "staging-verifier" : "admin-cli";
         if (target === "local") {
             const composeFile = path_1.default.join(templateDir, "docker-compose.yml");
             if (!fs_1.default.existsSync(composeFile)) {
@@ -144,6 +150,75 @@ async function install(options) {
                 fs_1.default.writeFileSync(envFile, envContent);
                 console.log(chalk_1.default.green(`Created .env at ${envFile}`));
             }
+            const dbPath = path_1.default.join(dataDir, "openmemory.sqlite");
+            const secretsDir = path_1.default.join(configDir, "secrets");
+            const secretPath = path_1.default.join(secretsDir, "om_api_key");
+            let localAccessToken = accessToken;
+            // 1.5 Load existing local secret if present (SSoT)
+            if (fs_1.default.existsSync(secretPath)) {
+                localAccessToken = fs_1.default.readFileSync(secretPath, "utf-8").trim();
+                console.log(chalk_1.default.gray(`Loaded existing SSoT token from ${secretPath}`));
+            }
+            // Initialize access token and store hash in SQLite (BEFORE starting containers to avoid race/lock)
+            console.log(chalk_1.default.blue("Initializing local access token..."));
+            // Check if token key already exists (idempotency)
+            try {
+                const sqlite3 = await Promise.resolve().then(() => __importStar(require("sqlite3")));
+                const db = new sqlite3.default.Database(dbPath);
+                // Promisify db.run and db.get for cleaner logic
+                const run = (sql, params = []) => new Promise((resolve, reject) => {
+                    db.run(sql, params, (err) => (err ? reject(err) : resolve()));
+                });
+                const get = (sql, params = []) => new Promise((resolve, reject) => {
+                    db.get(sql, params, (err, row) => err ? reject(err) : resolve(row));
+                });
+                // Check if table exists and has correct schema
+                const tableInfo = await new Promise((resolve, reject) => {
+                    db.all("PRAGMA table_info(access_keys)", (err, rows) => {
+                        if (err)
+                            reject(err);
+                        else
+                            resolve(rows);
+                    });
+                });
+                const hasIdColumn = tableInfo.some((col) => col.name === "id");
+                if (tableInfo.length > 0 && !hasIdColumn) {
+                    console.warn(chalk_1.default.yellow("Detected malformed access_keys table. Recreating..."));
+                    await run("DROP TABLE access_keys");
+                }
+                // Create table if not exists with hash matching current localAccessToken
+                const currentHash = await hashToken(localAccessToken);
+                await run(`CREATE TABLE IF NOT EXISTS access_keys (
+          id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
+          key_hash TEXT NOT NULL,
+          name TEXT DEFAULT 'default',
+          user_id TEXT DEFAULT 'default',
+          created_at TEXT DEFAULT (datetime('now')),
+          last_used_at TEXT,
+          is_active INTEGER DEFAULT 1
+        );`);
+                const row = await get("SELECT COUNT(*) as count FROM access_keys WHERE is_active = 1");
+                if (row && row.count > 0) {
+                    db.close();
+                    console.log(chalk_1.default.gray("Access token configuration preserved."));
+                    // proceed without showing token
+                }
+                else {
+                    // Insert new key
+                    await run("INSERT INTO access_keys (id, key_hash, name, user_id) VALUES (?, ?, ?, ?)", [tokenId, currentHash, tokenName, "admin"]);
+                    db.close();
+                    // Store token as Docker Secret (File)
+                    if (!fs_1.default.existsSync(secretsDir))
+                        fs_1.default.mkdirSync(secretsDir, { recursive: true });
+                    fs_1.default.writeFileSync(secretPath, localAccessToken, {
+                        encoding: "utf-8",
+                        mode: 0o600,
+                    });
+                }
+            }
+            catch (e) {
+                console.warn(chalk_1.default.yellow("Could not initialize access token: " + e.message));
+            }
             console.log(chalk_1.default.blue("Starting CyberMem services in Local Mode..."));
             try {
                 await (0, execa_1.default)("docker-compose", [
@@ -155,14 +230,16 @@ async function install(options) {
                     "cybermem" + (isStaging ? "-staging" : ""),
                     "up",
                     "-d",
+                    "--build",
                     "--remove-orphans",
                 ], {
                     stdio: "inherit",
                     env: {
                         ...process.env,
                         DATA_DIR: dataDir,
+                        SECRETS_DIR: path_1.default.join(configDir, "secrets"), // Pass secrets dir context
                         CYBERMEM_ENV_PATH: envFile,
-                        OM_API_KEY: "",
+                        OM_API_KEY: "", // Legacy env var disabled
                         PROJECT_NAME: "cybermem" + (isStaging ? "-staging" : ""),
                         // Refined environment tagging
                         CYBERMEM_ENV: envType,
@@ -177,56 +254,7 @@ async function install(options) {
             catch (e) {
                 handleExecError(e, "Local deployment");
             }
-            // Generate access token and store hash in SQLite
-            const accessToken = `sk-${crypto_1.default.randomBytes(24).toString("base64url")}`;
-            const bcryptHash = await hashToken(accessToken);
-            const dbPath = path_1.default.join(dataDir, "openmemory.sqlite");
-            // Wait for SQLite DB to be created by MCP server
-            console.log(chalk_1.default.blue("Initializing access token..."));
-            await new Promise((resolve) => setTimeout(resolve, 3000));
-            // Check if token already exists
-            try {
-                const sqlite3 = await Promise.resolve().then(() => __importStar(require("sqlite3")));
-                const db = new sqlite3.default.Database(dbPath);
-                // Promisify db.run and db.get for cleaner logic
-                const run = (sql, params = []) => new Promise((resolve, reject) => {
-                    db.run(sql, params, (err) => (err ? reject(err) : resolve()));
-                });
-                const get = (sql, params = []) => new Promise((resolve, reject) => {
-                    db.get(sql, params, (err, row) => err ? reject(err) : resolve(row));
-                });
-                // Create table if not exists
-                await run(`CREATE TABLE IF NOT EXISTS access_keys (
-          id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
-          key_hash TEXT NOT NULL,
-          name TEXT DEFAULT 'default',
-          user_id TEXT DEFAULT 'default',
-          created_at TEXT DEFAULT (datetime('now')),
-          last_used_at TEXT,
-          is_active INTEGER DEFAULT 1
-        );`);
-                const row = await get("SELECT COUNT(*) as count FROM access_keys WHERE is_active = 1");
-                if (row && row.count > 0) {
-                    db.close();
-                    console.log(chalk_1.default.gray("Access token already configured."));
-                    await printSuccessMessage(false);
-                    return;
-                }
-                // Insert new key
-                await run("INSERT INTO access_keys (id, key_hash, name, user_id) VALUES (?, ?, ?, ?)", [
-                    crypto_1.default.randomBytes(8).toString("hex"),
-                    bcryptHash,
-                    "default",
-                    "default",
-                ]);
-                db.close();
-                await printSuccessMessage(true, accessToken);
-            }
-            catch (e) {
-                console.warn(chalk_1.default.yellow("Could not initialize access token: " + e.message));
-                console.log(chalk_1.default.gray("You can generate a token from the Dashboard Settings."));
-                await printSuccessMessage(false);
-            }
+            await printSuccessMessage(true, localAccessToken);
             async function printSuccessMessage(showToken, token) {
                 console.log(chalk_1.default.green("\n🎉 CyberMem Installed!"));
                 console.log("");
@@ -244,22 +272,6 @@ async function install(options) {
                 console.log(`  2. Local access is auto-authenticated (no token needed on localhost)`);
                 console.log("");
                 console.log(chalk_1.default.dim("Local mode is active: No auth required for connections from this device."));
-                // Network Awareness: Check for k3d mappings
-                try {
-                    const { stdout } = await (0, execa_1.default)("k3d", [
-                        "cluster",
-                        "list",
-                        "--no-headers",
-                    ]);
-                    if (stdout.includes("cybermem")) {
-                        console.log(chalk_1.default.cyan("\nℹ️ Detected k3d cluster. Mapping check:"));
-                        console.log(chalk_1.default.gray(`  LoadBalancer ${isStaging ? "8625" : "8626"} -> http://localhost:${isStaging ? "8625" : "8626"}`));
-                        console.log(chalk_1.default.gray(`  Dashboard ${isStaging ? "3001" : "3000"} -> http://localhost:${isStaging ? "3001" : "3000"}`));
-                    }
-                }
-                catch (e) {
-                    // ignore if k3d not present
-                }
             }
         }
         else if (target === "rpi" || target === "vps") {
@@ -292,7 +304,7 @@ async function install(options) {
             if (!fs_1.default.existsSync(playbookPath)) {
                 throw new Error(`Ansible playbook not found at ${playbookPath}`);
             }
-            // 4. Run Ansible Playbook
+            // 4. Run Ansible Playbook with Token Injection
             console.log(chalk_1.default.blue("Running CyberMem Deployment Playbook..."));
             // We use the comma-separated inventory trick for single host
             const inventory = `${host},`;
@@ -305,6 +317,24 @@ async function install(options) {
                     playbookPath,
                     "--extra-vars",
                     `ansible_ssh_extra_args='-o StrictHostKeyChecking=no'`,
+                    "--extra-vars",
+                    `auth_token_hash=${tokenHash}`, // Pass the hash
+                    "--extra-vars",
+                    `auth_token_id=${tokenId}`,
+                    "--extra-vars",
+                    `auth_token_id=${tokenId}`,
+                    "--extra-vars",
+                    `auth_token_name=${tokenName}`,
+                    "--extra-vars",
+                    `auth_token_value=${accessToken}`,
+                    "--extra-vars",
+                    `CYBERMEM_ENV=${envType}`, // Ensure ENV propogates
+                    "--extra-vars",
+                    `TRAEFIK_PORT=${isStaging ? "8625" : "8626"}`,
+                    "--extra-vars",
+                    `CYBERMEM_TAILSCALE=${useTailscale}`,
+                    "--extra-vars",
+                    `PROJECT_NAME=${isStaging ? "cybermem-staging" : "cybermem"}`,
                 ], {
                     stdio: "inherit",
                     cwd: ansibleDir, // Run from ansible template dir so it finds roles/etc
@@ -314,7 +344,10 @@ async function install(options) {
                 handleExecError(e, "Remote deployment");
             }
             console.log(chalk_1.default.green("\n✅ Remote deployment successful via Ansible!"));
-            console.log(chalk_1.default.bold(`Dashboard should be available at: http://${host}:3000 (once images are pulled)`));
+            console.log(chalk_1.default.bold("⚡ Your Initial Access Token:"));
+            console.log(chalk_1.default.cyan.bold(`   ${accessToken}`));
+            console.log("");
+            console.log(chalk_1.default.bold(`Dashboard should be available at: http://${host}:${isStaging ? "3001" : "3000"} (once images are pulled)`));
         }
     }
     catch (error) {

@@ -89,7 +89,8 @@ export async function install(options: any) {
     }
 
     // Generate secure token for ALL deployment types
-    const accessToken = `sk-${crypto.randomBytes(24).toString("base64url")}`;
+    // Format: sk- + 32 chars (16 bytes hex)
+    const accessToken = `sk-${crypto.randomBytes(16).toString("hex")}`;
     const tokenHash = await hashToken(accessToken); // PBKDF2 hash
     const tokenId = crypto.randomBytes(8).toString("hex");
     const tokenName = isStaging ? "staging-verifier" : "admin-cli";
@@ -130,9 +131,20 @@ export async function install(options: any) {
       }
 
       const dbPath = path.join(dataDir, "openmemory.sqlite");
+      const secretsDir = path.join(configDir, "secrets");
+      const secretPath = path.join(secretsDir, "om_api_key");
+      let localAccessToken = accessToken;
+
+      // 1.5 Load existing local secret if present (SSoT)
+      if (fs.existsSync(secretPath)) {
+        localAccessToken = fs.readFileSync(secretPath, "utf-8").trim();
+        console.log(
+          chalk.gray(`Loaded existing SSoT token from ${secretPath}`),
+        );
+      }
 
       // Initialize access token and store hash in SQLite (BEFORE starting containers to avoid race/lock)
-      console.log(chalk.blue("Initializing access token..."));
+      console.log(chalk.blue("Initializing local access token..."));
 
       // Check if token key already exists (idempotency)
       try {
@@ -169,7 +181,8 @@ export async function install(options: any) {
           await run("DROP TABLE access_keys");
         }
 
-        // Create table if not exists
+        // Create table if not exists with hash matching current localAccessToken
+        const currentHash = await hashToken(localAccessToken);
         await run(`CREATE TABLE IF NOT EXISTS access_keys (
           id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
           key_hash TEXT NOT NULL,
@@ -192,16 +205,14 @@ export async function install(options: any) {
           // Insert new key
           await run(
             "INSERT INTO access_keys (id, key_hash, name, user_id) VALUES (?, ?, ?, ?)",
-            [tokenId, tokenHash, tokenName, "admin"],
+            [tokenId, currentHash, tokenName, "admin"],
           );
           db.close();
           // Store token as Docker Secret (File)
-          const secretsDir = path.join(configDir, "secrets");
           if (!fs.existsSync(secretsDir))
             fs.mkdirSync(secretsDir, { recursive: true });
 
-          const secretPath = path.join(secretsDir, "om_api_key");
-          fs.writeFileSync(secretPath, accessToken, {
+          fs.writeFileSync(secretPath, localAccessToken, {
             encoding: "utf-8",
             mode: 0o600,
           });
@@ -252,7 +263,7 @@ export async function install(options: any) {
         handleExecError(e, "Local deployment");
       }
 
-      await printSuccessMessage(true, accessToken);
+      await printSuccessMessage(true, localAccessToken);
 
       async function printSuccessMessage(showToken: boolean, token?: string) {
         console.log(chalk.green("\n🎉 CyberMem Installed!"));
@@ -352,11 +363,17 @@ export async function install(options: any) {
             "--extra-vars",
             `auth_token_id=${tokenId}`,
             "--extra-vars",
+            `auth_token_id=${tokenId}`,
+            "--extra-vars",
             `auth_token_name=${tokenName}`,
+            "--extra-vars",
+            `auth_token_value=${accessToken}`,
             "--extra-vars",
             `CYBERMEM_ENV=${envType}`, // Ensure ENV propogates
             "--extra-vars",
             `TRAEFIK_PORT=${isStaging ? "8625" : "8626"}`,
+            "--extra-vars",
+            `CYBERMEM_TAILSCALE=${useTailscale}`,
             "--extra-vars",
             `PROJECT_NAME=${isStaging ? "cybermem-staging" : "cybermem"}`,
           ],

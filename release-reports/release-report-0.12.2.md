@@ -75,7 +75,7 @@
 
 ## 4. Remote: RPi Tailscale Staging (`rpi.ts.net`)
 **Status**: ❌ Failed (UI Timeout) / ✅ Network OK (401)
-**URL**: `https://raspberrypi.tail7242ed.ts.net/cybermem-staging`
+**URL**: `https://raspberrypi.ts.net/cybermem-staging`
 **Note**: Connectivity FIXED (401 instead of Connection Closed). UI Automation timeout on login/settings button.
 
 #### 4.1 Login (`4.1_login.png`)

@@ -48,6 +48,7 @@ FAILURE TO FOLLOW THIS PROTOCOL IS UNACCEPTABLE AND CAUSES PRODUCTION DOWN-TIME.
 > 6. **CLI-ONLY DEPLOYMENT**: ALL deployments (Local, RPi, VPS) MUST be performed via `@cybermem/cli`. Manual `docker-compose` or `npm start` without CLI tagging is STRICTLY FORBIDDEN.
 > 7. **MANDATORY ENV TAGGING**: Every CyberMem instance MUST have `CYBERMEM_ENV` (staging|prod), `CYBERMEM_INSTANCE` (local|rpi|vps), and `CYBERMEM_TAILSCALE` (true|false) set. The MCP server MUST fail fast if `CYBERMEM_INSTANCE` is missing.
 > 8. **ZERO DIRECT PORT EXPOSURE**: It is STRICTLY FORBIDDEN to expose internal service ports like `3000`, `3001`, or `8080` to the host machine in `docker-compose.yml`. ALL external/host access MUST be routed through the Traefik entrypoint (`8625` or `8626`). Local development MUST use the Traefik port to access the Dashboard and API. Direct port maps are a security violation.
+> 9. **NO TOKENS IN ENVS**: It is STRICTLY FORBIDDEN to store, pass, or declare authentication tokens (like `CYBERMEM_TOKEN` or `API_KEY`) in environment variables in `docker-compose.yml`, GitHub Actions, or local shells. Tokens MUST be stored as Docker Secrets (files) or passed via secured command-line arguments.
 
 ---
 
@@ -138,6 +139,13 @@ FAILURE TO FOLLOW THIS PROTOCOL IS UNACCEPTABLE AND CAUSES PRODUCTION DOWN-TIME.
 >
 > - **Local/raspberrypi.local**: No auth required (bypass)
 > - **Remote (Tailscale/VPS)**: Cookie-based auth via `cybermem-cli login`
+
+### Lethal Laws of UI (Verification)
+
+> [!CAUTION]
+> **1. NO /settings PATH**: It is STRICTLY FORBIDDEN to use or link to a `/settings` URL. Settings MUST be a Modal triggered by the Gear Icon on the Dashboard.
+> **2. MANDATORY EYE-ICON**: Release reports MUST show the API token made visible via the "eye" icon in the Settings modal.
+> **3. NO LOCAL SUBPATHS**: Localhost environments (`127.0.0.1`, `localhost`) MUST ALWAYS serve the Dashboard at the root (`/`). Subpaths like `/cybermem-staging` are EXCLUSIVE to Tailscale/Remote environments.
 
 **Auth Flow:**
 

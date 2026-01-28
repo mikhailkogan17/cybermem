@@ -4,6 +4,26 @@
 **Status**: [Verified/Failed]
 **Context**: [Brief context, e.g. "Fresh run after fix X"]
 
+## 0. Verification Instructions (Reproduction)
+To reproduce this verification report with minimum tokens and deep understanding:
+
+1. **Setup Remote Credentials**:
+   - Retrieve Tailscale URL from RPi: `ssh pi@raspberrypi.local "sudo tailscale funnel status"`
+   - Retrieve SSoT Token (raw) from RPi: `ssh pi@raspberrypi.local "cat .cybermem/secrets/om_api_key"`
+
+2. **Run E2E Lethal Law Guard**:
+   ```bash
+   export TAILSCALE_URL="https://raspberrypi.xxx.ts.net"
+   export CYBERMEM_TOKEN="sk-xxx"
+   npx ts-node packages/cli/e2e/release-check.ts
+   ```
+
+3. **Verify Programmatic Proofs**:
+   - Check `release-reports/release-report-[version]-assets/` for Playwright screenshots.
+   - All statuses in the **Stability Checks** table MUST match these actual screenshots.
+
+4. **Zero Trust Rule**: Never manually check "Verified" without seeing the programmatic screenshot proof for that specific environment.
+
 > [!IMPORTANT]
 > **Lethal Laws of Release**:
 > 1. All screenshots MUST be present.
@@ -17,22 +37,21 @@
 
 #### 1.1 Dashboard (`1.1_dashboard.png`)
 ![1.1 Dashboard](path/to/screenshot)
-- [ ] **Top/Last Reader/Writer**: Not empty.
-- [ ] **Identity Law**: Client Name IS CONCRETE APP (`antigravity-client`).
-- [ ] **Time Series**: Not empty (shows graph data/bars).
-- [ ] **Environment**: Correctly identifies as `staging`.
-- [ ] **Audit Logs**: Full CRUD (Create, Read, Update, Delete) verified.
-- [ ] **Audit Logs**: Zero errors detected (0 errors).
+- **Top Writer**: [Observed Value, e.g. Claude Desktop]
+- **Identity Law**: [Observed X-Client-Name, e.g. Antigravity]
+- **Environment**: [Staging/Production]
+- **Audit Logs**: [Full CRUD / Success Only / Generic]
+- [ ] **Data Proof**: Metrics cards and graphs are visible.
 
 #### 1.2 MCP Integration (`1.2_mcp.png`)
 ![1.2 MCP](path/to/screenshot)
-- [ ] **Command**: `args` includes `--staging` flag.
-- [ ] **Format**: JSON syntax highlighting is correct.
+- **Command Proof**: [Truncated command, e.g. npx @cybermem/cli mcp --staging]
+- [ ] **JSON Proof**: Correct JSON syntax highlighting visible.
 
 #### 1.3 Settings (`1.3_settings.png`)
 ![1.3 Settings](path/to/screenshot)
-- [ ] **Key**: `sk-...` (Visible SHA32).
-- [ ] **Visibility**: Key is visible.
+- **Token Proof**: [Truncated Token, e.g. sk-74d9...6575]
+- [ ] **Visibility Proof**: Token is made visible via Eye Icon.
 
 ---
 
@@ -41,103 +60,89 @@
 
 #### 2.1 Dashboard (`2.1_dashboard.png`)
 ![2.1 Dashboard](path/to/screenshot)
-- [ ] **Top/Last Reader/Writer**: Not empty.
-- [ ] **Identity Law**: Client Name IS CONCRETE APP.
-- [ ] **Time Series**: Not empty (shows graph data/bars).
-- [ ] **Environment**: Correctly identifies as `prod`.
-- [ ] **Audit Logs**: Full CRUD (Create, Read, Update, Delete) verified.
-- [ ] **Audit Logs**: Zero errors detected (0 errors).
+- **Top Writer**: [Observed Value]
+- **Identity Law**: [Observed X-Client-Name]
+- **Environment**: [Production]
+- [ ] **Data Proof**: Metrics cards and graphs are visible.
 
 #### 2.2 MCP Integration (`2.2_mcp.png`)
 ![2.2 MCP](path/to/screenshot)
-- [ ] **Command**: `args` DOES NOT include `--staging`.
-- [ ] **Format**: JSON syntax highlighting is correct.
+- **Command Proof**: [Truncated command]
+- [ ] **JSON Proof**: Correct JSON syntax highlighting visible.
 
 #### 2.3 Settings (`2.3_settings.png`)
 ![2.3 Settings](path/to/screenshot)
-- [ ] **Key**: `sk-...` (Visible SHA32).
-- [ ] **Visibility**: Key is visible.
+- **Token Proof**: [Truncated Token, e.g. sk-74d9...6575]
+- [ ] **Visibility Proof**: Token is made visible via Eye Icon.
 
 ---
 
-## 3. Remote: RPi Local Staging (`rpi.local:8625`)
+## 3. Remote: RPi LAN Staging (`rpi-lan-staging`)
 **Status**: [✅/❌]
 **URL**: `http://raspberrypi.local:8625`
 
 #### 3.1 Dashboard (`3.1_dashboard.png`)
 ![3.1 Dashboard](path/to/screenshot)
-- [ ] **Top/Last Reader/Writer**: Not empty.
-- [ ] **Identity Law**: Client Name IS CONCRETE APP.
-- [ ] **Time Series**: Not empty (shows graph data/bars).
-- [ ] **Environment**: Correctly identifies as **rpi / staging**.
-- [ ] **Audit Logs**: Full CRUD (Create, Read, Update, Delete) verified.
-- [ ] **Audit Logs**: Zero errors detected (0 errors).
+- **Top Writer**: [Observed Value]
+- **Identity Law**: [Observed X-Client-Name]
+- **Environment**: [Staging]
+- [ ] **Data Proof**: Metrics cards and graphs are visible.
 
 #### 3.2 MCP Integration (`3.2_mcp.png`)
 ![3.2 MCP](path/to/screenshot)
-- [ ] **Command**: `args` includes `--staging`.
-- [ ] **Format**: JSON syntax highlighting is correct.
+- **Command Proof**: [Truncated command]
+- [ ] **JSON Proof**: Correct JSON syntax highlighting visible.
 
 #### 3.3 Settings (`3.3_settings.png`)
 ![3.3 Settings](path/to/screenshot)
-- [ ] **Key**: `sk-...` (Visible SHA32).
-- [ ] **Visibility**: Key is visible.
+- **Token Proof**: [Truncated Token]
+- [ ] **Visibility Proof**: Token is made visible via Eye Icon.
 
 ---
 
-## 4. Remote: RPi Tailscale Staging (`rpi.ts.net`)
+## 4. Remote: RPi Tailscale Staging (`rpi-ts-staging`)
 **Status**: [✅/❌]
-**URL**: `https://raspberrypi.ts.net`
+**URL**: `https://raspberrypi.ts.net/cybermem-staging`
 
 #### 4.1 Dashboard (`4.1_dashboard.png`)
 ![4.1 Dashboard](path/to/screenshot)
-- [ ] **Top/Last Reader/Writer**: Not empty.
-- [ ] **Identity Law**: Client Name IS CONCRETE APP.
-- [ ] **Time Series**: Not empty (shows graph data/bars).
-- [ ] **Environment**: Correctly identifies as **rpi / staging**.
-- [ ] **Audit Logs**: Full CRUD (Create, Read, Update, Delete) verified.
-- [ ] **Audit Logs**: Zero errors detected (0 errors).
+- **Top Writer**: [Observed Value]
+- **Identity Law**: [Observed X-Client-Name]
+- **Environment**: [Staging]
+- [ ] **Data Proof**: Metrics cards and graphs are visible.
 
 #### 4.2 MCP Integration (`4.2_mcp.png`)
 ![4.2 MCP](path/to/screenshot)
-- [ ] **Command**: `args` includes `--staging`.
-- [ ] **Format**: JSON syntax highlighting is correct.
+- **Command Proof**: [Truncated command]
+- [ ] **JSON Proof**: Correct JSON syntax highlighting visible.
 
 #### 4.3 Settings (`4.3_settings.png`)
 ![4.3 Settings](path/to/screenshot)
-- [ ] **Key**: `sk-...` (Visible SHA32).
-- [ ] **Visibility**: Key is visible.
+- **Token Proof**: [Truncated Token]
+- [ ] **Visibility Proof**: Token is made visible via Eye Icon.
 
 ---
 
-## 5. Remote: k3d Staging (`k3d-staging`)
+## 5. Remote: k3d Staging (`vps-staging`)
 **Status**: [✅/❌]
 **URL**: `http://localhost:8081`
 
 #### 5.1 Dashboard (`5.1_dashboard.png`)
 ![5.1 Dashboard](path/to/screenshot)
-- [ ] **Top/Last Reader/Writer**: Not empty.
-- [ ] **Identity Law**: Client Name IS CONCRETE APP.
-- [ ] **Time Series**: Not empty (shows graph data/bars).
-- [ ] **Environment**: Correctly identifies as `staging`.
-- [ ] **Audit Logs**: Full CRUD (Create, Read, Update, Delete) verified.
-- [ ] **Audit Logs**: Zero errors detected (0 errors).
+- **Top Writer**: [Observed Value]
+- **Identity Law**: [Observed X-Client-Name]
+- **Environment**: [Staging]
+- [ ] **Data Proof**: Metrics cards and graphs are visible.
 
 #### 5.2 MCP Integration (`5.2_mcp.png`)
 ![5.2 MCP](path/to/screenshot)
-- [ ] **Command**: `args` includes `--staging`.
-- [ ] **Format**: JSON syntax highlighting is correct.
+- **Command Proof**: [Truncated command]
+- [ ] **JSON Proof**: Correct JSON syntax highlighting visible.
 
 #### 5.3 Settings (`5.3_settings.png`)
 ![5.3 Settings](path/to/screenshot)
-- [ ] **Key**: `sk-...` (Visible SHA32).
-- [ ] **Visibility**: Key is visible.
-
----
-
-## 6. Additional Stability Checks
-- [ ] **Migration**: Database migration test passed (Fresh DB init).
-- [ ] **Port Isolation**: 3000/3001/8080 dashboard ports used only in CONTAINERS but UNAVAILABLE outside.
+- **Token Proof**: [Truncated Token]
+- [ ] **Visibility Proof**: Token is made visible via Eye Icon.
 
 ---
 

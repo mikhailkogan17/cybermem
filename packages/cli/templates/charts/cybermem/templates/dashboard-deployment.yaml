@@ -27,17 +27,27 @@ spec:
               value: "http://{{ .Chart.Name }}-{{ .Values.global.openmemory.serviceName }}:{{ .Values.global.openmemory.port }}"
             - name: CYBERMEM_INSTANCE
               value: "vps"
+            - name: CYBERMEM_ENV
+              value: {{ .Values.env.CYBERMEM_ENV | default "prod" | quote }}
+            - name: POM_API_KEY
+              value: {{ .Values.env.OPENMEMORY_API_KEY | quote }}
+            - name: OM_API_KEY
+              value: {{ .Values.env.OPENMEMORY_API_KEY | quote }}
             - name: PORT
               value: {{ .Values.global.dashboard.port | quote }}
-            - name: OM_DB_PATH
-              value: "/data/openmemory.sqlite"
-            - name: INTERNAL_MCP_URL
-              value: "http://{{ .Chart.Name }}-{{ .Values.global.openmemory.serviceName }}:{{ .Values.global.openmemory.port }}"
           volumeMounts:
             - name: data
               mountPath: /data
-          resources: {{- toYaml .Values.dashboard.resources | nindent 12 }}
+            - name: api-key
+              mountPath: /run/secrets/om_api_key
+              subPath: om_api_key
+              readOnly: true
+          resources:
+            {{- toYaml .Values.dashboard.resources | nindent 12 }}
       volumes:
         - name: data
           persistentVolumeClaim:
             claimName: "{{ .Chart.Name }}-{{ .Values.global.openmemory.serviceName }}-pvc"
+        - name: api-key
+          secret:
+            secretName: "{{ .Chart.Name }}-api-key"

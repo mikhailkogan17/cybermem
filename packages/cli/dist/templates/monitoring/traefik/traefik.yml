@@ -26,10 +26,4 @@ providers:
   file:
     directory: /etc/traefik/dynamic
     watch: true
-
-entryPoints:
-  web:
-    address: ":8626"
-
-ping:
-  entryPoint: web
+# entryPoints and ping moved to docker-compose.yml command for dynamic port support

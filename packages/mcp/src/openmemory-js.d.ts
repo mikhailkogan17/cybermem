@@ -20,4 +20,29 @@ declare module "openmemory-js" {
     wipe(): Promise<void>;
     source(name: string): any;
   }
+
+  export function update_memory(
+    id: string,
+    content?: string,
+    tags?: string[],
+    metadata?: any,
+  ): Promise<{ id: string; updated: boolean }>;
+
+  export function reinforce_memory(id: string, boost?: number): Promise<void>;
+}
+
+declare module "openmemory-js/dist/core/memory.js" {
+  import { Memory } from "openmemory-js";
+  export { Memory };
+}
+
+declare module "openmemory-js/dist/memory/hsg.js" {
+  export function update_memory(
+    id: string,
+    content?: string,
+    tags?: string[],
+    metadata?: any,
+  ): Promise<{ id: string; updated: boolean }>;
+
+  export function reinforce_memory(id: string, boost?: number): Promise<void>;
 }

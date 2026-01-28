@@ -39,13 +39,13 @@ data:
             - web
           priority: 250
         mcp-api:
-          rule: "PathPrefix(`/mcp`, `/sse`)"
+          rule: "PathPrefix(`/mcp`) || PathPrefix(`/sse`)"
           service: mcp-service
           entryPoints:
             - web
           priority: 200
         mcp-public:
-          rule: "PathPrefix(`/health`, `/metrics`)"
+          rule: "PathPrefix(`/health`) || PathPrefix(`/metrics`)"
           service: mcp-service
           entryPoints:
             - web

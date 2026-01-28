@@ -1,7 +1,7 @@
 ---
 - name: Deploy CyberMem to Raspberry Pi
-  hosts: rpi
-  become: yes
+  hosts: all
+  become: true
   vars:
     project_dir: /home/{{ ansible_user }}/cybermem
     env_file: .env.rpi
@@ -47,6 +47,24 @@
         group: "{{ ansible_user }}"
         mode: "0755"
 
+    - name: Ensure secrets directory exists
+      file:
+        path: "{{ project_dir }}/secrets"
+        state: directory
+        owner: "{{ ansible_user }}"
+        group: "{{ ansible_user }}"
+        mode: "0755"
+
+    - name: Write API Key Secret File
+      copy:
+        content: "{{ auth_token_value }}"
+        dest: "{{ project_dir }}/secrets/om_api_key"
+        owner: "{{ ansible_user }}"
+        group: "{{ ansible_user }}"
+        mode: "0600"
+      when: auth_token_value is defined
+      ignore_errors: true
+
     - name: Create pre-deploy database backup
       shell: "cp {{ project_dir }}/data/openmemory.sqlite {{ project_dir }}/backups/openmemory.sqlite.{{ ansible_date_time.iso8601_basic_short }}.bak"
       ignore_errors: true
@@ -66,13 +84,24 @@
         recursive: true
         delete: true
 
+    - name: Patch Traefik configuration
+      replace:
+        path: "{{ project_dir }}/monitoring/traefik/traefik.yml"
+        regexp: 'address: ":8626"'
+        replace: 'address: ":{{ TRAEFIK_PORT | default("8626") }}"'
+
     - name: Ensure .env is present (template if missing)
       copy:
         content: |
           CYBERMEM_INSTANCE=rpi
+          CYBERMEM_ENV={{ CYBERMEM_ENV | default('prod') }}
+          PROJECT_NAME={{ PROJECT_NAME | default('cybermem') }}
+          TRAEFIK_PORT={{ TRAEFIK_PORT | default('8626') }}
+          CYBERMEM_TAILSCALE={{ CYBERMEM_TAILSCALE | default('false') }}
+          SECRETS_DIR={{ project_dir }}/secrets
           # Add other envs as needed
         dest: "{{ project_dir }}/.env"
-        force: false
+        force: true
         owner: "{{ ansible_user }}"
         group: "{{ ansible_user }}"
         mode: "0600"
@@ -82,22 +111,43 @@
         global_version: "{{ (lookup('file', playbook_dir + '/../../../../../package.json') | from_json).version }}"
 
     - name: Pull latest images from GHCR
-      command: docker-compose pull
+      command: docker-compose -p {{ PROJECT_NAME | default('cybermem') }} pull
       args:
         chdir: "{{ project_dir }}"
       register: pull_out
       changed_when: "'Downloaded newer image' in pull_out.stdout or 'Downloaded newer image' in pull_out.stderr"
 
     - name: Start services
-      command: docker-compose up -d --remove-orphans
+      command: docker-compose -p {{ PROJECT_NAME | default('cybermem') }} up -d --remove-orphans
       args:
         chdir: "{{ project_dir }}"
       register: up_out
       changed_when: "'Creating' in up_out.stdout or 'Recreating' in up_out.stdout or 'Starting' in up_out.stdout or 'Creating' in up_out.stderr or 'Recreating' in up_out.stderr or 'Starting' in up_out.stderr"
 
+    - name: Install sqlite3 for token injection
+      apt:
+        name: sqlite3
+        state: present
+
+    - name: Inject Authentication Token
+      shell: |
+        sqlite3 {{ project_dir }}/data/openmemory.sqlite "CREATE TABLE IF NOT EXISTS access_keys (
+          id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
+          key_hash TEXT NOT NULL,
+          name TEXT DEFAULT 'default',
+          user_id TEXT DEFAULT 'default',
+          created_at TEXT DEFAULT (datetime('now')),
+          last_used_at TEXT,
+          is_active INTEGER DEFAULT 1
+        );"
+        sqlite3 {{ project_dir }}/data/openmemory.sqlite "DELETE FROM access_keys WHERE name='{{ auth_token_name | default('ansible-generated') }}';"
+        sqlite3 {{ project_dir }}/data/openmemory.sqlite "INSERT INTO access_keys (id, key_hash, name, user_id) VALUES ('{{ auth_token_id }}', '{{ auth_token_hash }}', '{{ auth_token_name | default('ansible-generated') }}', 'admin');"
+      when: auth_token_hash is defined
+      ignore_errors: true
+
     - name: Wait for Traefik to be ready
       uri:
-        url: "http://localhost:8626/health"
+        url: "http://localhost:{{ TRAEFIK_PORT | default('8626') }}/health"
         status_code: 200
       register: traefik_ping
       until: traefik_ping.status == 200
@@ -106,7 +156,7 @@
 
     - name: Verify Overall System Health
       uri:
-        url: "http://localhost:8626/api/health"
+        url: "http://localhost:{{ TRAEFIK_PORT | default('8626') }}/api/health"
         return_content: true
       register: health_status
       until: "health_status.content is defined and (health_status.content | from_json).overall == 'ok'"
@@ -121,7 +171,7 @@
             msg: "Rollback logic triggered due to unhealthy state."
 
         - name: Restart previous state containers
-          command: docker-compose up -d --remove-orphans
+          command: docker-compose -p {{ PROJECT_NAME | default('cybermem') }} up -d --remove-orphans
           args:
             chdir: "{{ project_dir }}"
           ignore_errors: true

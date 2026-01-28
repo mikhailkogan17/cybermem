@@ -42,20 +42,14 @@ async function upgrade(options) {
         target = "rpi";
     if (options.vps)
         target = "vps";
-    console.log(chalk_1.default.blue(`Upgrading CyberMem (${target})...`));
+    const isStaging = !!options.staging;
+    const envType = isStaging ? "staging" : "prod";
+    const projectSuffix = isStaging ? "-staging" : "";
+    console.log(chalk_1.default.blue(`Upgrading CyberMem (${target}-${envType})...`));
     try {
         if (target === "local") {
             console.log(chalk_1.default.blue("Pulling latest Docker images..."));
-            // Re-use logic: find compose file from template if needed, OR use installed ~/.cybermem one?
-            // "upgrade" implies updating running instance.
-            // running instance uses ~/.cybermem/docker-compose.yml (if init copied it?)
-            // Wait, init uses template directly?
-            // "deploy/init" logic for local:
-            // "docker-compose -f composeFile ...". composeFile was from templateDir.
-            // It did NOT copy compose file to ~/.cybermem for local.
-            // It uses the installed package's template.
-            // So for upgrade (which might be run from newer CLI version), we use the NEW CLI's template.
-            // Resolve Template Directory (Same logic as init)
+            // Resolve Template Directory
             let templateDir = path_1.default.resolve(__dirname, "../../templates");
             if (!fs_1.default.existsSync(templateDir)) {
                 templateDir = path_1.default.resolve(__dirname, "../../../templates");
@@ -73,7 +67,7 @@ async function upgrade(options) {
             const homeDir = os_1.default.homedir();
             const configDir = path_1.default.join(homeDir, ".cybermem");
             const envFile = path_1.default.join(configDir, ".env");
-            const dataDir = path_1.default.join(configDir, "data");
+            const dataDir = path_1.default.join(configDir, isStaging ? "data-staging" : "data");
             // Pull images
             try {
                 await (0, execa_1.default)("docker-compose", [
@@ -82,7 +76,7 @@ async function upgrade(options) {
                     "--env-file",
                     envFile,
                     "--project-name",
-                    "cybermem",
+                    `cybermem${projectSuffix}`,
                     "pull",
                 ], {
                     stdio: "inherit",
@@ -91,6 +85,11 @@ async function upgrade(options) {
                         DATA_DIR: dataDir,
                         CYBERMEM_ENV_PATH: envFile,
                         OM_API_KEY: "", // Local bypass
+                        PROJECT_NAME: `cybermem${projectSuffix}`,
+                        TRAEFIK_PORT: isStaging ? "8625" : "8626",
+                        DASHBOARD_PORT: isStaging ? "3001" : "3000",
+                        CYBERMEM_ENV: envType,
+                        CYBERMEM_INSTANCE: target,
                     },
                 });
             }
@@ -105,7 +104,7 @@ async function upgrade(options) {
                 "--env-file",
                 envFile,
                 "--project-name",
-                "cybermem",
+                `cybermem${projectSuffix}`,
                 "up",
                 "-d",
                 "--remove-orphans",
@@ -116,6 +115,11 @@ async function upgrade(options) {
                     DATA_DIR: dataDir,
                     CYBERMEM_ENV_PATH: envFile,
                     OM_API_KEY: "", // Local bypass
+                    PROJECT_NAME: `cybermem${projectSuffix}`,
+                    TRAEFIK_PORT: isStaging ? "8625" : "8626",
+                    DASHBOARD_PORT: isStaging ? "3001" : "3000",
+                    CYBERMEM_ENV: envType,
+                    CYBERMEM_INSTANCE: target,
                 },
             });
             console.log(chalk_1.default.green("✅ Upgrade complete!"));
@@ -157,7 +161,7 @@ async function upgrade(options) {
                     sshUser,
                     playbookPath,
                     "--extra-vars",
-                    `ansible_ssh_extra_args='-o StrictHostKeyChecking=no'`,
+                    `ansible_ssh_extra_args='-o StrictHostKeyChecking=no' CYBERMEM_ENV=${envType} TRAEFIK_PORT=${isStaging ? "8625" : "8626"} PROJECT_NAME=cybermem${projectSuffix} project_dir=/home/${sshUser}/cybermem${projectSuffix}`,
                 ], {
                     stdio: "inherit",
                     cwd: ansibleDir,

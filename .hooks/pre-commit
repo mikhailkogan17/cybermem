@@ -119,17 +119,13 @@ check_checked "Port Isolation.*dashboard ports" "Port Isolation Check"
 # Check for Zero Trust Statement (confirm text has [x])
 check_checked "I hereby confirm that E2E tests have passed" "Zero Trust Statement"
 
-# Final block check: any unchecked items at all in non-failed sections?
-# We use awk to only check for [ ] in sections that are NOT failed/skipped
-CHECKBOXES=$(awk '
-  /^## / { in_failed=0 }
-  /\*\*Status\*\*:[[:space:]]*(❌|⏭️)/ { in_failed=1 }
-  /\[ \]/ { if (!in_failed) print NR ":" $0 }
-' "$REPORT_FILE")
+# Final block check: any unchecked items at all?
+CHECKBOXES=$(grep -n '\[ \]' "$REPORT_FILE" || true)
 
 if [ -n "$CHECKBOXES" ]; then
-    echo -e "${RED}❌ FAILED: There are still empty checkboxes [ ] in active (non-failed) sections!${NC}"
+    echo -e "${RED}❌ FAILED: Found empty checkboxes [ ] in the report!${NC}"
     echo "$CHECKBOXES"
+    echo -e "${YELLOW}⚠️  INSTRUCTION: Every check must be [x] verified before commit.${NC}"
     FAILED=1
 fi
 
