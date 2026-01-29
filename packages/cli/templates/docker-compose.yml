@@ -42,6 +42,16 @@ services:
       context: ../../mcp
       dockerfile: Dockerfile
     image: ghcr.io/mikhailkogan17/cybermem-mcp:latest
+    command:
+      [
+        "node",
+        "dist/index.js",
+        "--http",
+        "--port",
+        "8080",
+        "--env",
+        "${CYBERMEM_ENV:-prod}",
+      ]
     restart: unless-stopped
     # container_name removed for simultaneity
     environment:

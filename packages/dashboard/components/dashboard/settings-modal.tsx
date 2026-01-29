@@ -7,20 +7,20 @@ import { Label } from "@/components/ui/label";
 import { TintButton } from "@/components/ui/tint-button";
 import { useDashboard } from "@/lib/data/dashboard-context";
 import {
-    Check,
-    Copy,
-    Database,
-    Download,
-    Eye,
-    EyeOff,
-    Loader2,
-    RotateCcw,
-    Server,
-    Settings,
-    Shield,
-    Trash2,
-    Upload,
-    X,
+  Check,
+  Copy,
+  Database,
+  Download,
+  Eye,
+  EyeOff,
+  Loader2,
+  RotateCcw,
+  Server,
+  Settings,
+  Shield,
+  Trash2,
+  Upload,
+  X,
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
@@ -223,19 +223,11 @@ export default function SettingsModal({ onClose }: { onClose: () => void }) {
 
   return (
     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-      <div className="bg-[#05100F] border border-white/10 rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.5)] max-w-2xl w-full max-h-[90vh] overflow-hidden relative flex flex-col">
-        {/* macOS-style Window Chrome (Finder style) */}
-        <div className="relative rounded-t-lg bg-[#05100F] px-4 py-4 flex items-center justify-between border-b border-white/[0.03]">
+      <div className="bg-[#05100F] border-[0.5px] border-white/10 rounded-3xl shadow-[0_20px_50px_rgba(0,0,0,0.5)] max-w-2xl w-full max-h-[90vh] overflow-hidden relative flex flex-col">
+        <div className="relative rounded-t-lg bg-[#05100F] px-4 py-4 flex items-center justify-between border-b-0">
           <div className="flex items-center gap-4">
-            {/* Traffic Lights */}
-            <div className="flex items-center gap-2">
-              <div className="w-3 h-3 rounded-full bg-[#FF5F57] shadow-sm" />
-              <div className="w-3 h-3 rounded-full bg-[#FEBC2E] shadow-sm" />
-              <div className="w-3 h-3 rounded-full bg-[#28C840] shadow-sm" />
-            </div>
-
             {/* Title */}
-            <div className="text-sm text-white font-semibold flex items-center gap-2">
+            <div className="text-sm text-white font-semibold flex items-center gap-2 pl-2">
               <Settings className="w-4 h-4 opacity-70" />
               <span>Settings</span>
             </div>
@@ -245,21 +237,21 @@ export default function SettingsModal({ onClose }: { onClose: () => void }) {
             variant="ghost"
             size="icon"
             onClick={onClose}
-            className="text-neutral-400 hover:text-white hover:bg-white/10 rounded-lg w-8 h-8"
+            className="text-neutral-400 hover:text-white hover:bg-white/10 rounded-full w-8 h-8"
           >
             <X className="w-4 h-4" />
           </Button>
         </div>
 
         {/* Content */}
-        <div className="flex-1 overflow-y-auto p-8 space-y-8">
+        <div className="flex-1 overflow-y-auto p-8 space-y-8 bg-[#05100F]">
           {/* Access Token */}
           <section>
             <h3 className="text-sm font-medium text-neutral-400 uppercase tracking-widest mb-4 flex items-center gap-2">
               <Shield className="w-4 h-4" />
               Access Token
             </h3>
-            <div className="bg-white/[0.03] border border-white/10 rounded-xl p-6 space-y-4">
+            <div className="bg-white/[0.032] border-[0.5px] border-white/10 rounded-2xl p-6 space-y-4">
               {/* Token Display with inline regenerate */}
               <div className="space-y-2">
                 <Label htmlFor="access-token">Your Access Token</Label>
@@ -269,10 +261,11 @@ export default function SettingsModal({ onClose }: { onClose: () => void }) {
                       id="access-token"
                       value={apiKey || "Token not generated yet"}
                       readOnly
-                      className="bg-black/40 border-white/10 text-white font-mono text-sm pr-10"
+                      className="bg-black/40 border-[0.5px] border-white/10 text-white font-mono text-sm pr-10"
                       type={showApiKey ? "text" : "password"}
                     />
                     <button
+                      data-testid="toggle-visibility"
                       onClick={() => setShowApiKey(!showApiKey)}
                       className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-white"
                     >
@@ -312,8 +305,8 @@ export default function SettingsModal({ onClose }: { onClose: () => void }) {
               </div>
 
               {/* Auth Status */}
-              <div className="pt-4 border-t border-white/10">
-                <div className="flex items-center gap-3 p-3 bg-black/20 rounded-lg border border-white/5">
+              <div className="pt-4 border-t border-white/5">
+                <div className="flex items-center gap-3 p-3 bg-white/10 rounded-xl border-[0.5px] border-white/10">
                   {isManaged ? (
                     <>
                       <div className="w-2 h-2 bg-emerald-400 rounded-full animate-pulse" />
@@ -323,7 +316,7 @@ export default function SettingsModal({ onClose }: { onClose: () => void }) {
                             ? "Local Mode Active"
                             : "LAN / RPi Mode Active"}
                         </p>
-                        <p className="text-xs text-neutral-500">
+                        <p className="text-xs text-white/70">
                           {instanceType === "local"
                             ? "No token needed for local connections"
                             : "Connect from other devices using the secure token"}
@@ -341,7 +334,7 @@ export default function SettingsModal({ onClose }: { onClose: () => void }) {
                               ? "Cloud Mode"
                               : "Remote Mode"}
                         </p>
-                        <p className="text-xs text-neutral-500">
+                        <p className="text-xs text-white/70">
                           {instanceType === "rpi"
                             ? "Connecting from your laptop to RPi"
                             : "Token required for remote MCP connections"}
@@ -360,7 +353,7 @@ export default function SettingsModal({ onClose }: { onClose: () => void }) {
               <Database className="w-4 h-4" />
               Data Management
             </h3>
-            <div className="flex flex-col gap-3">
+            <div className="bg-white/[0.032] border-[0.5px] border-white/10 rounded-2xl p-6 flex flex-col gap-4">
               <div className="flex items-center gap-3">
                 <TintButton
                   tint="neutral"
@@ -447,7 +440,7 @@ export default function SettingsModal({ onClose }: { onClose: () => void }) {
               <Server className="w-4 h-4" />
               System Information
             </h3>
-            <div className="bg-white/5 border border-white/10 rounded-xl p-6 shadow-[inset_0_0_30px_rgba(255,255,255,0.01)] backdrop-blur-md space-y-6">
+            <div className="bg-white/[0.032] border-[0.5px] border-white/10 rounded-2xl p-6 space-y-6">
               <div className="grid grid-cols-2 gap-12">
                 <div className="space-y-4">
                   <span className="text-[10px] uppercase text-neutral-500 font-bold tracking-[0.2em] block mb-2">

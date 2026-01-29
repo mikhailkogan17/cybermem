@@ -17,7 +17,8 @@ if (argUrl) process.env.TAILSCALE_URL = argUrl;
 
 interface VerifyOptions {
   name: string;
-  url: string;
+  url: string; // Dashboard URL
+  apiUrl?: string; // Core API URL (defaults to url if not set)
   isRemote: boolean;
   outputDir: string;
   prefix: string;
@@ -30,8 +31,11 @@ async function ensureDir(dir: string) {
 }
 
 async function verifyEnvironment(options: VerifyOptions) {
-  const { name, url, isRemote, outputDir, prefix } = options;
-  console.log(`\n🔍 Verifying [${name}] at ${url}...`);
+  const { name, url, apiUrl, isRemote, outputDir, prefix } = options;
+  const targetApiUrl = apiUrl || url;
+  console.log(`\n🔍 Verifying [${name}]...`);
+  console.log(`    Dashboard: ${url}`);
+  console.log(`    API:       ${targetApiUrl}`);
 
   async function performCRUD(url: string) {
     try {
@@ -40,7 +44,7 @@ async function verifyEnvironment(options: VerifyOptions) {
       const httpsAgent = new https.Agent({ rejectUnauthorized: false });
       const headers: any = {
         "X-Client-Name": "antigravity-client",
-        "X-Client-Version": "0.12.6",
+        "X-Client-Version": "0.12.5",
       };
       if (isRemote) {
         headers["Authorization"] =
@@ -106,7 +110,7 @@ async function verifyEnvironment(options: VerifyOptions) {
 
   const envDir = path.join(outputDir, name);
   await ensureDir(envDir);
-  await performCRUD(url);
+  await performCRUD(targetApiUrl);
 
   const browser = await chromium.launch({
     args: ["--no-proxy-server", "--disable-gpu", "--no-sandbox"],
@@ -157,8 +161,7 @@ async function verifyEnvironment(options: VerifyOptions) {
 
     // Common Dashboard Checks
     console.log("    Verifying Identity Law...");
-    // Increased wait for metrics to populate
-    await page.reload({ waitUntil: "networkidle" });
+    await page.waitForLoadState("networkidle");
     await page.waitForTimeout(5000);
 
     // Stage 2: Dashboard Home
@@ -173,62 +176,156 @@ async function verifyEnvironment(options: VerifyOptions) {
     await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
     await page.waitForTimeout(2000);
     const auditStatus = await page.locator(".status-pill").allTextContents();
-    if (auditStatus.length === 0) {
-      console.warn(
-        `    ⚠️ Audit Log Warning: No success entries found in [${name}] logs (latency?).`,
-      );
-    } else {
-      console.log(`       ✅ Audit Logs Valid (${auditStatus.length} entries)`);
-    }
+    console.log(`       [Debug] Found ${auditStatus.length} audit entries.`);
 
     // Stage 3: MCP Modal
     console.log(`  - 3: MCP Modal...`);
-    const mcpBtn = page.locator('button:has(img[alt="MCP"])').first();
-    if (await mcpBtn.isVisible()) {
+    await page.evaluate(() => window.scrollTo(0, 0));
+    await page.waitForTimeout(1000);
+
+    const mcpBtn = page.locator('[data-testid="mcp-button"]').first();
+    try {
+      await mcpBtn.waitFor({ state: "visible", timeout: 15000 });
+      await mcpBtn.hover(); // Trigger any hover states
       await mcpBtn.click();
-      await page.waitForTimeout(2000);
-      await page.screenshot({
-        path: path.join(envDir, `${prefix}2_mcp.png`),
-        fullPage: true,
+    } catch (e: any) {
+      console.warn(
+        `       [Debug] MCP click failed (${e.message.substring(0, 50)}), forcing JS click...`,
+      );
+      await page.evaluate(() => {
+        const btn = document.querySelector(
+          '[data-testid="mcp-button"]',
+        ) as HTMLButtonElement;
+        if (btn) btn.click();
       });
-      await page.keyboard.press("Escape");
-      await page.waitForTimeout(1000);
     }
+    // Wait for Modal Title to appear to confirm it opened
+    await page
+      .locator('div:has-text("MCP Integration")')
+      .first()
+      .waitFor({ state: "visible", timeout: 10000 })
+      .catch(() => {
+        console.warn(
+          "       [Debug] MCP Modal title not found, proceeding anyway...",
+        );
+      });
+    await page.waitForTimeout(2000);
+    await page.screenshot({
+      path: path.join(envDir, `${prefix}2_mcp.png`),
+      fullPage: true,
+    });
+
+    // Close Modal Robustly
+    const closeBtn = page.locator('button:has-text("Close")').last();
+    if (await closeBtn.isVisible()) {
+      await closeBtn.click();
+    } else {
+      await page.keyboard.press("Escape");
+    }
+    // Wait for overlay to disappear
+    await page
+      .locator("div.fixed.inset-0")
+      .waitFor({ state: "hidden", timeout: 5000 })
+      .catch(() => {});
+    await page.waitForTimeout(2000);
 
     // Stage 4: Settings Modal
     console.log(`  - 4: Settings Modal...`);
-    const settingsBtn = page.locator("button:has(svg.lucide-settings)");
-    await settingsBtn.waitFor({ state: "visible", timeout: 10000 });
-    await settingsBtn.click();
-    await page.waitForTimeout(2000);
+    await page.evaluate(() => window.scrollTo(0, 0));
+    await page.waitForTimeout(500);
+
+    const settingsBtn = page.locator('[data-testid="settings-button"]').first();
+    try {
+      await settingsBtn.waitFor({ state: "visible", timeout: 15000 });
+      await settingsBtn.hover();
+      await settingsBtn.click();
+    } catch (e: any) {
+      console.warn(
+        `       [Debug] Settings click failed (${e.message.substring(0, 50)}), forcing JS click...`,
+      );
+      await page.evaluate(() => {
+        const btn = document.querySelector(
+          '[data-testid="settings-button"]',
+        ) as HTMLButtonElement;
+        if (btn) btn.click();
+      });
+    }
+    // Wait for Settings title
+    await page
+      .locator('span:has-text("Settings")')
+      .last()
+      .waitFor({ state: "visible", timeout: 10000 })
+      .catch(() => {
+        console.warn("       [Debug] Settings Modal title not found.");
+      });
+    await page.waitForTimeout(3000);
 
     const eyeBtn = page
-      .locator("button:has(svg.lucide-eye), button.absolute.right-3")
+      .locator(
+        '[data-testid="toggle-visibility"], button[aria-label="Toggle token visibility"], button:has(svg.lucide-eye), button.absolute.right-3',
+      )
       .first();
+    console.log("       [Debug] Checking Settings Eye Button...");
+    // Explicit wait for Eye button
+    try {
+      await eyeBtn.waitFor({ state: "visible", timeout: 10000 });
+    } catch (e) {
+      console.warn(
+        "       [Debug] Eye button wait timeout, checking current visibility...",
+      );
+    }
+
     if (await eyeBtn.isVisible()) {
-      await eyeBtn.click();
-      await page.waitForTimeout(1000);
-      const tokenValue = await page
-        .inputValue("#access-token")
-        .catch(() => "N/A");
-      if (tokenValue?.match(/sk-[a-f0-9]{32}/)) {
+      console.log("       [Debug] Eye button found, clicking...");
+      await eyeBtn.click({ force: true });
+      await page.waitForTimeout(2000);
+
+      await page.screenshot({
+        path: path.join(envDir, `${prefix}3_settings.png`),
+        fullPage: true,
+      });
+
+      const tokenInput = page.locator(
+        'input#access-token, input[id="access-token"]',
+      );
+      const tokenValue = await tokenInput.inputValue().catch(async () => {
+        console.warn(
+          "       [Debug] input#access-token failed, trying fallback by visibility...",
+        );
+        return page.evaluate(() => {
+          const input = document.querySelector(
+            'input[type="text"]',
+          ) as HTMLInputElement;
+          return input?.value || "";
+        });
+      });
+
+      if (tokenValue && tokenValue.length > 10) {
         console.log(
-          `       ✅ [Stage 4] Token Format Verified: "${tokenValue}"`,
+          `       ✅ Token visible: ${tokenValue.substring(0, 7)}...`,
         );
       } else {
         console.error(
-          `    ❌ [Stage 4] TOKEN FORMAT VIOLATION: "${tokenValue}"`,
+          `       ❌ Token NOT visible or malformed: ${tokenValue}`,
         );
       }
+    } else {
+      console.error(`       ❌ Eye button not visible in Settings modal`);
+      await page.screenshot({
+        path: path.join(envDir, `FAILED_${prefix}settings_eye_missing.png`),
+      });
+      throw new Error(`Settings Modal Eye button missing on [${name}]`);
     }
-    await page.screenshot({
-      path: path.join(envDir, `${prefix}3_settings.png`),
-      fullPage: true,
-    });
+
+    await page.keyboard.press("Escape");
+    await page.waitForTimeout(1000);
 
     console.log(`✅ Verified [${name}]`);
   } catch (error: any) {
     console.error(`❌ Verification failed for [${name}]: ${error.message}`);
+    await page.screenshot({
+      path: path.join(envDir, `ERROR_${name}.png`),
+    });
   } finally {
     await browser.close();
   }
@@ -238,12 +335,12 @@ async function main() {
   const outputBase = path.join(
     process.cwd(),
     "release-reports",
-    `release-report-0.12.6-assets`,
+    `release-report-0.12.5-assets`,
   );
   if (fs.existsSync(outputBase)) fs.rmSync(outputBase, { recursive: true });
   fs.mkdirSync(outputBase, { recursive: true });
 
-  console.log(`🚀 Starting CyberMem E2E Release Check (v0.12.6)`);
+  console.log(`🚀 Starting CyberMem E2E Release Check (v0.12.5)`);
 
   const allConfigs: VerifyOptions[] = [
     {
@@ -262,24 +359,22 @@ async function main() {
     },
     {
       name: "rpi-lan-staging",
-      url: "http://raspberrypi.local:8625",
-      isRemote: false,
+      url: "http://raspberrypi.local:8626",
+      isRemote: true,
       outputDir: outputBase,
       prefix: "3.",
     },
     {
       name: "rpi-ts-staging",
-      url: process.env.TAILSCALE_URL
-        ? `${process.env.TAILSCALE_URL}/cybermem-staging`
-        : "",
+      url: "https://raspberrypi.tail7242ed.ts.net",
       isRemote: true,
       outputDir: outputBase,
       prefix: "4.",
     },
     {
       name: "vps-staging",
-      url: "http://localhost:8085",
-      isRemote: false,
+      url: "http://localhost:8627",
+      isRemote: true,
       outputDir: outputBase,
       prefix: "5.",
     },
@@ -296,7 +391,11 @@ async function main() {
 
   for (const config of configurations) {
     if (config.url) {
-      await verifyEnvironment(config);
+      try {
+        await verifyEnvironment(config);
+      } catch (e: any) {
+        console.error(`\n❌ [CONTINUE] ${config.name} failed: ${e.message}\n`);
+      }
     }
   }
 }

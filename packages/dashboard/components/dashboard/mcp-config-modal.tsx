@@ -217,7 +217,7 @@ export default function MCPConfigModal({ onClose }: { onClose: () => void }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
       <div
-        className="w-full max-w-6xl bg-[#0B1116]/80 backdrop-blur-xl border-[0.5px] border-white/10 rounded-3xl shadow-2xl animate-in zoom-in-95 duration-200 flex flex-col max-h-[90vh] relative overflow-hidden"
+        className="w-full max-w-6xl bg-[#05100F] backdrop-blur-xl border-[0.5px] border-white/10 rounded-3xl shadow-2xl animate-in zoom-in-95 duration-200 flex flex-col max-h-[90vh] relative overflow-hidden"
         style={{
           backgroundImage: `
             radial-gradient(circle at 0% 0%, oklch(0.7 0 0 / 0.05) 0%, transparent 50%),
@@ -323,7 +323,7 @@ export default function MCPConfigModal({ onClose }: { onClose: () => void }) {
 
           {/* Details: Configuration Steps (Right Panel) */}
           <div className="flex-1 flex flex-col bg-white/[0.032]">
-            <div className="flex-1 overflow-y-auto overscroll-none p-8">
+            <div className="flex-1 overflow-y-auto overscroll-none p-8 space-y-4">
               {/* Client Header */}
               <div className="flex items-center gap-4">
                 {selectedConfig?.icon && (
@@ -360,7 +360,7 @@ export default function MCPConfigModal({ onClose }: { onClose: () => void }) {
                 {selectedConfig?.steps?.map((step: string, index: number) => (
                   <div
                     key={index}
-                    className={`relative flex items-start gap-4 group/step ${index === (selectedConfig?.steps?.length || 0) - 1 ? "pb-2" : "pb-4"}`}
+                    className="relative flex items-start gap-4 pb-4 group/step"
                   >
                     {/* Vertical Line - Digit to Digit */}
                     {index < (selectedConfig?.steps?.length || 0) - 1 && (
@@ -394,38 +394,24 @@ export default function MCPConfigModal({ onClose }: { onClose: () => void }) {
               {/* Config Code Block */}
               <div className="relative group w-full overflow-hidden border border-white/10 rounded-lg shadow-[0_20px_50px_rgba(0,0,0,0.5)]">
                 {/* macOS-style Window Chrome (Finder style) */}
-                <div className="relative rounded-t-lg bg-[#05100F] px-4 py-4 flex items-center justify-between border-b border-white/[0.03]">
+                <div className="relative rounded-t-lg bg-[#05100F] px-4 py-4 flex items-center justify-between border-b border-transparent">
                   <div className="flex items-center gap-4">
-                    {/* Traffic Lights */}
-                    <div className="flex items-center gap-2">
-                      <div className="w-3 h-3 rounded-full bg-[#FF5F57] shadow-sm" />
-                      <div className="w-3 h-3 rounded-full bg-[#FEBC2E] shadow-sm" />
-                      <div className="w-3 h-3 rounded-full bg-[#28C840] shadow-sm" />
-                    </div>
-
                     {/* Title */}
-                    <div className="text-sm text-white font-semibold">
+                    <div className="text-sm text-white font-semibold pl-2">
                       {(() => {
                         const config = (clients as any[]).find(
                           (c) => c.id === selectedClient,
                         );
-                        // 1. Force "Terminal" for specific CLI clients
                         if (
                           ["claude-code", "gemini-cli"].includes(selectedClient)
                         )
                           return "Terminal";
-
-                        // 2. Use specific filename from JSON (e.g., claude_desktop_config.json)
                         if (config?.filename) return config.filename;
-
-                        // 3. Fallback to "Terminal" for generic command/cmd types
                         if (
                           config?.configType === "command" ||
                           config?.configType === "cmd"
                         )
                           return "Terminal";
-
-                        // 4. Default for all other JSON/config types
                         return "mcp.json";
                       })()}
                     </div>
