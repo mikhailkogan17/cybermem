@@ -129,17 +129,42 @@ async function verifyEnvironment(options: VerifyOptions) {
     await page.waitForTimeout(5000);
 
     if (isRemote) {
-      const bodyText = await page.textContent("body");
-      if (
-        bodyText?.includes("Valid access token required") ||
-        bodyText?.includes("Unauthorized")
-      ) {
-        await page.goto(`${url.replace(/\/$/, "")}/auth/signin`, {
-          waitUntil: "domcontentloaded",
-        });
-        await page.waitForTimeout(2000);
-      }
+      // SPA Login Detection: Check for Login Modal or Input instead of full page text
+      console.log("    [Auth] Checking for SPA Login State...");
+      const loginInput = page.locator(
+        'input#access-token, input[type="password"]',
+      );
 
+      if (await loginInput.isVisible({ timeout: 5000 })) {
+        console.log("    ✅ SPA Login Modal Verified.");
+        await page.screenshot({
+          path: path.join(envDir, `${prefix}1_login_proof.png`),
+        });
+
+        console.log(`    [Auth] Performing Token Login via UI...`);
+        const token =
+          process.env.CYBERMEM_TOKEN || "sk-staging-verified-key-vf7";
+        await loginInput.fill(token);
+
+        // Handle "Enter" or Click Arrow
+        const submitBtn = page.locator(
+          'button[type="submit"], button:has(svg)',
+        );
+        if ((await submitBtn.count()) > 0) {
+          await submitBtn.first().click();
+        } else {
+          await page.keyboard.press("Enter");
+        }
+        await page.waitForTimeout(5000);
+      } else {
+        console.log(
+          "    ℹ️ No Login Input found, assuming authenticated or public.",
+        );
+      }
+    }
+
+    // Skip legacy redirect block
+    if (false) {
       if (
         page.url().includes("/auth/signin") ||
         (await page.locator("text=/Login with Token/i").isVisible())
