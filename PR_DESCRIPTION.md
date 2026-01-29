@@ -1,24 +1,20 @@
-# Pull Request: Agile Infrastructure & Token Revert
+# Pull Request: Fix E2E for SPA & Switch to Agent-PR
 
 **Date**: 2026-01-29
-**Branch**: `feat/agile-setup`
+**Branch**: `fix/workflow-and-e2e`
 **Author**: Antigravity Agent (Senior SDET)
 
 ## Summary
-This PR establishes the foundational infrastructure for our new Agile workflow and reverts the critical token format changes to restore system stability.
+Updates E2E tests to support SPA login flow and replaces auto-triggering PRs with a manual `agent-pr` workflow.
 
 ## Changes
-### 1. Agile Infrastructure
-- **[NEW] `.github/workflows/auto-pr.yml`**: Automates PR creation to ensure identity separation (Bot vs User).
-- **[NEW] `.github/pull_request_template.md`**: Enforces strict verification.
-- **[NEW] `dangerfile.ts`**: Automates quality gates.
-- **[MOD] `GEMINI.md`**: Updated with Agile protocols.
-- **[MOD] `.hooks/pre-commit`**: Simplified to linters only.
+- **[FIX] `release-check.ts`**: Updated `verifyEnvironment` to detect SPA login modal instead of relying on redirects.
+- **[NEW] `.github/workflows/agent-pr.yml`**: Manual `workflow_dispatch` action to create PRs as the Agent.
+- **[DEL] `.github/workflows/auto-pr.yml`**: Removed auto-triggering workflow.
 
-### 2. Critical Fixes (Token Revert)
-- **[REVERT] `packages/dashboard`**: Reverted API key generation and validation to `sk-` prefix.
-- **[REVERT] `packages/mcp`**: Reverted token validation to `sk-`.
-- **[fix] `next.config.mjs`**: Re-enabled `basePath` support.
+## Verification
+- [ ] Run `gh workflow run "Agent-PR" ...` and verify PR creation.
+- [ ] CI E2E tests should pass (or fail further down, but pass Auth step).
 
 ## Request
-**@mikhailkogan17**: Please review and merge.
+**@mikhailkogan17**: Please review.

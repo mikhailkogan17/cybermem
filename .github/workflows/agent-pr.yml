@@ -1,0 +1,59 @@
+name: Agent-PR
+
+on:
+  workflow_dispatch:
+    inputs:
+      head_branch:
+        description: "Source Branch (e.g. feat/xyz)"
+        required: true
+      base_branch:
+        description: "Target Branch (e.g. main)"
+        required: true
+        default: "main"
+      title:
+        description: "PR Title (Optional - defaults to branch name)"
+        required: false
+      body_file:
+        description: "Path to body file (default PR_DESCRIPTION.md)"
+        required: false
+        default: "PR_DESCRIPTION.md"
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  create-pr:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Create Pull Request
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          HEAD="${{ inputs.head_branch }}"
+          BASE="${{ inputs.base_branch }}"
+          TITLE="${{ inputs.title }}"
+          BODY_FILE="${{ inputs.body_file }}"
+
+          if [ -z "$TITLE" ]; then
+             TITLE="feat: $HEAD (Agent PR)"
+          fi
+
+          # Check if body file exists, else use simple body
+          if [ ! -f "$BODY_FILE" ]; then
+             echo "Body file $BODY_FILE not found, using default message."
+             BODY_ARG="--body 'Automated Agent PR. Review requested from @mikhailkogan17'"
+          else
+             BODY_ARG="--body-file $BODY_FILE"
+          fi
+
+          echo "🚀 Creating PR: $HEAD -> $BASE"
+          gh pr create \
+            --base "$BASE" \
+            --head "$HEAD" \
+            --title "$TITLE" \
+            $BODY_ARG \
+            --draft=false \
+            || echo "⚠️ PR creation failed or already exists."
