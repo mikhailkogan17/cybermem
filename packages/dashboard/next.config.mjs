@@ -1,5 +1,6 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  basePath: process.env.CYBERMEM_BASE_PATH || "",
   images: {
     unoptimized: true,
   },
