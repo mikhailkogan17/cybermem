@@ -22,18 +22,20 @@
 > - Force a commit without fixing a cause (linting, gitleaks, etc)
 > - [ ] **Commit without running local tests first (`npm run test:e2e`)**
 
-## 1.5 MANDATORY AGENT PROTOCOL (Gatekeeper)
+## 1.5 MANDATORY AGENT PROTOCOL (CI & DangerJS)
 
 > [!IMPORTANT]
-> **EVERY AGENT (Antigravity, Claude Code, Opus) MUST follow this workflow before ANY push or publish:**
+> **We use Automated Quality Gates via CI and DangerJS.**
 
-1.  **Run Pre-commit**: Execute `/pre_commit` or `./.hooks/pre-commit` locally.
-2.  **Full E2E suite**: Run `npm run test:e2e local` in `packages/cli` AND verify dashboard health.
-3.  **Docs Sync**: Run `/refresh-docs` to ensure documentation and landing are consistent.
-4.  **Create Release Report**: Every non-trivial change MUST have a verified report in `release-reports/` based on `TEMPLATE.md`.
-5.  **MCP Verification**: Specifically verify both **Local SDK** and **Remote Proxy** modes to prevent protocol regressions.
+1.  **Local Verification**: Run `/pre_commit` and `npm run test:e2e local` BEFORE pushing.
+2.  **Pull Request**: All changes must go through a PR (no direct commits to `main`).
+3.  **Danger Checks**:
+    - **Docs**: Must be updated if code changes.
+    - **Evidence**: Screenshots required in PR description.
+    - **Release Report**: Required for `feat/*` branches.
+4.  **Merge**: Only possible after CI passes and Tech Lead approves.
 
-FAILURE TO FOLLOW THIS PROTOCOL IS UNACCEPTABLE AND CAUSES PRODUCTION DOWN-TIME.
+FAILURE TO FOLLOW THIS PROTOCOL WILL BE BLOCKED BY BRANCH PROTECTION.
 
 ## 1.6 LETHAL LAWS OF IDENTITY (Non-Negotiable)
 
@@ -103,6 +105,21 @@ FAILURE TO FOLLOW THIS PROTOCOL IS UNACCEPTABLE AND CAUSES PRODUCTION DOWN-TIME.
 | --------------------- | ----------- | -------------------------------------------------------- |
 | **localhost**         | DEV         | Can wipe, reset, test freely                             |
 | **raspberrypi.local** | PROD        | **STRICT READ-ONLY**. Never wipe/modify without consent. |
+
+### Strict Environment Table (Source of Truth)
+
+| Environment       | URL                                |
+| ----------------- | ---------------------------------- |
+| localhost-staging | http://localhost:8625              |
+| localhost-prod    | http://localhost:8626              |
+| rpi-lan-staging   | http://rpi-local:8625              |
+| rpi-lan-prod      | http://rpi-local:8626              |
+| rpi-ts-staging    | http://rpi.ts.net/cybermem-staging |
+| rpi-ts-prod       | http://rpi.ts.net/cybermem         |
+| vps-staging       | http://VPS:8625                    |
+| vps-prod          | http://VPS:8626                    |
+
+<br>
 
 ### Test Workflow Rules
 
