@@ -37,6 +37,16 @@
 
 FAILURE TO FOLLOW THIS PROTOCOL WILL BE BLOCKED BY BRANCH PROTECTION.
 
+## 1.5.1 IDENTITY SEPARATION & AUTO-PR
+
+> [!IMPORTANT]
+> **We avoid Identity Collision by delegating PR creation to CI.**
+
+1.  **Work**: Agent commits to `feat/*` or `chore/*` branches with `Antigravity Agent` git config.
+2.  **Hand-off**: Agent commits a `PR_DESCRIPTION.md` file to the branch root.
+3.  **Automation**: The `auto-pr.yml` workflow triggers on push, and the **GitHub Actions Bot** opens the PR.
+4.  **Review**: User (Tech Lead) reviews the PR (created by Bot) and merges.
+
 ## 1.6 LETHAL LAWS OF IDENTITY (Non-Negotiable)
 
 > [!CAUTION]

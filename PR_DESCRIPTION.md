@@ -1,24 +1,18 @@
-# Pull Request: Agile Infrastructure & Token Revert
+# Pull Request: Update GEMINI.md with Auto-PR Workflow
 
 **Date**: 2026-01-29
-**Branch**: `feat/agile-setup`
+**Branch**: `feat/update-docs-autopr`
 **Author**: Antigravity Agent (Senior SDET)
 
 ## Summary
-This PR establishes the foundational infrastructure for our new Agile workflow and reverts the critical token format changes to restore system stability.
+Updates `GEMINI.md` to include the mandatory "Identity Separation & Auto-PR" protocol (Section 1.5.1).
 
 ## Changes
-### 1. Agile Infrastructure
-- **[NEW] `.github/workflows/auto-pr.yml`**: Automates PR creation to ensure identity separation (Bot vs User).
-- **[NEW] `.github/pull_request_template.md`**: Enforces strict verification.
-- **[NEW] `dangerfile.ts`**: Automates quality gates.
-- **[MOD] `GEMINI.md`**: Updated with Agile protocols.
-- **[MOD] `.hooks/pre-commit`**: Simplified to linters only.
+- **[MOD] `GEMINI.md`**: Added documentation for `auto-pr.yml` workflow and identity rules.
 
-### 2. Critical Fixes (Token Revert)
-- **[REVERT] `packages/dashboard`**: Reverted API key generation and validation to `sk-` prefix.
-- **[REVERT] `packages/mcp`**: Reverted token validation to `sk-`.
-- **[fix] `next.config.mjs`**: Re-enabled `basePath` support.
+## Verification
+- [ ] Verify `GEMINI.md` contains Section 1.5.1.
+- [ ] Verify this PR was created by `github-actions[bot]`.
 
 ## Request
 **@mikhailkogan17**: Please review and merge.
