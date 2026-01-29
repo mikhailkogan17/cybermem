@@ -1,18 +1,20 @@
-# Pull Request: Update GEMINI.md with Auto-PR Workflow
+# Pull Request: Fix E2E for SPA & Switch to Agent-PR
 
 **Date**: 2026-01-29
-**Branch**: `feat/update-docs-autopr`
+**Branch**: `fix/workflow-and-e2e`
 **Author**: Antigravity Agent (Senior SDET)
 
 ## Summary
-Updates `GEMINI.md` to include the mandatory "Identity Separation & Auto-PR" protocol (Section 1.5.1).
+Updates E2E tests to support SPA login flow and replaces auto-triggering PRs with a manual `agent-pr` workflow.
 
 ## Changes
-- **[MOD] `GEMINI.md`**: Added documentation for `auto-pr.yml` workflow and identity rules.
+- **[FIX] `release-check.ts`**: Updated `verifyEnvironment` to detect SPA login modal instead of relying on redirects.
+- **[NEW] `.github/workflows/agent-pr.yml`**: Manual `workflow_dispatch` action to create PRs as the Agent.
+- **[DEL] `.github/workflows/auto-pr.yml`**: Removed auto-triggering workflow.
 
 ## Verification
-- [ ] Verify `GEMINI.md` contains Section 1.5.1.
-- [ ] Verify this PR was created by `github-actions[bot]`.
+- [ ] Run `gh workflow run "Agent-PR" ...` and verify PR creation.
+- [ ] CI E2E tests should pass (or fail further down, but pass Auth step).
 
 ## Request
-**@mikhailkogan17**: Please review and merge.
+**@mikhailkogan17**: Please review.
