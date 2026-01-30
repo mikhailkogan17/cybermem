@@ -122,9 +122,21 @@ jobs:
         run: |
           cd packages/mcp
           npm run build --silent
+          # Run with timeout to prevent hang. Capture stdout and stderr separately.
           echo '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","clientInfo":{"name":"ci-stdio-test","version":"1.0"},"capabilities":{}}}' | \
-          node dist/index.js 2>&1 | grep -q '"serverInfo"' || (echo "❌ MCP STDIO Protocol Check Failed" && exit 1)
-          echo "✅ MCP STDIO Protocol Verified"
+          timeout 10s node dist/index.js > stdout.log 2> stderr.log || true
+
+          # Check if valid JSON-RPC response exists in stdout
+          if grep -q '"serverInfo"' stdout.log; then
+            echo "✅ MCP STDIO Protocol Verified"
+          else
+            echo "❌ MCP STDIO Protocol Check Failed"
+            echo "--- STDOUT ---"
+            cat stdout.log
+            echo "--- STDERR ---"
+            cat stderr.log
+            exit 1
+          fi
 
       - name: Upload Playwright Report
         if: failure()
