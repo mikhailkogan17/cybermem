@@ -226,9 +226,19 @@ export async function install(options: any) {
       console.log(chalk.blue("Starting CyberMem services in Local Mode..."));
 
       try {
+        // Detect if we should use 'docker compose' (v2) or 'docker-compose' (v1)
+        let composeCmd = ["docker-compose"];
+        try {
+          await execa("docker", ["compose", "version"]);
+          composeCmd = ["docker", "compose"];
+        } catch (e) {
+          // Fallback to v1 if v2 not found
+        }
+
         await execa(
-          "docker-compose",
+          composeCmd[0],
           [
+            ...composeCmd.slice(1),
             "-f",
             composeFile,
             "--env-file",
