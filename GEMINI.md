@@ -432,3 +432,41 @@ sequenceDiagram
 2.  **Kubernetes** (`k3d`, `localhost:8626`)
 3.  **RPi Local** (`raspberrypi.local:8626`)
 4.  **Zero Trust** (`https://raspberrypi...ts.net`)
+
+## 1.8 AGENTIC QUALITY GATES & DECOMPOSITION
+
+> [!IMPORTANT]
+> **Agent Responsibility Protocol**
+> The Agent guarantees quality. The User provides the "What", the Agent ensures the "How" meets all standards.
+> Before writing code, the Agent MUST internally decompose the feature using this strict template:
+
+### Feature Decomposition Standard
+1.  **Requirements**: List explicit user needs.
+2.  **Existing Patterns**: Identify similar features in `path/to/existing` to maintain consistency.
+3.  **Edge Cases**: Identify at least 2 failure modes (e.g., Network Down, Auth Expired, Read-only FS).
+4.  **Acceptance Criteria**:
+    - 100% Test Coverage for new modules.
+    - E2E Tests pass on Local & RPi.
+    - No regression in startup time or auth flow.
+
+## 1.9 PROJECT BOARD CONFIGURATION (Reference)
+
+> [!NOTE]
+> **Source of Truth for Automation IDs**
+> Use these IDs when configuring `gh project` commands.
+
+| entity      | Name               | ID                               |
+| :---------- | :----------------- | :------------------------------- |
+| **Project** | **CyberMem Board** | `1` (Owner: `mikhailkogan17`)    |
+| **Field**   | **Status**         | `PVTSSF_lAHOBd5jG84BN0uLzg8tZsc` |
+| **Field**   | **FixVersion**     | `PVTF_lAHOBd5jG84BN0uLzg8tZtI`   |
+
+### Status Options (Column IDs)
+| Column               | Option ID  | Verified Transition   |
+| :------------------- | :--------- | :-------------------- |
+| **Backlog**          | (Default)  | Issue Open            |
+| **Ready to Develop** | `5df6f87a` | Issue Assigned        |
+| **In Progress**      | `c8b647cc` | PR Open               |
+| **Review**           | `c09104c6` | PR Ready              |
+| **Done**             | `c773af5`  | PR Merged             |
+| **Released**         | `e6d10f39` | `publish.yml` Success |

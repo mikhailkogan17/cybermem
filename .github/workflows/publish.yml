@@ -96,12 +96,33 @@ jobs:
         run: npm publish --access public --provenance
 
       - name: Create GitHub Release
+        id: create_release
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GH_PROJECT_TOKEN || secrets.GITHUB_TOKEN }}
         run: |
-          gh release create "v${{ steps.version.outputs.version }}" \
+          RELEASE_URL=$(gh release create "v${{ steps.version.outputs.version }}" \
             --title "v${{ steps.version.outputs.version }}" \
-            --generate-notes
+            --generate-notes --json url --jq '.url')
+          echo "release_url=$RELEASE_URL" >> $GITHUB_OUTPUT
+
+      - name: Update Project Board (Move to Released)
+        env:
+          GH_TOKEN: ${{ secrets.GH_PROJECT_TOKEN || secrets.GITHUB_TOKEN }}
+        run: |
+          # Fetch items in 'Done' status (merged PRs)
+          READY_ITEMS=$(gh project item-list 1 --owner mikhailkogan17 --format json --jq '.items[] | select(.status == "Done") | .id')
+
+          for item in $READY_ITEMS; do
+            echo "Moving item $item to Released..."
+            gh project item-edit 1 --owner mikhailkogan17 --id $item \
+              --field-id PVTSSF_lAHOBd5jG84BN0uLzg8tZsc --project-id PVT_kwHOBd5jG84BN0uLzg8tPRQ \
+              --option-id e6d10f39
+
+            echo "Setting FixVersion to v${{ steps.version.outputs.version }}..."
+            gh project item-edit 1 --owner mikhailkogan17 --id $item \
+              --field-id PVTF_lAHOBd5jG84BN0uLzg8tZtI --project-id PVT_kwHOBd5jG84BN0uLzg8tPRQ \
+              --text "v${{ steps.version.outputs.version }}"
+          done
 
       - name: Post-Release Version Bump
         run: |
