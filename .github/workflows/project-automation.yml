@@ -1,0 +1,46 @@
+name: Board Automation
+
+on:
+  issues:
+    types: [opened]
+  pull_request:
+    types: [opened, ready_for_review, closed]
+
+jobs:
+  track_work:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Add to Project Board (Backlog for new Issues)
+        if: github.event_name == 'issues' && github.event.action == 'opened'
+        env:
+          GH_TOKEN: ${{ secrets.GH_PROJECT_TOKEN || secrets.GITHUB_TOKEN }}
+        run: |
+          gh project item-add 1 --owner mikhailkogan17 --url ${{ github.event.issue.html_url }}
+
+      - name: Move to In Progress (PR Opened)
+        if: github.event_name == 'pull_request' && github.event.action == 'opened'
+        env:
+          GH_TOKEN: ${{ secrets.GH_PROJECT_TOKEN || secrets.GITHUB_TOKEN }}
+        run: |
+          # Agile Status: PVTSSF_lAHOBd5jG84BN0uLzg8tZsc
+          # In Progress Option: c8b647cc
+          ITEM_ID=$(gh project item-add 1 --owner mikhailkogan17 --url ${{ github.event.pull_request.html_url }} --format json | jq -r '.id')
+          gh project item-edit 1 --owner mikhailkogan17 --id $ITEM_ID --field-id PVTSSF_lAHOBd5jG84BN0uLzg8tZsc --project-id PVT_kwHOBd5jG84BN0uLzg8tPRQ --option-id c8b647cc
+
+      - name: Move to Review (PR Ready for Review)
+        if: github.event_name == 'pull_request' && github.event.action == 'ready_for_review'
+        env:
+          GH_TOKEN: ${{ secrets.GH_PROJECT_TOKEN || secrets.GITHUB_TOKEN }}
+        run: |
+          # Review Option: c09104c6
+          ITEM_ID=$(gh project item-add 1 --owner mikhailkogan17 --url ${{ github.event.pull_request.html_url }} --format json | jq -r '.id')
+          gh project item-edit 1 --owner mikhailkogan17 --id $ITEM_ID --field-id PVTSSF_lAHOBd5jG84BN0uLzg8tZsc --project-id PVT_kwHOBd5jG84BN0uLzg8tPRQ --option-id c09104c6
+
+      - name: Move to Done (PR Merged)
+        if: github.event_name == 'pull_request' && github.event.action == 'closed' && github.event.pull_request.merged == true
+        env:
+          GH_TOKEN: ${{ secrets.GH_PROJECT_TOKEN || secrets.GITHUB_TOKEN }}
+        run: |
+          # Done Option: c77c3af5
+          ITEM_ID=$(gh project item-add 1 --owner mikhailkogan17 --url ${{ github.event.pull_request.html_url }} --format json | jq -r '.id')
+          gh project item-edit 1 --owner mikhailkogan17 --id $ITEM_ID --field-id PVTSSF_lAHOBd5jG84BN0uLzg8tZsc --project-id PVT_kwHOBd5jG84BN0uLzg8tPRQ --option-id c77c3af5
