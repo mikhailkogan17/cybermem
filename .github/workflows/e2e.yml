@@ -41,6 +41,8 @@ jobs:
           DOCKER_DEFAULT_PLATFORM: linux/amd64
         run: |
           mkdir -p ~/.cybermem/data
+          mkdir -p secrets
+          echo "sk-test-key-for-ci" > secrets/om_api_key
           echo "OM_API_KEY=sk-test-key-for-ci" > ~/.cybermem/.env # gitleaks:allow
           export CYBERMEM_ENV_PATH=$HOME/.cybermem/.env
           docker compose up -d
