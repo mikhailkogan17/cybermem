@@ -462,10 +462,11 @@ sequenceDiagram
 | **Field**   | **FixVersion**     | `PVTF_lAHOBd5jG84BN0uLzg8tZtI`   |
 
 ### Status Options (Column IDs)
-| Column          | Option ID  | Verified Transition   |
-| :-------------- | :--------- | :-------------------- |
-| **Backlog**     | (Default)  | Issue Open            |
-| **In Progress** | `c8b647cc` | PR Open               |
-| **Review**      | `c09104c6` | PR Ready              |
-| **Done**        | `c77c3af5` | PR Merged             |
-| **Released**    | `e6d10f39` | `publish.yml` Success |
+| Column               | Option ID  | Verified Transition   |
+| :------------------- | :--------- | :-------------------- |
+| **Backlog**          | (Default)  | Issue Open            |
+| **Ready to Develop** | `5df6f87a` | Issue Assigned        |
+| **In Progress**      | `c8b647cc` | PR Open               |
+| **Review**           | `c09104c6` | PR Ready              |
+| **Done**             | `c773af5`  | PR Merged             |
+| **Released**         | `e6d10f39` | `publish.yml` Success |

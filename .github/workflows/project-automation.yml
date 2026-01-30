@@ -2,7 +2,7 @@ name: Board Automation
 
 on:
   issues:
-    types: [opened]
+    types: [opened, assigned]
   pull_request:
     types: [opened, ready_for_review, closed]
 
@@ -16,6 +16,15 @@ jobs:
           GH_TOKEN: ${{ secrets.GH_PROJECT_TOKEN || secrets.GITHUB_TOKEN }}
         run: |
           gh project item-add 1 --owner mikhailkogan17 --url ${{ github.event.issue.html_url }}
+
+      - name: Move to Ready to Develop (Issue Assigned)
+        if: github.event_name == 'issues' && github.event.action == 'assigned'
+        env:
+          GH_TOKEN: ${{ secrets.GH_PROJECT_TOKEN || secrets.GITHUB_TOKEN }}
+        run: |
+          # Ready to Develop Option: 5df6f87a
+          ITEM_ID=$(gh project item-add 1 --owner mikhailkogan17 --url ${{ github.event.issue.html_url }} --format json | jq -r '.id')
+          gh project item-edit 1 --owner mikhailkogan17 --id $ITEM_ID --field-id PVTSSF_lAHOBd5jG84BN0uLzg8tZsc --project-id PVT_kwHOBd5jG84BN0uLzg8tPRQ --option-id 5df6f87a
 
       - name: Move to In Progress (PR Opened)
         if: github.event_name == 'pull_request' && github.event.action == 'opened'
