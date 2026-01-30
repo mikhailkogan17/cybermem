@@ -7,6 +7,11 @@ on:
     branches: [main]
   workflow_call:
 
+permissions:
+  contents: read
+  pull-requests: write # For DangerJS
+  packages: read # For ghcr.io access
+
 jobs:
   quality:
     name: Quality Gates (Lint & Danger)
