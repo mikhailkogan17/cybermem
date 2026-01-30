@@ -118,21 +118,13 @@ jobs:
         env:
           OM_DB_PATH: /tmp/test-mcp.db
           CYBERMEM_ENV: local
+          CYBERMEM_INSTANCE: local
         run: |
           cd packages/mcp
           npm run build --silent
-          npm run build --silent
-          echo '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","clientInfo":{"name":"ci-stdio-test","version":"1.0"},"capabilities":{}}}' > request.json
-          OUTPUT=$(cat request.json | node dist/index.js 2>&1)
-          if echo "$OUTPUT" | grep -q '"serverInfo"'; then
-            echo "✅ MCP STDIO Protocol Verified"
-          else
-            echo "❌ MCP STDIO Protocol Check Failed"
-            echo "--- OUTPUT START ---"
-            echo "$OUTPUT"
-            echo "--- OUTPUT END ---"
-            exit 1
-          fi
+          echo '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","clientInfo":{"name":"ci-stdio-test","version":"1.0"},"capabilities":{}}}' | \
+          node dist/index.js 2>&1 | grep -q '"serverInfo"' || (echo "❌ MCP STDIO Protocol Check Failed" && exit 1)
+          echo "✅ MCP STDIO Protocol Verified"
 
       - name: Upload Playwright Report
         if: failure()
