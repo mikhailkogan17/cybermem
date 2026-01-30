@@ -448,3 +448,24 @@ sequenceDiagram
     - 100% Test Coverage for new modules.
     - E2E Tests pass on Local & RPi.
     - No regression in startup time or auth flow.
+
+## 1.9 PROJECT BOARD CONFIGURATION (Reference)
+
+> [!NOTE]
+> **Source of Truth for Automation IDs**
+> Use these IDs when configuring `gh project` commands.
+
+| entity      | Name               | ID                               |
+| :---------- | :----------------- | :------------------------------- |
+| **Project** | **CyberMem Board** | `1` (Owner: `mikhailkogan17`)    |
+| **Field**   | **Status**         | `PVTSSF_lAHOBd5jG84BN0uLzg8tZsc` |
+| **Field**   | **FixVersion**     | `PVTF_lAHOBd5jG84BN0uLzg8tZtI`   |
+
+### Status Options (Column IDs)
+| Column          | Option ID  | Verified Transition   |
+| :-------------- | :--------- | :-------------------- |
+| **Backlog**     | (Default)  | Issue Open            |
+| **In Progress** | `c8b647cc` | PR Open               |
+| **Review**      | `c09104c6` | PR Ready              |
+| **Done**        | `c77c3af5` | PR Merged             |
+| **Released**    | `e6d10f39` | `publish.yml` Success |
