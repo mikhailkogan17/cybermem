@@ -1,17 +1,42 @@
-name: E2E Testing
+name: PR Checks
 
 on:
   push:
     branches: [main]
   pull_request:
     branches: [main]
-  workflow_dispatch:
-  workflow_call:
 
 jobs:
-  e2e:
+  build:
+    name: Build & Lint
     runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
 
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install Dashboard Dependencies
+        run: |
+          cd packages/dashboard
+          npm ci
+
+      - name: Lint Dashboard
+        run: |
+          cd packages/dashboard
+          npm run lint
+
+      - name: Build Dashboard
+        run: |
+          cd packages/dashboard
+          npm run build
+
+  e2e:
+    name: E2E Verification
+    needs: build
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
@@ -41,6 +66,7 @@ jobs:
           DOCKER_DEFAULT_PLATFORM: linux/amd64
         run: |
           mkdir -p ~/.cybermem/data
+          # Secrets handling: Create file, but NO volume mount needed (handled by fix)
           mkdir -p secrets
           echo "sk-test-key-for-ci" > secrets/om_api_key
           export CYBERMEM_ENV_PATH=$HOME/.cybermem/.env
@@ -60,9 +86,15 @@ jobs:
           OM_API_KEY: sk-test-key-for-ci # gitleaks:allow
 
       - name: Verify MCP STDIO Protocol
+        env:
+          OM_DB_PATH: /tmp/test-mcp.db
+          CYBERMEM_ENV: local
         run: |
           cd packages/mcp
           npm run build --silent
+          # Debug: check if it runs at all
+          # node dist/index.js --help || true
+
           echo '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","clientInfo":{"name":"ci-stdio-test","version":"1.0"},"capabilities":{}}}' | \
           node dist/index.js 2>&1 | grep -q '"serverInfo"' || (echo "❌ MCP STDIO Protocol Check Failed" && exit 1)
           echo "✅ MCP STDIO Protocol Verified"
