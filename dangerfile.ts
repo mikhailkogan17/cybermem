@@ -1,9 +1,14 @@
 import { danger, fail, warn } from "danger";
 
-// 1. Verify PR Description
-const hasDescription = danger.github.pr.body.length > 10;
-if (!hasDescription) {
-  fail("Please provide a summary in the Pull Request description.");
+// 1. Verify PR Description Template
+const body = danger.github.pr.body;
+const hasSummary = body.includes("## Summary") || body.includes("### Summary");
+const hasChanges = body.includes("## Changes") || body.includes("### Changes");
+
+if (!hasSummary || !hasChanges) {
+  fail(
+    "Please follow the PR Template: Include 'Summary' and 'Changes' sections.",
+  );
 }
 
 // 2. Enforce Evidence (Screenshots)

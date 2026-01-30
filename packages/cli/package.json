@@ -16,7 +16,7 @@
     "templates"
   ],
   "scripts": {
-    "build": "tsc && cp -r templates dist/",
+    "build": "mkdir -p dist && tsc && cp -r templates dist/",
     "lint": "eslint src/ --ext .ts",
     "start": "ts-node src/index.ts",
     "test:e2e": "ts-node e2e/test-mcp.ts",

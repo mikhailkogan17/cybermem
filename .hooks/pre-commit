@@ -2,6 +2,7 @@
 # CyberMem LITE PRE-COMMIT — Linters Only
 
 set -e
+export PATH="$PATH:/opt/homebrew/bin:/usr/local/bin"
 
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -10,7 +11,7 @@ NC='\033[0m'
 
 echo ""
 echo "═══════════════════════════════════════════════════════════════"
-echo "  🧹 CyberMem FAST LINT — Pre-Commit                           "
+echo "  🧹 CyberMem — Pre-Commit                           "
 echo "═══════════════════════════════════════════════════════════════"
 echo ""
 

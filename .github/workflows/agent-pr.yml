@@ -13,10 +13,9 @@ on:
       title:
         description: "PR Title (Optional - defaults to branch name)"
         required: false
-      body_file:
-        description: "Path to body file (default PR_DESCRIPTION.md)"
-        required: false
-        default: "PR_DESCRIPTION.md"
+      description:
+        description: "PR Description Body"
+        required: true
 
 permissions:
   contents: write
@@ -35,18 +34,10 @@ jobs:
           HEAD="${{ inputs.head_branch }}"
           BASE="${{ inputs.base_branch }}"
           TITLE="${{ inputs.title }}"
-          BODY_FILE="${{ inputs.body_file }}"
+          DESC="${{ inputs.description }}"
 
           if [ -z "$TITLE" ]; then
              TITLE="feat: $HEAD (Agent PR)"
-          fi
-
-          # Check if body file exists, else use simple body
-          if [ ! -f "$BODY_FILE" ]; then
-             echo "Body file $BODY_FILE not found, using default message."
-             BODY_ARG="--body 'Automated Agent PR. Review requested from @mikhailkogan17'"
-          else
-             BODY_ARG="--body-file $BODY_FILE"
           fi
 
           echo "🚀 Creating PR: $HEAD -> $BASE"
@@ -54,6 +45,6 @@ jobs:
             --base "$BASE" \
             --head "$HEAD" \
             --title "$TITLE" \
-            $BODY_ARG \
+            --body "$DESC" \
             --draft=false \
             || echo "⚠️ PR creation failed or already exists."

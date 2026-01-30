@@ -10,7 +10,7 @@
     "build": "npm run build --workspaces --if-present",
     "test:unit": "jest",
     "test:e2e": "npx ts-node packages/cli/e2e/release-check.ts",
-    "test:e2e:ci": "npx ts-node packages/cli/e2e/release-check.ts --ci",
+    "test:e2e:ci": "npx ts-node packages/cli/e2e/release-check.ts --only-testing localhost-prod",
     "cli": "npm run start -w @cybermem/cli",
     "dashboard:dev": "npm run dev -w @cybermem/dashboard",
     "mcp:dev": "npm run dev -w @cybermem/mcp",
