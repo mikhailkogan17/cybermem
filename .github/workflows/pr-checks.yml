@@ -61,17 +61,18 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Install Monorepo Dependencies
+        run: npm ci
+
       - name: Build CLI & Install CyberMem (Dogfooding)
-        working-directory: packages/cli
         env:
           DOCKER_DEFAULT_PLATFORM: linux/amd64
         run: |
-          npm ci
-          npm run build
+          npm run build -w @cybermem/cli
           # Simulates user running 'npx @cybermem/cli install'
-          node dist/index.js install
+          node packages/cli/dist/index.js install
 
-          # Wait for health (cli install starts docker but we wait to be safe)
+          # Wait for health
           sleep 30
 
       - name: Install Playwright Browsers
