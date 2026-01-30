@@ -62,11 +62,13 @@ services:
     volumes:
       - ${CYBERMEM_ENV_PATH:-${HOME}/.cybermem/.env}:/.env
       - ${DATA_DIR:-${HOME}/.cybermem/data}:/data
+      - ${SECRETS_DIR:-./secrets}/om_api_key:/run/secrets/om_api_key:ro
     depends_on:
       - traefik
       - auth-sidecar
-    secrets:
-      - om_api_key
+    # Secrets removed to avoid CI read-only mount issues
+    # secrets:
+    #   - om_api_key
     labels:
       - traefik.enable=true
       - traefik.http.routers.${PROJECT_NAME:-cybermem}-mcp.rule=PathPrefix(`/mcp`) || PathPrefix(`/sse`)
@@ -106,6 +108,7 @@ services:
     volumes:
       - ${CYBERMEM_ENV_PATH:-${HOME}/.cybermem/.env}:/.env:ro
       - ${DATA_DIR:-${HOME}/.cybermem/data}:/data
+      - ${SECRETS_DIR:-./secrets}/om_api_key:/run/secrets/om_api_key:ro
     labels:
       - traefik.enable=true
     healthcheck:
@@ -122,8 +125,8 @@ services:
       timeout: 5s
       retries: 3
     restart: unless-stopped
-    secrets:
-      - om_api_key
+    # secrets:
+    #   - om_api_key
 
   db-exporter:
     build:
@@ -222,8 +225,8 @@ services:
       - traefik.http.routers.${PROJECT_NAME:-cybermem}-dashboard.middlewares=auth-check,${PROJECT_NAME:-cybermem}-strip
       - traefik.http.services.${PROJECT_NAME:-cybermem}-dashboard.loadbalancer.server.port=3000
     restart: unless-stopped
-    secrets:
-      - om_api_key
+    # secrets:
+    #   - om_api_key
     depends_on:
       - db-exporter
 
@@ -241,9 +244,9 @@ volumes:
     name: ${PROJECT_NAME:-cybermem}-traefik-logs
     driver: local
 
-secrets:
-  om_api_key:
-    file: ${SECRETS_DIR:-./secrets}/om_api_key
+# secrets:
+#   om_api_key:
+#     file: ${SECRETS_DIR:-./secrets}/om_api_key
 
 networks:
   default:
