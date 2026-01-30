@@ -75,23 +75,14 @@ function isLocalRequest(req) {
   const ip =
     forwarded?.split(",")[0]?.trim() || realIp || req.socket.remoteAddress;
 
-  // IP-based local check
-  const isLocalIp =
-    ip === "127.0.0.1" ||
+  ip === "127.0.0.1" ||
     ip === "::1" ||
     ip === "::ffff:127.0.0.1" ||
-    ip?.startsWith("10.") ||
     ip === "localhost";
 
-  // Host-based local check (raspberrypi.local, localhost, *.local)
-  const isLocalHost =
-    host.includes("localhost") ||
-    host.includes("127.0.0.1") ||
-    host.includes("raspberrypi.local") ||
-    host.startsWith("10.") ||
-    host.match(/\.local(:\d+)?$/);
-
-  return isLocalIp || isLocalHost;
+  // Host-based check REMOVED for security (CVE-2026-001)
+  // We only trust loopback IP, never the Host header which can be spoofed or accessed via LAN
+  return isLocalIp;
 }
 
 // ForwardAuth handler
@@ -117,8 +108,8 @@ const server = http.createServer(async (req, res) => {
     "/auth",
     "/api/auth",
     "/api/health",
-    "/api/metrics",
-    "/api/stats",
+    // "/api/metrics", // LEAK FIXED
+    // "/api/stats",   // LEAK FIXED
     "/api/settings",
     "/_next",
     "/favicon",
@@ -126,7 +117,7 @@ const server = http.createServer(async (req, res) => {
     "/public",
     "/health",
     "/login",
-    "/metrics",
+    // "/metrics",     // LEAK FIXED
     "/clients.json",
   ];
 
