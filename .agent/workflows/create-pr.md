@@ -14,6 +14,9 @@ git push -u origin HEAD
 
 3. Create PR
 ```bash
+# Add Homebrew to PATH
+export PATH=/opt/homebrew/bin:$PATH
+
 # Check if gh is installed
 if ! command -v gh &> /dev/null; then
     echo "Error: GitHub CLI (gh) is not installed."
@@ -26,4 +29,8 @@ fi
 PR_URL=$(gh pr create --title "$1" --body "$2" --json url --jq '.url')
 echo "PR_URL=$PR_URL" >> $GITHUB_OUTPUT
 echo "### PR Created: $PR_URL" >> $GITHUB_STEP_SUMMARY
+
+echo "Waiting for CI checks to complete..."
+sleep 5
+gh run watch --exit-status || echo "Checks failed or none found."
 ```
