@@ -19,7 +19,7 @@ permissions:
 
 jobs:
   e2e:
-    uses: ./.github/workflows/e2e.yml
+    uses: ./.github/workflows/pr-checks.yml
     secrets: inherit
 
   release:
