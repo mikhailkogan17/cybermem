@@ -74,7 +74,7 @@ if (!checklistChecked) {
 
 // 6. Enforce Release Report for Features
 const isFeatureBranch = danger.github.pr.head.ref.startsWith("feat/");
-const hasReleaseReport = danger.git.created_files.some((f: string) =>
+const hasReleaseReport = danger.git.created_files.some((f) =>
   f.startsWith("release-reports/"),
 );
 if (isFeatureBranch && !hasReleaseReport) {
