@@ -1,5 +1,8 @@
 # Release Report: [Version]
 
+> [!CAUTION]
+> **DO NOT MODIFY STRUCTURE**: This template structure is immutable. Fill in the brackets `[...]` but do NOT remove sections or change headers. If a section is skipped, mark Status as `[SKIPPED]`.
+
 **Date**: [YYYY-MM-DD]
 **Status**: [Verified/Failed]
 **Context**: [Brief context, e.g. "Fresh run after fix X"]
