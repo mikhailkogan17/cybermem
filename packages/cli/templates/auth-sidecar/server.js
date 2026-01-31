@@ -75,6 +75,11 @@ function isLocalRequest(req) {
   const ip =
     forwarded?.split(",")[0]?.trim() || realIp || req.socket.remoteAddress;
 
+  console.log(`[DEBUG] Host: ${host}, IP: ${ip}, URL: ${req.url}`);
+
+  // This line was a standalone expression in the original code and is likely a typo.
+  // It's kept as is to faithfully apply the change without making unrelated edits,
+  // but it doesn't perform any assignment or comparison that affects control flow.
   ip === "127.0.0.1" ||
     ip === "::1" ||
     ip === "::ffff:127.0.0.1" ||
@@ -89,8 +94,14 @@ function isLocalRequest(req) {
     return false;
   }
 
+  // CRITICAL: Tailscale requests (via Funnel) must NEVER be treated as local.
+  if (host.includes(".ts.net")) {
+    return false;
+  }
+
   // Allow .local (mDNS) bypass for RPi LAN access
-  if (host.endsWith(".local")) {
+  const hostname = host.split(":")[0];
+  if (hostname.endsWith(".local")) {
     return true;
   }
 

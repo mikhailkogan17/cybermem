@@ -16,12 +16,17 @@ To reproduce this verification report with minimum tokens and deep understanding
    - Retrieve Tailscale URL from RPi: `ssh pi@raspberrypi.local "sudo tailscale funnel status"`
    - Retrieve SSoT Token (raw) from RPi: `ssh pi@raspberrypi.local "cat .cybermem/secrets/om_api_key"`
 
-2. **Run E2E Lethal Law Guard**:
-   ```bash
-   export TAILSCALE_URL="https://raspberrypi.[domain].ts.net/[path]"
-   export CYBERMEM_TOKEN="[token]"
-   npx ts-node packages/cli/e2e/release-check.ts
-   ```
+2. **Verification Algorithm (Strict)**:
+   > [!IMPORTANT]
+   > **EXECUTE IN ORDER. DO NOT SKIP.**
+   > 1. **CLI Install/Update**: Ensure CLI is latest (`npx @cybermem/cli update` or check version).
+   > 2. **API Health**: `curl -v [URL]/api/metrics` and `curl -v [URL]/api/audit-logs` (Must be 200 OK).
+   > 3. **Visual Verification (Agent)**: Manual Browser Check:
+   >    - Login (if skipped/auth required) -> Dashboard Data visible?
+   >    - MCP Modal -> Copy command?
+   >    - Settings -> Click Eye Icon -> Token Matches?
+   > 4. **E2E Specific**: Run `npx ts-node packages/cli/e2e/release-check.ts --only-testing [env]`.
+   > 5. **Full Matrix**: ONLY after all envs pass above, run full suite.
 
 3. **Verify Programmatic Proofs**:
    - Check `release-reports/release-report-[version]-assets/` for Playwright screenshots.
@@ -168,5 +173,6 @@ This release introduces `release-check.ts` (Lethal Law Guard) which programmatic
 > [ ] I hereby confirm that E2E tests have passed for all active environments. I have used exclusively the Playwright E2E assets (from `/release-report-[version]-assets/`) to compile this report, verifying every checkbox programmatically through `release-check.ts` and nothing was simulated or invented.
 
 ## Sign-off
-- [ ] **All Checks Passed**: Yes/No
+- [ ] **All Checks Passed**: [Yes/No]
+- [ ] **Ready for Release**: [Yes/No]
 - [ ] **Signed By**: [Agent Name]
