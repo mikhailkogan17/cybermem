@@ -118,16 +118,25 @@ FAILURE TO FOLLOW THIS PROTOCOL WILL BE BLOCKED BY BRANCH PROTECTION.
 
 ### Strict Environment Table (Source of Truth)
 
-| Environment       | URL                                |
-| ----------------- | ---------------------------------- |
-| localhost-staging | http://localhost:8625              |
-| localhost-prod    | http://localhost:8626              |
-| rpi-lan-staging   | http://rpi-local:8625              |
-| rpi-lan-prod      | http://rpi-local:8626              |
-| rpi-ts-staging    | http://rpi.ts.net/cybermem-staging |
-| rpi-ts-prod       | http://rpi.ts.net/cybermem         |
-| vps-staging       | http://VPS:8625                    |
-| vps-prod          | http://VPS:8626                    |
+### Strict Environment Table (Source of Truth)
+
+> [!IMPORTANT]
+> **STRICT ENVIRONMENT MAPPING**
+> 
+> | Environment         | URL                                |
+> | ------------------- | ---------------------------------- |
+> | **LOCALHOST-STG**   | `http://localhost:8625`            |
+> | **LOCALHOST-PROD**  | `http://localhost:8626`            |
+> | **RPI-LAN-STG**     | `http://raspberrypi.local:8625`    |
+> | **RPI-LAN-PROD**    | `http://raspberrypi.local:8626`    |
+> | **RPI-TS-STG**      | `https://raspberrypi.ts.net/cybermem-staging` |
+> | **RPI-TS-PROD**     | `https://raspberrypi.ts.net/cybermem` |
+> | **K3D-STAGING**     | `http://localhost:8627`            |           |
+
+> [!ATTENTION] it is FORBIDDEN to change:
+> - base URL of any environment
+> - any path of any environment
+> - any port of any environment
 
 <br>
 

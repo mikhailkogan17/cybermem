@@ -147,10 +147,10 @@ const server = http.createServer(async (req, res) => {
 
   const exactPublicPaths = [
     "/",
-    // "/cybermem", // REMOVED (CM-9)
-    // "/cybermem-staging", // REMOVED (CM-9)
-    // "/cybermem/", // REMOVED (CM-9)
-    // "/cybermem-staging/", // REMOVED (CM-9)
+    "/cybermem",
+    "/cybermem-staging",
+    "/cybermem/",
+    "/cybermem-staging/",
   ];
 
   const isPublic =

@@ -9,6 +9,7 @@ const onlyTestingValue = argOnlyTesting
   ? args[args.indexOf(argOnlyTesting) + 1]
   : null;
 const onlyTesting = args.includes("--only-testing");
+const isStagingSimulation = args.includes("--staging"); // Undocumented: Simulate Remote Envs on Localhost
 const argToken = args.find((a, i) => args[i - 1] === "--token");
 const argUrl = args.find((a, i) => args[i - 1] === "--url");
 
@@ -344,15 +345,32 @@ async function verifyEnvironment(options: VerifyOptions) {
 }
 
 async function main() {
-  const outputBase = path.join(
+  let outputBase = path.join(
     process.cwd(),
     "release-reports",
-    `release-report-0.12.5-assets`,
+    `release-report-0.12.5-assets`, // Default
   );
+
+  if (isStagingSimulation) {
+    console.warn("⚠️  RUNNING IN STAGING MODE (Local Images/Dev Build) ⚠️");
+    console.warn("    Targeting REAL Remote environments (RPi/VPS).");
+    console.warn(
+      "    Artifacts will be saved to: release-report-staging-assets",
+    );
+
+    outputBase = path.join(
+      process.cwd(),
+      "release-reports",
+      "release-report-staging-assets",
+    );
+  }
+
   if (fs.existsSync(outputBase)) fs.rmSync(outputBase, { recursive: true });
   fs.mkdirSync(outputBase, { recursive: true });
 
-  console.log(`🚀 Starting CyberMem E2E Release Check (v0.12.5)`);
+  console.log(
+    `🚀 Starting CyberMem E2E Release Check (v0.12.5${isStagingSimulation ? "-staging" : ""})`,
+  );
 
   const allConfigs: VerifyOptions[] = [
     {

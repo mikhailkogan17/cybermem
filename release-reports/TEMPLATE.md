@@ -4,7 +4,9 @@
 > **DO NOT MODIFY STRUCTURE**: This template structure is immutable. Fill in the brackets `[...]` but do NOT remove sections or change headers. If a section is skipped, mark Status as `[SKIPPED]`.
 
 **Date**: [YYYY-MM-DD]
+
 **Status**: [Verified/Failed]
+
 **Context**: [Brief context, e.g. "Fresh run after fix X"]
 
 ## 0. Verification Instructions (Reproduction)
@@ -16,8 +18,8 @@ To reproduce this verification report with minimum tokens and deep understanding
 
 2. **Run E2E Lethal Law Guard**:
    ```bash
-   export TAILSCALE_URL="https://raspberrypi.xxx.ts.net"
-   export CYBERMEM_TOKEN="sk-xxx"
+   export TAILSCALE_URL="https://raspberrypi.[domain].ts.net/[path]"
+   export CYBERMEM_TOKEN="[token]"
    npx ts-node packages/cli/e2e/release-check.ts
    ```
 
@@ -39,7 +41,7 @@ To reproduce this verification report with minimum tokens and deep understanding
 **Status**: [✅/❌]
 
 #### 1.1 Dashboard (`1.1_dashboard.png`)
-![1.1 Dashboard](path/to/screenshot)
+![1.1 Dashboard]([screenshot_path])
 - **Top Writer**: [Observed Value, e.g. Claude Desktop]
 - **Identity Law**: [Observed X-Client-Name, e.g. Antigravity]
 - **Environment**: [Staging/Production]
@@ -47,12 +49,12 @@ To reproduce this verification report with minimum tokens and deep understanding
 - [ ] **Data Proof**: Metrics cards and graphs are visible.
 
 #### 1.2 MCP Integration (`1.2_mcp.png`)
-![1.2 MCP](path/to/screenshot)
+![1.2 MCP]([screenshot_path])
 - **Command Proof**: [Truncated command, e.g. npx @cybermem/cli mcp --staging]
 - [ ] **JSON Proof**: Correct JSON syntax highlighting visible.
 
 #### 1.3 Settings (`1.3_settings.png`)
-![1.3 Settings](path/to/screenshot)
+![1.3 Settings]([screenshot_path])
 - **Token Proof**: [Truncated Token, e.g. sk-74d9...6575]
 - [ ] **Visibility Proof**: Token is made visible via Eye Icon.
 
@@ -62,19 +64,19 @@ To reproduce this verification report with minimum tokens and deep understanding
 **Status**: [✅/❌]
 
 #### 2.1 Dashboard (`2.1_dashboard.png`)
-![2.1 Dashboard](path/to/screenshot)
+![2.1 Dashboard]([screenshot_path])
 - **Top Writer**: [Observed Value]
 - **Identity Law**: [Observed X-Client-Name]
 - **Environment**: [Production]
 - [ ] **Data Proof**: Metrics cards and graphs are visible.
 
 #### 2.2 MCP Integration (`2.2_mcp.png`)
-![2.2 MCP](path/to/screenshot)
+![2.2 MCP]([screenshot_path])
 - **Command Proof**: [Truncated command]
 - [ ] **JSON Proof**: Correct JSON syntax highlighting visible.
 
 #### 2.3 Settings (`2.3_settings.png`)
-![2.3 Settings](path/to/screenshot)
+![2.3 Settings]([screenshot_path])
 - **Token Proof**: [Truncated Token, e.g. sk-74d9...6575]
 - [ ] **Visibility Proof**: Token is made visible via Eye Icon.
 
@@ -85,19 +87,19 @@ To reproduce this verification report with minimum tokens and deep understanding
 **URL**: `http://raspberrypi.local:8625`
 
 #### 3.1 Dashboard (`3.1_dashboard.png`)
-![3.1 Dashboard](path/to/screenshot)
+![3.1 Dashboard]([screenshot_path])
 - **Top Writer**: [Observed Value]
 - **Identity Law**: [Observed X-Client-Name]
 - **Environment**: [Staging]
 - [ ] **Data Proof**: Metrics cards and graphs are visible.
 
 #### 3.2 MCP Integration (`3.2_mcp.png`)
-![3.2 MCP](path/to/screenshot)
+![3.2 MCP]([screenshot_path])
 - **Command Proof**: [Truncated command]
 - [ ] **JSON Proof**: Correct JSON syntax highlighting visible.
 
 #### 3.3 Settings (`3.3_settings.png`)
-![3.3 Settings](path/to/screenshot)
+![3.3 Settings]([screenshot_path])
 - **Token Proof**: [Truncated Token]
 - [ ] **Visibility Proof**: Token is made visible via Eye Icon.
 
@@ -105,27 +107,27 @@ To reproduce this verification report with minimum tokens and deep understanding
 
 ## 4. Remote: RPi Tailscale Staging (`rpi-ts-staging`)
 **Status**: [✅/❌]
-**URL**: `https://raspberrypi.ts.net/cybermem-staging`
+**URL**: `https://raspberrypi.[domain].ts.net/cybermem-staging`
 
 #### 4.1 Dashboard (`4.1_dashboard.png`)
-![4.1 Dashboard](path/to/screenshot)
+![4.1 Dashboard]([screenshot_path])
 - **Top Writer**: [Observed Value]
 - **Identity Law**: [Observed X-Client-Name]
 - **Environment**: [Staging]
 - [ ] **Data Proof**: Metrics cards and graphs are visible.
 
 #### 4.2 MCP Integration (`4.2_mcp.png`)
-![4.2 MCP](path/to/screenshot)
+![4.2 MCP]([screenshot_path])
 - **Command Proof**: [Truncated command]
 - [ ] **JSON Proof**: Correct JSON syntax highlighting visible.
 
 #### 4.3 Settings (`4.3_settings.png`)
-![4.3 Settings](path/to/screenshot)
+![4.3 Settings]([screenshot_path])
 - **Token Proof**: [Truncated Token]
 - [ ] **Visibility Proof**: Token is made visible via Eye Icon.
   
 #### 4.4 Login (`4.4_login.png`)
-![4.4 Login](path/to/screenshot)
+![4.4 Login]([screenshot_path])
 - **Login Bypassed?**: [Yes/No]
 - **Logged in with**: [trunkated token]
 ---
@@ -135,19 +137,19 @@ To reproduce this verification report with minimum tokens and deep understanding
 **URL**: `http://localhost:8081`
 
 #### 5.1 Dashboard (`5.1_dashboard.png`)
-![5.1 Dashboard](path/to/screenshot)
+![5.1 Dashboard]([screenshot_path])
 - **Top Writer**: [Observed Value]
 - **Identity Law**: [Observed X-Client-Name]
 - **Environment**: [Staging]
 - [ ] **Data Proof**: Metrics cards and graphs are visible.
 
 #### 5.2 MCP Integration (`5.2_mcp.png`)
-![5.2 MCP](path/to/screenshot)
+![5.2 MCP]([screenshot_path])
 - **Command Proof**: [Truncated command]
 - [ ] **JSON Proof**: Correct JSON syntax highlighting visible.
 
 #### 5.3 Settings (`5.3_settings.png`)
-![5.3 Settings](path/to/screenshot)
+![5.3 Settings]([screenshot_path])
 - **Token Proof**: [Truncated Token]
 - [ ] **Visibility Proof**: Token is made visible via Eye Icon.
 

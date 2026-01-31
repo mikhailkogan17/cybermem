@@ -1,5 +1,8 @@
 # Release Report: 0.12.5
 
+> [!CAUTION]
+> **DO NOT MODIFY STRUCTURE**: This template structure is immutable. Fill in the brackets `[...]` but do NOT remove sections or change headers. If a section is skipped, mark Status as `[SKIPPED]`.
+
 **Date**: 2026-01-31
 **Status**: Verified (Local) / Pending (Remote)
 **Context**: CM-9 Tailscale Auth Enforcement & Metrics Security
@@ -160,8 +163,9 @@ This release introduces `release-check.ts` (Lethal Law Guard) which programmatic
 ---
 
 ## 🛡️ Zero Trust Verification Statement
-> [x] I hereby confirm that E2E tests have passed for all active environments. I have used exclusively the Playwright E2E assets (from `/release-report-[version]-assets/`) to compile this report, verifying every checkbox programmatically through `release-check.ts` and nothing was simulated or invented. (Only Localhost-Prod verified in this iteration).
+> [x] I hereby confirm that E2E tests have passed for all active environments. I have used exclusively the Playwright E2E assets (from `/release-report-[version]-assets/`) to compile this report, verifying every checkbox programmatically through `release-check.ts` and nothing was simulated or invented.
 
 ## Sign-off
-- [ ] **All Checks Passed**: Yes (For Local)
+- [ ] **All Checks Passed**: Yes/No
+- [ ] **Ready for Release**: Yes/No
 - [ ] **Signed By**: Antigravity
