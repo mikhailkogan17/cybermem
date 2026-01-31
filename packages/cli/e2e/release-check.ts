@@ -70,11 +70,11 @@ async function verifyEnvironment(options: VerifyOptions) {
 
       // 2. Read (Query)
       console.log(`    [CRUD] Read: Querying verification memory...`);
-      await new Promise((r) => setTimeout(r, 2000));
+      await new Promise((r) => setTimeout(r, 60000));
 
       const queryRes = await axios.post(
         `${url}/query`,
-        { query: "verification memory", k: 1 },
+        { query: "verification memory", k: 10, minScore: 0.0 },
         config,
       );
       const results = Array.isArray(queryRes.data)
@@ -125,20 +125,28 @@ async function verifyEnvironment(options: VerifyOptions) {
   try {
     // Stage 1: Login
     console.log(`  - 1: Login...`);
-    await page.goto(url, { waitUntil: "domcontentloaded", timeout: 30000 });
+
+    // For Remote envs (RPi/VPS), Root (/) returns JSON 401.
+    // We must navigate to /auth/signin explicitly for Login UI.
+    const targetUrl = isRemote ? new URL("/auth/signin", url).toString() : url;
+
+    await page.goto(targetUrl, {
+      waitUntil: "domcontentloaded",
+      timeout: 60000,
+    });
     await page.waitForTimeout(5000);
 
     if (isRemote) {
       // SPA Login Detection: Check for Login Modal or Input instead of full page text
-      console.log("    [Auth] Checking for SPA Login State...");
+      console.log(`    [Auth] Checking for SPA Login State at ${targetUrl}...`);
       const loginInput = page.locator(
         'input#access-token, input[type="password"]',
       );
 
-      if (await loginInput.isVisible({ timeout: 5000 })) {
+      if (await loginInput.isVisible({ timeout: 60000 })) {
         console.log("    ✅ SPA Login Modal Verified.");
         await page.screenshot({
-          path: path.join(envDir, `${prefix}1_login_proof.png`),
+          path: path.join(envDir, `${prefix}1_login.png`),
         });
 
         console.log(`    [Auth] Performing Token Login via UI...`);
@@ -160,27 +168,6 @@ async function verifyEnvironment(options: VerifyOptions) {
         console.log(
           "    ℹ️ No Login Input found, assuming authenticated or public.",
         );
-      }
-    }
-
-    // Skip legacy redirect block
-    if (false) {
-      if (
-        page.url().includes("/auth/signin") ||
-        (await page.locator("text=/Login with Token/i").isVisible())
-      ) {
-        console.log("    ✅ Public Bypass Verified: Login Screen visible.");
-        await page.screenshot({
-          path: path.join(envDir, `${prefix}1_login_proof.png`),
-        });
-        console.log(`    [Auth] Performing Token Login via UI...`);
-        const token =
-          process.env.CYBERMEM_TOKEN || "sk-staging-verified-key-vf7";
-        const passInput = page.locator('input[type="password"]');
-        await passInput.waitFor({ state: "visible", timeout: 10000 });
-        await passInput.fill(token);
-        await page.click('button[type="submit"]');
-        await page.waitForTimeout(5000);
       }
     }
 
@@ -384,14 +371,14 @@ async function main() {
     },
     {
       name: "rpi-lan-staging",
-      url: "http://raspberrypi.local:8626",
+      url: "http://raspberrypi.local:8625",
       isRemote: true,
       outputDir: outputBase,
       prefix: "3.",
     },
     {
       name: "rpi-ts-staging",
-      url: "https://raspberrypi.tail7242ed.ts.net",
+      url: "https://raspberrypi.tail7242ed.ts.net/cybermem-staging",
       isRemote: true,
       outputDir: outputBase,
       prefix: "4.",

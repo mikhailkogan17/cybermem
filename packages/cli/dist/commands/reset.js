@@ -7,7 +7,8 @@ exports.reset = reset;
 const chalk_1 = __importDefault(require("chalk"));
 const child_process_1 = require("child_process");
 const ora_1 = __importDefault(require("ora"));
-async function reset() {
+const inquirer_1 = __importDefault(require("inquirer"));
+async function reset(options) {
     // ⚠️ PRODUCTION PROTECTION - Never wipe RPi database
     const cyberMemEnv = process.env.CYBERMEM_ENV || "";
     const hostname = process.env.HOSTNAME || "";
@@ -17,9 +18,24 @@ async function reset() {
         console.error(chalk_1.default.gray("   Use npx @cybermem/cli backup first, then manually clear if needed."));
         process.exit(1);
     }
+    // Confirmation Prompt
+    if (!options.force) {
+        const { confirm } = await inquirer_1.default.prompt([
+            {
+                type: "confirm",
+                name: "confirm",
+                message: "⚠️  WARNING: This will corrupt all memories. Are you sure?",
+                default: false,
+            },
+        ]);
+        if (!confirm) {
+            console.log(chalk_1.default.gray("Reset cancelled."));
+            return;
+        }
+    }
     const spinner = (0, ora_1.default)("Resetting CyberMem database...").start();
     try {
-        const containerName = "cybermem-mcp";
+        const containerName = process.env.MCP_CONTAINER_NAME || "cybermem-mcp-server-1";
         // Check if container exists
         try {
             (0, child_process_1.execSync)(`docker inspect ${containerName}`, { stdio: "pipe" });

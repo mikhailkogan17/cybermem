@@ -3,7 +3,7 @@
 # Global settings for SSoT
 global:
   traefik:
-    port: 8626
+    port: 8625
   openmemory:
     serviceName: "openmemory"
     port: 8080
@@ -45,5 +45,6 @@ dashboard:
 
 env:
   # Shared secrets
-  OPENMEMORY_API_KEY: "dev-secret-key"
+  OPENMEMORY_API_KEY: "sk-74d94d0021f1a9a525e1c311cfd16575"
   OPENAI_API_KEY: ""
+  CYBERMEM_ENV: "staging"

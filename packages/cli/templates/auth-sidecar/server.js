@@ -81,7 +81,31 @@ function isLocalRequest(req) {
     ip === "localhost";
 
   // Host-based check REMOVED for security (CVE-2026-001)
-  // We only trust loopback IP, never the Host header which can be spoofed or accessed via LAN
+  // We only trust loopback IP.
+  // CRITICAL: Tailscale requests (via Funnel) must NEVER be treated as local.
+  // If host contains .ts.net, it's external.
+  if (host.includes(".ts.net") || process.env.CYBERMEM_TAILSCALE === "true") {
+    // console.log(`[Auth-Sidecar] Tailscale detected (${host}), enforcing auth.`);
+    return false;
+  }
+
+  // Allow .local (mDNS) bypass for RPi LAN access
+  if (host.endsWith(".local")) {
+    return true;
+  }
+
+  // Allow localhost bypass ONLY for local Dev environment (Docker Desktop)
+  const isDev = process.env.CYBERMEM_INSTANCE === "local";
+  if (isDev && (host.startsWith("localhost") || host.startsWith("127.0.0.1"))) {
+    return true;
+  }
+
+  const isLocalIp =
+    ip === "127.0.0.1" ||
+    ip === "::1" ||
+    ip === "::ffff:127.0.0.1" ||
+    ip === "localhost";
+
   return isLocalIp;
 }
 
@@ -123,10 +147,10 @@ const server = http.createServer(async (req, res) => {
 
   const exactPublicPaths = [
     "/",
-    "/cybermem",
-    "/cybermem-staging",
-    "/cybermem/",
-    "/cybermem-staging/",
+    // "/cybermem", // REMOVED (CM-9)
+    // "/cybermem-staging", // REMOVED (CM-9)
+    // "/cybermem/", // REMOVED (CM-9)
+    // "/cybermem-staging/", // REMOVED (CM-9)
   ];
 
   const isPublic =

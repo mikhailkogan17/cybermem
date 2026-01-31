@@ -2,9 +2,9 @@
 
 import { Button } from "@/components/ui/button";
 import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
+    Popover,
+    PopoverContent,
+    PopoverTrigger,
 } from "@/components/ui/popover";
 import { useDashboard } from "@/lib/data/dashboard-context";
 import { cn } from "@/lib/utils";
@@ -189,6 +189,7 @@ export default function Header({
         {/* Right Section: Actions */}
         <div className="flex items-center gap-3">
           <Button
+            data-testid="mcp-button"
             onClick={onShowMCPConfig}
             className="bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500/20 text-emerald-400 text-sm font-medium transition-colors h-9 px-3 rounded-lg flex items-center gap-2"
           >
@@ -221,6 +222,7 @@ export default function Header({
           </Button>
 
           <Button
+            data-testid="settings-button"
             variant="ghost"
             size="icon"
             onClick={onShowSettings}

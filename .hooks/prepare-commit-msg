@@ -1,0 +1,34 @@
+#!/bin/bash
+
+# Get the current branch name
+BRANCH_NAME=$(git symbolic-ref --short HEAD 2>/dev/null)
+
+if [ -z "$BRANCH_NAME" ]; then
+  exit 0
+fi
+
+# Extract the issue ID (e.g., CM-123 or cm-123)
+# Case-insensitive match for cm- followed by digits
+ISSUE_ID=$(echo "$BRANCH_NAME" | grep -ioE 'cm-[0-9]+' | head -n 1)
+
+if [ -n "$ISSUE_ID" ]; then
+  # Normalize to uppercase (optional, but looks cleaner)
+  ISSUE_ID=$(echo "$ISSUE_ID" | tr '[:lower:]' '[:upper:]')
+
+  COMMIT_MSG_FILE=$1
+  COMMIT_SOURCE=$2
+
+  # Skip if the commit source is strictly 'message' generic, merge, or squash
+  # We usually only want this for normal commits where the user types a message or uses -m
+  # if [ "$COMMIT_SOURCE" == "merge" ] || [ "$COMMIT_SOURCE" == "squash" ]; then
+  #   exit 0
+  # fi
+
+  # Check if the commit message already starts with the issue ID
+  # Using grep -q to check existence at the beginning of the file content
+  if ! grep -q "^$ISSUE_ID" "$COMMIT_MSG_FILE"; then
+    # Prepend the ID to the message file
+    # We use a temp file to prepend, then move it back
+    echo "$ISSUE_ID: $(cat "$COMMIT_MSG_FILE")" > "$COMMIT_MSG_FILE"
+  fi
+fi

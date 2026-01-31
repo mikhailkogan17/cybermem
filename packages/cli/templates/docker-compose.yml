@@ -76,7 +76,7 @@ services:
       - traefik.http.routers.${PROJECT_NAME:-cybermem}-mcp.priority=100
       - traefik.http.routers.${PROJECT_NAME:-cybermem}-mcp.service=${PROJECT_NAME:-cybermem}-mcp-service
       - traefik.http.routers.${PROJECT_NAME:-cybermem}-mcp.middlewares=auth-check
-      - traefik.http.routers.${PROJECT_NAME:-cybermem}-mcp-public.rule=PathPrefix(`/health`) || PathPrefix(`/metrics`)
+      - traefik.http.routers.${PROJECT_NAME:-cybermem}-mcp-public.rule=PathPrefix(`/health`)
       - traefik.http.routers.${PROJECT_NAME:-cybermem}-mcp-public.entrypoints=web
       - traefik.http.routers.${PROJECT_NAME:-cybermem}-mcp-public.priority=100
       - traefik.http.routers.${PROJECT_NAME:-cybermem}-mcp-public.service=${PROJECT_NAME:-cybermem}-mcp-service

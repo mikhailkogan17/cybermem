@@ -120,7 +120,11 @@ To reproduce this verification report with minimum tokens and deep understanding
 ![4.3 Settings](path/to/screenshot)
 - **Token Proof**: [Truncated Token]
 - [ ] **Visibility Proof**: Token is made visible via Eye Icon.
-
+  
+#### 4.4 Login (`4.4_login.png`)
+![4.4 Login](path/to/screenshot)
+- **Login Bypassed?**: [Yes/No]
+- **Logged in with**: [trunkated token]
 ---
 
 ## 5. Remote: k3d Staging (`vps-staging`)

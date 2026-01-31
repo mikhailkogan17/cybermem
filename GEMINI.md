@@ -332,6 +332,8 @@ sequenceDiagram
 
 > [!CAUTION]
 > **ANSIBLE-ONLY DEPLOYMENT**: It is STRICTLY FORBIDDEN to use `docker-compose pull` or raw SSH commands for RPi updates. Use Ansible to ensure idempotent state and automated health checks.
+> [!NOTE]
+> **We use Linear via MCP for all task tracking.**
 
 ### Disaster Recovery
 
@@ -449,11 +451,10 @@ sequenceDiagram
     - E2E Tests pass on Local & RPi.
     - No regression in startup time or auth flow.
 
-## 1.9 PROJECT BOARD CONFIGURATION (Reference)
+## 1.9 Linear MCP BOARD CONFIGURATION (Reference)
 
 > [!NOTE]
 > **Source of Truth for Automation IDs**
-> Use these IDs when configuring `gh project` commands.
 
 | entity      | Name               | ID                               |
 | :---------- | :----------------- | :------------------------------- |
@@ -470,3 +471,18 @@ sequenceDiagram
 | **Review**           | `c09104c6` | PR Ready              |
 | **Done**             | `c773af5`  | PR Merged             |
 | **Released**         | `e6d10f39` | `publish.yml` Success |
+
+## 1.10 TASK MANAGEMENT (Linear MCP)
+
+> [!NOTE]
+> **We use Linear via MCP for all task tracking.**
+
+### Core Workflow
+1.  **List Tasks**: Use `mcp_linear-mcp-server_list_issues` to see active work.
+2.  **View Task**: Use `mcp_linear-mcp-server_get_issue(id="CM-X")` to read requirements.
+3.  **Update**: Use `mcp_linear-mcp-server_create_comment` to add proofs/updates.
+
+### Convention
+- **CM-XXX**: Identifier for all tasks.
+- **Title**: Must be descriptive.
+- **Description**: Contains "Environment", "Component", and acceptance criteria.

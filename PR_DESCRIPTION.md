@@ -1,12 +1,21 @@
-## Summary
-Finalizes the Agile infrastructure by refining workflows and adding community funding.
+# fix(cm-9): Enforce Tailscale Auth & Secure Metrics
 
-## Changes
-- **[MOD] Agent-PR**: Now calls 'gh pr create' using a direct description input (via env) instead of a file.
-- **[NEW] FUNDING.yml**: Added GitHub Sponsors + thanks.dev.
-- **[MOD] Dangerfile**: Enforces PR Template (Summary/Changes sections).
-- **[FIX] Pre-commit**: Added PATH fix for Homebrew/NPM detection.
+## Problem
+- **Auth Bypass**: Tailscale traffic was treated as "local" due to lack of domain validation.
+- **Metrics Leak**: `/metrics` was whitelist in `docker-compose.yml` (publicly accessible).
+- **Legacy Aliases**: `/cybermem` paths were still active.
+
+## Solution
+1. **Auth Sidecar**:
+   - Added strict check: `host.includes(".ts.net")` -> **ENFORCE AUTH**.
+   - Added `host.endsWith(".local")` -> **ALLOW BYPASS** (RPi LAN).
+   - Restored `localhost` bypass strictly for `CYBERMEM_INSTANCE=local` (Dev).
+2. **Traefik**: Removed `/metrics` from public router.
+3. **E2E**: Updated `release-check.ts` with correct Tailscale staging URLs.
 
 ## Verification
-- [ ] Verify PR created (Manual Bootstrap required for input schema change).
-- [ ] Verify Funding button appears in repo.
+- **Localhost-Prod**: Verified (CRUD + UI + Audit + Metrics blocked).
+- **Release Report**: `release-reports/release-report-0.12.5.md` created.
+
+## Ticket
+[CM-9](https://linear.app/cybermem/issue/CM-9/remove-auth-bypass-on-tailscale)

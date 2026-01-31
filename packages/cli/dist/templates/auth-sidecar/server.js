@@ -20,9 +20,27 @@ const PORT = process.env.PORT || 3001;
 // Load token from secret file once at startup (SSoT)
 function loadSecret() {
   try {
+    // 1. Check environment variable first (Direct)
+    if (process.env.OM_API_KEY) {
+      cachedToken = process.env.OM_API_KEY.trim();
+      console.log("SSoT Token loaded from OM_API_KEY env");
+      return;
+    }
+
+    // 2. Check secret/env file (Mapped)
     if (fs.existsSync(SECRET_PATH)) {
-      cachedToken = fs.readFileSync(SECRET_PATH, "utf8").trim();
-      console.log(`SSoT Token loaded from ${SECRET_PATH}`);
+      const content = fs.readFileSync(SECRET_PATH, "utf8").trim();
+
+      // Check if it's a shell-formatted env file (OM_API_KEY=sk-...)
+      const envMatch = content.match(/OM_API_KEY=["']?(sk-[a-zA-Z0-9]+)["']?/);
+      if (envMatch) {
+        cachedToken = envMatch[1];
+        console.log(`SSoT Token extracted from env file: ${SECRET_PATH}`);
+      } else {
+        // Assume raw token file
+        cachedToken = content;
+        console.log(`SSoT Token loaded from raw file: ${SECRET_PATH}`);
+      }
     } else {
       console.warn(
         `SECRET WARNING: ${SECRET_PATH} not found. Remote auth will fail.`,

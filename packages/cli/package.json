@@ -1,6 +1,6 @@
 {
   "name": "@cybermem/cli",
-  "version": "0.12.4",
+  "version": "0.12.5",
   "description": "CyberMem — Universal Long-Term Memory for AI Agents",
   "homepage": "https://cybermem.dev",
   "repository": {
@@ -20,7 +20,7 @@
     "lint": "eslint src/ --ext .ts",
     "start": "ts-node src/index.ts",
     "test:e2e": "ts-node e2e/test-mcp.ts",
-    "prepublishOnly": "npm run build"
+    "prepublishOnly": "npm run build && ts-node ../../scripts/verify-release-report.ts"
   },
   "keywords": [
     "cybermem",
