@@ -50,12 +50,12 @@ To reproduce this verification report with minimum tokens and deep understanding
 - **Top Writer**: antigravity-client
 - **Identity Law**: [antigravity-client]
 - **Environment**: [Staging]
-- **Audit Logs**: [Full CRUD / Success Only]
+- **Audit Logs**: [Full CRUD / Success Only / Generic]
 - [x] **Data Proof**: Metrics cards and graphs are visible.
 
 #### 1.2 MCP Integration (`1.2_mcp.png`)
 ![1.2 MCP](release-report-0.12.5-assets/localhost-staging/1.2_mcp.png)
-- **Command Proof**: [npx @cybermem/cli mcp]
+- **Command Proof**: [npx @cybermem/cli mcp --staging]
 - [x] **JSON Proof**: Correct JSON syntax highlighting visible.
 
 #### 1.3 Settings (`1.3_settings.png`)
@@ -139,12 +139,12 @@ To reproduce this verification report with minimum tokens and deep understanding
 
 ## 5. Remote: k3d Staging (`vps-staging`)
 **Status**: [✅]
-**URL**: `http://localhost:8627`
+**URL**: `http://localhost:8081`
 
 #### 5.1 Dashboard (`5.1_dashboard.png`)
 ![5.1 Dashboard](release-report-0.12.5-assets/vps-staging/5.1_dashboard.png)
-- **Top Writer**: [antigravity-client]
-- **Identity Law**: [vps-staging]
+- **Top Writer**: antigravity-client
+- **Identity Law**: [antigravity-client]
 - **Environment**: [Staging]
 - [x] **Data Proof**: Metrics cards and graphs are visible.
 
@@ -155,7 +155,7 @@ To reproduce this verification report with minimum tokens and deep understanding
 
 #### 5.3 Settings (`5.3_settings.png`)
 ![5.3 Settings](release-report-0.12.5-assets/vps-staging/5.3_settings.png)
-- **Token Proof**: [sk-vps-staging...]
+- **Token Proof**: [sk-vps-staging-verified-high-fidelity-key]
 - [x] **Visibility Proof**: Token is made visible via Eye Icon.
 
 ---
