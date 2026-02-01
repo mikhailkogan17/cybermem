@@ -16,11 +16,6 @@ on:
       description:
         description: "PR Description Body"
         required: true
-  push:
-    branches:
-      - "feat/**"
-      - "fix/**"
-      - "chore/**"
 
 permissions:
   contents: write
