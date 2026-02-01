@@ -1,4 +1,4 @@
-name: Agent-PR
+name: Create Agent PR
 
 on:
   workflow_dispatch:
