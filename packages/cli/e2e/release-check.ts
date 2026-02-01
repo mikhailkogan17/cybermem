@@ -396,7 +396,9 @@ async function main() {
     },
     {
       name: "rpi-ts-staging",
-      url: "https://raspberrypi.tail7242ed.ts.net/cybermem-staging",
+      url:
+        process.env.STAGING_URL ||
+        "https://raspberrypi.ts.net/cybermem-staging",
       isRemote: true,
       outputDir: outputBase,
       prefix: "4.",

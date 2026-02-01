@@ -1,4 +1,4 @@
-name: Agent-PR
+name: Create Agent PR
 
 on:
   workflow_dispatch:
@@ -36,11 +36,14 @@ jobs:
           TITLE="${{ inputs.title }}"
           DESC="${{ inputs.description }}"
 
+          # Defaults
           if [ -z "$TITLE" ]; then
              TITLE="feat: $HEAD (Agent PR)"
           fi
 
           echo "🚀 Creating PR: $HEAD -> $BASE"
+          echo "Title: $TITLE"
+
           PR_URL=$(gh pr create \
             --base "$BASE" \
             --head "$HEAD" \
@@ -57,12 +60,3 @@ jobs:
 
           echo "✅ PR Active: $PR_URL"
           echo "PR_URL=$PR_URL" >> $GITHUB_OUTPUT
-
-          echo "⏳ Waiting for PR Checks..."
-          # Sleep to allow checks to register
-          sleep 10
-          gh pr checks "$PR_URL" --watch --interval 10 --required --fail-fast || {
-            echo "❌ Checks Failed"
-            exit 1
-          }
-          echo "✅ All required checks passed."
