@@ -51,12 +51,10 @@ jobs:
         run: |
           # Bump version in all packages
           for pkg in packages/cli packages/mcp packages/dashboard; do
-            cd $pkg
-            npm version ${{ inputs.version_type }} --no-git-tag-version
-            cd ../..
+             (cd $pkg && npm version ${{ inputs.version_type }} --no-git-tag-version)
           done
 
-          # Get version from mcp (entry point)
+          # Get version from cli (source of truth for release)
           NEW_VERSION=$(node -p "require('./packages/cli/package.json').version")
           echo "version=$NEW_VERSION" >> $GITHUB_OUTPUT
           echo "New version: $NEW_VERSION"
