@@ -18,12 +18,12 @@ permissions:
   contents: write
 
 jobs:
-  #  e2e:
-  #    uses: ./.github/workflows/pr-checks.yml
-  #    secrets: inherit
+  e2e:
+    uses: ./.github/workflows/pr-checks.yml
+    secrets: inherit
 
   release:
-    #    needs: e2e
+    needs: e2e
     runs-on: ubuntu-latest
 
     steps:
