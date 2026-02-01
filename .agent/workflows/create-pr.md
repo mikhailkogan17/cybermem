@@ -1,7 +1,6 @@
 ---
-description: Create a Pull Request with linked issue and correct author
+description: Create a Pull Request via CI (Agent-PR)
 ---
-# Create Pull Request
 
 1. Setup Credentials
 [Check _credentials]
@@ -12,25 +11,30 @@ view_file .agent/workflows/_credentials.md
 git push -u origin HEAD
 ```
 
-3. Create PR
+3. Trigger Agent-PR Workflow
 ```bash
-# Add Homebrew to PATH
-export PATH=/opt/homebrew/bin:$PATH
-
-# Check if gh is installed
-if ! command -v gh &> /dev/null; then
-    echo "Error: GitHub CLI (gh) is not installed."
-    echo "Please install it: brew install gh"
-    echo "Or verify credentials manually."
-    exit 1
-fi
+# Get current branch
+BRANCH=$(git branch --show-current)
 
 # Usage: /create-pr "Title" "Description"
-PR_URL=$(gh pr create --title "$1" --body "$2" --json url --jq '.url')
-echo "PR_URL=$PR_URL" >> $GITHUB_OUTPUT
-echo "### PR Created: $PR_URL" >> $GITHUB_STEP_SUMMARY
+TITLE="$1"
+DESCRIPTION="$2"
 
-echo "Waiting for CI checks to complete..."
-sleep 5
-gh run watch --exit-status || echo "Checks failed or none found."
+if [ -z "$TITLE" ]; then
+  TITLE="feat: $BRANCH"
+fi
+
+if [ -z "$DESCRIPTION" ]; then
+  DESCRIPTION="Auto-generated PR for $BRANCH"
+fi
+
+echo "🚀 Triggering Agent-PR Workflow..."
+gh workflow run agent-pr.yml \
+  -f head_branch="$BRANCH" \
+  -f base_branch="main" \
+  -f title="$TITLE" \
+  -f description="$DESCRIPTION"
+
+echo "✅ Workflow triggered. Check 'Actions' tab for progress."
+echo "🔗 https://github.com/mikhailkogan17/cybermem/actions/workflows/agent-pr.yml"
 ```
