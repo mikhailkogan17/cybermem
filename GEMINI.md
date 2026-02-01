@@ -13,6 +13,18 @@
 - **Source Code**: [https://github.com/mikhailkogan17/cybermem](https://github.com/mikhailkogan17/cybermem)
 - **Readme**: [https://github.com/mikhailkogan17/cybermem/blob/main/README.md](https://github.com/mikhailkogan17/cybermem/blob/main/README.md)
 
+## Table of Contents
+1. [Project Overview](#1-cybermem-project-overview)
+2. [Agile Roles](#12-agile-roles--responsibilities)
+3. [Sprint Lifecycle](#13-sprint-lifecycle-tokens-optimization)
+4. [Lethal Laws](#14-lethal-laws-of-agent-behavior-non-negotiable)
+5. [Agent Protocol](#15-mandatory-agent-protocol-ci--dangerjs)
+6. [Architecture](#2-terminology-stack--architecture)
+7. [Directory Map](#3-directory-map)
+8. [Environment Classification](#-environment-classification-critical)
+9. [Development Config](#-important-local-development-configuration)
+10. [Maintenance](#11-maintenance-workflows)
+
 > [!CAUTION]
 > **It is FORBIDDEN to:**
 >
@@ -69,11 +81,26 @@ To Ensure "Always Availability" and shorter token usage, follow this strict cycl
 - **CHANGELOG.md**: Executive Summary. MUST link to the specific Release Report.
 - **GitHub Release**: Artifact distribution. Inherits content from CHANGELOG.
 
-## 1.4 LETHAL LAWS OF AGENT BEHAVIOR
+## 1.4 LETHAL LAWS OF AGENT BEHAVIOR (Non-Negotiable)
 
+> [!CAUTION]
+> **Strict Rules for Agent Autonomy & Identity**
+
+### Core Behavior
 1.  **Zero Trust**: Never assume; Verify.
 2.  **No Kanban Changes**: Agent MUST NOT change process columns/types without User Consent.
 3.  **Strict E2E**: Never skip `release-check.ts` before PR.
+
+### Identity & Privacy (Technologically Enforced)
+1. **NO HARDCODED X-CLIENT-NAME**: Use dynamic variables/constants.
+2. **MANDATORY IDENTIFICATION**: Every request MUST send `X-Client-Name`.
+3. **NO ENV LEAKAGE**: Public MCP config MUST NOT use internal Docker envs.
+4. **ARGS > ENVS**: High-level config passed via CLI args.
+5. **IDENTITY LAW**: `X-Client-Name` MUST be strictly `antigravity` or `antigravity-client`.
+6. **CLI-ONLY DEPLOYMENT**: Deploy via `@cybermem/cli`.
+7. **MANDATORY ENV TAGGING**: `CYBERMEM_ENV`, `CYBERMEM_INSTANCE` must be set.
+8. **ZERO DIRECT PORT EXPOSURE**: All access via Traefik (8625/8626).
+9. **NO TOKENS IN ENVS**: Use Docker Secrets.
 
 ## 1.5 MANDATORY AGENT PROTOCOL (CI & DangerJS)
 
@@ -100,20 +127,7 @@ FAILURE TO FOLLOW THIS PROTOCOL WILL BE BLOCKED BY BRANCH PROTECTION.
 3.  **Automation**: The `auto-pr.yml` workflow triggers on push, and the **GitHub Actions Bot** opens the PR.
 4.  **Review**: User (Tech Lead) reviews the PR (created by Bot) and merges.
 
-## 1.6 LETHAL LAWS OF IDENTITY (Non-Negotiable)
 
-> [!CAUTION]
-> **Strict Identification & Privacy Rules**
->
-> 1. **NO HARDCODED X-CLIENT-NAME**: It is STRICTLY FORBIDDEN to hardcode string literals like `X-Client-Name: dashboard` or `curl` in source code or scripts. Use dynamic variables or project constants.
-> 2. **MANDATORY IDENTIFICATION**: Every request from a tool (pre-commit), script (load_test), or sub-component MUST send a valid `X-Client-Name`.
-> 3. **NO ENV LEAKAGE**: Public MCP configuration (suggested JSON/TOML) MUST NEVER use internal Docker environment variables (e.g., `mcp-server:8080`). Use dynamic URL detection based on the request origin.
-> 4. **ARGS > ENVS**: High-level configuration MUST be passed via command line arguments (`--url`, `--token`) to the MCP server, never solely through implicitly inherited environment variables in the public-facing documentation.
-> 5. **IDENTITY LAW**: `X-Client-Name` MUST be strictly `antigravity` (dashboard/UI) or `antigravity-client` (tools/scripts). USAGE OF `rest-api` IS PUNISHABLE BY TERMINATION.
-> 6. **CLI-ONLY DEPLOYMENT**: ALL deployments (Local, RPi, VPS) MUST be performed via `@cybermem/cli`. Manual `docker-compose` or `npm start` without CLI tagging is STRICTLY FORBIDDEN.
-> 7. **MANDATORY ENV TAGGING**: Every CyberMem instance MUST have `CYBERMEM_ENV` (staging|prod), `CYBERMEM_INSTANCE` (local|rpi|vps), and `CYBERMEM_TAILSCALE` (true|false) set. The MCP server MUST fail fast if `CYBERMEM_INSTANCE` is missing.
-> 8. **ZERO DIRECT PORT EXPOSURE**: It is STRICTLY FORBIDDEN to expose internal service ports like `3000`, `3001`, or `8080` to the host machine in `docker-compose.yml`. ALL external/host access MUST be routed through the Traefik entrypoint (`8625` or `8626`). Local development MUST use the Traefik port to access the Dashboard and API. Direct port maps are a security violation.
-> 9. **NO TOKENS IN ENVS**: It is STRICTLY FORBIDDEN to store, pass, or declare authentication tokens (like `CYBERMEM_TOKEN` or `API_KEY`) in environment variables in `docker-compose.yml`, GitHub Actions, or local shells. Tokens MUST be stored as Docker Secrets (files) or passed via secured command-line arguments.
 
 ---
 
