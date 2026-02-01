@@ -1,0 +1,165 @@
+name: E2E & Deploy
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    types: [opened, synchronize, reopened]
+  release:
+    types: [published]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pull-requests: write # For DangerJS
+  packages: read # For ghcr.io access
+
+jobs:
+  # ------------------------------------------------------------------
+  # 1. Quality Gates (Lint, Danger)
+  # ------------------------------------------------------------------
+  quality:
+    name: Quality Gates
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - run: npm ci
+      - name: Lint Dashboard
+        run: |
+          cd packages/dashboard
+          npm run lint
+      - name: DangerJS
+        if: github.event_name == 'pull_request'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: npx danger ci
+
+  # ------------------------------------------------------------------
+  # 2. CLI Unit Tests
+  # ------------------------------------------------------------------
+  test-cli:
+    name: CLI Unit Tests
+    needs: quality
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - run: npm ci
+      - name: Build & Test CLI
+        run: npm run build -w @cybermem/cli
+
+  # ------------------------------------------------------------------
+  # 3. Local E2E (Dogfooding) - "e2e:pr"
+  # ------------------------------------------------------------------
+  e2e-local:
+    name: E2E: Local (PR)
+    needs: test-cli
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      # Setup Environment
+      - run: |
+          mkdir -p ~/.cybermem
+          echo "OPENAI_API_KEY=sk-test-key-for-ci" > ~/.cybermem/.env # gitleaks:allow
+          echo "OM_API_KEY=sk-test-key-for-ci" >> ~/.cybermem/.env # gitleaks:allow
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - run: npm ci
+
+      # Verification: Install & Health Check
+      - name: Build CLI & Install (Staging Mode)
+        env:
+          DOCKER_DEFAULT_PLATFORM: linux/amd64
+        run: |
+          npm run build -w @cybermem/cli
+          node packages/cli/dist/index.js install --staging
+          sleep 30
+
+      - run: npx playwright install --with-deps chromium
+
+      - name: Run E2E Verification (CI Mode)
+        run: |
+          export OM_API_KEY=$(grep OM_API_KEY ~/.cybermem/.env | cut -d '=' -f2)
+          npm run test:e2e:ci
+        env:
+          CI: true
+
+  # ------------------------------------------------------------------
+  # 4. Remote E2E (RPi Staging) - "e2e:deploy"
+  # ------------------------------------------------------------------
+  e2e-remote:
+    name: E2E: Remote (Deploy)
+    needs: test-cli
+    # Run on PR (Staging) or Release (Prod)
+    if: github.event_name == 'pull_request' || github.event_name == 'release'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Tailscale
+        uses: tailscale/github-action@v2
+        with:
+          authkey: ${{ secrets.TAILSCALE_AUTHKEY }}
+          version: latest
+
+      - name: Setup Ansible
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ansible
+
+      # Deploy Staging
+      - name: Deploy to Staging (PR)
+        if: github.event_name == 'pull_request'
+        env:
+          ANSIBLE_HOST_KEY_CHECKING: "False"
+        run: |
+          ansible-playbook -i inventory/hosts.ini playbooks/deploy-cybermem.yml \
+            --extra-vars "cybermem_env=staging" \
+            --extra-vars "ansible_ssh_common_args='-o StrictHostKeyChecking=no'"
+
+      # Verify Staging
+      - name: Setup Node for verification
+        if: github.event_name == 'pull_request'
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - run: npm ci
+        if: github.event_name == 'pull_request'
+      - name: Build CLI Check
+        if: github.event_name == 'pull_request'
+        run: npm run build -w @cybermem/cli
+      - run: npx playwright install --with-deps chromium
+        if: github.event_name == 'pull_request'
+
+      - name: Run Remote E2E
+        if: github.event_name == 'pull_request'
+        env:
+          CYBERMEM_TOKEN: ${{ secrets.CYBERMEM_TOKEN }}
+        run: |
+          npx ts-node packages/cli/e2e/release-check.ts --only-testing rpi-ts-staging
+
+      # Deploy Prod (Release)
+      - name: Deploy to Prod (Release)
+        if: github.event_name == 'release'
+        env:
+          ANSIBLE_HOST_KEY_CHECKING: "False"
+        run: |
+          ansible-playbook -i inventory/hosts.ini playbooks/deploy-cybermem.yml \
+            --extra-vars "cybermem_env=prod" \
+            --extra-vars "ansible_ssh_common_args='-o StrictHostKeyChecking=no'"
