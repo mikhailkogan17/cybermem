@@ -62,6 +62,7 @@ program
 program
   .command("reset")
   .description("Reset (wipe) the CyberMem database - DESTRUCTIVE!")
+  .option("-f, --force", "Skip confirmation prompt")
   .action(reset);
 
 program

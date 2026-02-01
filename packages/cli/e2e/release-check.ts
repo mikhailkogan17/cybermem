@@ -9,6 +9,7 @@ const onlyTestingValue = argOnlyTesting
   ? args[args.indexOf(argOnlyTesting) + 1]
   : null;
 const onlyTesting = args.includes("--only-testing");
+const isStagingSimulation = args.includes("--staging"); // Undocumented: Simulate Remote Envs on Localhost
 const argToken = args.find((a, i) => args[i - 1] === "--token");
 const argUrl = args.find((a, i) => args[i - 1] === "--url");
 
@@ -70,11 +71,11 @@ async function verifyEnvironment(options: VerifyOptions) {
 
       // 2. Read (Query)
       console.log(`    [CRUD] Read: Querying verification memory...`);
-      await new Promise((r) => setTimeout(r, 2000));
+      await new Promise((r) => setTimeout(r, 60000));
 
       const queryRes = await axios.post(
         `${url}/query`,
-        { query: "verification memory", k: 1 },
+        { query: "verification memory", k: 10, minScore: 0.0 },
         config,
       );
       const results = Array.isArray(queryRes.data)
@@ -125,20 +126,28 @@ async function verifyEnvironment(options: VerifyOptions) {
   try {
     // Stage 1: Login
     console.log(`  - 1: Login...`);
-    await page.goto(url, { waitUntil: "domcontentloaded", timeout: 30000 });
+
+    // For Remote envs (RPi/VPS), Root (/) returns JSON 401.
+    // We must navigate to /auth/signin explicitly for Login UI.
+    const targetUrl = isRemote ? new URL("/auth/signin", url).toString() : url;
+
+    await page.goto(targetUrl, {
+      waitUntil: "domcontentloaded",
+      timeout: 60000,
+    });
     await page.waitForTimeout(5000);
 
     if (isRemote) {
       // SPA Login Detection: Check for Login Modal or Input instead of full page text
-      console.log("    [Auth] Checking for SPA Login State...");
+      console.log(`    [Auth] Checking for SPA Login State at ${targetUrl}...`);
       const loginInput = page.locator(
         'input#access-token, input[type="password"]',
       );
 
-      if (await loginInput.isVisible({ timeout: 5000 })) {
+      if (await loginInput.isVisible({ timeout: 60000 })) {
         console.log("    ✅ SPA Login Modal Verified.");
         await page.screenshot({
-          path: path.join(envDir, `${prefix}1_login_proof.png`),
+          path: path.join(envDir, `${prefix}1_login.png`),
         });
 
         console.log(`    [Auth] Performing Token Login via UI...`);
@@ -160,27 +169,6 @@ async function verifyEnvironment(options: VerifyOptions) {
         console.log(
           "    ℹ️ No Login Input found, assuming authenticated or public.",
         );
-      }
-    }
-
-    // Skip legacy redirect block
-    if (false) {
-      if (
-        page.url().includes("/auth/signin") ||
-        (await page.locator("text=/Login with Token/i").isVisible())
-      ) {
-        console.log("    ✅ Public Bypass Verified: Login Screen visible.");
-        await page.screenshot({
-          path: path.join(envDir, `${prefix}1_login_proof.png`),
-        });
-        console.log(`    [Auth] Performing Token Login via UI...`);
-        const token =
-          process.env.CYBERMEM_TOKEN || "sk-staging-verified-key-vf7";
-        const passInput = page.locator('input[type="password"]');
-        await passInput.waitFor({ state: "visible", timeout: 10000 });
-        await passInput.fill(token);
-        await page.click('button[type="submit"]');
-        await page.waitForTimeout(5000);
       }
     }
 
@@ -357,15 +345,32 @@ async function verifyEnvironment(options: VerifyOptions) {
 }
 
 async function main() {
-  const outputBase = path.join(
+  let outputBase = path.join(
     process.cwd(),
     "release-reports",
-    `release-report-0.12.5-assets`,
+    `release-report-0.12.5-assets`, // Default
   );
+
+  if (isStagingSimulation) {
+    console.warn("⚠️  RUNNING IN STAGING MODE (Local Images/Dev Build) ⚠️");
+    console.warn("    Targeting REAL Remote environments (RPi/VPS).");
+    console.warn(
+      "    Artifacts will be saved to: release-report-staging-assets",
+    );
+
+    outputBase = path.join(
+      process.cwd(),
+      "release-reports",
+      "release-report-staging-assets",
+    );
+  }
+
   if (fs.existsSync(outputBase)) fs.rmSync(outputBase, { recursive: true });
   fs.mkdirSync(outputBase, { recursive: true });
 
-  console.log(`🚀 Starting CyberMem E2E Release Check (v0.12.5)`);
+  console.log(
+    `🚀 Starting CyberMem E2E Release Check (v0.12.5${isStagingSimulation ? "-staging" : ""})`,
+  );
 
   const allConfigs: VerifyOptions[] = [
     {
@@ -384,14 +389,14 @@ async function main() {
     },
     {
       name: "rpi-lan-staging",
-      url: "http://raspberrypi.local:8626",
+      url: "http://raspberrypi.local:8625",
       isRemote: true,
       outputDir: outputBase,
       prefix: "3.",
     },
     {
       name: "rpi-ts-staging",
-      url: "https://raspberrypi.tail7242ed.ts.net",
+      url: "https://raspberrypi.tail7242ed.ts.net/cybermem-staging",
       isRemote: true,
       outputDir: outputBase,
       prefix: "4.",

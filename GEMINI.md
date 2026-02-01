@@ -118,16 +118,25 @@ FAILURE TO FOLLOW THIS PROTOCOL WILL BE BLOCKED BY BRANCH PROTECTION.
 
 ### Strict Environment Table (Source of Truth)
 
-| Environment       | URL                                |
-| ----------------- | ---------------------------------- |
-| localhost-staging | http://localhost:8625              |
-| localhost-prod    | http://localhost:8626              |
-| rpi-lan-staging   | http://rpi-local:8625              |
-| rpi-lan-prod      | http://rpi-local:8626              |
-| rpi-ts-staging    | http://rpi.ts.net/cybermem-staging |
-| rpi-ts-prod       | http://rpi.ts.net/cybermem         |
-| vps-staging       | http://VPS:8625                    |
-| vps-prod          | http://VPS:8626                    |
+### Strict Environment Table (Source of Truth)
+
+> [!IMPORTANT]
+> **STRICT ENVIRONMENT MAPPING**
+> 
+> | Environment         | URL                                |
+> | ------------------- | ---------------------------------- |
+> | **LOCALHOST-STG**   | `http://localhost:8625`            |
+> | **LOCALHOST-PROD**  | `http://localhost:8626`            |
+> | **RPI-LAN-STG**     | `http://raspberrypi.local:8625`    |
+> | **RPI-LAN-PROD**    | `http://raspberrypi.local:8626`    |
+> | **RPI-TS-STG**      | `https://raspberrypi.ts.net/cybermem-staging` |
+> | **RPI-TS-PROD**     | `https://raspberrypi.ts.net/cybermem` |
+> | **K3D-STAGING**     | `http://localhost:8627`            |           |
+
+> [!ATTENTION] it is FORBIDDEN to change:
+> - base URL of any environment
+> - any path of any environment
+> - any port of any environment
 
 <br>
 
@@ -332,6 +341,8 @@ sequenceDiagram
 
 > [!CAUTION]
 > **ANSIBLE-ONLY DEPLOYMENT**: It is STRICTLY FORBIDDEN to use `docker-compose pull` or raw SSH commands for RPi updates. Use Ansible to ensure idempotent state and automated health checks.
+> [!NOTE]
+> **We use Linear via MCP for all task tracking.**
 
 ### Disaster Recovery
 
@@ -449,11 +460,10 @@ sequenceDiagram
     - E2E Tests pass on Local & RPi.
     - No regression in startup time or auth flow.
 
-## 1.9 PROJECT BOARD CONFIGURATION (Reference)
+## 1.9 Linear MCP BOARD CONFIGURATION (Reference)
 
 > [!NOTE]
 > **Source of Truth for Automation IDs**
-> Use these IDs when configuring `gh project` commands.
 
 | entity      | Name               | ID                               |
 | :---------- | :----------------- | :------------------------------- |
@@ -470,3 +480,18 @@ sequenceDiagram
 | **Review**           | `c09104c6` | PR Ready              |
 | **Done**             | `c773af5`  | PR Merged             |
 | **Released**         | `e6d10f39` | `publish.yml` Success |
+
+## 1.10 TASK MANAGEMENT (Linear MCP)
+
+> [!NOTE]
+> **We use Linear via MCP for all task tracking.**
+
+### Core Workflow
+1.  **List Tasks**: Use `mcp_linear-mcp-server_list_issues` to see active work.
+2.  **View Task**: Use `mcp_linear-mcp-server_get_issue(id="CM-X")` to read requirements.
+3.  **Update**: Use `mcp_linear-mcp-server_create_comment` to add proofs/updates.
+
+### Convention
+- **CM-XXX**: Identifier for all tasks.
+- **Title**: Must be descriptive.
+- **Description**: Contains "Environment", "Component", and acceptance criteria.

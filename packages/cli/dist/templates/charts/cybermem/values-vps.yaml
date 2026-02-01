@@ -1,16 +1,20 @@
-# VPS Overrides
+global:
+  traefik:
+    port: 8625
 
 openmemory:
   image:
     repository: ghcr.io/mikhailkogan17/cybermem-mcp
-    pullPolicy: Always
+    pullPolicy: IfNotPresent
+    tag: "v0.12.5-local"
   service:
     type: ClusterIP
 
 dashboard:
   image:
     repository: ghcr.io/mikhailkogan17/cybermem-dashboard
-    pullPolicy: Always
+    pullPolicy: IfNotPresent
+    tag: "v0.12.5-local"
 
 env:
   OPENMEMORY_API_KEY: "prod-secret-key-CHANGE-ME"

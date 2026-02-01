@@ -51,7 +51,10 @@ function getMcpEndpoint(request: NextRequest): {
     const traefikPort = process.env.TRAEFIK_PORT || "";
     const effectivePort = port || forwardedPort || traefikPort;
 
-    const isStandardPort = effectivePort === "8625" || effectivePort === "8626";
+    const isStandardPort =
+      effectivePort === "8625" ||
+      effectivePort === "8626" ||
+      effectivePort === "8627";
     // If accessed via non-standard port (k3d 8081), suggest placeholder
     const isLoopback = hostname === "localhost" || hostname === "127.0.0.1";
     const isRemote = !isStandardPort && isLoopback;

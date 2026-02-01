@@ -2,7 +2,9 @@ import chalk from "chalk";
 import { execSync } from "child_process";
 import ora from "ora";
 
-export async function reset(): Promise<void> {
+import inquirer from "inquirer";
+
+export async function reset(options: { force?: boolean }): Promise<void> {
   // ⚠️ PRODUCTION PROTECTION - Never wipe RPi database
   const cyberMemEnv = process.env.CYBERMEM_ENV || "";
   const hostname = process.env.HOSTNAME || "";
@@ -22,10 +24,28 @@ export async function reset(): Promise<void> {
     process.exit(1);
   }
 
+  // Confirmation Prompt
+  if (!options.force) {
+    const { confirm } = await inquirer.prompt([
+      {
+        type: "confirm",
+        name: "confirm",
+        message: "⚠️  WARNING: This will corrupt all memories. Are you sure?",
+        default: false,
+      },
+    ]);
+
+    if (!confirm) {
+      console.log(chalk.gray("Reset cancelled."));
+      return;
+    }
+  }
+
   const spinner = ora("Resetting CyberMem database...").start();
 
   try {
-    const containerName = "cybermem-mcp";
+    const containerName =
+      process.env.MCP_CONTAINER_NAME || "cybermem-mcp-server-1";
 
     // Check if container exists
     try {
