@@ -16,6 +16,11 @@ on:
       description:
         description: "PR Description Body"
         required: true
+  push:
+    branches:
+      - "feat/**"
+      - "fix/**"
+      - "chore/**"
 
 permissions:
   contents: write
@@ -31,11 +36,33 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          HEAD="${{ inputs.head_branch }}"
-          BASE="${{ inputs.base_branch }}"
-          TITLE="${{ inputs.title }}"
-          DESC="${{ inputs.description }}"
+          # Determine Inputs (Manual vs Push)
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+            HEAD="${{ inputs.head_branch }}"
+            BASE="${{ inputs.base_branch }}"
+            TITLE="${{ inputs.title }}"
+            DESC="${{ inputs.description }}"
+          else
+            # AUTO MODE (Push)
+            HEAD="${{ github.ref_name }}"
+            BASE="main"
 
+            # Extract Type/Scope from branch for Title (e.g., feat/foo -> feat: foo)
+            TYPE=$(echo "$HEAD" | cut -d'/' -f1)
+            NAME=$(echo "$HEAD" | cut -d'/' -f2- | tr '-' ' ')
+            TITLE="$TYPE: $NAME"
+
+            if [ -f "PR_DESCRIPTION.md" ]; then
+              DESC=$(cat PR_DESCRIPTION.md)
+            else
+              DESC="Auto-generated PR for $HEAD"
+            fi
+
+            # If explicit title provided in PR_DESCRIPTION (first line # Title), use it?
+            # For now keeping simple.
+          fi
+
+          # Safe defaults
           if [ -z "$TITLE" ]; then
              TITLE="feat: $HEAD (Agent PR)"
           fi
