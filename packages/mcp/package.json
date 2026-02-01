@@ -1,6 +1,6 @@
 {
   "name": "@cybermem/mcp",
-  "version": "0.12.10",
+  "version": "0.12.11",
   "description": "CyberMem MCP Server - AI Memory with openmemory-js SDK",
   "main": "dist/index.js",
   "bin": {

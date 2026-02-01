@@ -44,12 +44,9 @@ jobs:
       - name: Bump Versions (all packages)
         id: version
         run: |
-          # Bump version in all packages
           for pkg in packages/cli packages/mcp packages/dashboard; do
              (cd $pkg && npm version ${{ inputs.version_type }} --no-git-tag-version)
           done
-
-          # Get version from cli (source of truth for release)
           NEW_VERSION=$(node -p "require('./packages/cli/package.json').version")
           echo "version=$NEW_VERSION" >> $GITHUB_OUTPUT
           echo "New version: $NEW_VERSION"
@@ -62,20 +59,6 @@ jobs:
           cd ../..
           cd packages/dashboard && npm run build 2>/dev/null || echo "No build step"
 
-      - name: Commit Version Bump
-        run: |
-          git add packages/*/package.json packages/*/dist/
-          git commit -m "release: v${{ steps.version.outputs.version }}"
-
-      - name: Create Tag
-        run: |
-          git tag -a "v${{ steps.version.outputs.version }}" -m "Release v${{ steps.version.outputs.version }}"
-
-      - name: Push Changes and Tag
-        run: |
-          git push
-          git push --tags
-
       - name: Publish @cybermem/cli
         working-directory: packages/cli
         run: npm publish --access public --provenance
@@ -87,6 +70,21 @@ jobs:
       - name: Publish @cybermem/dashboard
         working-directory: packages/dashboard
         run: npm publish --access public --provenance
+
+      - name: Commit Version Bump
+        run: |
+          git add packages/*/package.json packages/*/dist/
+          git commit -m "release: v${{ steps.version.outputs.version }}"
+
+      - name: Create Tag
+        run: |
+          git tag -a "v${{ steps.version.outputs.version }}" -m "Release v${{ steps.version.outputs.version }}"
+
+      - name: Push Changes and Tag
+        continue-on-error: true # Allow finish even if push fails (manual sync needed then)
+        run: |
+          git push origin main
+          git push origin --tags
 
       - name: Create GitHub Release
         id: create_release
