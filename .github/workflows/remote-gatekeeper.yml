@@ -1,0 +1,77 @@
+name: Remote Gatekeeper & Deploy
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+  release:
+    types: [published]
+  workflow_dispatch:
+
+jobs:
+  deploy-and-verify:
+    name: Deploy & Verify (RPi)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Tailscale
+        uses: tailscale/github-action@v2
+        with:
+          # Using Auth Key as requested
+          authkey: ${{ secrets.TAILSCALE_AUTHKEY }}
+          version: latest
+
+      - name: Setup Ansible
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ansible
+
+      - name: Deploy to Staging (PR)
+        if: github.event_name == 'pull_request'
+        env:
+          ANSIBLE_HOST_KEY_CHECKING: "False"
+        run: |
+          # Deploy using Ansible over Tailscale SSH
+          ansible-playbook -i inventory/hosts.ini playbooks/deploy-cybermem.yml \
+            --extra-vars "cybermem_env=staging" \
+            --extra-vars "ansible_ssh_common_args='-o StrictHostKeyChecking=no'"
+
+      - name: Run Remote E2E (Staging)
+        if: github.event_name == 'pull_request'
+        run: |
+      - name: Setup Node.js
+        if: github.event_name == 'pull_request'
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install dependencies
+        if: github.event_name == 'pull_request'
+        run: npm ci
+
+      - name: Build CLI (for Test Helper)
+        if: github.event_name == 'pull_request'
+        run: npm run build -w @cybermem/cli
+
+      - name: Install Playwright Browsers
+        if: github.event_name == 'pull_request'
+        run: npx playwright install --with-deps chromium
+
+      - name: Run Remote E2E (Staging)
+        if: github.event_name == 'pull_request'
+        env:
+          # Token for Staging Auth (Inject via Secrets)
+          CYBERMEM_TOKEN: ${{ secrets.CYBERMEM_TOKEN }}
+        run: |
+          # Run E2E logic targeting RPi Staging
+          npx ts-node packages/cli/e2e/release-check.ts --only-testing rpi-ts-staging
+
+      - name: Deploy to Prod (Release)
+        if: github.event_name == 'release'
+        env:
+          ANSIBLE_HOST_KEY_CHECKING: "False"
+        run: |
+          ansible-playbook -i inventory/hosts.ini playbooks/deploy-cybermem.yml \
+            --extra-vars "cybermem_env=prod" \
+            --extra-vars "ansible_ssh_common_args='-o StrictHostKeyChecking=no'"

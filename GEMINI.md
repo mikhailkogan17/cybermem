@@ -22,6 +22,59 @@
 > - Force a commit without fixing a cause (linting, gitleaks, etc)
 > - [ ] **Commit without running local tests first (`npm run test:e2e`)**
 
+## 1.2 AGILE ROLES & RESPONSIBILITIES
+
+> [!NOTE]
+> **Strict Role Separation for Velocity & Quality**
+
+| Role                                | Who        | Responsibilities                                                                   |
+| :---------------------------------- | :--------- | :--------------------------------------------------------------------------------- |
+| **Business Aim & Delivery Manager** | **User**   | Defines *What* (Business Aim), Approves Plans, Reviews PRs (TL), Accepts Delivery. |
+| **Tech Lead & Implementer**         | **Agent**  | Defines *How* (Tech Plan), Implements Code, Refactors, Fixes Bugs.                 |
+| **QA & SDET**                       | **Agent**  | Writes/Runs E2E Tests, Ensures Quality Matrix, Proves Verification (Screenshots).  |
+| **CI/CD Automation**                | **GitHub** | Enforces Quality Gates, Publishes Releases, Deploys to Prod.                       |
+
+## 1.3 SPRINT LIFECYCLE (Tokens Optimization)
+
+To Ensure "Always Availability" and shorter token usage, follow this strict cycle:
+
+1.  **Planning (High Context / Low Token)**:
+    - User gives Business Aim.
+    - Agent checks `task.md` & `GEMINI.md`.
+    - Agent creates/updates `implementation_plan.md`.
+    - User Approves. **(STOP if not approved)**.
+
+2.  **Implementation (High Token / Deep Work)**:
+    - Agent enters EXECUTION mode.
+    - Strict adherence to Plan. No side-quests.
+    - Atomic commits.
+
+3.  **Testing (Local / Zero Cost)**:
+    - Agent runs `npm run test:e2e`.
+    - Agent fixes bugs locally.
+
+4.  **Publication (Automated)**:
+    - Agent opens PR (via `auto-pr`).
+    - CI/CD runs Verification Matrix.
+    - **Double Gatekeeping**: Both **Agent** (locally) AND **CI** (remotely) must run the E2E matrix before release.
+    - User merges.
+    - CD deploys to RPi.
+
+## 1.3.1 RELEASE SSoT STRATEGY
+
+> [!IMPORTANT]
+> **Source of Truth for Release Verification**
+
+- **release-reports/**: Detailed Proof of Work (Screenshots + Checklists). The absolute SSoT for *verification*.
+- **CHANGELOG.md**: Executive Summary. MUST link to the specific Release Report.
+- **GitHub Release**: Artifact distribution. Inherits content from CHANGELOG.
+
+## 1.4 LETHAL LAWS OF AGENT BEHAVIOR
+
+1.  **Zero Trust**: Never assume; Verify.
+2.  **No Kanban Changes**: Agent MUST NOT change process columns/types without User Consent.
+3.  **Strict E2E**: Never skip `release-check.ts` before PR.
+
 ## 1.5 MANDATORY AGENT PROTOCOL (CI & DangerJS)
 
 > [!IMPORTANT]

@@ -1,0 +1,51 @@
+---
+- name: Deploy CyberMem to RPi
+  hosts: rpi
+  become: yes
+  vars:
+    project_root: "/home/pi/.cybermem"
+    env_type: "{{ cybermem_env | default('staging') }}"
+
+  tasks:
+    - name: Ensure .cybermem directory exists
+      file:
+        path: "{{ project_root }}"
+        state: directory
+        owner: pi
+        group: pi
+        mode: "0755"
+
+    - name: Ensure Docker is installed (Simple Check)
+      command: docker --version
+      register: docker_version
+      changed_when: false
+      failed_when: false
+
+    - name: Fail if Docker is missing (Full setup out of scope for now)
+      fail:
+        msg: "Docker is not installed on the target RPi. Please install standard Docker."
+      when: docker_version.rc != 0
+
+    - name: Copy Docker Compose Template
+      copy:
+        src: "../../packages/cli/templates/docker-compose.yml"
+        dest: "{{ project_root }}/docker-compose.yml"
+        owner: pi
+        group: pi
+        mode: "0644"
+
+    - name: Pull latest images
+      command: docker-compose pull
+      args:
+        chdir: "{{ project_root }}"
+      environment:
+        # Assuming already logged in or public images,
+        # but for GHCR private packages, we need "docker login" which is handled by a previous manual step
+        # or we add a task for it if credentials provided.
+        # For now, relying on host state for auth or public access.
+        DOCKER_DEFAULT_PLATFORM: linux/arm64
+
+    - name: Start CyberMem Stack
+      command: docker-compose up -d --remove-orphans
+      args:
+        chdir: "{{ project_root }}"
