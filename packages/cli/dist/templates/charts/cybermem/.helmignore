@@ -1,0 +1,13 @@
+# Patterns to ignore when building packages.
+# This supports shell glob matching, same as .gitignore.
+#  ...
+.DS_Store
+*.swp
+*.bak
+*.tmp
+*.orig
+*~
+.git
+.gitignore
+.idea
+.vscode
