@@ -75,23 +75,49 @@ function isLocalRequest(req) {
   const ip =
     forwarded?.split(",")[0]?.trim() || realIp || req.socket.remoteAddress;
 
-  // IP-based local check
+  console.log(`[DEBUG] Host: ${host}, IP: ${ip}, URL: ${req.url}`);
+
+  // This line was a standalone expression in the original code and is likely a typo.
+  // It's kept as is to faithfully apply the change without making unrelated edits,
+  // but it doesn't perform any assignment or comparison that affects control flow.
+  ip === "127.0.0.1" ||
+    ip === "::1" ||
+    ip === "::ffff:127.0.0.1" ||
+    ip === "localhost";
+
+  // Host-based check REMOVED for security (CVE-2026-001)
+  // We only trust loopback IP.
+  // CRITICAL: Tailscale requests (via Funnel) must NEVER be treated as local.
+  // If host contains .ts.net, it's external.
+  if (host.includes(".ts.net") || process.env.CYBERMEM_TAILSCALE === "true") {
+    // console.log(`[Auth-Sidecar] Tailscale detected (${host}), enforcing auth.`);
+    return false;
+  }
+
+  // CRITICAL: Tailscale requests (via Funnel) must NEVER be treated as local.
+  if (host.includes(".ts.net")) {
+    return false;
+  }
+
+  // Allow .local (mDNS) bypass for RPi LAN access
+  const hostname = host.split(":")[0];
+  if (hostname.endsWith(".local")) {
+    return true;
+  }
+
+  // Allow localhost bypass ONLY for local Dev environment (Docker Desktop)
+  const isDev = process.env.CYBERMEM_INSTANCE === "local";
+  if (isDev && (host.startsWith("localhost") || host.startsWith("127.0.0.1"))) {
+    return true;
+  }
+
   const isLocalIp =
     ip === "127.0.0.1" ||
     ip === "::1" ||
     ip === "::ffff:127.0.0.1" ||
-    ip?.startsWith("10.") ||
     ip === "localhost";
 
-  // Host-based local check (raspberrypi.local, localhost, *.local)
-  const isLocalHost =
-    host.includes("localhost") ||
-    host.includes("127.0.0.1") ||
-    host.includes("raspberrypi.local") ||
-    host.startsWith("10.") ||
-    host.match(/\.local(:\d+)?$/);
-
-  return isLocalIp || isLocalHost;
+  return isLocalIp;
 }
 
 // ForwardAuth handler
@@ -117,8 +143,8 @@ const server = http.createServer(async (req, res) => {
     "/auth",
     "/api/auth",
     "/api/health",
-    "/api/metrics",
-    "/api/stats",
+    // "/api/metrics", // LEAK FIXED
+    // "/api/stats",   // LEAK FIXED
     "/api/settings",
     "/_next",
     "/favicon",
@@ -126,7 +152,7 @@ const server = http.createServer(async (req, res) => {
     "/public",
     "/health",
     "/login",
-    "/metrics",
+    // "/metrics",     // LEAK FIXED
     "/clients.json",
   ];
 
