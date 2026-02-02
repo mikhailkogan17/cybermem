@@ -1,15 +1,16 @@
-# Release v0.13.0-RC1: Multi-Environment Verification Complete
+# PR v0.13.0-RC1: Release Verification and Refinement
 
-This PR finalizes the verification for v0.13.0.
+## Changes
+- **Refined Dashboard UI E2E**: Implemented strict assertions for Identity (Top/Last), Audit Logs (Precision), Charts (Visual Presence), MCP Modal (Exact JSON), and Settings (Token).
+- **Added Full CRUD Coverage**: MCP API tests now verify `add`, `query`, `update`, and `reinforce` (actualization) tools.
+- **Fixed RPi MCP Modal**: Refactored `/api/mcp-config` to use robust internal fetching, resolving the empty modal regression on RPi.
+- **Enhanced Audit Logs**: Success logs now include `method` and `endpoint` for improved visibility.
+- **Unified Verification**: Created a central HTML dashboard linking all Playwright reports.
 
-## Verified Items
-- [x] **Clean Install**: Full purge/re-init cycle verified.
-- [x] **Live API**: MCP and Dashboard APIs passing on local Docker (8625).
-- [x] **Mocked UI**: Dashboard UI 100% green in zero-Docker mode with production-aligned mocks.
-- [x] **RPi Integration**: Verified via LAN fallback (`raspberrypi.local:8625`).
+## Verification
+Full verification performed across:
+- Local Macbook (Mocked UI + Docker API)
+- RPi LAN (8626)
+- RPi TS-Staging
 
-## Evidence
-Full [Release Report](release-reports/v0.13.0-RC1.md) attached in the branch.
-
-## Next Steps
-Awaiting "I CONFIRM RELEASE" to merge and deploy.
+[View Release Report](file:///Users/mikhailkogan/cybermem/release-reports/v0.13.0-RC1.md)

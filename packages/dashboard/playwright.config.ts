@@ -8,13 +8,15 @@ export default defineConfig({
     baseURL: process.env.DASHBOARD_URL || "http://localhost:3000",
     screenshot: "only-on-failure",
   },
-  webServer: {
-    command: "npm run dev",
-    port: 3000,
-    reuseExistingServer: !process.env.CI,
-    stdout: "ignore",
-    stderr: "pipe",
-  },
+  webServer: process.env.DASHBOARD_URL
+    ? undefined
+    : {
+        command: "npm run dev",
+        port: 3000,
+        reuseExistingServer: !process.env.CI,
+        stdout: "ignore",
+        stderr: "pipe",
+      },
   projects: [
     {
       name: "api",

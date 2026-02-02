@@ -46,6 +46,11 @@ export class ProductionDataSource implements DataSourceStrategy {
       } else if (log.status === "Error") {
         status = "Error";
         description = "Error";
+      } else {
+        // Success: Show method and endpoint
+        const method = (log.method || "").toString().toUpperCase();
+        const endpoint = log.endpoint || "";
+        description = `${method} ${endpoint}`.trim();
       }
 
       return {

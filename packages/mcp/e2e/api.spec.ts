@@ -2,7 +2,9 @@ import { expect, test } from "@playwright/test";
 import axios from "axios";
 import https from "https";
 
-const BASE_URL = process.env.MCP_URL || "http://localhost:8626/mcp";
+const BASE_URL = process.env.MCP_URL
+  ? process.env.MCP_URL.replace(/\/mcp$/, "")
+  : "http://localhost:8626";
 
 test.describe("MCP:E2E (Core CRUD)", () => {
   const httpsAgent = new https.Agent({ rejectUnauthorized: false });
@@ -56,8 +58,22 @@ test.describe("MCP:E2E (Core CRUD)", () => {
     // Note: Vector Indexing might be async.
   });
 
-  // Note: Delete is usually via sidechannel in current CyberMem or via direct DB.
-  // The old e2e.ts used DELETE /memory/:id.
+  test("Update Memory", async () => {
+    if (!memoryId) test.skip();
+    const res = await client.patch(`/memory/${memoryId}`, {
+      content: `Updated E2E Context ${new Date().toISOString()}`,
+      tags: ["e2e", "updated"],
+    });
+    expect(res.status).toBe(200);
+  });
+
+  test("Reinforce Memory (Actualization)", async () => {
+    if (!memoryId) test.skip();
+    const res = await client.post(`/memory/${memoryId}/reinforce`, {
+      boost: 0.5,
+    });
+    expect(res.status).toBe(200);
+  });
 
   test("Delete Memory", async () => {
     if (!memoryId) test.skip();
