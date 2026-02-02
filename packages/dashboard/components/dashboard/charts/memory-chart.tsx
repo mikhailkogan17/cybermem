@@ -34,7 +34,7 @@ interface MetricsChartProps {
   setHovered: (id: string | null) => void;
 }
 
-export default function MetricsChart({
+export default function MemoryChart({
   data,
   isMultiSeries,
   clientNames,

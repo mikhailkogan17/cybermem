@@ -89,7 +89,7 @@ To Ensure "Always Availability" and shorter token usage, follow this strict cycl
 ### Core Behavior
 1.  **Zero Trust**: Never assume; Verify.
 2.  **No Kanban Changes**: Agent MUST NOT change process columns/types without User Consent.
-3.  **Strict E2E**: Never skip `release-check.ts` before PR.
+3.  **Strict E2E**: Never skip `e2e.ts` before PR.
 
 ### Identity & Privacy (Technologically Enforced)
 1. **NO HARDCODED X-CLIENT-NAME**: Use dynamic variables/constants.
@@ -562,3 +562,14 @@ sequenceDiagram
 - **CM-XXX**: Identifier for all tasks.
 - **Title**: Must be descriptive.
 - **Description**: Contains "Environment", "Component", and acceptance criteria.
+
+## 1.11 TASK TEMPLATES (Agile)
+
+> [!TIP]
+> **Use these templates for high-fidelity agent context.**
+
+- **Feature**: `.agent/templates/linear-feature.md`
+- **Bug**: `.agent/templates/linear-bug.md`
+
+When creating tasks via MCP or UI, strictly adhere to these structures to ensure the Agent has sufficient context to execute without "halting for clarification".
+

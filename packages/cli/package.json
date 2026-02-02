@@ -19,7 +19,11 @@
     "build": "mkdir -p dist && tsc && cp -r templates dist/",
     "lint": "eslint src/ --ext .ts",
     "start": "ts-node src/index.ts",
-    "test:e2e": "ts-node e2e/test-mcp.ts",
+    "test:e2e": "playwright test",
+    "test:e2e:mcp": "playwright test --project=mcp",
+    "test:e2e:dash:api": "playwright test --project=dashboard-api",
+    "test:e2e:dash:ui": "playwright test --project=dashboard-ui",
+    "test:e2e:cli": "playwright test --project=cli-integration",
     "prepublishOnly": "npm run build && ts-node ../../scripts/verify-release-report.ts"
   },
   "keywords": [
@@ -51,6 +55,7 @@
     "@typescript-eslint/parser": "^8.52.0",
     "eslint": "^9.39.2",
     "ts-node": "^10.9.1",
+    "@playwright/test": "^1.40.0",
     "typescript": "^5.0.0"
   }
 }

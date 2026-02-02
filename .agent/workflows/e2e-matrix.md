@@ -17,8 +17,8 @@ npm run build -w @cybermem/cli
 ```bash
 # Usage: /e2e-matrix [environment]
 if [ -z "$1" ]; then
-  npx tsx packages/cli/e2e/release-check.ts
+  npx tsx packages/cli/e2e/e2e.ts
 else
-  npx tsx packages/cli/e2e/release-check.ts --only-testing "$1"
+  npx tsx packages/cli/e2e/e2e.ts --only-testing "$1"
 fi
 ```

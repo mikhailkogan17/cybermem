@@ -1,6 +1,6 @@
-"use client"
+"use client";
 
-import ChartCard from "./chart-card";
+import ChartCard from "./charts/chart-card";
 
 export default function ChartsSection({ period }: { period: string }) {
   // Remove the period prop since each chart will have its own selector
@@ -12,5 +12,5 @@ export default function ChartsSection({ period }: { period: string }) {
       <ChartCard service="Updates by Client" />
       <ChartCard service="Deletes by Client" />
     </div>
-  )
+  );
 }

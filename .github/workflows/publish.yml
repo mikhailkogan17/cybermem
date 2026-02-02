@@ -14,21 +14,92 @@ on:
           - major
 
 permissions:
-  id-token: write # Required for npm OIDC trusted publishers
+  id-token: write
   contents: write
 
 jobs:
-  release:
+  # ------------------------------------------------------------------
+  # 1. DEPLOY TO STAGING (Pre-Flight)
+  # ------------------------------------------------------------------
+  deploy-staging:
     runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Tailscale
+        uses: tailscale/github-action@v2
+        with:
+          authkey: ${{ secrets.TAILSCALE_AUTHKEY }}
+          version: latest
+      - name: Setup Ansible
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ansible
+      - name: Deploy Staging
+        env:
+          ANSIBLE_HOST_KEY_CHECKING: "False"
+        run: |
+          ansible-playbook -i packages/cli/templates/ansible/inventory/hosts.ini packages/cli/templates/ansible/playbooks/deploy-cybermem.yml \
+            --extra-vars "cybermem_env=staging ghcr_user=${{ github.actor }} ghcr_token=${{ secrets.GITHUB_TOKEN }}" \
+            --extra-vars "ansible_ssh_common_args='-o StrictHostKeyChecking=no'"
 
+  # ------------------------------------------------------------------
+  # 2. VERIFY STAGING (The Strict Gate)
+  # ------------------------------------------------------------------
+  verify-staging:
+    needs: deploy-staging
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - name: Setup Tailscale
+        uses: tailscale/github-action@v2
+        with:
+          authkey: ${{ secrets.TAILSCALE_AUTHKEY }}
+          version: latest
+
+      - name: Run E2E Gate (Dashboard API + CLI Integration)
+        env:
+          # Point to Staging
+          DASHBOARD_URL: "https://raspberrypi.ts.net/cybermem-staging"
+          MCP_URL: "https://raspberrypi.ts.net/cybermem-staging/mcp"
+          TEST_ENV_NAME: "rpi-staging-ts"
+          CYBERMEM_TOKEN: ${{ secrets.CYBERMEM_TOKEN }}
+        run: |
+          # 1. Backend API Check
+          npm run test:e2e:dash:api
+
+          # 2. Full Integration Check (Screenshots)
+          npm run test:e2e:cli
+
+      - name: Slack (Staging Fail)
+        if: failure()
+        env:
+          SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK_URL }}
+        run: |
+          curl -X POST -H 'Content-type: application/json' \
+          --data '{"text":"❌ *Release Aborted: Staging Verification Failed*\nCheck E2E logs."}' \
+          $SLACK_WEBHOOK || echo "Slack failed"
+
+  # ------------------------------------------------------------------
+  # 3. PUBLISH (NPM & GHCR)
+  # ------------------------------------------------------------------
+  publish:
+    needs: verify-staging
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      release_url: ${{ steps.create_release.outputs.release_url }}
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
           token: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - uses: actions/setup-node@v4
         with:
           node-version: "20"
           registry-url: "https://registry.npmjs.org"
@@ -37,11 +108,8 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-
-      - name: Install Dependencies
-        run: npm ci
-
-      - name: Bump Versions (all packages)
+      - run: npm ci
+      - name: Bump Versions
         id: version
         run: |
           for pkg in packages/cli packages/mcp packages/dashboard; do
@@ -49,84 +117,100 @@ jobs:
           done
           NEW_VERSION=$(node -p "require('./packages/cli/package.json').version")
           echo "version=$NEW_VERSION" >> $GITHUB_OUTPUT
-          echo "New version: $NEW_VERSION"
 
       - name: Build Packages
         run: |
-          cd packages/cli && npm run build 2>/dev/null || echo "No build step"
-          cd ../..
-          cd packages/mcp && npm run build 2>/dev/null || echo "No build step"
-          cd ../..
-          cd packages/dashboard && npm run build 2>/dev/null || echo "No build step"
+          npm run build --workspaces
 
-      - name: Publish @cybermem/cli
-        working-directory: packages/cli
-        run: npm publish --access public --provenance
+      - name: Publish Packages
+        run: |
+          for pkg in packages/cli packages/mcp packages/dashboard; do
+             (cd $pkg && npm publish --access public --provenance)
+          done
 
-      - name: Publish @cybermem/mcp
-        working-directory: packages/mcp
-        run: npm publish --access public --provenance
-
-      - name: Publish @cybermem/dashboard
-        working-directory: packages/dashboard
-        run: npm publish --access public --provenance
-
-      - name: Commit Version Bump
+      - name: Commit & Tag
         run: |
           git add packages/*/package.json packages/*/dist/
           git commit -m "release: v${{ steps.version.outputs.version }}"
-
-      - name: Create Tag
-        run: |
           git tag -a "v${{ steps.version.outputs.version }}" -m "Release v${{ steps.version.outputs.version }}"
-
-      - name: Push Changes and Tag
-        continue-on-error: true # Allow finish even if push fails (manual sync needed then)
-        run: |
-          git push origin main
-          git push origin --tags
+          git push origin main --tags
 
       - name: Create GitHub Release
         id: create_release
         env:
-          GH_TOKEN: ${{ secrets.GH_PROJECT_TOKEN || secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          RELEASE_URL=$(gh release create "v${{ steps.version.outputs.version }}" \
-            --title "v${{ steps.version.outputs.version }}" \
-            --generate-notes --json url --jq '.url')
+          RELEASE_URL=$(gh release create "v${{ steps.version.outputs.version }}" --generate-notes --json url --jq '.url')
           echo "release_url=$RELEASE_URL" >> $GITHUB_OUTPUT
 
-      - name: Update Project Board (Move to Released)
+      - name: Slack (Publish Success)
+        if: success()
         env:
-          GH_TOKEN: ${{ secrets.GH_PROJECT_TOKEN || secrets.GITHUB_TOKEN }}
+          SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK_URL }}
         run: |
-          # Fetch items in 'Done' status (merged PRs)
-          READY_ITEMS=$(gh project item-list 1 --owner mikhailkogan17 --format json --jq '.items[] | select(.status == "Done") | .id')
+          curl -X POST -H 'Content-type: application/json' \
+          --data '{"text":"🚀 *CyberMem v${{ steps.version.outputs.version }} Published & Verified on Staging!*"}' \
+          $SLACK_WEBHOOK
 
-          for item in $READY_ITEMS; do
-            echo "Moving item $item to Released..."
-            gh project item-edit 1 --owner mikhailkogan17 --id $item \
-              --field-id PVTSSF_lAHOBd5jG84BN0uLzg8tZsc --project-id PVT_kwHOBd5jG84BN0uLzg8tPRQ \
-              --option-id e6d10f39
-
-            echo "Setting FixVersion to v${{ steps.version.outputs.version }}..."
-            gh project item-edit 1 --owner mikhailkogan17 --id $item \
-              --field-id PVTF_lAHOBd5jG84BN0uLzg8tZtI --project-id PVT_kwHOBd5jG84BN0uLzg8tPRQ \
-              --text "v${{ steps.version.outputs.version }}"
-          done
-
-      - name: Post-Release Version Bump
+  # ------------------------------------------------------------------
+  # 4. DEPLOY TO PROD
+  # ------------------------------------------------------------------
+  deploy-prod:
+    needs: publish
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: tailscale/github-action@v2
+        with:
+          authkey: ${{ secrets.TAILSCALE_AUTHKEY }}
+          version: latest
+      - name: Setup Ansible
         run: |
-          for pkg in packages/cli packages/mcp packages/dashboard; do
-            cd $pkg
-            npm version patch --no-git-tag-version
-            cd ../..
-          done
-          NEXT_VERSION=$(node -p "require('./packages/cli/package.json').version")
-          echo "Next dev version: $NEXT_VERSION"
-
-      - name: Commit Dev Version
+          sudo apt-get update
+          sudo apt-get install -y ansible
+      - name: Deploy Prod
+        env:
+          ANSIBLE_HOST_KEY_CHECKING: "False"
         run: |
-          git add packages/*/package.json
-          git commit -m "chore: bump to v$(node -p "require('./packages/cli/package.json').version") for development"
-          git push
+          sleep 60 # Wait for GHCR
+          ansible-playbook -i packages/cli/templates/ansible/inventory/hosts.ini packages/cli/templates/ansible/playbooks/deploy-cybermem.yml \
+            --extra-vars "cybermem_env=prod ghcr_user=${{ github.actor }} ghcr_token=${{ secrets.GITHUB_TOKEN }}" \
+            --extra-vars "ansible_ssh_common_args='-o StrictHostKeyChecking=no'"
+
+  # ------------------------------------------------------------------
+  # 5. VERIFY PROD
+  # ------------------------------------------------------------------
+  verify-prod:
+    needs: deploy-prod
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: tailscale/github-action@v2
+        with:
+          authkey: ${{ secrets.TAILSCALE_AUTHKEY }}
+          version: latest
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+
+      - name: Run E2E (Prod)
+        env:
+          DASHBOARD_URL: "https://raspberrypi.ts.net/cybermem"
+          TEST_ENV_NAME: "rpi-prod-ts"
+          CYBERMEM_TOKEN: ${{ secrets.CYBERMEM_TOKEN }}
+        run: |
+          # Just API check for Prod to be safe/fast, or full CLI if desired
+          # User SLA said: "dashboard:e2e:api + cli:e2e on rpi-staging-ts BEFORE publish" for Publish.
+          # For Prod Verification, we generally want at least API check.
+          npm run test:e2e:dash:api
+
+      - name: Slack (Prod Success)
+        if: success()
+        env:
+          SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK_URL }}
+        run: |
+          curl -X POST -H 'Content-type: application/json' \
+          --data '{"text":"✅ *Production Deployed & Verified* v${{ needs.publish.outputs.version }}"}' \
+          $SLACK_WEBHOOK

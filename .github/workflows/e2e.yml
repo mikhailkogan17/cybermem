@@ -5,8 +5,6 @@ on:
     branches: [main]
   pull_request:
     types: [opened, synchronize, reopened]
-  release:
-    types: [published]
   workflow_dispatch:
 
 permissions:
@@ -57,7 +55,7 @@ jobs:
   # 3. Local E2E (Dogfooding) - "e2e:pr"
   # ------------------------------------------------------------------
   e2e-local:
-    name: E2E: Local (PR)
+    name: "E2E: Local (PR)"
     needs: test-cli
     runs-on: ubuntu-latest
     steps:
@@ -93,21 +91,24 @@ jobs:
 
       - run: npx playwright install --with-deps chromium
 
-      - name: Run E2E Verification (CI Mode)
+      - name: Run E2E Verification (Granular)
         run: |
-          export OM_API_KEY=$(grep OM_API_KEY ~/.cybermem/.env | cut -d '=' -f2)
-          npm run test:e2e:ci
+          npm run test:e2e:mcp
+          npm run test:e2e:dash:api
+          npm run test:e2e:dash:ui
         env:
           CI: true
+          DASHBOARD_URL: http://localhost:8626
+          MCP_URL: http://localhost:8626/mcp
 
   # ------------------------------------------------------------------
   # 4. Remote E2E (RPi Staging) - "e2e:deploy"
   # ------------------------------------------------------------------
   e2e-remote:
-    name: E2E: Remote (Deploy)
+    name: "E2E: Remote (Deploy)"
     needs: test-cli
-    # Run on PR (Staging) or Release (Prod)
-    if: github.event_name == 'pull_request' || github.event_name == 'release'
+    # Run on PR (Staging)
+    if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -130,7 +131,7 @@ jobs:
           ANSIBLE_HOST_KEY_CHECKING: "False"
         run: |
           ansible-playbook -i inventory/hosts.ini playbooks/deploy-cybermem.yml \
-            --extra-vars "cybermem_env=staging" \
+            --extra-vars "cybermem_env=staging ghcr_user=${{ github.actor }} ghcr_token=${{ secrets.GITHUB_TOKEN }}" \
             --extra-vars "ansible_ssh_common_args='-o StrictHostKeyChecking=no'"
 
       # Verify Staging
@@ -152,14 +153,4 @@ jobs:
         env:
           CYBERMEM_TOKEN: ${{ secrets.CYBERMEM_TOKEN }}
         run: |
-          npx ts-node packages/cli/e2e/release-check.ts --only-testing rpi-ts-staging
-
-      # Deploy Prod (Release)
-      - name: Deploy to Prod (Release)
-        if: github.event_name == 'release'
-        env:
-          ANSIBLE_HOST_KEY_CHECKING: "False"
-        run: |
-          ansible-playbook -i inventory/hosts.ini playbooks/deploy-cybermem.yml \
-            --extra-vars "cybermem_env=prod" \
-            --extra-vars "ansible_ssh_common_args='-o StrictHostKeyChecking=no'"
+          npx ts-node packages/cli/e2e/e2e.ts --only-testing rpi-ts-staging
