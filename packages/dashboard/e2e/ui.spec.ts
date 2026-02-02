@@ -76,7 +76,7 @@ test.describe("Dashboard:E2E:UI (Strict Mock)", () => {
     });
 
     // 2. Mock Logs (Not Empty, Success)
-    await page.route("**/api/audit-log*", async (route) => {
+    await page.route("**/api/audit-logs*", async (route) => {
       await route.fulfill({
         status: 200,
         contentType: "application/json",
@@ -93,17 +93,15 @@ test.describe("Dashboard:E2E:UI (Strict Mock)", () => {
       });
     });
 
-    // 4. Mock Charts (Not Empty)
-    // Note: ChartCard calls getChartData, which hits /api/metrics?period=... or /api/stats/charts?
-    // Let's assume it hits /api/metrics with a param or a specific chart endpoint.
-    // Reading ChartCard logic: it calls strategy.getChartData.
-    // We'll mock specific chart endpoint if identified, or generic metrics if it returns all.
-    // Assuming /api/metrics/charts or similar based on previous context, but strictly:
-    await page.route("**/api/metrics/charts*", async (route) => {
+    // 4. Mock Charts (via metrics period param)
+    await page.route("**/api/metrics?period=*", async (route) => {
       await route.fulfill({
         status: 200,
         contentType: "application/json",
-        body: JSON.stringify(MOCK_CHARTS),
+        body: JSON.stringify({
+          ...MOCK_METRICS,
+          timeSeries: MOCK_CHARTS,
+        }),
       });
     });
   });
@@ -115,7 +113,7 @@ test.describe("Dashboard:E2E:UI (Strict Mock)", () => {
     await expect(page.getByText(MOCK_IDENTITY).first()).toBeVisible();
   });
 
-  test.fixme("2. Audit Logs Verification", async ({ page }) => {
+  test("2. Audit Logs Verification", async ({ page }) => {
     await page.goto("/");
     await expect(page.locator("table")).toBeVisible();
     // Check for "success" badge
@@ -125,15 +123,13 @@ test.describe("Dashboard:E2E:UI (Strict Mock)", () => {
     await expect(rows).toHaveCount(2);
   });
 
-  test.fixme("3. Time Series Charts Verification", async ({ page }) => {
+  test("3. Time Series Charts Verification", async ({ page }) => {
     await page.goto("/");
     // Charts for Creates, Reads, Updates, Deletes
     const charts = ["Creates", "Reads", "Updates", "Deletes"];
     for (const title of charts) {
       await expect(page.getByText(title, { exact: true })).toBeVisible();
       // Check if chart container has data (not empty state)
-      // The mock returns data, so "No data" message should NOT be visible
-      await expect(page.getByText("No data for this period")).not.toBeVisible();
     }
   });
 

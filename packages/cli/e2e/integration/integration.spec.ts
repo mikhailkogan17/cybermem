@@ -36,13 +36,15 @@ test.describe("CLI:E2E (Integration)", () => {
 
     // 4. Evidence 2: MCP Modal
     await page.getByTestId("mcp-button").click();
-    await expect(page.getByText("MCP Integration")).toBeVisible();
+    await expect(page.getByText(/INTEGRATE MCP CLIENT/i)).toBeVisible();
     await page.screenshot({ path: path.join(OUTPUT_DIR, "2_mcp.png") });
     await page.keyboard.press("Escape");
 
     // 5. Evidence 3: Settings
     await page.getByTestId("settings-button").click();
-    await expect(page.getByText("Settings")).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: /Settings/i }),
+    ).toBeVisible();
 
     const eyeBtn = page.getByTestId("toggle-visibility");
     if (await eyeBtn.isVisible()) {
