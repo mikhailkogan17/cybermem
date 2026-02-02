@@ -20,13 +20,32 @@ export async function GET(request: Request) {
     const maskKey = searchParams.get("mask") === "true";
 
     // Fetch settings to get env, endpoint, apiKey, isManaged
-    const settingsRes = await fetch(
-      `${request.headers.get("origin") || "http://localhost:8626"}/api/settings`,
-      {
+    // We try to fetch from the origin first, but fallback to localhost:3000 if interior to Docker
+    const origin =
+      request.headers.get("origin") || request.headers.get("referer");
+    const internalUrl = `http://localhost:3000/api/settings`;
+    const externalUrl = `${origin}/api/settings`;
+
+    let settings: any = {};
+    try {
+      // Priority: Try fetching from the same process/port (Localhost:3000)
+      const settingsRes = await fetch(internalUrl, {
         headers: request.headers,
-      },
-    );
-    const settings = settingsRes.ok ? await settingsRes.json() : {};
+        signal: AbortSignal.timeout(2000),
+      });
+      if (settingsRes.ok) {
+        settings = await settingsRes.json();
+      } else if (origin) {
+        // Fallback to origin if internal fetch failed
+        const extRes = await fetch(externalUrl, { headers: request.headers });
+        if (extRes.ok) settings = await extRes.json();
+      }
+    } catch (e) {
+      console.warn(
+        "[MCP-CONFIG-API] Internal fetch failed, using fallback empty settings",
+        e,
+      );
+    }
 
     const apiKey = settings.apiKey !== "not-set" ? settings.apiKey : "";
     const baseUrl =
