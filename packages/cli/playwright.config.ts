@@ -5,7 +5,7 @@ export default defineConfig({
   outputDir: "./test-results",
   reporter: "html",
   use: {
-    // Base URL depends on target (staging/prod), handled in specifc test or env
+    baseURL: process.env.DASHBOARD_URL || "http://localhost:8626",
     screenshot: "only-on-failure",
     trace: "on-first-retry",
   },

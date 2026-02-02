@@ -15,14 +15,14 @@ test.describe("Dashboard:E2E:API", () => {
     const response = await request.get("/api/health");
     expect(response.status()).toBe(200);
     const body = await response.json();
-    expect(body).toHaveProperty("status", "ok"); // Adjust based on actual response
+    expect(body).toHaveProperty("overall", "ok");
   });
 
   test("Stats (/api/metrics)", async ({ request }) => {
     const response = await request.get("/api/metrics");
     expect(response.status()).toBe(200);
     const body = await response.json();
-    expect(body).toHaveProperty("total_memories");
+    expect(body.stats).toHaveProperty("memoryRecords");
   });
 
   // Add other endpoint tests as required

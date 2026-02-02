@@ -1,0 +1,390 @@
+# Page snapshot
+
+```yaml
+- generic [ref=e1]:
+  - main [ref=e2]:
+    - generic [ref=e4]:
+      - generic [ref=e5]:
+        - img "CyberMem" [ref=e7]
+        - generic [ref=e8]:
+          - heading "CyberMem" [level=1] [ref=e9]
+          - generic [ref=e10]:
+            - generic [ref=e11]: localhost-staging
+            - generic [ref=e12]: •
+            - button "healthy" [ref=e13]:
+              - img [ref=e14]
+              - generic [ref=e16]: healthy
+      - generic [ref=e17]:
+        - button "MCP Connect MCP" [active] [ref=e18]:
+          - img "MCP" [ref=e20]
+          - text: Connect MCP
+        - link "Docs" [ref=e21] [cursor=pointer]:
+          - /url: https://docs.cybermem.dev
+          - img
+          - text: Docs
+        - button "Settings" [ref=e22]:
+          - img
+    - generic [ref=e23]:
+      - generic [ref=e24]:
+        - generic [ref=e26]:
+          - generic [ref=e27]: Memory Records
+          - generic [ref=e28]: "4"
+        - generic [ref=e30]:
+          - generic [ref=e31]: Total Clients
+          - generic [ref=e32]: "2"
+        - generic [ref=e34]:
+          - generic [ref=e35]: Success Rate
+          - generic [ref=e36]: 95.2%
+        - generic [ref=e38]:
+          - generic [ref=e39]: Total Requests
+          - generic [ref=e40]: "104"
+        - generic [ref=e42]:
+          - generic [ref=e43]: Top Writer
+          - generic [ref=e44]: Claude Desktop
+          - generic [ref=e45]: 86 writes
+        - generic [ref=e47]:
+          - generic [ref=e48]: Top Reader
+          - generic [ref=e49]: Claude Desktop
+          - generic [ref=e50]: 13 reads
+        - generic [ref=e52]:
+          - generic [ref=e53]: Last Writer
+          - generic [ref=e54]: Claude Desktop
+          - generic [ref=e55]: 7:37:45 AM
+        - generic [ref=e57]:
+          - generic [ref=e58]: Last Reader
+          - generic [ref=e59]: Claude Desktop
+          - generic [ref=e60]: 7:37:41 AM
+      - generic [ref=e61]:
+        - generic [ref=e62]:
+          - button "24 Hours" [ref=e63]:
+            - img [ref=e64]
+            - text: 24 Hours
+            - img [ref=e66]
+          - generic [ref=e70]:
+            - generic [ref=e71]: Time Series
+            - generic [ref=e72]: Creates by Client
+          - generic [ref=e76]:
+            - img [ref=e77]:
+              - generic [ref=e81]:
+                - generic [ref=e83]: 09:13 AM
+                - generic [ref=e85]: 01:37 PM
+                - generic [ref=e87]: 06:01 PM
+                - generic [ref=e89]: 10:25 PM
+                - generic [ref=e91]: 02:49 AM
+                - generic [ref=e93]: 07:37 AM
+              - generic [ref=e95]:
+                - generic [ref=e97]: "0"
+                - generic [ref=e99]: "5"
+                - generic [ref=e101]: "10"
+                - generic [ref=e103]: "15"
+                - generic [ref=e105]: "20"
+            - list [ref=e111]:
+              - listitem [ref=e112]:
+                - img [ref=e113]
+                - generic [ref=e115]: Claude Desktop
+        - generic [ref=e116]:
+          - button "24 Hours" [ref=e117]:
+            - img [ref=e118]
+            - text: 24 Hours
+            - img [ref=e120]
+          - generic [ref=e124]:
+            - generic [ref=e125]: Time Series
+            - generic [ref=e126]: Reads by Client
+          - generic [ref=e130]:
+            - img [ref=e131]:
+              - generic [ref=e135]:
+                - generic [ref=e137]: 09:13 AM
+                - generic [ref=e139]: 01:37 PM
+                - generic [ref=e141]: 06:01 PM
+                - generic [ref=e143]: 10:25 PM
+                - generic [ref=e145]: 02:49 AM
+                - generic [ref=e147]: 07:37 AM
+              - generic [ref=e149]:
+                - generic [ref=e151]: "0"
+                - generic [ref=e153]: "4"
+                - generic [ref=e155]: "8"
+                - generic [ref=e157]: "12"
+                - generic [ref=e159]: "16"
+            - list [ref=e165]:
+              - listitem [ref=e166]:
+                - img [ref=e167]
+                - generic [ref=e169]: Claude Desktop
+        - generic [ref=e170]:
+          - button "24 Hours" [ref=e171]:
+            - img [ref=e172]
+            - text: 24 Hours
+            - img [ref=e174]
+          - generic [ref=e178]:
+            - generic [ref=e179]: Time Series
+            - generic [ref=e180]: Updates by Client
+          - generic [ref=e184]:
+            - img [ref=e185]:
+              - generic [ref=e189]:
+                - generic [ref=e191]: 09:13 AM
+                - generic [ref=e193]: 01:37 PM
+                - generic [ref=e195]: 06:01 PM
+                - generic [ref=e197]: 10:25 PM
+                - generic [ref=e199]: 02:49 AM
+                - generic [ref=e201]: 07:37 AM
+              - generic [ref=e203]:
+                - generic [ref=e205]: "0"
+                - generic [ref=e207]: "8"
+                - generic [ref=e209]: "16"
+                - generic [ref=e211]: "24"
+                - generic [ref=e213]: "32"
+            - list [ref=e218]:
+              - listitem [ref=e219]:
+                - img [ref=e220]
+                - generic [ref=e222]: Claude Desktop
+        - generic [ref=e223]:
+          - button "24 Hours" [ref=e224]:
+            - img [ref=e225]
+            - text: 24 Hours
+            - img [ref=e227]
+          - generic [ref=e231]:
+            - generic [ref=e232]: Time Series
+            - generic [ref=e233]: Deletes by Client
+          - generic [ref=e237]:
+            - img [ref=e238]:
+              - generic [ref=e242]:
+                - generic [ref=e244]: 09:13 AM
+                - generic [ref=e246]: 01:37 PM
+                - generic [ref=e248]: 06:01 PM
+                - generic [ref=e250]: 10:25 PM
+                - generic [ref=e252]: 02:49 AM
+                - generic [ref=e254]: 07:37 AM
+              - generic [ref=e256]:
+                - generic [ref=e258]: "0"
+                - generic [ref=e260]: "9"
+                - generic [ref=e262]: "18"
+                - generic [ref=e264]: "27"
+                - generic [ref=e266]: "36"
+            - list [ref=e272]:
+              - listitem [ref=e273]:
+                - img [ref=e274]
+                - generic [ref=e276]: Claude Desktop
+      - generic [ref=e277]:
+        - button "All Time" [ref=e279]:
+          - img [ref=e280]
+          - text: All Time
+          - img [ref=e282]
+        - generic [ref=e284]:
+          - heading "Audit Log" [level=3] [ref=e286]
+          - table [ref=e288]:
+            - rowgroup [ref=e289]:
+              - row "Timestamp Client Operation Description Status" [ref=e290]:
+                - columnheader "Timestamp" [ref=e291] [cursor=pointer]:
+                  - generic [ref=e292]:
+                    - text: Timestamp
+                    - img [ref=e294]
+                - columnheader "Client" [ref=e296] [cursor=pointer]:
+                  - generic [ref=e297]:
+                    - text: Client
+                    - img [ref=e299]
+                - columnheader "Operation" [ref=e302] [cursor=pointer]:
+                  - generic [ref=e303]:
+                    - text: Operation
+                    - img [ref=e305]
+                - columnheader "Description" [ref=e308] [cursor=pointer]:
+                  - generic [ref=e309]:
+                    - text: Description
+                    - img [ref=e311]
+                - columnheader "Status" [ref=e314] [cursor=pointer]:
+                  - generic [ref=e315]:
+                    - text: Status
+                    - img [ref=e317]
+            - rowgroup [ref=e320]:
+              - row "2/2/2026, 7:37:45 AM Claude Desktop Claude Desktop Delete Success" [ref=e321]:
+                - cell "2/2/2026, 7:37:45 AM" [ref=e322]
+                - cell "Claude Desktop Claude Desktop" [ref=e323]:
+                  - generic [ref=e324]:
+                    - img "Claude Desktop" [ref=e325]
+                    - generic [ref=e326]: Claude Desktop
+                - cell "Delete" [ref=e327]
+                - cell [ref=e328]
+                - cell "Success" [ref=e329]
+              - row "2/2/2026, 7:37:41 AM Claude Desktop Claude Desktop Delete Success" [ref=e330]:
+                - cell "2/2/2026, 7:37:41 AM" [ref=e331]
+                - cell "Claude Desktop Claude Desktop" [ref=e332]:
+                  - generic [ref=e333]:
+                    - img "Claude Desktop" [ref=e334]
+                    - generic [ref=e335]: Claude Desktop
+                - cell "Delete" [ref=e336]
+                - cell [ref=e337]
+                - cell "Success" [ref=e338]
+              - row "2/2/2026, 7:37:41 AM Claude Desktop Claude Desktop Read Success" [ref=e339]:
+                - cell "2/2/2026, 7:37:41 AM" [ref=e340]
+                - cell "Claude Desktop Claude Desktop" [ref=e341]:
+                  - generic [ref=e342]:
+                    - img "Claude Desktop" [ref=e343]
+                    - generic [ref=e344]: Claude Desktop
+                - cell "Read" [ref=e345]
+                - cell [ref=e346]
+                - cell "Success" [ref=e347]
+              - row "2/2/2026, 7:37:41 AM Claude Desktop Claude Desktop Write Success" [ref=e348]:
+                - cell "2/2/2026, 7:37:41 AM" [ref=e349]
+                - cell "Claude Desktop Claude Desktop" [ref=e350]:
+                  - generic [ref=e351]:
+                    - img "Claude Desktop" [ref=e352]
+                    - generic [ref=e353]: Claude Desktop
+                - cell "Write" [ref=e354]
+                - cell [ref=e355]
+                - cell "Success" [ref=e356]
+              - row "2/2/2026, 7:35:30 AM Claude Desktop Claude Desktop Write Client error Error" [ref=e357]:
+                - cell "2/2/2026, 7:35:30 AM" [ref=e358]
+                - cell "Claude Desktop Claude Desktop" [ref=e359]:
+                  - generic [ref=e360]:
+                    - img "Claude Desktop" [ref=e361]
+                    - generic [ref=e362]: Claude Desktop
+                - cell "Write" [ref=e363]
+                - cell "Client error" [ref=e364]
+                - cell "Error" [ref=e365]
+              - row "2/2/2026, 7:35:30 AM Claude Desktop Claude Desktop Write Client error Error" [ref=e366]:
+                - cell "2/2/2026, 7:35:30 AM" [ref=e367]
+                - cell "Claude Desktop Claude Desktop" [ref=e368]:
+                  - generic [ref=e369]:
+                    - img "Claude Desktop" [ref=e370]
+                    - generic [ref=e371]: Claude Desktop
+                - cell "Write" [ref=e372]
+                - cell "Client error" [ref=e373]
+                - cell "Error" [ref=e374]
+              - row "2/2/2026, 7:33:55 AM test Write Client error Error" [ref=e375]:
+                - cell "2/2/2026, 7:33:55 AM" [ref=e376]
+                - cell "test" [ref=e377]:
+                  - generic [ref=e379]: test
+                - cell "Write" [ref=e380]
+                - cell "Client error" [ref=e381]
+                - cell "Error" [ref=e382]
+              - row "2/2/2026, 7:33:35 AM Claude Desktop Claude Desktop Write Client error Error" [ref=e383]:
+                - cell "2/2/2026, 7:33:35 AM" [ref=e384]
+                - cell "Claude Desktop Claude Desktop" [ref=e385]:
+                  - generic [ref=e386]:
+                    - img "Claude Desktop" [ref=e387]
+                    - generic [ref=e388]: Claude Desktop
+                - cell "Write" [ref=e389]
+                - cell "Client error" [ref=e390]
+                - cell "Error" [ref=e391]
+              - row "2/2/2026, 7:33:35 AM Claude Desktop Claude Desktop Write Client error Error" [ref=e392]:
+                - cell "2/2/2026, 7:33:35 AM" [ref=e393]
+                - cell "Claude Desktop Claude Desktop" [ref=e394]:
+                  - generic [ref=e395]:
+                    - img "Claude Desktop" [ref=e396]
+                    - generic [ref=e397]: Claude Desktop
+                - cell "Write" [ref=e398]
+                - cell "Client error" [ref=e399]
+                - cell "Error" [ref=e400]
+              - row "1/31/2026, 10:37:58 AM Claude Desktop Claude Desktop Write Success" [ref=e401]:
+                - cell "1/31/2026, 10:37:58 AM" [ref=e402]
+                - cell "Claude Desktop Claude Desktop" [ref=e403]:
+                  - generic [ref=e404]:
+                    - img "Claude Desktop" [ref=e405]
+                    - generic [ref=e406]: Claude Desktop
+                - cell "Write" [ref=e407]
+                - cell [ref=e408]
+                - cell "Success" [ref=e409]
+          - generic [ref=e410]:
+            - button "Export" [ref=e412]:
+              - img [ref=e413]
+              - text: Export
+              - img [ref=e416]
+            - paragraph [ref=e418]: Page 1 of 10
+            - generic [ref=e419]:
+              - button "Prev" [disabled] [ref=e420]:
+                - img [ref=e421]
+                - text: Prev
+              - button "Next" [ref=e423]:
+                - text: Next
+                - img [ref=e424]
+    - generic [ref=e427]:
+      - button [ref=e428]:
+        - img
+      - generic [ref=e429]:
+        - generic [ref=e431]:
+          - heading "Clients" [level=3] [ref=e434]
+          - heading "Integrations" [level=2] [ref=e435]
+          - generic [ref=e436]:
+            - button "Claude Desktop Claude Desktop" [ref=e437]:
+              - img "Claude Desktop" [ref=e440]
+              - generic [ref=e441]: Claude Desktop
+            - button "Cursor Cursor" [ref=e442]:
+              - img "Cursor" [ref=e444]
+              - generic [ref=e445]: Cursor
+            - button "VS Code VS Code" [ref=e446]:
+              - img "VS Code" [ref=e448]
+              - generic [ref=e449]: VS Code
+            - button "Windsurf Windsurf" [ref=e450]:
+              - img "Windsurf" [ref=e452]
+              - generic [ref=e453]: Windsurf
+            - button "Warp Warp" [ref=e454]:
+              - img "Warp" [ref=e456]
+              - generic [ref=e457]: Warp
+            - button "Claude Code Claude Code" [ref=e458]:
+              - img "Claude Code" [ref=e460]
+              - generic [ref=e461]: Claude Code
+            - button "ChatGPT ChatGPT" [ref=e462]:
+              - img "ChatGPT" [ref=e464]
+              - generic [ref=e465]: ChatGPT
+            - button "Codex Codex" [ref=e466]:
+              - img "Codex" [ref=e468]
+              - generic [ref=e469]: Codex
+            - button "Perplexity Perplexity" [ref=e470]:
+              - img "Perplexity" [ref=e472]
+              - generic [ref=e473]: Perplexity
+            - button "Gemini CLI Gemini CLI" [ref=e474]:
+              - img "Gemini CLI" [ref=e476]
+              - generic [ref=e477]: Gemini CLI
+            - button "? Generic Agent" [ref=e478]:
+              - generic [ref=e480]: "?"
+              - generic [ref=e481]: Generic Agent
+        - generic [ref=e482]:
+          - generic [ref=e483]:
+            - generic [ref=e484]:
+              - img "Claude Desktop" [ref=e486]
+              - generic [ref=e487]:
+                - heading "Claude Desktop" [level=3] [ref=e488]
+                - paragraph [ref=e489]: Integrate MCP Client
+            - generic [ref=e490]:
+              - generic [ref=e491]:
+                - generic [ref=e493]: "1"
+                - generic [ref=e494]: Open Claude Desktop
+              - generic [ref=e495]:
+                - generic [ref=e497]: "2"
+                - generic [ref=e498]:
+                  - text: Go to
+                  - strong [ref=e499]: Settings
+                  - text: ">"
+                  - strong [ref=e500]: Developer
+                  - text: ">"
+                  - strong [ref=e501]: Edit Config
+              - generic [ref=e502]:
+                - generic [ref=e504]: "3"
+                - generic [ref=e505]:
+                  - text: This opens
+                  - code [ref=e506]: ~/Library/Application Support/Claude/claude_desktop_config.json
+                  - text: (macOS) or
+                  - code [ref=e507]: "%APPDATA%\\Claude\\claude_desktop_config.json"
+                  - text: (Windows)
+              - generic [ref=e508]:
+                - generic [ref=e510]: "4"
+                - generic [ref=e511]:
+                  - text: Add the configuration block below to the
+                  - code [ref=e512]: mcpServers
+                  - text: object
+              - generic [ref=e513]:
+                - generic [ref=e514]: "5"
+                - generic [ref=e515]: Save the file and restart Claude Desktop
+            - generic [ref=e516]:
+              - generic [ref=e517]:
+                - generic [ref=e519]: claude_desktop_config.json
+                - button "Copy" [ref=e521]:
+                  - img [ref=e522]
+                  - generic [ref=e525]: Copy
+              - code [ref=e529]: "{ \"mcpServers\": { \"cybermem\": { \"command\": \"npx\", \"args\": [ \"@cybermem/mcp\" ] } } }"
+          - generic [ref=e530]:
+            - link "Read Documentation" [ref=e531] [cursor=pointer]:
+              - /url: https://docs.cybermem.dev
+            - button "Close" [ref=e532]
+  - region "Notifications alt+T"
+  - alert [ref=e533]
+  - generic [ref=e534]: "4"
+```
