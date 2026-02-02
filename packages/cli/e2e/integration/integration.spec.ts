@@ -38,13 +38,12 @@ test.describe("CLI:E2E (Integration)", () => {
     await page.getByTestId("mcp-button").click();
     await expect(page.getByText(/INTEGRATE MCP CLIENT/i)).toBeVisible();
     await page.screenshot({ path: path.join(OUTPUT_DIR, "2_mcp.png") });
-    await page.keyboard.press("Escape");
+    await page.click('button:has-text("Close")'); // Explicit Close
+    await page.waitForTimeout(500); // Animation pause
 
     // 5. Evidence 3: Settings
     await page.getByTestId("settings-button").click();
-    await expect(
-      page.getByRole("heading", { name: /Settings/i }),
-    ).toBeVisible();
+    await expect(page.getByText(/ACCESS TOKEN/i).first()).toBeVisible();
 
     const eyeBtn = page.getByTestId("toggle-visibility");
     if (await eyeBtn.isVisible()) {
