@@ -12,7 +12,7 @@ interface MetricCardProps {
   loading?: boolean;
 }
 
-export default function MetricCard({
+export default function StatCard({
   label,
   value,
   loading = false,

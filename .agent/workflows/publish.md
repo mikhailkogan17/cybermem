@@ -11,7 +11,7 @@ view_file .agent/workflows/_credentials.md
 // turbo
 ```bash
 # Run release check on all environments
-npx ts-node e2e/release-check.ts --only-testing localhost-prod
+npx ts-node e2e/e2e.ts --only-testing localhost-prod
 ```
 
 3. Trigger Release Workflow

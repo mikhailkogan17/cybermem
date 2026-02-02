@@ -1,8 +1,8 @@
 "use client";
 
-import AuditLogTable from "@/components/dashboard/audit-log-table";
 import ChartsSection from "@/components/dashboard/charts-section";
 import DashboardHeader from "@/components/dashboard/header";
+import LogViewer from "@/components/dashboard/logs/log-viewer";
 import MCPConfigModal from "@/components/dashboard/mcp-config-modal";
 import MetricsGrid from "@/components/dashboard/metrics-grid";
 import SettingsModal from "@/components/dashboard/settings-modal";
@@ -135,7 +135,7 @@ export default function DashboardPage() {
           loading={!data}
         />
         <ChartsSection period="all" />
-        <AuditLogTable
+        <LogViewer
           logs={paginatedLogs}
           loading={!data}
           currentPage={currentPage}

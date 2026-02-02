@@ -29,7 +29,10 @@ export async function GET(request: Request) {
     const settings = settingsRes.ok ? await settingsRes.json() : {};
 
     const apiKey = settings.apiKey !== "not-set" ? settings.apiKey : "";
-    const baseUrl = settings.endpoint || "http://localhost:8626/mcp";
+    const baseUrl =
+      searchParams.get("baseUrl") ||
+      settings.endpoint ||
+      "http://localhost:8626/mcp";
     const isManaged = settings.isManaged || false;
     const env = settings.env || "prod";
     const isStaging = env === "staging";

@@ -113,6 +113,15 @@ async function verifyEnvironment(options: VerifyOptions) {
   await ensureDir(envDir);
   await performCRUD(targetApiUrl);
 
+  // User Rule: Only verify UI manually for critical environments
+  const MANUAL_VERIFICATION_ENVS = ["rpi-ts-staging", "localhost-prod"];
+  if (!MANUAL_VERIFICATION_ENVS.includes(name)) {
+    console.log(
+      `    ℹ️ Skipping Manual/UI Verification for [${name}] (API Validated ✅)`,
+    );
+    return;
+  }
+
   const browser = await chromium.launch({
     args: ["--no-proxy-server", "--disable-gpu", "--no-sandbox"],
   });
