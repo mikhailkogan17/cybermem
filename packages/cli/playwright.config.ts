@@ -1,36 +1,18 @@
 import { defineConfig, devices } from "@playwright/test";
 
 export default defineConfig({
-  testDir: "./e2e/suites",
+  testDir: "./e2e/integration",
   outputDir: "./test-results",
-  timeout: 30000,
-  forbidOnly: !!process.env.CI,
-  retries: process.env.CI ? 2 : 0,
-  workers: process.env.CI ? 1 : undefined,
   reporter: "html",
-
   use: {
-    trace: "on-first-retry",
+    // Base URL depends on target (staging/prod), handled in specifc test or env
     screenshot: "only-on-failure",
+    trace: "on-first-retry",
   },
-
   projects: [
     {
-      name: "mcp",
-      testMatch: "mcp.spec.ts",
-    },
-    {
-      name: "dashboard-api",
-      testMatch: "dashboard-api.spec.ts",
-    },
-    {
-      name: "dashboard-ui",
-      testMatch: "dashboard-ui.spec.ts",
-      use: { ...devices["Desktop Chrome"] },
-    },
-    {
-      name: "cli-integration",
-      testMatch: "cli.spec.ts",
+      name: "integration",
+      testMatch: "integration.spec.ts",
       use: { ...devices["Desktop Chrome"] },
     },
   ],

@@ -71,7 +71,7 @@ jobs:
           CYBERMEM_TOKEN: ${{ secrets.CYBERMEM_TOKEN }}
         run: |
           # 1. Backend API Check
-          npm run test:e2e:dash:api
+          npm run test:e2e:dashboard:api
 
           # 2. Full Integration Check (Screenshots)
           npm run test:e2e:cli
@@ -84,6 +84,17 @@ jobs:
           curl -X POST -H 'Content-type: application/json' \
           --data '{"text":"❌ *Release Aborted: Staging Verification Failed*\nCheck E2E logs."}' \
           $SLACK_WEBHOOK || echo "Slack failed"
+
+      - name: Upload Playwright Reports (Staging)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-reports-staging
+          path: |
+            packages/*/playwright-report/
+            packages/*/test-results/
+            release-reports/assets/
+          retention-days: 14
 
   # ------------------------------------------------------------------
   # 3. PUBLISH (NPM & GHCR)
@@ -202,9 +213,9 @@ jobs:
           CYBERMEM_TOKEN: ${{ secrets.CYBERMEM_TOKEN }}
         run: |
           # Just API check for Prod to be safe/fast, or full CLI if desired
-          # User SLA said: "dashboard:e2e:api + cli:e2e on rpi-staging-ts BEFORE publish" for Publish.
+          # User SLA said: "dashboard:api + cli:e2e on rpi-staging-ts BEFORE publish" for Publish.
           # For Prod Verification, we generally want at least API check.
-          npm run test:e2e:dash:api
+          npm run test:e2e:dashboard:api
 
       - name: Slack (Prod Success)
         if: success()
@@ -214,3 +225,13 @@ jobs:
           curl -X POST -H 'Content-type: application/json' \
           --data '{"text":"✅ *Production Deployed & Verified* v${{ needs.publish.outputs.version }}"}' \
           $SLACK_WEBHOOK
+
+      - name: Upload Playwright Reports (Prod)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-reports-prod
+          path: |
+            packages/*/playwright-report/
+            packages/*/test-results/
+          retention-days: 14

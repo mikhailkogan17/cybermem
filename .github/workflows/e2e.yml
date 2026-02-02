@@ -94,12 +94,22 @@ jobs:
       - name: Run E2E Verification (Granular)
         run: |
           npm run test:e2e:mcp
-          npm run test:e2e:dash:api
-          npm run test:e2e:dash:ui
+          npm run test:e2e:dashboard:api
+          npm run test:e2e:dashboard:ui
         env:
           CI: true
           DASHBOARD_URL: http://localhost:8626
           MCP_URL: http://localhost:8626/mcp
+
+      - name: Upload Playwright Reports (Local)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-reports-local-ci
+          path: |
+            packages/*/playwright-report/
+            packages/*/test-results/
+          retention-days: 7
 
   # ------------------------------------------------------------------
   # 4. Remote E2E (RPi Staging) - "e2e:deploy"

@@ -6,6 +6,9 @@
     "packages/*",
     "external/openmemory/packages/*"
   ],
+  "overrides": {
+    "@playwright/test": "^1.57.0"
+  },
   "scripts": {
     "build": "npm run build --workspaces --if-present",
     "test:unit": "jest",
