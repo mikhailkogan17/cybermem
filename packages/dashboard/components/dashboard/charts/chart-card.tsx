@@ -7,7 +7,7 @@ import dynamic from "next/dynamic";
 import { useEffect, useRef, useState } from "react";
 
 // Dynamic import with SSR disabled
-const MetricsChart = dynamic(() => import("./metrics-chart"), { ssr: false });
+const MemoryChart = dynamic(() => import("./memory-chart"), { ssr: false });
 
 interface ChartCardProps {
   service: string;
@@ -256,7 +256,7 @@ export default function ChartCard({ service }: ChartCardProps) {
           </div>
         ) : (
           <div className="h-[200px] w-full">
-            <MetricsChart
+            <MemoryChart
               data={data}
               isMultiSeries={isMultiSeries}
               clientNames={clientNames}

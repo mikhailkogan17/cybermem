@@ -2,28 +2,13 @@
 
 import { Button } from "@/components/ui/button";
 import { ConfirmationModal } from "@/components/ui/confirmation-modal";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { TintButton } from "@/components/ui/tint-button";
 import { useDashboard } from "@/lib/data/dashboard-context";
-import {
-  Check,
-  Copy,
-  Database,
-  Download,
-  Eye,
-  EyeOff,
-  Loader2,
-  RotateCcw,
-  Server,
-  Settings,
-  Shield,
-  Trash2,
-  Upload,
-  X,
-} from "lucide-react";
+import { Settings, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
+import AccessTokenSection from "./settings/access-token-section";
+import DataManagementSection from "./settings/data-management-section";
+import SystemInfoSection from "./settings/system-info-section";
 
 export default function SettingsModal({ onClose }: { onClose: () => void }) {
   const [apiKey, setApiKey] = useState("");
@@ -115,14 +100,6 @@ export default function SettingsModal({ onClose }: { onClose: () => void }) {
       console.error(e);
       toast.error("Failed to regenerate token");
     }
-  };
-
-  const [saved, setSaved] = useState(false);
-
-  const handleSave = () => {
-    // Settings saved
-    setSaved(true);
-    setTimeout(() => setSaved(false), 2000);
   };
 
   const handleBackup = async () => {
@@ -245,287 +222,44 @@ export default function SettingsModal({ onClose }: { onClose: () => void }) {
 
         {/* Content */}
         <div className="flex-1 overflow-y-auto p-8 space-y-8 bg-[#05100F]">
-          {/* Access Token */}
-          <section>
-            <h3 className="text-sm font-medium text-neutral-400 uppercase tracking-widest mb-4 flex items-center gap-2">
-              <Shield className="w-4 h-4" />
-              Access Token
-            </h3>
-            <div className="bg-white/[0.032] border-[0.5px] border-white/10 rounded-2xl p-6 space-y-4">
-              {/* Token Display with inline regenerate */}
-              <div className="space-y-2">
-                <Label htmlFor="access-token">Your Access Token</Label>
-                <div className="flex gap-2">
-                  <div className="relative flex-1">
-                    <Input
-                      id="access-token"
-                      value={apiKey || "Token not generated yet"}
-                      readOnly
-                      className="bg-black/40 border-[0.5px] border-white/10 text-white font-mono text-sm pr-10"
-                      type={showApiKey ? "text" : "password"}
-                    />
-                    <button
-                      data-testid="toggle-visibility"
-                      onClick={() => setShowApiKey(!showApiKey)}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-white"
-                    >
-                      {showApiKey ? (
-                        <EyeOff className="w-4 h-4" />
-                      ) : (
-                        <Eye className="w-4 h-4" />
-                      )}
-                    </button>
-                  </div>
-                  <TintButton
-                    tint="neutral"
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => copyToClipboard(apiKey, "accesstoken")}
-                    title="Copy token"
-                  >
-                    {copiedId === "accesstoken" ? (
-                      <Check className="h-4 w-4 text-emerald-400" />
-                    ) : (
-                      <Copy className="h-4 w-4" />
-                    )}
-                  </TintButton>
-                  <TintButton
-                    tint="yellow"
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => setShowRegenConfirm(true)}
-                    title="Regenerate token"
-                  >
-                    <RotateCcw className="w-4 h-4" />
-                  </TintButton>
-                </div>
-                <p className="text-xs text-neutral-500">
-                  Use this token to connect MCP clients from other devices
-                </p>
-              </div>
+          <AccessTokenSection
+            apiKey={apiKey}
+            showApiKey={showApiKey}
+            setShowApiKey={setShowApiKey}
+            copiedId={copiedId}
+            copyToClipboard={copyToClipboard}
+            setShowRegenConfirm={setShowRegenConfirm}
+            isManaged={isManaged}
+            instanceType={instanceType}
+          />
 
-              {/* Auth Status */}
-              <div className="pt-4 border-t border-white/5">
-                <div className="flex items-center gap-3 p-3 bg-white/10 rounded-xl border-[0.5px] border-white/10">
-                  {isManaged ? (
-                    <>
-                      <div className="w-2 h-2 bg-emerald-400 rounded-full animate-pulse" />
-                      <div className="flex-1">
-                        <p className="text-sm text-emerald-300 font-medium">
-                          {instanceType === "local"
-                            ? "Local Mode Active"
-                            : "LAN / RPi Mode Active"}
-                        </p>
-                        <p className="text-xs text-white/70">
-                          {instanceType === "local"
-                            ? "No token needed for local connections"
-                            : "Connect from other devices using the secure token"}
-                        </p>
-                      </div>
-                    </>
-                  ) : (
-                    <>
-                      <div className="w-2 h-2 bg-yellow-400 rounded-full" />
-                      <div className="flex-1">
-                        <p className="text-sm text-yellow-300 font-medium">
-                          {instanceType === "rpi"
-                            ? "LAN / RPi Mode"
-                            : instanceType === "vps"
-                              ? "Cloud Mode"
-                              : "Remote Mode"}
-                        </p>
-                        <p className="text-xs text-white/70">
-                          {instanceType === "rpi"
-                            ? "Connecting from your laptop to RPi"
-                            : "Token required for remote MCP connections"}
-                        </p>
-                      </div>
-                    </>
-                  )}
-                </div>
-              </div>
-            </div>
-          </section>
+          <DataManagementSection
+            handleBackup={handleBackup}
+            isBackingUp={isBackingUp}
+            handleRestore={handleRestore}
+            isRestoring={isRestoring}
+            setShowResetConfirm={setShowResetConfirm}
+            isResetting={isResetting}
+            operationStatus={operationStatus}
+            setOperationStatus={setOperationStatus}
+          />
 
-          {/* Data Management */}
-          <section>
-            <h3 className="text-sm font-medium text-neutral-400 uppercase tracking-widest mb-4 flex items-center gap-2">
-              <Database className="w-4 h-4" />
-              Data Management
-            </h3>
-            <div className="bg-white/[0.032] border-[0.5px] border-white/10 rounded-2xl p-6 flex flex-col gap-4">
-              <div className="flex items-center gap-3">
-                <TintButton
-                  tint="neutral"
-                  variant="solid"
-                  className="flex-1 h-11"
-                  onClick={handleBackup}
-                  disabled={isBackingUp}
-                >
-                  {isBackingUp ? (
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                  ) : (
-                    <Download className="w-4 h-4" />
-                  )}
-                  Backup
-                </TintButton>
-
-                <div className="flex-1 relative">
-                  <input
-                    type="file"
-                    id="restore-file"
-                    className="hidden"
-                    accept=".tar.gz,.tgz"
-                    onChange={handleRestore}
-                    disabled={isRestoring}
-                  />
-                  <TintButton
-                    tint="neutral"
-                    variant="solid"
-                    className="w-full h-11"
-                    onClick={() =>
-                      document.getElementById("restore-file")?.click()
-                    }
-                    disabled={isRestoring}
-                  >
-                    {isRestoring ? (
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                    ) : (
-                      <Upload className="w-4 h-4" />
-                    )}
-                    Restore
-                  </TintButton>
-                </div>
-
-                <TintButton
-                  tint="red"
-                  variant="solid"
-                  className="flex-1 h-11"
-                  onClick={() => setShowResetConfirm(true)}
-                  disabled={isResetting}
-                >
-                  <Trash2 className="w-4 h-4" />
-                  Reset DB
-                </TintButton>
-              </div>
-
-              {operationStatus && (
-                <div
-                  className={`p-3 rounded-xl text-sm flex items-center gap-3 animate-in fade-in slide-in-from-top-1 ${
-                    operationStatus.type === "success"
-                      ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
-                      : "bg-red-500/10 text-red-400 border border-red-500/20"
-                  }`}
-                >
-                  {operationStatus.type === "success" ? (
-                    <Check className="w-4 h-4" />
-                  ) : (
-                    <X className="w-4 h-4" />
-                  )}
-                  <span className="flex-1">{operationStatus.message}</span>
-                  <button
-                    onClick={() => setOperationStatus(null)}
-                    className="opacity-50 hover:opacity-100 p-1"
-                  >
-                    <X className="w-4 h-4" />
-                  </button>
-                </div>
-              )}
-            </div>
-          </section>
-
-          {/* System Info */}
-          <section className="pb-4">
-            <h3 className="text-sm font-medium text-neutral-400 uppercase tracking-widest mb-4 flex items-center gap-2">
-              <Server className="w-4 h-4" />
-              System Information
-            </h3>
-            <div className="bg-white/[0.032] border-[0.5px] border-white/10 rounded-2xl p-6 space-y-6">
-              <div className="grid grid-cols-2 gap-12">
-                <div className="space-y-4">
-                  <span className="text-[10px] uppercase text-neutral-500 font-bold tracking-[0.2em] block mb-2">
-                    Versions
-                  </span>
-                  <div className="space-y-3">
-                    <div className="flex justify-between items-center group/version">
-                      <span className="text-xs text-neutral-400 group-hover/version:text-neutral-300 transition-colors">
-                        Dashboard
-                      </span>
-                      <code className="text-[13px] font-mono text-neutral-200 bg-white/5 px-2 py-0.5 rounded border border-white/10 group-hover/version:border-emerald-500/30 group-hover/version:text-emerald-400 transition-all">
-                        {settings?.dashboardVersion || "v0.7.5"}
-                      </code>
-                    </div>
-                    <div className="flex justify-between items-center group/version">
-                      <span className="text-xs text-neutral-400 group-hover/version:text-neutral-300 transition-colors">
-                        MCP Server
-                      </span>
-                      <code className="text-[13px] font-mono text-neutral-200 bg-white/5 px-2 py-0.5 rounded border border-white/10 group-hover/version:border-emerald-500/30 group-hover/version:text-emerald-400 transition-all">
-                        {settings?.mcpVersion || "v0.7.5"}
-                      </code>
-                    </div>
-                  </div>
-                </div>
-                <div className="border-l border-white/5 pl-8">
-                  <span className="text-[10px] uppercase text-neutral-500 font-bold tracking-[0.2em] block mb-2">
-                    Environment
-                  </span>
-                  <div className="space-y-3">
-                    <div className="flex justify-between items-center">
-                      <span className="text-xs text-neutral-400">Status</span>
-                      <code
-                        className={`text-[13px] font-mono px-2 py-0.5 rounded border ${
-                          settings?.env === "staging"
-                            ? "text-yellow-400 bg-yellow-500/10 border-yellow-500/20"
-                            : "text-emerald-400 bg-emerald-500/10 border-emerald-500/20"
-                        }`}
-                      >
-                        {settings?.env === "staging" ? "Staging" : "Production"}
-                      </code>
-                    </div>
-                    <div className="flex justify-between items-center">
-                      <span className="text-xs text-neutral-400">Instance</span>
-                      <code className="text-[13px] font-mono text-neutral-200 bg-white/5 px-2 py-0.5 rounded border border-white/10">
-                        {settings?.instanceType === "rpi"
-                          ? "Raspberry Pi"
-                          : settings?.instanceType === "vps"
-                            ? "Cloud / VPS"
-                            : "Local Machine"}
-                      </code>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <div className="pt-2 border-t border-white/5">
-                <TintButton
-                  tint="sky"
-                  variant="solid"
-                  className="w-full h-10"
-                  onClick={handleRestart}
-                  disabled={isRestarting}
-                >
-                  {isRestarting ? (
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                  ) : (
-                    <RotateCcw className="w-4 h-4" />
-                  )}
-                  {isRestarting ? "Restarting..." : "Restart Service"}
-                </TintButton>
-              </div>
-            </div>
-          </section>
+          <SystemInfoSection
+            settings={settings}
+            handleRestart={handleRestart}
+            isRestarting={isRestarting}
+          />
         </div>
 
         {/* Footer */}
         <div className="bg-[#05100F] border-t border-white/[0.03] px-8 py-5 flex justify-end gap-3 z-10">
-          <TintButton
-            tint="neutral"
+          <Button
             variant="ghost"
             onClick={onClose}
-            className="hover:bg-white/5"
+            className="hover:bg-white/5 text-neutral-300 hover:text-white"
           >
             Close
-          </TintButton>
+          </Button>
         </div>
       </div>
 

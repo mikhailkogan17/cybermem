@@ -1,7 +1,7 @@
 "use client";
 
 import { Card, CardContent } from "@/components/ui/card";
-import MetricCard from "./metric-card";
+import MetricCard from "./metrics/stat-card";
 
 // Types
 interface TrendState {

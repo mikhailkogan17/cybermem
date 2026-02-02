@@ -34,15 +34,19 @@
         group: pi
         mode: "0644"
 
+    - name: Log in to GHCR
+      docker_login:
+        registry: ghcr.io
+        username: "{{ ghcr_user }}"
+        password: "{{ ghcr_token }}"
+        reauthorize: yes
+      when: ghcr_user is defined
+
     - name: Pull latest images
       command: docker-compose pull
       args:
         chdir: "{{ project_root }}"
       environment:
-        # Assuming already logged in or public images,
-        # but for GHCR private packages, we need "docker login" which is handled by a previous manual step
-        # or we add a task for it if credentials provided.
-        # For now, relying on host state for auth or public access.
         DOCKER_DEFAULT_PLATFORM: linux/arm64
 
     - name: Start CyberMem Stack
