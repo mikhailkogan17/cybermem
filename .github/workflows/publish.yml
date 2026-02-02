@@ -71,7 +71,7 @@ jobs:
           CYBERMEM_TOKEN: ${{ secrets.CYBERMEM_TOKEN }}
         run: |
           # 1. Backend API Check
-          npm run test:e2e:dash:api
+          npm run test:e2e:dashboard:api
 
           # 2. Full Integration Check (Screenshots)
           npm run test:e2e:cli
@@ -202,9 +202,9 @@ jobs:
           CYBERMEM_TOKEN: ${{ secrets.CYBERMEM_TOKEN }}
         run: |
           # Just API check for Prod to be safe/fast, or full CLI if desired
-          # User SLA said: "dashboard:e2e:api + cli:e2e on rpi-staging-ts BEFORE publish" for Publish.
+          # User SLA said: "dashboard:api + cli:e2e on rpi-staging-ts BEFORE publish" for Publish.
           # For Prod Verification, we generally want at least API check.
-          npm run test:e2e:dash:api
+          npm run test:e2e:dashboard:api
 
       - name: Slack (Prod Success)
         if: success()

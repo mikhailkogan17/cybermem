@@ -94,8 +94,8 @@ jobs:
       - name: Run E2E Verification (Granular)
         run: |
           npm run test:e2e:mcp
-          npm run test:e2e:dash:api
-          npm run test:e2e:dash:ui
+          npm run test:e2e:dashboard:api
+          npm run test:e2e:dashboard:ui
         env:
           CI: true
           DASHBOARD_URL: http://localhost:8626

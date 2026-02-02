@@ -21,9 +21,9 @@
     "start": "ts-node src/index.ts",
     "test:e2e": "playwright test",
     "test:e2e:mcp": "npm run test:e2e -w @cybermem/mcp",
-    "test:e2e:dash": "npm run test:e2e -w @cybermem/dashboard",
-    "test:e2e:dash:api": "npm run test:e2e -w @cybermem/dashboard -- --project=api",
-    "test:e2e:dash:ui": "npm run test:e2e -w @cybermem/dashboard -- --project=ui",
+    "test:e2e:dashboard": "npm run test:e2e -w @cybermem/dashboard",
+    "test:e2e:dashboard:api": "npm run test:e2e -w @cybermem/dashboard -- --project=api",
+    "test:e2e:dashboard:ui": "npm run test:e2e -w @cybermem/dashboard -- --project=ui",
     "test:e2e:cli": "playwright test --project=integration",
     "prepublishOnly": "npm run build && ts-node ../../scripts/verify-release-report.ts"
   },
@@ -56,7 +56,7 @@
     "@typescript-eslint/parser": "^8.52.0",
     "eslint": "^9.39.2",
     "ts-node": "^10.9.1",
-    "@playwright/test": "^1.40.0",
+    "@playwright/test": "^1.57.0",
     "typescript": "^5.0.0"
   }
 }
