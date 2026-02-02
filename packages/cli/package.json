@@ -20,10 +20,11 @@
     "lint": "eslint src/ --ext .ts",
     "start": "ts-node src/index.ts",
     "test:e2e": "playwright test",
-    "test:e2e:mcp": "playwright test --project=mcp",
-    "test:e2e:dash:api": "playwright test --project=dashboard-api",
-    "test:e2e:dash:ui": "playwright test --project=dashboard-ui",
-    "test:e2e:cli": "playwright test --project=cli-integration",
+    "test:e2e:mcp": "npm run test:e2e -w @cybermem/mcp",
+    "test:e2e:dash": "npm run test:e2e -w @cybermem/dashboard",
+    "test:e2e:dash:api": "npm run test:e2e -w @cybermem/dashboard -- --project=api",
+    "test:e2e:dash:ui": "npm run test:e2e -w @cybermem/dashboard -- --project=ui",
+    "test:e2e:cli": "playwright test --project=integration",
     "prepublishOnly": "npm run build && ts-node ../../scripts/verify-release-report.ts"
   },
   "keywords": [

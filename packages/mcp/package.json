@@ -10,7 +10,8 @@
     "build": "tsc",
     "start": "node dist/index.js",
     "dev": "ts-node src/index.ts",
-    "lint": "tsc --noEmit"
+    "lint": "tsc --noEmit",
+    "test:e2e": "playwright test"
   },
   "repository": {
     "type": "git",
@@ -52,6 +53,7 @@
     "@types/express": "^5.0.6",
     "@types/node": "^18.0.0",
     "ts-node": "^10.9.1",
+    "@playwright/test": "^1.40.0",
     "typescript": "^5.0.0"
   }
 }
