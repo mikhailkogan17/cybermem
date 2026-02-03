@@ -16,67 +16,121 @@ on:
 permissions:
   id-token: write
   contents: write
+  packages: write
 
 jobs:
-  # ------------------------------------------------------------------
-  # 1. DEPLOY TO STAGING (Pre-Flight)
-  # ------------------------------------------------------------------
-  deploy-staging:
+  # ==================================================================
+  # 1. PRE-FLIGHT: Verify Changelog Updated
+  # ==================================================================
+  check-prereqs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - name: Verify Changelog Updated
+        run: |
+          if git diff --name-only HEAD~1 | grep -q "CHANGELOG.md"; then
+            echo "✅ CHANGELOG.md was updated"
+          else
+            echo "❌ ERROR: CHANGELOG.md was NOT updated!"
+            echo "Please update CHANGELOG.md before releasing."
+            exit 1
+          fi
+
+  # ==================================================================
+  # 2. DEPLOY STAGING (Build from Source via Ansible)
+  # ==================================================================
+  deploy-staging:
+    needs: check-prereqs
+    runs-on: ubuntu-latest
+    outputs:
+      rpi_url: ${{ steps.get_url.outputs.url }}
+    steps:
+      - uses: actions/checkout@v4
+
       - name: Setup Tailscale
         uses: tailscale/github-action@v2
         with:
           authkey: ${{ secrets.TAILSCALE_AUTHKEY }}
           version: latest
+
+      - name: Get RPi Funnel URL (Dynamic)
+        id: get_url
+        run: |
+          # Wait for Tailscale to be fully connected
+          sleep 5
+          # Get the RPi's MagicDNS name from connected peers
+          RPI_DNS=$(tailscale status --json | jq -r '.Peer[] | select(.HostName | test("raspberrypi"; "i")) | .DNSName' | head -1 | sed 's/\.$//')
+          if [ -z "$RPI_DNS" ]; then
+            echo "❌ Could not find RPi in Tailscale network"
+            exit 1
+          fi
+          echo "url=https://${RPI_DNS}" >> $GITHUB_OUTPUT
+          echo "✅ RPi URL: https://${RPI_DNS}"
+
       - name: Setup Ansible
         run: |
           sudo apt-get update
-          sudo apt-get install -y ansible
-      - name: Deploy Staging
+          sudo apt-get install -y ansible rsync
+
+      - name: Deploy Staging (Build from Source)
         env:
           ANSIBLE_HOST_KEY_CHECKING: "False"
         run: |
-          ansible-playbook -i packages/cli/templates/ansible/inventory/hosts.ini packages/cli/templates/ansible/playbooks/deploy-cybermem.yml \
-            --extra-vars "cybermem_env=staging ghcr_user=${{ github.actor }} ghcr_token=${{ secrets.GITHUB_TOKEN }}" \
+          ansible-playbook \
+            -i packages/cli/templates/ansible/inventory/hosts.ini \
+            packages/cli/templates/ansible/playbooks/deploy-cybermem.yml \
+            --extra-vars "cybermem_env=staging build_from_source=true TRAEFIK_PORT=8625" \
             --extra-vars "ansible_ssh_common_args='-o StrictHostKeyChecking=no'"
 
-  # ------------------------------------------------------------------
-  # 2. VERIFY STAGING (The Strict Gate)
-  # ------------------------------------------------------------------
+  # ==================================================================
+  # 3. VERIFY STAGING (E2E Gate via Tailscale)
+  # ==================================================================
   verify-staging:
     needs: deploy-staging
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: "20"
+
       - run: npm ci
       - run: npx playwright install --with-deps chromium
+
       - name: Setup Tailscale
         uses: tailscale/github-action@v2
         with:
           authkey: ${{ secrets.TAILSCALE_AUTHKEY }}
           version: latest
 
-      - name: Build CLI (Release Candidate)
-        run: npm run build -w @cybermem/cli
+      - name: Build Local Packages
+        run: npm run build --workspaces
 
-      - name: Run E2E Gate (Dashboard API + CLI Integration)
+      - name: Run E2E Verification
         env:
-          # Point to Staging (Root Domain, no subpath)
-          DASHBOARD_URL: "https://raspberrypi.ts.net"
-          MCP_URL: "https://raspberrypi.ts.net/mcp"
+          DASHBOARD_URL: ${{ needs.deploy-staging.outputs.rpi_url }}:8625
+          MCP_URL: ${{ needs.deploy-staging.outputs.rpi_url }}:8625/mcp
           TEST_ENV_NAME: "rpi-staging-ts"
-          CYBERMEM_TOKEN: ${{ secrets.CYBERMEM_TOKEN }}
         run: |
-          # 1. Backend API Check (& Routing)
-          npm run test:e2e:dashboard:api
+          echo "Testing against: $DASHBOARD_URL"
 
-          # 2. Full Integration Check (Screenshots)
+          # Wait for services to be ready
+          for i in {1..30}; do
+            if curl -sf "${DASHBOARD_URL}/health" > /dev/null 2>&1; then
+              echo "✅ Services ready"
+              break
+            fi
+            echo "Waiting for services... ($i/30)"
+            sleep 10
+          done
+
+          # Run E2E tests
+          npm run test:e2e:dashboard:api
           npm run test:e2e:cli
 
       - name: Slack (Staging Fail)
@@ -85,10 +139,10 @@ jobs:
           SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK_URL }}
         run: |
           curl -X POST -H 'Content-type: application/json' \
-          --data '{"text":"❌ *Release Aborted: Staging Verification Failed*\nCheck E2E logs."}' \
-          $SLACK_WEBHOOK || echo "Slack failed"
+            --data '{"text":"❌ *Release Aborted: Staging Verification Failed*\nCheck E2E logs."}' \
+            $SLACK_WEBHOOK || true
 
-      - name: Upload Playwright Reports (Staging)
+      - name: Upload E2E Reports
         if: always()
         uses: actions/upload-artifact@v4
         with:
@@ -96,33 +150,88 @@ jobs:
           path: |
             packages/*/playwright-report/
             packages/*/test-results/
-            release-reports/assets/
           retention-days: 14
 
-  # ------------------------------------------------------------------
-  # 3. PUBLISH (NPM & GHCR)
-  # ------------------------------------------------------------------
-  publish:
+  # ==================================================================
+  # 4. BUILD & PUSH GHCR (After E2E Passes)
+  # ==================================================================
+  push-ghcr:
     needs: verify-staging
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build and Push MCP
+        uses: docker/build-push-action@v5
+        with:
+          context: packages/mcp
+          push: true
+          tags: ghcr.io/${{ github.repository_owner }}/cybermem-mcp:latest
+
+      - name: Build and Push Dashboard
+        uses: docker/build-push-action@v5
+        with:
+          context: packages/dashboard
+          push: true
+          tags: ghcr.io/${{ github.repository_owner }}/cybermem-dashboard:latest
+
+      - name: Build and Push Auth Sidecar
+        uses: docker/build-push-action@v5
+        with:
+          context: packages/cli/templates/auth-sidecar
+          push: true
+          tags: ghcr.io/${{ github.repository_owner }}/cybermem-auth-sidecar:latest
+
+      - name: Build and Push DB Exporter
+        uses: docker/build-push-action@v5
+        with:
+          context: packages/cli/templates/monitoring/db_exporter
+          push: true
+          tags: ghcr.io/${{ github.repository_owner }}/cybermem-db_exporter:latest
+
+      - name: Build and Push Log Exporter
+        uses: docker/build-push-action@v5
+        with:
+          context: packages/cli/templates/monitoring/log_exporter
+          push: true
+          tags: ghcr.io/${{ github.repository_owner }}/cybermem-log_exporter:latest
+
+  # ==================================================================
+  # 5. PUBLISH NPM
+  # ==================================================================
+  publish-npm:
+    needs: push-ghcr
     runs-on: ubuntu-latest
     outputs:
       version: ${{ steps.version.outputs.version }}
-      release_url: ${{ steps.create_release.outputs.release_url }}
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
           token: ${{ secrets.GITHUB_TOKEN }}
+
       - uses: actions/setup-node@v4
         with:
           node-version: "20"
           registry-url: "https://registry.npmjs.org"
 
+      - run: npm ci
+
       - name: Configure Git
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-      - run: npm ci
+
       - name: Bump Versions
         id: version
         run: |
@@ -131,75 +240,128 @@ jobs:
           done
           NEW_VERSION=$(node -p "require('./packages/cli/package.json').version")
           echo "version=$NEW_VERSION" >> $GITHUB_OUTPUT
+          echo "📦 New version: $NEW_VERSION"
 
       - name: Build Packages
-        run: |
-          npm run build --workspaces
+        run: npm run build --workspaces
 
-      - name: Publish Packages
+      - name: Publish to NPM
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: |
           for pkg in packages/cli packages/mcp packages/dashboard; do
              (cd $pkg && npm publish --access public --provenance)
           done
 
-      - name: Commit & Tag
+  # ==================================================================
+  # 6. FINALIZE (Tag, Commit, GitHub Release, Slack)
+  # ==================================================================
+  finalize:
+    needs: publish-npm
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - run: npm ci
+
+      - name: Configure Git
         run: |
-          git add packages/*/package.json packages/*/dist/
-          git commit -m "release: v${{ steps.version.outputs.version }}"
-          git tag -a "v${{ steps.version.outputs.version }}" -m "Release v${{ steps.version.outputs.version }}"
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Bump Versions (again for commit)
+        run: |
+          for pkg in packages/cli packages/mcp packages/dashboard; do
+             (cd $pkg && npm version ${{ inputs.version_type }} --no-git-tag-version)
+          done
+
+      - name: Download E2E Reports
+        uses: actions/download-artifact@v4
+        with:
+          name: e2e-reports-staging
+          path: release-reports/${{ needs.publish-npm.outputs.version }}
+
+      - name: Commit Version Bump & Reports
+        run: |
+          git add packages/*/package.json
+          git add release-reports/${{ needs.publish-npm.outputs.version }} || true
+          git commit -m "release: v${{ needs.publish-npm.outputs.version }}" || echo "Nothing to commit"
+          git tag -a "v${{ needs.publish-npm.outputs.version }}" -m "Release v${{ needs.publish-npm.outputs.version }}"
           git push origin main --tags
 
       - name: Create GitHub Release
-        id: create_release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          RELEASE_URL=$(gh release create "v${{ steps.version.outputs.version }}" --generate-notes --json url --jq '.url')
-          echo "release_url=$RELEASE_URL" >> $GITHUB_OUTPUT
+          gh release create "v${{ needs.publish-npm.outputs.version }}" \
+            --title "v${{ needs.publish-npm.outputs.version }}" \
+            --generate-notes
 
       - name: Slack (Publish Success)
-        if: success()
         env:
           SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK_URL }}
         run: |
           curl -X POST -H 'Content-type: application/json' \
-          --data '{"text":"🚀 *CyberMem v${{ steps.version.outputs.version }} Published & Verified on Staging!*"}' \
-          $SLACK_WEBHOOK
+            --data '{"text":"🚀 *CyberMem v${{ needs.publish-npm.outputs.version }} Published!*\n✅ GHCR images pushed\n✅ NPM packages published\n✅ GitHub release created"}' \
+            $SLACK_WEBHOOK || true
 
-  # ------------------------------------------------------------------
-  # 4. DEPLOY TO PROD (No Tests - Staging is the Quality Gate)
-  # ------------------------------------------------------------------
+  # ==================================================================
+  # 7. DEPLOY PROD (Pull from GHCR)
+  # ==================================================================
   deploy-prod:
-    needs: publish
+    needs: [finalize, publish-npm]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: tailscale/github-action@v2
+
+      - name: Setup Tailscale
+        uses: tailscale/github-action@v2
         with:
           authkey: ${{ secrets.TAILSCALE_AUTHKEY }}
           version: latest
+
       - name: Setup Ansible
         run: |
           sudo apt-get update
           sudo apt-get install -y ansible
-      - name: Deploy Prod
+
+      - name: Wait for GHCR Propagation
+        run: sleep 30
+
+      - name: Deploy Prod (Pull from GHCR)
         env:
           ANSIBLE_HOST_KEY_CHECKING: "False"
         run: |
-          sleep 60 # Wait for GHCR
-          ansible-playbook -i packages/cli/templates/ansible/inventory/hosts.ini packages/cli/templates/ansible/playbooks/deploy-cybermem.yml \
+          ansible-playbook \
+            -i packages/cli/templates/ansible/inventory/hosts.ini \
+            packages/cli/templates/ansible/playbooks/deploy-cybermem.yml \
             --extra-vars "cybermem_env=prod ghcr_user=${{ github.actor }} ghcr_token=${{ secrets.GITHUB_TOKEN }}" \
             --extra-vars "ansible_ssh_common_args='-o StrictHostKeyChecking=no'"
 
+      # ==================================================================
+      # 8. FINAL SLACK NOTIFICATION
+      # ==================================================================
       - name: Slack (Prod Deployed)
         if: success()
         env:
           SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK_URL }}
         run: |
           curl -X POST -H 'Content-type: application/json' \
-          --data '{"text":"✅ *Production Deployed* v${{ needs.publish.outputs.version }}\n\n⚠️ No E2E on prod - staging is the quality gate."}' \
-          $SLACK_WEBHOOK || echo "Slack notification skipped"
+            --data '{"text":"✅ *Production Deployed!* v${{ needs.publish-npm.outputs.version }}\n\n🎉 Release complete:\n• NPM: @cybermem/cli, @cybermem/mcp, @cybermem/dashboard\n• GHCR: All images updated\n• RPi: Production live"}' \
+            $SLACK_WEBHOOK || true
 
-  # NOTE: No verify-prod job.
-  # Staging verification (verify-staging) is the quality gate.
-  # Prod is deployed after successful publish without additional tests.
+      - name: Slack (Prod Failed)
+        if: failure()
+        env:
+          SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK_URL }}
+        run: |
+          curl -X POST -H 'Content-type: application/json' \
+            --data '{"text":"⚠️ *Production Deployment Failed* v${{ needs.publish-npm.outputs.version }}\n\nNPM and GHCR were published successfully, but RPi deployment failed.\nManual intervention required."}' \
+            $SLACK_WEBHOOK || true

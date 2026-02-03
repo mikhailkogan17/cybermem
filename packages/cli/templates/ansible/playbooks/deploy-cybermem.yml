@@ -84,6 +84,49 @@
         recursive: true
         delete: true
 
+    - name: Sync auth-sidecar source (for build_from_source)
+      synchronize:
+        src: "../../auth-sidecar"
+        dest: "{{ project_dir }}/"
+        recursive: true
+        delete: true
+      when: build_from_source | default(false) | bool
+
+    - name: Sync MCP package source (for build_from_source)
+      synchronize:
+        src: "../../../../../packages/mcp"
+        dest: "{{ project_dir }}/packages/"
+        recursive: true
+        delete: true
+      when: build_from_source | default(false) | bool
+
+    - name: Sync Dashboard package source (for build_from_source)
+      synchronize:
+        src: "../../../../../packages/dashboard"
+        dest: "{{ project_dir }}/packages/"
+        recursive: true
+        delete: true
+      when: build_from_source | default(false) | bool
+
+    - name: Patch docker-compose build contexts for staging
+      block:
+        - name: Patch MCP build context
+          replace:
+            path: "{{ project_dir }}/docker-compose.yml"
+            regexp: 'context: \\.\\./\\.\\./mcp'
+            replace: "context: ./packages/mcp"
+        - name: Patch Dashboard build context
+          replace:
+            path: "{{ project_dir }}/docker-compose.yml"
+            regexp: 'context: \\.\\./\\.\\./dashboard'
+            replace: "context: ./packages/dashboard"
+        - name: Patch auth-sidecar build context
+          replace:
+            path: "{{ project_dir }}/docker-compose.yml"
+            regexp: 'context: \\./auth-sidecar'
+            replace: "context: ./auth-sidecar"
+      when: build_from_source | default(false) | bool
+
     - name: Patch Traefik configuration
       replace:
         path: "{{ project_dir }}/monitoring/traefik/traefik.yml"
@@ -110,12 +153,20 @@
       set_fact:
         global_version: "{{ (lookup('file', playbook_dir + '/../../../../../package.json') | from_json).version }}"
 
-    - name: Pull latest images from GHCR
+    - name: Build images from source (staging/pre-release)
+      command: docker-compose -p {{ PROJECT_NAME | default('cybermem') }} build --no-cache
+      args:
+        chdir: "{{ project_dir }}"
+      when: build_from_source | default(false) | bool
+      register: build_out
+
+    - name: Pull latest images from GHCR (production)
       command: docker-compose -p {{ PROJECT_NAME | default('cybermem') }} pull
       args:
         chdir: "{{ project_dir }}"
       register: pull_out
       changed_when: "'Downloaded newer image' in pull_out.stdout or 'Downloaded newer image' in pull_out.stderr"
+      when: not (build_from_source | default(false) | bool)
 
     - name: Start services
       command: docker-compose -p {{ PROJECT_NAME | default('cybermem') }} up -d --remove-orphans
