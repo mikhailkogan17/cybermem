@@ -36,7 +36,7 @@ const periods = [
 ];
 
 export default function ChartCard({ service }: ChartCardProps) {
-  const { strategy, refreshSignal, clientConfigs } = useDashboard();
+  const { refreshSignal, clientConfigs } = useDashboard();
   const [period, setPeriod] = useState("24h");
   const [hovered, setHovered] = useState<string | null>(null);
   const [data, setData] = useState<any[]>([]);
@@ -47,27 +47,28 @@ export default function ChartCard({ service }: ChartCardProps) {
   const isInitialLoad = useRef(true);
   useEffect(() => {
     async function fetchData() {
-      // Only show loading state on initial load, not background refresh
       if (isInitialLoad.current) setLoading(true);
 
       try {
-        const timeSeriesData = await strategy.getChartData(period);
+        const res = await fetch(`/api/metrics?period=${period}`);
+        if (!res.ok) throw new Error("Failed to fetch metrics");
+        const metrics = await res.json();
+        const timeSeriesData = metrics.timeSeries;
 
         // Update client metadata if provided in response
-        if (timeSeriesData.metadata) {
+        if (metrics.metadata) {
           setClientMetadata((prev) => ({
             ...prev,
-            ...timeSeriesData.metadata,
+            ...metrics.metadata,
           }));
         }
 
         // Helper to format time based on period
         const formatSeries = (series: any[]) => {
           if (!series) return [];
-          return series.map((point) => {
+          return series.map((point: any) => {
             const date = new Date((point.time as number) * 1000);
             let timeStr = "";
-            // Show date if period is longer than 24h
             if (["7d", "30d", "90d", "all"].includes(period)) {
               timeStr =
                 date.toLocaleDateString([], {
@@ -85,19 +86,14 @@ export default function ChartCard({ service }: ChartCardProps) {
                 minute: "2-digit",
               });
             }
-            return {
-              ...point,
-              time: timeStr,
-            };
+            return { ...point, time: timeStr };
           });
         };
 
-        // Extract client names from series and sort by total value (Ascending)
         const getClients = (series: any[]) => {
           if (!series || series.length === 0) return [];
           const keys = new Set<string>();
           const totals: Record<string, number> = {};
-
           series.forEach((point) => {
             Object.keys(point).forEach((k) => {
               if (k !== "time") {
@@ -106,13 +102,11 @@ export default function ChartCard({ service }: ChartCardProps) {
               }
             });
           });
-
           return Array.from(keys).sort(
             (a, b) => (totals[a] || 0) - (totals[b] || 0),
           );
         };
 
-        // Get data based on service type
         let seriesData: any[] = [];
         let clients: string[] = [];
 
@@ -140,12 +134,12 @@ export default function ChartCard({ service }: ChartCardProps) {
       }
     }
     fetchData();
-  }, [period, service, strategy, refreshSignal]);
+  }, [period, service, refreshSignal]);
 
   const isMultiSeries = clientNames.length > 0;
 
   return (
-    <Card className="bg-white/5 border-white/10 backdrop-blur-md relative overflow-visible pt-6 pb-2">
+    <Card className="card bg-white/5 border-white/10 backdrop-blur-md relative overflow-visible pt-6 pb-2">
       <button
         className="absolute top-0 right-0 z-20 h-8 px-3 rounded-tl-none rounded-tr-xl rounded-bl-2xl rounded-br-none bg-white/5 border-b border-l border-white/10 hover:bg-white/10 text-white text-xs font-medium flex items-center gap-2 transition-all group"
         onClick={() =>

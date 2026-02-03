@@ -1,0 +1,134 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>CyberMem v0.13.0-RC1 - Unified Verification Report</title>
+    <style>
+      body {
+        font-family:
+          -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica,
+          Arial, sans-serif;
+        background-color: #05100f;
+        color: #ffffff;
+        margin: 0;
+        padding: 20px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+      }
+      .header {
+        text-align: center;
+        margin-bottom: 40px;
+      }
+      .status-pill {
+        background-color: rgba(16, 185, 129, 0.1);
+        color: #10b981;
+        padding: 4px 12px;
+        border-radius: 9999px;
+        font-size: 14px;
+        font-weight: 600;
+        border: 1px solid rgba(16, 185, 129, 0.2);
+      }
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+        gap: 20px;
+        width: 100%;
+        max-width: 1000px;
+      }
+      .card {
+        background: rgba(255, 255, 255, 0.05);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 16px;
+        padding: 24px;
+        text-decoration: none;
+        color: inherit;
+        transition: all 0.2s ease;
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+      }
+      .card:hover {
+        background: rgba(255, 255, 255, 0.08);
+        border-color: #10b981;
+        transform: translateY(-2px);
+      }
+      .card h3 {
+        margin: 0;
+        font-size: 20px;
+        color: #ffffff;
+      }
+      .card p {
+        margin: 0;
+        font-size: 14px;
+        color: rgba(255, 255, 255, 0.6);
+      }
+      .card .badge {
+        align-self: flex-start;
+        padding: 2px 8px;
+        background: #10b981;
+        color: #000;
+        font-size: 12px;
+        font-weight: bold;
+        border-radius: 4px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="header">
+      <h1>CyberMem v0.13.0-RC1</h1>
+      <p>Unified Verification Dashboard</p>
+      <span class="status-pill">PASSED</span>
+    </div>
+
+    <div class="grid">
+      <a
+        href="file:///Users/mikhailkogan/cybermem/packages/mcp/playwright-report/index.html"
+        class="card"
+      >
+        <span class="badge">API</span>
+        <h3>MCP Server API</h3>
+        <p>
+          Verification of CRUD operations, Health checks, and Semantic search
+          logic.
+        </p>
+      </a>
+
+      <a
+        href="file:///Users/mikhailkogan/cybermem/packages/dashboard/playwright-report/index.html"
+        class="card"
+      >
+        <span class="badge">UI</span>
+        <h3>Dashboard UI</h3>
+        <p>
+          Strictly mocked interaction tests: Identity, Logs, Charts, and Modal
+          state verification.
+        </p>
+      </a>
+
+      <a
+        href="file:///Users/mikhailkogan/cybermem/packages/cli/playwright-report/index.html"
+        class="card"
+      >
+        <span class="badge">INTEGRATION</span>
+        <h3>RPi Integration</h3>
+        <p>
+          Verification against real RPi instance (LAN fallback). Screenshots and
+          connectivity checks.
+        </p>
+      </a>
+    </div>
+
+    <div
+      style="
+        margin-top: 60px;
+        text-align: center;
+        font-size: 12px;
+        color: rgba(255, 255, 255, 0.3);
+      "
+    >
+      Verified by Antigravity Agent • Identity Law Compliant
+    </div>
+  </body>
+</html>

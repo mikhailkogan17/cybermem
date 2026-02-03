@@ -91,8 +91,12 @@ export async function GET(request: Request) {
         status = "Error";
       else if (statusCode >= 300) status = "Warning";
 
-      const operation =
-        log.operation.charAt(0).toUpperCase() + log.operation.slice(1);
+      let operation = log.operation.toLowerCase();
+      if (operation === "create") operation = "Write";
+      else if (operation === "read") operation = "Read";
+      else if (operation === "update") operation = "Update";
+      else if (operation === "delete") operation = "Delete";
+      else operation = operation.charAt(0).toUpperCase() + operation.slice(1);
 
       return {
         timestamp: log.timestamp,

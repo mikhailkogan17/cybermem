@@ -22,22 +22,18 @@ export interface DashboardStats {
 
 export interface AuditLogEntry {
   id: number;
-  date: Date;
+  date: string;
   client: string;
   operation: string;
   status: string;
   description: string;
   timestamp: number;
+  method?: string;
+  rawStatus?: string;
 }
 
 export interface DashboardData {
   stats: DashboardStats;
-  trends: {
-    memory: TrendState;
-    clients: TrendState;
-    success: TrendState;
-    requests: TrendState;
-  };
   logs: AuditLogEntry[];
 }
 
@@ -47,9 +43,4 @@ export interface TimeSeriesData {
   updates: any[];
   deletes: any[];
   metadata?: Record<string, any>;
-}
-
-export interface DataSourceStrategy {
-  fetchGlobalStats(): Promise<DashboardData>;
-  getChartData(period: string): Promise<TimeSeriesData>;
 }

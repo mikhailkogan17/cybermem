@@ -1,9 +1,13 @@
 "use client";
 
-import React, { createContext, useContext, useEffect, useState } from "react";
-import { DemoDataSource } from "./demo-strategy";
-import { ProductionDataSource } from "./production-strategy";
-import { DataSourceStrategy } from "./types";
+import React, {
+    createContext,
+    useCallback,
+    useContext,
+    useEffect,
+    useState,
+} from "react";
+import { AuditLogEntry, DashboardStats, TimeSeriesData } from "./types";
 
 interface ClientConfig {
   id: string;
@@ -32,9 +36,13 @@ interface SystemHealth {
 }
 
 interface DashboardContextType {
-  strategy: DataSourceStrategy;
+  stats: DashboardStats | null;
+  logs: AuditLogEntry[];
+  timeSeries: TimeSeriesData | null;
+  loading: boolean;
   isDemo: boolean;
   toggleDemo: () => void;
+  refresh: () => Promise<void>;
   refreshSignal: number;
   clientConfigs: ClientConfig[];
   systemHealth: SystemHealth | null;
@@ -46,6 +54,38 @@ const DashboardContext = createContext<DashboardContextType | undefined>(
   undefined,
 );
 
+const DEMO_STATS: DashboardStats = {
+  memoryRecords: 1337,
+  totalClients: 5,
+  successRate: 98.5,
+  totalRequests: 1500,
+  topWriter: { name: "Antigravity", count: 420 },
+  topReader: { name: "Claude", count: 310 },
+  lastWriter: { name: "Antigravity", timestamp: Date.now() - 120000 },
+  lastReader: { name: "Claude", timestamp: Date.now() - 60000 },
+};
+
+const DEMO_LOGS: AuditLogEntry[] = [
+  {
+    id: 1,
+    date: new Date().toISOString(),
+    client: "Antigravity",
+    operation: "Write",
+    description: "POST /add",
+    status: "Success",
+    timestamp: Date.now(),
+  },
+  {
+    id: 2,
+    date: new Date(Date.now() - 60000).toISOString(),
+    client: "Claude",
+    operation: "Read",
+    description: "POST /query",
+    status: "Success",
+    timestamp: Date.now() - 60000,
+  },
+];
+
 export function DashboardProvider({
   children,
   initialAuth = false,
@@ -54,23 +94,55 @@ export function DashboardProvider({
   initialAuth?: boolean;
 }) {
   const [isDemo, setIsDemo] = useState(false);
-  const [strategy, setStrategy] = useState<DataSourceStrategy>(
-    new ProductionDataSource(),
-  );
+  const [stats, setStats] = useState<DashboardStats | null>(null);
+  const [logs, setLogs] = useState<AuditLogEntry[]>([]);
+  const [timeSeries, setTimeSeries] = useState<TimeSeriesData | null>(null);
+  const [loading, setLoading] = useState(true);
   const [refreshSignal, setRefreshSignal] = useState(0);
   const [clientConfigs, setClientConfigs] = useState<ClientConfig[]>([]);
   const [systemHealth, setSystemHealth] = useState<SystemHealth | null>(null);
   const [isAuthenticated, setIsAuthenticated] = useState(initialAuth);
 
+  const fetchFullData = useCallback(async () => {
+    if (isDemo) {
+      setStats(DEMO_STATS);
+      setLogs(DEMO_LOGS);
+      setLoading(false);
+      return;
+    }
+
+    try {
+      setLoading(true);
+      const [metricsRes, logsRes] = await Promise.all([
+        fetch("/api/metrics"),
+        fetch("/api/audit-logs"),
+      ]);
+
+      if (metricsRes.ok) {
+        const metrics = await metricsRes.json();
+        setStats(metrics.stats);
+        setTimeSeries(metrics.timeSeries);
+      }
+
+      if (logsRes.ok) {
+        const logsData = await logsRes.json();
+        setLogs(logsData.logs || []);
+      }
+      setRefreshSignal((s) => s + 1);
+    } catch (error) {
+      console.error("Dashboard fetch error:", error);
+    } finally {
+      setLoading(false);
+    }
+  }, [isDemo]);
+
   // Load configuration on mount
   useEffect(() => {
-    // Load client config
     fetch("/clients.json")
       .then((res) => res.json())
       .then((data) => setClientConfigs(data))
       .catch((err) => console.error("Failed to load client configs:", err));
 
-    // Check session storage
     if (sessionStorage.getItem("authenticated") === "true") {
       setIsAuthenticated(true);
     }
@@ -114,38 +186,35 @@ export function DashboardProvider({
       }
     };
     checkHealth();
-    const interval = setInterval(checkHealth, 30000); // Check every 30s
+    const interval = setInterval(checkHealth, 30000);
     return () => clearInterval(interval);
   }, []);
 
-  const toggleDemo = () => {
-    const newState = !isDemo;
-    setIsDemo(newState);
-    setStrategy(newState ? new DemoDataSource() : new ProductionDataSource());
-    setRefreshSignal((prev) => prev + 1);
-  };
+  useEffect(() => {
+    fetchFullData();
+    if (!isDemo) {
+      const interval = setInterval(fetchFullData, 10000); // Slower refresh for metrics
+      return () => clearInterval(interval);
+    }
+  }, [isDemo, fetchFullData]);
+
+  const toggleDemo = () => setIsDemo(!isDemo);
 
   const login = () => {
     setIsAuthenticated(true);
     sessionStorage.setItem("authenticated", "true");
   };
 
-  // Refresh data periodically (centralized trigger)
-  useEffect(() => {
-    if (isDemo) return; // No auto-refresh in Demo Mode (static data)
-
-    const interval = setInterval(() => {
-      setRefreshSignal((prev) => prev + 1);
-    }, 5000);
-    return () => clearInterval(interval);
-  }, [isDemo]);
-
   return (
     <DashboardContext.Provider
       value={{
-        strategy,
+        stats,
+        logs,
+        timeSeries,
+        loading,
         isDemo,
         toggleDemo,
+        refresh: fetchFullData,
         refreshSignal,
         clientConfigs,
         systemHealth,

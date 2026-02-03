@@ -1,67 +1,245 @@
 import { expect, test } from "@playwright/test";
-import axios from "axios";
-import https from "https";
 
-const BASE_URL = process.env.MCP_URL || "http://localhost:8626/mcp";
+const BASE_URL = process.env.MCP_URL
+  ? process.env.MCP_URL.replace(/\/mcp$/, "")
+  : "http://localhost:8626";
+
+// CRITICAL: MCP CRUD tests MUST run in serial order (each depends on the previous)
+test.describe.configure({ mode: "serial" });
 
 test.describe("MCP:E2E (Core CRUD)", () => {
-  const httpsAgent = new https.Agent({ rejectUnauthorized: false });
-  const headers = {
-    "X-Client-Name": "antigravity-client",
-    "X-Client-Version": "0.13.0",
-    ...(process.env.CYBERMEM_TOKEN
-      ? { Authorization: `Bearer ${process.env.CYBERMEM_TOKEN}` }
-      : {}),
-  };
+  let memoryId: string;
+  const crudLog: Array<{
+    operation: string;
+    endpoint: string;
+    payload?: object;
+    status: number;
+    response: object;
+  }> = [];
 
-  const client = axios.create({
-    baseURL: BASE_URL,
-    headers,
-    httpsAgent,
-    timeout: 10000,
+  test.beforeAll(async ({}, testInfo) => {
+    console.log(`🔧 Testing against: ${BASE_URL}`);
+
+    // Attach environment info
+    await testInfo.attach("🔧 Test Environment", {
+      body: `Base URL: ${BASE_URL}\nTimestamp: ${new Date().toISOString()}\nClient: antigravity-client\nVersion: 0.13.0`,
+      contentType: "text/plain",
+    });
   });
 
-  let memoryId: string;
-
-  test("Create Memory", async () => {
-    const res = await client.post("/add", {
+  test("1. Create Memory (POST /add)", async ({ request }, testInfo) => {
+    const payload = {
       content: `E2E Verification ${new Date().toISOString()}`,
       tags: ["e2e", "automated"],
+    };
+
+    await test.step("📤 CRUD — POST /add — Create new memory", async () => {
+      console.log("📤 POST /add");
+      console.log("   Payload:", JSON.stringify(payload, null, 2));
+
+      const response = await request.post(`${BASE_URL}/add`, {
+        data: payload,
+        headers: {
+          "X-Client-Name": "antigravity-client",
+          "X-Client-Version": "0.13.0",
+        },
+        timeout: 30000, // 30s timeout
+      });
+
+      // Handle non-JSON responses gracefully
+      const status = response.status();
+      let body: any;
+
+      try {
+        body = await response.json();
+      } catch {
+        const text = await response.text();
+        throw new Error(
+          `Non-JSON response (status ${status}): ${text.substring(0, 200)}`,
+        );
+      }
+
+      console.log("   Status:", status);
+      console.log("   Response:", JSON.stringify(body, null, 2));
+
+      crudLog.push({
+        operation: "CREATE",
+        endpoint: "POST /add",
+        payload,
+        status,
+        response: body,
+      });
+
+      expect(status).toBe(200);
+      expect(body.id).toBeTruthy();
+      memoryId = body.id;
+      console.log(`   ✅ Memory ID: ${memoryId}`);
     });
-    expect(res.status).toBe(200);
-    expect(res.data.id).toBeTruthy();
-    memoryId = res.data.id;
+
+    // Attach CRUD operation to trace
+    await testInfo.attach("📝 CRUD — CREATE", {
+      body: `Endpoint: POST /add\n\nRequest:\n${JSON.stringify(payload, null, 2)}\n\nResponse:\n${JSON.stringify(crudLog[crudLog.length - 1]?.response, null, 2)}`,
+      contentType: "text/plain",
+    });
   });
 
-  test("Read Memory", async () => {
-    // Wait for indexing (mock duration or real if needed, usually fast enough for test unless heavy)
-    // For stability in CI, we might need a small delay or retry, but let's try direct first.
-    // Spec says wait 60s in old test, but that seems excessive for local.
-    // We'll use polling in a real scenario, but here let's valid ID lookup if available or query.
-
-    // Using query usually takes time. accessing by ID if endpoint exists is better.
-    // But MCP usually only exposes query.
-
-    // Let's assume eventual consistency and use a retry loop if needed.
-    // For now, simple query.
-
-    // In e2e.ts we waited 60s. Let's start with a smaller wait in loop if failing.
-    // For this suite, we'll simple query.
-
-    const res = await client.post("/query", {
-      query: "Verification",
-      k: 1,
+  test("2. Read Memory (POST /query)", async ({ request }, testInfo) => {
+    await test.step("⏳ Wait — Vector Indexing Delay — 1 second", async () => {
+      await new Promise((r) => setTimeout(r, 1000));
     });
-    expect(res.status).toBe(200);
-    // Note: Vector Indexing might be async.
+
+    const payload = { query: "Verification", k: 1 };
+
+    await test.step("📤 CRUD — POST /query — Semantic search", async () => {
+      console.log("📤 POST /query");
+      console.log("   Payload:", JSON.stringify(payload, null, 2));
+
+      const response = await request.post(`${BASE_URL}/query`, {
+        data: payload,
+        headers: { "X-Client-Name": "antigravity-client" },
+      });
+
+      const body = await response.json();
+      console.log("   Status:", response.status());
+      console.log("   Response:", JSON.stringify(body, null, 2));
+
+      crudLog.push({
+        operation: "READ",
+        endpoint: "POST /query",
+        payload,
+        status: response.status(),
+        response: body,
+      });
+
+      expect(response.status()).toBe(200);
+      expect(Array.isArray(body)).toBe(true);
+      console.log(`   ✅ Returned ${body.length} result(s)`);
+    });
+
+    await testInfo.attach("📖 CRUD — READ", {
+      body: `Endpoint: POST /query\n\nRequest:\n${JSON.stringify(payload, null, 2)}\n\nResponse:\n${JSON.stringify(crudLog[crudLog.length - 1]?.response, null, 2)}`,
+      contentType: "text/plain",
+    });
   });
 
-  // Note: Delete is usually via sidechannel in current CyberMem or via direct DB.
-  // The old e2e.ts used DELETE /memory/:id.
+  test("3. Update Memory (PATCH /memory/:id)", async ({
+    request,
+  }, testInfo) => {
+    test.skip(!memoryId, "Skipped — memoryId was not created in Step 1");
 
-  test("Delete Memory", async () => {
-    if (!memoryId) test.skip();
-    const res = await client.delete(`/memory/${memoryId}`);
-    expect(res.status).toBe(200);
+    const payload = {
+      content: `Updated E2E Context ${new Date().toISOString()}`,
+      tags: ["e2e", "updated"],
+    };
+
+    await test.step(`📤 CRUD — PATCH /memory/${memoryId} — Update content`, async () => {
+      console.log(`📤 PATCH /memory/${memoryId}`);
+      console.log("   Payload:", JSON.stringify(payload, null, 2));
+
+      const response = await request.patch(`${BASE_URL}/memory/${memoryId}`, {
+        data: payload,
+        headers: { "X-Client-Name": "antigravity-client" },
+      });
+
+      const body = await response.json();
+      console.log("   Status:", response.status());
+      console.log("   Response:", JSON.stringify(body, null, 2));
+
+      crudLog.push({
+        operation: "UPDATE",
+        endpoint: `PATCH /memory/${memoryId}`,
+        payload,
+        status: response.status(),
+        response: body,
+      });
+
+      expect(response.status()).toBe(200);
+      console.log(`   ✅ Memory updated successfully`);
+    });
+
+    await testInfo.attach("✏️ CRUD — UPDATE", {
+      body: `Endpoint: PATCH /memory/${memoryId}\n\nRequest:\n${JSON.stringify(payload, null, 2)}\n\nResponse:\n${JSON.stringify(crudLog[crudLog.length - 1]?.response, null, 2)}`,
+      contentType: "text/plain",
+    });
+  });
+
+  test("4. Reinforce Memory (POST /memory/:id/reinforce)", async ({
+    request,
+  }, testInfo) => {
+    test.skip(!memoryId, "Skipped — memoryId was not created in Step 1");
+
+    const payload = { boost: 0.5 };
+
+    await test.step(`📤 CRUD — POST /memory/${memoryId}/reinforce — Boost salience`, async () => {
+      console.log(`📤 POST /memory/${memoryId}/reinforce`);
+      console.log("   Payload:", JSON.stringify(payload, null, 2));
+
+      const response = await request.post(
+        `${BASE_URL}/memory/${memoryId}/reinforce`,
+        {
+          data: payload,
+          headers: { "X-Client-Name": "antigravity-client" },
+        },
+      );
+
+      const body = await response.json();
+      console.log("   Status:", response.status());
+      console.log("   Response:", JSON.stringify(body, null, 2));
+
+      crudLog.push({
+        operation: "REINFORCE",
+        endpoint: `POST /memory/${memoryId}/reinforce`,
+        payload,
+        status: response.status(),
+        response: body,
+      });
+
+      expect(response.status()).toBe(200);
+      console.log(`   ✅ Memory reinforced successfully`);
+    });
+
+    await testInfo.attach("⚡ CRUD — REINFORCE", {
+      body: `Endpoint: POST /memory/${memoryId}/reinforce\n\nRequest:\n${JSON.stringify(payload, null, 2)}\n\nResponse:\n${JSON.stringify(crudLog[crudLog.length - 1]?.response, null, 2)}`,
+      contentType: "text/plain",
+    });
+  });
+
+  test("5. Delete Memory (DELETE /memory/:id)", async ({
+    request,
+  }, testInfo) => {
+    test.skip(!memoryId, "Skipped — memoryId was not created in Step 1");
+
+    await test.step(`📤 CRUD — DELETE /memory/${memoryId} — Hard delete from DB`, async () => {
+      console.log(`📤 DELETE /memory/${memoryId}`);
+
+      const response = await request.delete(`${BASE_URL}/memory/${memoryId}`, {
+        headers: { "X-Client-Name": "antigravity-client" },
+      });
+
+      const body = await response.json();
+      console.log("   Status:", response.status());
+      console.log("   Response:", JSON.stringify(body, null, 2));
+
+      crudLog.push({
+        operation: "DELETE",
+        endpoint: `DELETE /memory/${memoryId}`,
+        status: response.status(),
+        response: body,
+      });
+
+      expect(response.status()).toBe(200);
+      console.log(`   ✅ Memory deleted successfully`);
+    });
+
+    await testInfo.attach("🗑️ CRUD — DELETE", {
+      body: `Endpoint: DELETE /memory/${memoryId}\n\nResponse:\n${JSON.stringify(crudLog[crudLog.length - 1]?.response, null, 2)}\n\n--- FULL CRUD LOG ---\n${crudLog.map((c) => `${c.operation}: ${c.endpoint} → ${c.status}`).join("\n")}`,
+      contentType: "text/plain",
+    });
+
+    // Attach full CRUD summary at the end
+    await testInfo.attach("📊 CRUD Lifecycle Complete", {
+      body: `Memory ID: ${memoryId}\n\nOperations Performed:\n${crudLog.map((c) => `✅ ${c.operation}: ${c.endpoint} → HTTP ${c.status}`).join("\n")}\n\nStorage State: CLEANED (memory deleted)`,
+      contentType: "text/plain",
+    });
   });
 });

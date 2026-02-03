@@ -1,5 +1,16 @@
 # CyberMem - GEMINI.md
 
+> [!CAUTION]
+> **STRICT PROHIBITION: NO AUTO-RELEASE**
+> It is **STRICTLY FORBIDDEN** to trigger a release (`gh workflow run release.yml`) without:
+> 1.   explicit user command: "RELEASE" or "DEPLOY".
+> 2.   **AND** explicit user confirmation phrase: "I CONFIRM RELEASE" or "Я ПОДТВЕРЖДАЮ".
+> 3.   **AND** the current branch MUST be `main`.
+> 
+> *Constraint*: The Agent MUST notify the user "Ready to release?" and WAIT. Never assume consent from "looks good" or "fix this".
+>
+> FAILURE TO FOLLOW THIS PROTOCOL WILL BE BLOCKED BY BRANCH PROTECTION.
+
 ## 1. CyberMem Project Overview
 
 **CyberMem** is a production-grade AI memory system that provides persistent context for AI agents.
@@ -114,8 +125,6 @@ To Ensure "Always Availability" and shorter token usage, follow this strict cycl
     - **Evidence**: Screenshots required in PR description.
     - **Release Report**: Required for `feat/*` branches.
 4.  **Merge**: Only possible after CI passes and Tech Lead approves.
-
-FAILURE TO FOLLOW THIS PROTOCOL WILL BE BLOCKED BY BRANCH PROTECTION.
 
 ## 1.5.1 IDENTITY SEPARATION & AUTO-PR
 
