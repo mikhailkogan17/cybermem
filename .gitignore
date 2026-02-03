@@ -45,6 +45,12 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 
+# Test Artifacts
+test-results/
+test_results/
+playwright-report/
+.tmp_pw/
+
 # IDEs
 .vscode/
 .idea/
@@ -94,3 +100,6 @@ dashboard/public/docs/
 private-context.md
 cybermem-backup-*.tar.gz
 *.tar.gz
+
+# Release Reports (versioned reports preserved)
+!release-reports/
