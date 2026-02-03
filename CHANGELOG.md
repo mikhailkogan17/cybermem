@@ -2,6 +2,27 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.13.0] - 2026-02-03
+
+### Added
+
+- **Release Pipeline**: 8-step strict release workflow (`publish.yml`):
+  1. Changelog verification
+  2. Staging deployment (build from source)
+  3. E2E verification via Tailscale
+  4. GHCR push (only after verification)
+  5. NPM publish
+  6. Finalize (tag, commit reports, GitHub release)
+  7. Production deployment
+  8. Slack notifications
+- **Ansible**: `build_from_source` mode for staging deployments
+- **CI**: Branch protection requiring Quality Gates and E2E checks
+
+### Changed
+
+- **Ansible**: Docker-compose path patching for source builds
+- **E2E**: Fixed Playwright artifact upload paths
+
 ## [0.7.5] - 2026-01-19
 
 ### Changed
