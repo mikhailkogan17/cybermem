@@ -111,56 +111,6 @@ jobs:
             packages/*/test-results/
           retention-days: 7
 
-  # ------------------------------------------------------------------
-  # 4. Remote E2E (RPi Staging) - "e2e:deploy"
-  # ------------------------------------------------------------------
-  e2e-remote:
-    name: "E2E: Remote (Deploy)"
-    needs: test-cli
-    # Run on PR (Staging)
-    if: github.event_name == 'pull_request'
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Setup Tailscale
-        uses: tailscale/github-action@v2
-        with:
-          authkey: ${{ secrets.TAILSCALE_AUTHKEY }}
-          version: latest
-
-      - name: Setup Ansible
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y ansible
-
-      # Deploy Staging
-      - name: Deploy to Staging (PR)
-        if: github.event_name == 'pull_request'
-        env:
-          ANSIBLE_HOST_KEY_CHECKING: "False"
-        run: |
-          ansible-playbook -i inventory/hosts.ini playbooks/deploy-cybermem.yml \
-            --extra-vars "cybermem_env=staging ghcr_user=${{ github.actor }} ghcr_token=${{ secrets.GITHUB_TOKEN }}" \
-            --extra-vars "ansible_ssh_common_args='-o StrictHostKeyChecking=no'"
-
-      # Verify Staging
-      - name: Setup Node for verification
-        if: github.event_name == 'pull_request'
-        uses: actions/setup-node@v4
-        with:
-          node-version: "20"
-      - run: npm ci
-        if: github.event_name == 'pull_request'
-      - name: Build CLI Check
-        if: github.event_name == 'pull_request'
-        run: npm run build -w @cybermem/cli
-      - run: npx playwright install --with-deps chromium
-        if: github.event_name == 'pull_request'
-
-      - name: Run Remote E2E
-        if: github.event_name == 'pull_request'
-        env:
-          CYBERMEM_TOKEN: ${{ secrets.CYBERMEM_TOKEN }}
-        run: |
-          npx ts-node packages/cli/e2e/e2e.ts --only-testing rpi-ts-staging
+  # NOTE: Remote E2E (RPi) is NOT run on MR.
+  # It is only run during Release pipeline (publish.yml) on rpi-ts-staging,
+  # after which prod is deployed WITHOUT additional tests.

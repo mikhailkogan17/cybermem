@@ -164,7 +164,7 @@ jobs:
           $SLACK_WEBHOOK
 
   # ------------------------------------------------------------------
-  # 4. DEPLOY TO PROD
+  # 4. DEPLOY TO PROD (No Tests - Staging is the Quality Gate)
   # ------------------------------------------------------------------
   deploy-prod:
     needs: publish
@@ -188,50 +188,15 @@ jobs:
             --extra-vars "cybermem_env=prod ghcr_user=${{ github.actor }} ghcr_token=${{ secrets.GITHUB_TOKEN }}" \
             --extra-vars "ansible_ssh_common_args='-o StrictHostKeyChecking=no'"
 
-  # ------------------------------------------------------------------
-  # 5. VERIFY PROD
-  # ------------------------------------------------------------------
-  verify-prod:
-    needs: deploy-prod
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: tailscale/github-action@v2
-        with:
-          authkey: ${{ secrets.TAILSCALE_AUTHKEY }}
-          version: latest
-      - uses: actions/setup-node@v4
-        with:
-          node-version: "20"
-      - run: npm ci
-      - run: npx playwright install --with-deps chromium
-
-      - name: Run E2E (Prod)
-        env:
-          DASHBOARD_URL: "https://raspberrypi.ts.net/cybermem"
-          TEST_ENV_NAME: "rpi-prod-ts"
-          CYBERMEM_TOKEN: ${{ secrets.CYBERMEM_TOKEN }}
-        run: |
-          # Just API check for Prod to be safe/fast, or full CLI if desired
-          # User SLA said: "dashboard:api + cli:e2e on rpi-staging-ts BEFORE publish" for Publish.
-          # For Prod Verification, we generally want at least API check.
-          npm run test:e2e:dashboard:api
-
-      - name: Slack (Prod Success)
+      - name: Slack (Prod Deployed)
         if: success()
         env:
           SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK_URL }}
         run: |
           curl -X POST -H 'Content-type: application/json' \
-          --data '{"text":"✅ *Production Deployed & Verified* v${{ needs.publish.outputs.version }}"}' \
-          $SLACK_WEBHOOK
+          --data '{"text":"✅ *Production Deployed* v${{ needs.publish.outputs.version }}\n\n⚠️ No E2E on prod - staging is the quality gate."}' \
+          $SLACK_WEBHOOK || echo "Slack notification skipped"
 
-      - name: Upload Playwright Reports (Prod)
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: e2e-reports-prod
-          path: |
-            packages/*/playwright-report/
-            packages/*/test-results/
-          retention-days: 14
+  # NOTE: No verify-prod job.
+  # Staging verification (verify-staging) is the quality gate.
+  # Prod is deployed after successful publish without additional tests.
