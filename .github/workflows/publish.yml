@@ -84,6 +84,20 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y ansible rsync
 
+      - name: Get RPi Tailscale IP
+        id: get_rpi_ip
+        run: |
+          # Wait for Tailscale to be fully connected
+          sleep 5
+          # Get the RPi's Tailscale IP
+          RPI_IP=$(tailscale status --json | jq -r '.Peer[] | select(.HostName | test("raspberrypi"; "i")) | .TailscaleIPs[0]')
+          if [ -z "$RPI_IP" ]; then
+            echo "❌ Could not find RPi in Tailscale network"
+            exit 1
+          fi
+          echo "ip=$RPI_IP" >> $GITHUB_OUTPUT
+          echo "✅ RPi Tailscale IP: $RPI_IP"
+
       - name: Deploy Staging (Build from Source)
         env:
           ANSIBLE_HOST_KEY_CHECKING: "False"
@@ -92,7 +106,8 @@ jobs:
             -i packages/cli/templates/ansible/inventory/hosts.ini \
             packages/cli/templates/ansible/playbooks/deploy-cybermem.yml \
             --extra-vars "cybermem_env=staging build_from_source=true TRAEFIK_PORT=8625" \
-            --extra-vars "ansible_ssh_common_args='-o StrictHostKeyChecking=no'"
+            --extra-vars "ansible_ssh_common_args='-o StrictHostKeyChecking=no'" \
+            --extra-vars "ansible_host=${{ steps.get_rpi_ip.outputs.ip }}"
 
   # ==================================================================
   # 3. VERIFY STAGING (E2E Gate via Tailscale)
@@ -341,6 +356,20 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y ansible
 
+      - name: Get RPi Tailscale IP
+        id: get_rpi_ip
+        run: |
+          # Wait for Tailscale to be fully connected
+          sleep 5
+          # Get the RPi's Tailscale IP
+          RPI_IP=$(tailscale status --json | jq -r '.Peer[] | select(.HostName | test("raspberrypi"; "i")) | .TailscaleIPs[0]')
+          if [ -z "$RPI_IP" ]; then
+            echo "❌ Could not find RPi in Tailscale network"
+            exit 1
+          fi
+          echo "ip=$RPI_IP" >> $GITHUB_OUTPUT
+          echo "✅ RPi Tailscale IP: $RPI_IP"
+
       - name: Wait for GHCR Propagation
         run: sleep 30
 
@@ -352,7 +381,8 @@ jobs:
             -i packages/cli/templates/ansible/inventory/hosts.ini \
             packages/cli/templates/ansible/playbooks/deploy-cybermem.yml \
             --extra-vars "cybermem_env=prod ghcr_user=${{ github.actor }} ghcr_token=${{ secrets.GITHUB_TOKEN }}" \
-            --extra-vars "ansible_ssh_common_args='-o StrictHostKeyChecking=no'"
+            --extra-vars "ansible_ssh_common_args='-o StrictHostKeyChecking=no'" \
+            --extra-vars "ansible_host=${{ steps.get_rpi_ip.outputs.ip }}"
 
       # ==================================================================
       # 8. FINAL SLACK NOTIFICATION
