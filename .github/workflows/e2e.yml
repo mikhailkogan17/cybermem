@@ -36,10 +36,10 @@ jobs:
         run: npx danger ci
 
   # ------------------------------------------------------------------
-  # 2. CLI Unit Tests
+  # 2. CLI Build Verification
   # ------------------------------------------------------------------
   test-cli:
-    name: CLI Unit Tests
+    name: CLI Build Verification
     needs: quality
     runs-on: ubuntu-latest
     steps:
@@ -48,7 +48,7 @@ jobs:
         with:
           node-version: "20"
       - run: npm ci
-      - name: Build & Test CLI
+      - name: Build CLI Package
         run: npm run build -w @cybermem/cli
 
   # ------------------------------------------------------------------
@@ -95,8 +95,8 @@ jobs:
         run: npx playwright test
         env:
           CI: true
-          DASHBOARD_URL: http://localhost:8626
-          MCP_URL: http://localhost:8626/mcp
+          DASHBOARD_URL: http://localhost:8625
+          MCP_URL: http://localhost:8625/mcp
 
       - name: Upload Playwright Reports (Local)
         if: always()

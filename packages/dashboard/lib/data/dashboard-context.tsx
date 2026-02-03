@@ -1,6 +1,12 @@
 "use client";
 
-import React, { createContext, useContext, useEffect, useState } from "react";
+import React, {
+    createContext,
+    useCallback,
+    useContext,
+    useEffect,
+    useState,
+} from "react";
 import { AuditLogEntry, DashboardStats, TimeSeriesData } from "./types";
 
 interface ClientConfig {
@@ -97,7 +103,7 @@ export function DashboardProvider({
   const [systemHealth, setSystemHealth] = useState<SystemHealth | null>(null);
   const [isAuthenticated, setIsAuthenticated] = useState(initialAuth);
 
-  const fetchFullData = async () => {
+  const fetchFullData = useCallback(async () => {
     if (isDemo) {
       setStats(DEMO_STATS);
       setLogs(DEMO_LOGS);
@@ -128,7 +134,7 @@ export function DashboardProvider({
     } finally {
       setLoading(false);
     }
-  };
+  }, [isDemo]);
 
   // Load configuration on mount
   useEffect(() => {
@@ -190,7 +196,7 @@ export function DashboardProvider({
       const interval = setInterval(fetchFullData, 10000); // Slower refresh for metrics
       return () => clearInterval(interval);
     }
-  }, [isDemo]);
+  }, [isDemo, fetchFullData]);
 
   const toggleDemo = () => setIsDemo(!isDemo);
 
