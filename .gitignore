@@ -25,9 +25,11 @@ dashboard/shared.env
 
 # Logs
 *.log
-logs/
+/logs/
+**/traefik/logs/
 report/
 monitoring/traefik/*.log
+!**/components/**/logs/
 
 # Python
 __pycache__/

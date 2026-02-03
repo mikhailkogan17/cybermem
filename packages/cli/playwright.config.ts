@@ -13,7 +13,11 @@ export default defineConfig({
     {
       name: "integration",
       testMatch: "integration.spec.ts",
-      use: { ...devices["Desktop Chrome"] },
+      use: {
+        ...devices["Desktop Chrome"],
+        trace: "on",
+        screenshot: "on",
+      },
     },
   ],
 });

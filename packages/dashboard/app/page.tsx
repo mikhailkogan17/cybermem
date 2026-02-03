@@ -7,14 +7,12 @@ import MCPConfigModal from "@/components/dashboard/mcp-config-modal";
 import MetricsGrid from "@/components/dashboard/metrics-grid";
 import SettingsModal from "@/components/dashboard/settings-modal";
 import { useDashboard } from "@/lib/data/dashboard-context";
-import { DashboardData } from "@/lib/data/types";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
 export default function DashboardPage() {
-  const { strategy, refreshSignal } = useDashboard();
-  const [data, setData] = useState<DashboardData | null>(null);
+  const { stats, logs, loading, refresh, timeSeries } = useDashboard();
   const [showSettings, setShowSettings] = useState(false);
   const [showMCPConfig, setShowMCPConfig] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
@@ -23,20 +21,7 @@ export default function DashboardPage() {
 
   const params = useSearchParams();
   const router = useRouter();
-
   const pageSize = 10;
-
-  useEffect(() => {
-    async function fetchData() {
-      try {
-        const stats = await strategy.fetchGlobalStats();
-        setData(stats);
-      } catch (error) {
-        console.error("Failed to fetch dashboard stats:", error);
-      }
-    }
-    fetchData();
-  }, [strategy, refreshSignal]);
 
   useEffect(() => {
     // Handle login toast
@@ -52,94 +37,78 @@ export default function DashboardPage() {
   }, [params, router]);
 
   // Handle sorting locally for now since we have a limited set (100 logs)
-  const sortedLogs = data?.logs
-    ? [...data.logs].sort((a: any, b: any) => {
-        const aVal = a[sortField];
-        const bVal = b[sortField];
-
-        if (aVal < bVal) return sortDirection === "asc" ? -1 : 1;
-        if (aVal > bVal) return sortDirection === "asc" ? 1 : -1;
-        return 0;
-      })
-    : [];
+  const sortedLogs = [...logs].sort((a: any, b: any) => {
+    const aVal = a[sortField];
+    const bVal = b[sortField];
+    if (aVal < bVal) return sortDirection === "asc" ? -1 : 1;
+    if (aVal > bVal) return sortDirection === "asc" ? 1 : -1;
+    return 0;
+  });
 
   const paginatedLogs = sortedLogs.slice(
     (currentPage - 1) * pageSize,
     currentPage * pageSize,
   );
 
-  // Transform data for MetricsGrid
-  const metricsStats = data
-    ? {
-        memoryRecords: data.stats.memoryRecords,
-        totalClients: data.stats.totalClients,
-        successRate: data.stats.successRate,
-        totalRequests: data.stats.totalRequests,
-        topWriter: data.stats.topWriter,
-        topReader: data.stats.topReader,
-        lastWriter: data.stats.lastWriter,
-        lastReader: data.stats.lastReader,
-      }
-    : {
-        memoryRecords: 0,
-        totalClients: 0,
-        successRate: 0,
-        totalRequests: 0,
-        topWriter: { name: "N/A", count: 0 },
-        topReader: { name: "N/A", count: 0 },
-        lastWriter: { name: "N/A", timestamp: 0 },
-        lastReader: { name: "N/A", timestamp: 0 },
-      };
+  // Default trends (until backend provides them or we calculate them)
+  const metricsTrends = {
+    memory: {
+      change: "0%",
+      trend: "neutral" as const,
+      hasData: false,
+      data: [],
+    },
+    clients: {
+      change: "0%",
+      trend: "neutral" as const,
+      hasData: false,
+      data: [],
+    },
+    success: {
+      change: "0%",
+      trend: "neutral" as const,
+      hasData: false,
+      data: [],
+    },
+    requests: {
+      change: "0%",
+      trend: "neutral" as const,
+      hasData: false,
+      data: [],
+    },
+  };
 
-  const metricsTrends = data
-    ? data.trends
-    : {
-        memory: {
-          change: "0%",
-          trend: "neutral" as const,
-          hasData: false,
-          data: [],
-        },
-        clients: {
-          change: "0%",
-          trend: "neutral" as const,
-          hasData: false,
-          data: [],
-        },
-        success: {
-          change: "0%",
-          trend: "neutral" as const,
-          hasData: false,
-          data: [],
-        },
-        requests: {
-          change: "0%",
-          trend: "neutral" as const,
-          hasData: false,
-          data: [],
-        },
-      };
+  const currentStats = stats || {
+    memoryRecords: 0,
+    totalClients: 0,
+    successRate: 0,
+    totalRequests: 0,
+    topWriter: { name: "N/A", count: 0 },
+    topReader: { name: "N/A", count: 0 },
+    lastWriter: { name: "N/A", timestamp: 0 },
+    lastReader: { name: "N/A", timestamp: 0 },
+  };
 
   return (
     <main className="min-h-screen bg-[#0B1116] text-white">
       <DashboardHeader
         onShowSettings={() => setShowSettings(true)}
         onShowMCPConfig={() => setShowMCPConfig(true)}
-        memoryCount={data?.stats.memoryRecords || 0}
+        memoryCount={currentStats.memoryRecords}
       />
 
       <div className="max-w-7xl mx-auto px-6 pt-32 pb-20 space-y-12 animate-in fade-in duration-700">
         <MetricsGrid
-          stats={metricsStats}
+          stats={currentStats}
           trends={metricsTrends}
-          loading={!data}
+          loading={loading}
         />
         <ChartsSection period="all" />
         <LogViewer
           logs={paginatedLogs}
-          loading={!data}
+          loading={loading}
           currentPage={currentPage}
-          totalPages={Math.ceil((data?.logs.length || 0) / pageSize)}
+          totalPages={Math.ceil(logs.length / pageSize)}
           onPageChange={setCurrentPage}
           sortField={sortField}
           sortDirection={sortDirection}

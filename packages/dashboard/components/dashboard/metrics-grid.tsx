@@ -49,15 +49,18 @@ function ClientCard({
   name,
   subtitle,
   isEmpty,
+  testId,
 }: {
   label: string;
   name: string;
   subtitle: string;
   isEmpty: boolean;
+  testId?: string;
 }) {
   return (
     <Card
-      className={`bg-white/5 border-white/10 backdrop-blur-md text-white shadow-lg overflow-hidden ${isEmpty ? "opacity-60" : ""}`}
+      className={`card bg-white/5 border-white/10 backdrop-blur-md text-white shadow-lg overflow-hidden ${isEmpty ? "opacity-60" : ""}`}
+      data-testid={testId}
     >
       <CardContent className="pt-6 pb-6 relative">
         <div className="text-sm font-medium text-slate-400 mb-2">{label}</div>
@@ -147,6 +150,7 @@ export default function MetricsGrid({
       ) : (
         <ClientCard
           label="Top Writer"
+          testId="card-top-writer"
           name={stats.topWriter.count > 0 ? stats.topWriter.name : "N/A"}
           subtitle={
             stats.topWriter.count > 0
@@ -163,6 +167,7 @@ export default function MetricsGrid({
       ) : (
         <ClientCard
           label="Top Reader"
+          testId="card-top-reader"
           name={stats.topReader.count > 0 ? stats.topReader.name : "N/A"}
           subtitle={
             stats.topReader.count > 0
@@ -179,6 +184,7 @@ export default function MetricsGrid({
       ) : (
         <ClientCard
           label="Last Writer"
+          testId="card-last-writer"
           name={stats.lastWriter.name !== "N/A" ? stats.lastWriter.name : "N/A"}
           subtitle={formatTimestamp(stats.lastWriter.timestamp)}
           isEmpty={
@@ -193,6 +199,7 @@ export default function MetricsGrid({
       ) : (
         <ClientCard
           label="Last Reader"
+          testId="card-last-reader"
           name={stats.lastReader.name !== "N/A" ? stats.lastReader.name : "N/A"}
           subtitle={formatTimestamp(stats.lastReader.timestamp)}
           isEmpty={

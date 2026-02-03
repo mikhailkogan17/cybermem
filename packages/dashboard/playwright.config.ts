@@ -25,7 +25,11 @@ export default defineConfig({
     {
       name: "ui",
       testMatch: "ui.spec.ts",
-      use: { ...devices["Desktop Chrome"] },
+      use: {
+        ...devices["Desktop Chrome"],
+        trace: "on",
+        screenshot: "on",
+      },
     },
   ],
 });
