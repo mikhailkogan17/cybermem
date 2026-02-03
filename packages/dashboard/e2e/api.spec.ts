@@ -5,7 +5,10 @@ import * as path from "path";
 // This suite runs against the Next.js API Routes (Backend)
 // IMPORTANT: This uses REAL database with clean state!
 const DASHBOARD_URL = process.env.DASHBOARD_URL || "http://localhost:3000";
-const MCP_API_URL = process.env.MCP_URL || "http://localhost:8626";
+// Normalize MCP URL: strip /mcp suffix to get the base for legacy HTTP endpoints (/add, /query)
+const RAW_MCP_URL = process.env.MCP_URL || "http://localhost:8626";
+const MCP_API_URL = RAW_MCP_URL.replace(/\/mcp\/?$/, "");
+
 const SQLITE_PATH = path.join(
   process.env.HOME || "",
   ".cybermem",
