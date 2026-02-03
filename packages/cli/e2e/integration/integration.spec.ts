@@ -202,23 +202,23 @@ test.describe("CLI:E2E (Integration)", () => {
       console.log(`   Port 3001 accessible: ${port3001Accessible}`);
     });
 
-    await test.step("✅ Security Check — Port 8626 (Traefik) SHOULD be accessible", async () => {
-      let port8626Accessible = false;
+    await test.step(`✅ Security Check — Entrypoint (${DASHBOARD_URL}) SHOULD be accessible`, async () => {
+      let entrypointAccessible = false;
       try {
-        const resp = await request.get("http://localhost:8626/health", {
+        const resp = await request.get(`${DASHBOARD_URL}/health`, {
           timeout: 5000,
         });
-        port8626Accessible = resp.status() === 200;
+        entrypointAccessible = resp.status() === 200;
       } catch {
-        port8626Accessible = false;
+        entrypointAccessible = false;
       }
 
-      await testInfo.attach("✅ Port 8626 Check", {
-        body: `Port 8626 (Traefik) accessible: ${port8626Accessible}\n\n${port8626Accessible ? "✅ CORRECT: Traefik entrypoint is accessible" : "⚠️ WARNING: Traefik port 8626 is not responding"}`,
+      await testInfo.attach("✅ Entrypoint Check", {
+        body: `Entrypoint (${DASHBOARD_URL}) accessible: ${entrypointAccessible}\n\n${entrypointAccessible ? "✅ CORRECT: Traefik entrypoint is accessible" : `⚠️ WARNING: Traefik entrypoint ${DASHBOARD_URL} is not responding`}`,
         contentType: "text/plain",
       });
 
-      expect(port8626Accessible).toBe(true);
+      expect(entrypointAccessible).toBe(true);
     });
 
     await testInfo.attach("🔐 Port Security Summary", {
