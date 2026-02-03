@@ -20,7 +20,7 @@ export default defineConfig({
   projects: [
     {
       name: "api",
-      testMatch: "api.spec.ts",
+      testMatch: ["api.spec.ts", "routing.spec.ts"],
     },
     {
       name: "ui",

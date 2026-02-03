@@ -59,11 +59,11 @@ if (bigPR) {
   warn("Big PR! 📉 Consider breaking this into smaller PRs for better review.");
 }
 
-// 5. Checklist Verified
-const checklistChecked = body.includes("- [x]");
-if (!checklistChecked) {
-  warn("Please complete the PR Checklist.");
-}
+// 5. Checklist Verified (Disabled: caused false positives)
+// const checklistChecked = body.includes("- [x]");
+// if (!checklistChecked) {
+//   warn("Please complete the PR Checklist.");
+// }
 
 // 6. Enforce Release Report for Features
 const isFeatureBranch = headRef.startsWith("feat/");
