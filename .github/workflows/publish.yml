@@ -62,15 +62,18 @@ jobs:
           authkey: ${{ secrets.TAILSCALE_AUTHKEY }}
           version: latest
 
+      - name: Build CLI (Release Candidate)
+        run: npm run build -w @cybermem/cli
+
       - name: Run E2E Gate (Dashboard API + CLI Integration)
         env:
-          # Point to Staging
-          DASHBOARD_URL: "https://raspberrypi.ts.net/cybermem-staging"
-          MCP_URL: "https://raspberrypi.ts.net/cybermem-staging/mcp"
+          # Point to Staging (Root Domain, no subpath)
+          DASHBOARD_URL: "https://raspberrypi.ts.net"
+          MCP_URL: "https://raspberrypi.ts.net/mcp"
           TEST_ENV_NAME: "rpi-staging-ts"
           CYBERMEM_TOKEN: ${{ secrets.CYBERMEM_TOKEN }}
         run: |
-          # 1. Backend API Check
+          # 1. Backend API Check (& Routing)
           npm run test:e2e:dashboard:api
 
           # 2. Full Integration Check (Screenshots)

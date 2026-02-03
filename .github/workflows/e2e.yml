@@ -36,27 +36,11 @@ jobs:
         run: npx danger ci
 
   # ------------------------------------------------------------------
-  # 2. CLI Build Verification
-  # ------------------------------------------------------------------
-  test-cli:
-    name: CLI Build Verification
-    needs: quality
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: "20"
-      - run: npm ci
-      - name: Build CLI Package
-        run: npm run build -w @cybermem/cli
-
-  # ------------------------------------------------------------------
   # 3. Local E2E (Dogfooding) - "e2e:pr"
   # ------------------------------------------------------------------
   e2e-local:
     name: "E2E: Local (PR)"
-    needs: test-cli
+    needs: quality
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

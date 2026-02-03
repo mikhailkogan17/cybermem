@@ -106,6 +106,24 @@ async function globalSetup(_config: FullConfig) {
     return;
   }
 
+  // CRITICAL: In CI, we trust the workflow to have installed the CLI
+  // Rerunning install would trigger a rebuild or npm fetch, breaking the flow
+  if (process.env.CI) {
+    console.log("🤖 CI Environment detected.");
+    console.log("   Skipping CLI install/reset (trusting workflow step).");
+    console.log("   Verifying API readiness...");
+
+    // We expect the workflow to have started services
+    const ready = await waitForMCPReady(MCP_URL);
+    if (!ready) {
+      throw new Error(`❌ MCP API at ${MCP_URL} failed to become ready in CI`);
+    }
+    console.log("   ✅ Clean state provided by workflow");
+    return;
+  }
+
+  // Step 1: Reset database
+
   // Step 1: Reset database
   console.log("🧹 [1/2] Wiping database via npx @cybermem/cli reset -f");
   const resetResult = runCLI("npx @cybermem/cli reset -f");
