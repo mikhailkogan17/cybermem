@@ -88,8 +88,11 @@ jobs:
         with:
           name: e2e-reports-local-ci
           path: |
+            playwright-report/
+            test-results/
             packages/*/playwright-report/
             packages/*/test-results/
+          if-no-files-found: warn
           retention-days: 7
 
   # NOTE: Remote E2E (RPi) is NOT run on MR.
