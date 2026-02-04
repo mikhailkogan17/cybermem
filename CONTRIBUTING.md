@@ -8,8 +8,7 @@ CyberMem is a monorepo managed by NPM Workspaces.
 
 - **packages/cli**: The `@cybermem/cli` tool (Node.js)
 - **packages/dashboard**: The Next.js dashboard web interface
-- **packages/mcp**: The Python Model Context Protocol server
-- **external/openmemory**: The core memory engine (submodule)
+- **packages/mcp**: The TypeScript MCP server (uses `openmemory-js` via npm)
 
 ## 🚀 Development Setup
 
@@ -57,7 +56,7 @@ npm link
 
 ## 🤝 Rules of Engagement
 
-1. **No direct changes to `external/openmemory`**: We treat OpenMemory as an immutable upstream dependency. Features should be implemented via sidecars (Vector, Traefik) or wrappers (MCP, Dashboard).
+1. **Architecture**: CyberMem uses `openmemory-js` (npm) as the core memory engine, with Traefik as the API gateway.
 2. **Commit Messages**: Follow [Conventional Commits](https://www.conventionalcommits.org/) (e.g., `feat:`, `fix:`, `docs:`).
 3. **Linting**: Ensure `npm run lint` passes before pushing.
 

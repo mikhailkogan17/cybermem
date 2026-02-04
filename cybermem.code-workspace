@@ -28,7 +28,6 @@
     },
 
     // ===== Python (Ruff) =====
-    "python.defaultInterpreterPath": "${workspaceFolder}/external/openmemory/backend/.venv/bin/python",
     "[python]": {
       "editor.defaultFormatter": "charliermarsh.ruff",
       "editor.formatOnSave": true,
@@ -98,7 +97,6 @@
     "search.exclude": {
       "**/node_modules": true,
       "**/.venv": true,
-      "**/external/openmemory": false,
       "**/.git": true,
     },
     "cSpell.ignoreRegExpList": [
@@ -186,7 +184,7 @@
         "cwd": "${fileDirname}",
       },
       {
-        "name": "Docker: Attach to OpenMemory",
+        "name": "Docker: Attach to MCP",
         "type": "debugpy",
         "request": "attach",
         "connect": {
@@ -195,7 +193,7 @@
         },
         "pathMappings": [
           {
-            "localRoot": "${workspaceFolder}/external/openmemory/backend",
+            "localRoot": "${workspaceFolder}/packages/mcp",
             "remoteRoot": "/app",
           },
         ],
