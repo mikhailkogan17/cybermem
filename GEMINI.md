@@ -499,6 +499,16 @@ sequenceDiagram
   1. Mandated `X-Client-Name: antigravity-client` for ALL internal system calls (Dashboard, Health, Gatekeeper).
   2. Updated `log-exporter` to prioritize verified identities and stop opportunistic UA parsing for stats aggregation.
 
+### 5. Staging E2E Auth Failure (Feb 2026)
+- **Problem**: E2E tests failed on RPi (Tailscale staging) with 401 Unauthorized for `/add`, `/api/metrics`, and 404 for root `/`.
+- **Cause**: 
+  1. Tailscale staging environments use subpaths (e.g., `/cybermem-staging`) and enforce token-based authentication via `auth-sidecar`.
+  2. The E2E test runner (GitHub Action) was sending requests to the root `/` and missing the required `Authorization: Bearer <token>` header.
+- **Fix**: 
+  1. Updated `publish.yml` to generate a dedicated `staging-e2e` token and pass it to both Ansible (for environment setup) and Playwright.
+  2. Implemented `getHeaders()` helper in E2E tests to automatically include the token on non-localhost environments.
+  3. Added conditional `test.skip()` for routing tests that are specific to root-level deployments.
+
 ---
 
 ## 1.7 VERIFICATION STANDARD (The 16-Screen Rule)

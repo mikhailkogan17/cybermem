@@ -100,8 +100,29 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       rpi_url: ${{ steps.get_url.outputs.url }}
+      staging_token: ${{ steps.gen_token.outputs.token }}
     steps:
       - uses: actions/checkout@v4
+
+      - name: Generate Staging Token
+        id: gen_token
+        run: |
+          # Generate token for staging E2E auth (same format as CLI)
+          TOKEN="sk-$(openssl rand -hex 16)"
+          echo "token=$TOKEN" >> $GITHUB_OUTPUT
+
+          # Generate PBKDF2 hash (using Node.js to match CLI EXACTLY)
+          node -e "
+          const crypto = require('crypto');
+          const token = '$TOKEN';
+          const salt = crypto.randomBytes(16).toString('hex');
+          crypto.pbkdf2(token, salt, 100000, 64, 'sha512', (err, key) => {
+            if (err) process.exit(1);
+            console.log('token_hash=' + salt + ':' + key.toString('hex'));
+            console.log('token_id=' + crypto.randomBytes(8).toString('hex'));
+          });
+          " >> $GITHUB_OUTPUT
+          echo "✅ Generated staging token via Node.js"
 
       - name: Setup Tailscale
         uses: tailscale/github-action@v2
@@ -167,6 +188,7 @@ jobs:
             -i packages/cli/templates/ansible/inventory/hosts.ini \
             packages/cli/templates/ansible/playbooks/deploy-cybermem.yml \
             --extra-vars "cybermem_env=staging ghcr_user=${{ github.actor }} ghcr_token=${{ secrets.GITHUB_TOKEN }} ghcr_tag=staging TRAEFIK_PORT=8625 CYBERMEM_TAILSCALE=true" \
+            --extra-vars "auth_token_hash=${{ steps.gen_token.outputs.token_hash }} auth_token_id=${{ steps.gen_token.outputs.token_id }} auth_token_name=staging-e2e auth_token_value=${{ steps.gen_token.outputs.token }}" \
             --extra-vars "ansible_ssh_common_args='-o StrictHostKeyChecking=no'" \
             --extra-vars "ansible_host=${{ steps.get_rpi_ip.outputs.ip }}"
 
@@ -201,6 +223,7 @@ jobs:
         env:
           DASHBOARD_URL: ${{ needs.deploy-staging.outputs.rpi_url }}
           MCP_URL: ${{ needs.deploy-staging.outputs.rpi_url }}/mcp
+          CYBERMEM_TOKEN: ${{ needs.deploy-staging.outputs.staging_token }}
           TEST_ENV_NAME: "rpi-ts-staging"
         run: |
           echo "Testing against: $DASHBOARD_URL"

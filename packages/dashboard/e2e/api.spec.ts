@@ -9,6 +9,20 @@ const DASHBOARD_URL = process.env.DASHBOARD_URL || "http://localhost:3000";
 const RAW_MCP_URL = process.env.MCP_URL || "http://localhost:8626";
 const MCP_API_URL = RAW_MCP_URL.replace(/\/mcp\/?$/, "");
 
+// Tailscale environments require auth token
+const isLocalhost =
+  DASHBOARD_URL.includes("localhost") || DASHBOARD_URL.includes("127.0.0.1");
+const CYBERMEM_TOKEN = process.env.CYBERMEM_TOKEN || "";
+
+// Helper to build headers with optional auth
+function getHeaders(clientName: string): Record<string, string> {
+  const headers: Record<string, string> = { "X-Client-Name": clientName };
+  if (!isLocalhost && CYBERMEM_TOKEN) {
+    headers["Authorization"] = `Bearer ${CYBERMEM_TOKEN}`;
+  }
+  return headers;
+}
+
 const SQLITE_PATH = path.join(
   process.env.HOME || "",
   ".cybermem",
@@ -47,7 +61,7 @@ test.describe("Dashboard:E2E:API (Deep Verification)", () => {
       console.log("📊 GET /api/health");
 
       const response = await request.get(`${DASHBOARD_URL}/api/health`, {
-        headers: { "X-Client-Name": "antigravity-client" },
+        headers: getHeaders("antigravity-client"),
       });
 
       const body = await response.json();
@@ -82,7 +96,7 @@ test.describe("Dashboard:E2E:API (Deep Verification)", () => {
 
       const resp = await request.post(`${MCP_API_URL}/add`, {
         data: { content: uniqueContent, tags: ["journey"] },
-        headers: { "X-Client-Name": TEST_CLIENT },
+        headers: getHeaders(TEST_CLIENT),
       });
 
       console.log(`   Status: ${resp.status()}`);
@@ -102,7 +116,7 @@ test.describe("Dashboard:E2E:API (Deep Verification)", () => {
       console.log("📊 GET /api/metrics");
 
       const resp = await request.get(`${DASHBOARD_URL}/api/metrics`, {
-        headers: { "X-Client-Name": "antigravity-client" },
+        headers: getHeaders("antigravity-client"),
       });
 
       const data = await resp.json();
@@ -126,7 +140,7 @@ test.describe("Dashboard:E2E:API (Deep Verification)", () => {
       console.log("📋 GET /api/audit-logs");
 
       const resp = await request.get(`${DASHBOARD_URL}/api/audit-logs`, {
-        headers: { "X-Client-Name": "antigravity-client" },
+        headers: getHeaders("antigravity-client"),
       });
 
       const data = await resp.json();
@@ -163,7 +177,7 @@ test.describe("Dashboard:E2E:API (Deep Verification)", () => {
       const configResp = await request.get(
         `${DASHBOARD_URL}/api/mcp-config?type=json`,
         {
-          headers: { "X-Client-Name": "antigravity-client" },
+          headers: getHeaders("antigravity-client"),
         },
       );
 
@@ -185,7 +199,7 @@ test.describe("Dashboard:E2E:API (Deep Verification)", () => {
       console.log("⚙️  GET /api/settings");
 
       const settingsResp = await request.get(`${DASHBOARD_URL}/api/settings`, {
-        headers: { "X-Client-Name": "antigravity-client" },
+        headers: getHeaders("antigravity-client"),
       });
 
       const settings = await settingsResp.json();
