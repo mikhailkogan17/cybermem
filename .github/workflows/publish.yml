@@ -96,8 +96,8 @@ jobs:
             exit 1
           fi
 
-          # For staging, use the /cybermem-staging subpath
-          FUNNEL_URL="https://${RPI_DNS}/cybermem-staging"
+          # Staging uses root path - Tailscale Funnel routes / to port 8625
+          FUNNEL_URL="https://${RPI_DNS}"
           echo "url=${FUNNEL_URL}" >> $GITHUB_OUTPUT
           echo "✅ RPi Funnel URL: ${FUNNEL_URL}"
 
