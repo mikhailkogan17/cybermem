@@ -65,8 +65,22 @@
       when: auth_token_value is defined
       ignore_errors: true
 
+    - name: Ensure data directory exists
+      file:
+        path: "{{ project_dir }}/data"
+        state: directory
+        owner: "{{ ansible_user }}"
+        group: "{{ ansible_user }}"
+        mode: "0755"
+
+    - name: Check if database exists
+      stat:
+        path: "{{ project_dir }}/data/openmemory.sqlite"
+      register: db_file
+
     - name: Create pre-deploy database backup
-      shell: "cp {{ project_dir }}/data/openmemory.sqlite {{ project_dir }}/backups/openmemory.sqlite.{{ ansible_date_time.iso8601_basic_short }}.bak"
+      shell: "cp {{ project_dir }}/data/openmemory.sqlite {{ project_dir }}/backups/openmemory.sqlite.{{ ansible_facts['date_time']['iso8601_basic_short'] }}.bak"
+      when: db_file.stat.exists
       ignore_errors: true
 
     - name: Copy Docker Compose template
@@ -113,17 +127,17 @@
         - name: Patch MCP build context
           replace:
             path: "{{ project_dir }}/docker-compose.yml"
-            regexp: 'context: \\.\\./\\.\\./mcp'
+            regexp: 'context: \.\./\.\./mcp'
             replace: "context: ./packages/mcp"
         - name: Patch Dashboard build context
           replace:
             path: "{{ project_dir }}/docker-compose.yml"
-            regexp: 'context: \\.\\./\\.\\./dashboard'
+            regexp: 'context: \.\./\.\./dashboard'
             replace: "context: ./packages/dashboard"
         - name: Patch auth-sidecar build context
           replace:
             path: "{{ project_dir }}/docker-compose.yml"
-            regexp: 'context: \\./auth-sidecar'
+            regexp: 'context: \./auth-sidecar'
             replace: "context: ./auth-sidecar"
       when: build_from_source | default(false) | bool
 
@@ -137,11 +151,14 @@
       copy:
         content: |
           CYBERMEM_INSTANCE=rpi
-          CYBERMEM_ENV={{ CYBERMEM_ENV | default('prod') }}
+          CYBERMEM_ENV={{ cybermem_env | default('prod') }}
           PROJECT_NAME={{ PROJECT_NAME | default('cybermem') }}
           TRAEFIK_PORT={{ TRAEFIK_PORT | default('8626') }}
           CYBERMEM_TAILSCALE={{ CYBERMEM_TAILSCALE | default('false') }}
           SECRETS_DIR={{ project_dir }}/secrets
+          DATA_DIR={{ project_dir }}/data
+          CYBERMEM_ENV_PATH={{ project_dir }}/.env
+          CYBERMEM_HOME={{ project_dir }}
           # Add other envs as needed
         dest: "{{ project_dir }}/.env"
         force: true
@@ -154,11 +171,27 @@
         global_version: "{{ (lookup('file', playbook_dir + '/../../../../../package.json') | from_json).version }}"
 
     - name: Build images from source (staging/pre-release)
-      command: docker-compose -p {{ PROJECT_NAME | default('cybermem') }} build --no-cache
+      shell: |
+        set -a
+        source {{ project_dir }}/.env
+        set +a
+        docker-compose -p {{ PROJECT_NAME | default('cybermem') }} build --no-cache 2>&1
       args:
         chdir: "{{ project_dir }}"
+        executable: /bin/bash
       when: build_from_source | default(false) | bool
       register: build_out
+      ignore_errors: true
+      
+    - name: Display build output on failure
+      debug:
+        var: build_out
+      when: build_from_source | default(false) | bool and build_out.failed
+
+    - name: Fail play when build from source fails
+      fail:
+        msg: "Docker image build from source failed. See 'build_out' debug output above for details."
+      when: build_from_source | default(false) | bool and build_out.failed
 
     - name: Pull latest images from GHCR (production)
       command: docker-compose -p {{ PROJECT_NAME | default('cybermem') }} pull

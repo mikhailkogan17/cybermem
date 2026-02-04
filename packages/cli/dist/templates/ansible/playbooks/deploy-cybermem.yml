@@ -65,8 +65,22 @@
       when: auth_token_value is defined
       ignore_errors: true
 
+    - name: Ensure data directory exists
+      file:
+        path: "{{ project_dir }}/data"
+        state: directory
+        owner: "{{ ansible_user }}"
+        group: "{{ ansible_user }}"
+        mode: "0755"
+
+    - name: Check if database exists
+      stat:
+        path: "{{ project_dir }}/data/openmemory.sqlite"
+      register: db_file
+
     - name: Create pre-deploy database backup
-      shell: "cp {{ project_dir }}/data/openmemory.sqlite {{ project_dir }}/backups/openmemory.sqlite.{{ ansible_date_time.iso8601_basic_short }}.bak"
+      shell: "cp {{ project_dir }}/data/openmemory.sqlite {{ project_dir }}/backups/openmemory.sqlite.{{ ansible_facts['date_time']['iso8601_basic_short'] }}.bak"
+      when: db_file.stat.exists
       ignore_errors: true
 
     - name: Copy Docker Compose template
