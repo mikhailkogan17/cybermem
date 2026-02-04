@@ -132,7 +132,7 @@ jobs:
           ansible-playbook \
             -i packages/cli/templates/ansible/inventory/hosts.ini \
             packages/cli/templates/ansible/playbooks/deploy-cybermem.yml \
-            --extra-vars "cybermem_env=staging build_from_source=true TRAEFIK_PORT=8625" \
+            --extra-vars "cybermem_env=staging build_from_source=true TRAEFIK_PORT=8625 CYBERMEM_TAILSCALE=true" \
             --extra-vars "ansible_ssh_common_args='-o StrictHostKeyChecking=no'" \
             --extra-vars "ansible_host=${{ steps.get_rpi_ip.outputs.ip }}"
 
@@ -507,7 +507,7 @@ jobs:
           ansible-playbook \
             -i packages/cli/templates/ansible/inventory/hosts.ini \
             packages/cli/templates/ansible/playbooks/deploy-cybermem.yml \
-            --extra-vars "cybermem_env=prod ghcr_user=${{ github.actor }} ghcr_token=${{ secrets.GITHUB_TOKEN }}" \
+            --extra-vars "cybermem_env=prod ghcr_user=${{ github.actor }} ghcr_token=${{ secrets.GITHUB_TOKEN }} CYBERMEM_TAILSCALE=true" \
             --extra-vars "ansible_ssh_common_args='-o StrictHostKeyChecking=no'" \
             --extra-vars "ansible_host=${{ steps.get_rpi_ip.outputs.ip }}"
 

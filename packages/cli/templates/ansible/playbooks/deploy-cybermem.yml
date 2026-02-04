@@ -182,7 +182,7 @@
       when: build_from_source | default(false) | bool
       register: build_out
       ignore_errors: true
-      
+
     - name: Display build output on failure
       debug:
         var: build_out
@@ -228,6 +228,40 @@
         sqlite3 {{ project_dir }}/data/openmemory.sqlite "INSERT INTO access_keys (id, key_hash, name, user_id) VALUES ('{{ auth_token_id }}', '{{ auth_token_hash }}', '{{ auth_token_name | default('ansible-generated') }}', 'admin');"
       when: auth_token_hash is defined
       ignore_errors: true
+
+    - name: Configure Tailscale Funnel (if enabled)
+      shell: |
+        # Reset any existing configuration
+        tailscale serve reset 2>/dev/null || true
+        tailscale funnel reset 2>/dev/null || true
+
+        # Configure paths based on environment
+        # Staging: /cybermem-staging -> 8625
+        # Prod: /cybermem -> 8626
+        if [ "{{ cybermem_env | default('prod') }}" = "staging" ]; then
+          tailscale funnel --bg --set-path=/cybermem-staging http://127.0.0.1:8625
+        else
+          tailscale funnel --bg --set-path=/cybermem http://127.0.0.1:8626
+        fi
+
+        # Also add the other environment if both ports are running
+        if docker ps | grep -q "cybermem-staging"; then
+          tailscale funnel --bg --set-path=/cybermem-staging http://127.0.0.1:8625 || true
+        fi
+        if docker ps | grep -q "cybermem" | grep -v staging; then
+          tailscale funnel --bg --set-path=/cybermem http://127.0.0.1:8626 || true
+        fi
+
+        tailscale funnel status
+      become: true
+      when: CYBERMEM_TAILSCALE | default('false') | bool
+      register: funnel_status
+      ignore_errors: true
+
+    - name: Display Tailscale Funnel Status
+      debug:
+        var: funnel_status.stdout_lines
+      when: funnel_status is defined and funnel_status.stdout_lines is defined
 
     - name: Wait for Traefik to be ready
       uri:
