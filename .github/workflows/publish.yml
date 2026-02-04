@@ -110,14 +110,19 @@ jobs:
           # Generate token for staging E2E auth (same format as CLI)
           TOKEN="sk-$(openssl rand -hex 16)"
           echo "token=$TOKEN" >> $GITHUB_OUTPUT
-          # Generate PBKDF2 hash (same as CLI's hashToken function)
-          SALT=$(openssl rand -hex 16)
-          HASH=$(echo -n "$TOKEN" | openssl dgst -sha512 -hmac "$SALT" | awk '{print $2}')
-          TOKEN_HASH="${SALT}:${HASH}"
-          TOKEN_ID=$(openssl rand -hex 8)
-          echo "token_hash=$TOKEN_HASH" >> $GITHUB_OUTPUT
-          echo "token_id=$TOKEN_ID" >> $GITHUB_OUTPUT
-          echo "✅ Generated staging token"
+
+          # Generate PBKDF2 hash (using Node.js to match CLI EXACTLY)
+          node -e "
+          const crypto = require('crypto');
+          const token = '$TOKEN';
+          const salt = crypto.randomBytes(16).toString('hex');
+          crypto.pbkdf2(token, salt, 100000, 64, 'sha512', (err, key) => {
+            if (err) process.exit(1);
+            console.log('token_hash=' + salt + ':' + key.toString('hex'));
+            console.log('token_id=' + crypto.randomBytes(8).toString('hex'));
+          });
+          " >> $GITHUB_OUTPUT
+          echo "✅ Generated staging token via Node.js"
 
       - name: Setup Tailscale
         uses: tailscale/github-action@v2
