@@ -100,8 +100,24 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       rpi_url: ${{ steps.get_url.outputs.url }}
+      staging_token: ${{ steps.gen_token.outputs.token }}
     steps:
       - uses: actions/checkout@v4
+
+      - name: Generate Staging Token
+        id: gen_token
+        run: |
+          # Generate token for staging E2E auth (same format as CLI)
+          TOKEN="sk-$(openssl rand -hex 16)"
+          echo "token=$TOKEN" >> $GITHUB_OUTPUT
+          # Generate PBKDF2 hash (same as CLI's hashToken function)
+          SALT=$(openssl rand -hex 16)
+          HASH=$(echo -n "$TOKEN" | openssl dgst -sha512 -hmac "$SALT" | awk '{print $2}')
+          TOKEN_HASH="${SALT}:${HASH}"
+          TOKEN_ID=$(openssl rand -hex 8)
+          echo "token_hash=$TOKEN_HASH" >> $GITHUB_OUTPUT
+          echo "token_id=$TOKEN_ID" >> $GITHUB_OUTPUT
+          echo "✅ Generated staging token"
 
       - name: Setup Tailscale
         uses: tailscale/github-action@v2
@@ -167,6 +183,7 @@ jobs:
             -i packages/cli/templates/ansible/inventory/hosts.ini \
             packages/cli/templates/ansible/playbooks/deploy-cybermem.yml \
             --extra-vars "cybermem_env=staging ghcr_user=${{ github.actor }} ghcr_token=${{ secrets.GITHUB_TOKEN }} ghcr_tag=staging TRAEFIK_PORT=8625 CYBERMEM_TAILSCALE=true" \
+            --extra-vars "auth_token_hash=${{ steps.gen_token.outputs.token_hash }} auth_token_id=${{ steps.gen_token.outputs.token_id }} auth_token_name=staging-e2e auth_token_value=${{ steps.gen_token.outputs.token }}" \
             --extra-vars "ansible_ssh_common_args='-o StrictHostKeyChecking=no'" \
             --extra-vars "ansible_host=${{ steps.get_rpi_ip.outputs.ip }}"
 
@@ -201,6 +218,7 @@ jobs:
         env:
           DASHBOARD_URL: ${{ needs.deploy-staging.outputs.rpi_url }}
           MCP_URL: ${{ needs.deploy-staging.outputs.rpi_url }}/mcp
+          CYBERMEM_TOKEN: ${{ needs.deploy-staging.outputs.staging_token }}
           TEST_ENV_NAME: "rpi-ts-staging"
         run: |
           echo "Testing against: $DASHBOARD_URL"
