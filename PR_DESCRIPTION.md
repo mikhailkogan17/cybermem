@@ -1,16 +1,27 @@
-# PR v0.13.0-RC1: Release Verification and Refinement
+## Postmortem Analysis
+
+### Symptom
+Potential edge case where multiple Raspberry Pi devices in Tailscale network could cause the jq query to return multiple IPs, breaking the deployment.
+
+### Root Cause
+1. The `deploy-staging` job had a duplicate `sleep 5` (already waited in `get_url` step at line 72)
+2. The jq queries for RPi IP extraction lacked `| head -1` to handle multi-device scenarios
+
+### Fix Strategy
+1. Removed duplicate sleep in `deploy-staging` job
+2. Added `| head -1` to both jq queries (staging and prod jobs)
+
+### Prevention
+Copilot code review caught this during PR #29 review.
 
 ## Changes
-- **Refined Dashboard UI E2E**: Implemented strict assertions for Identity (Top/Last), Audit Logs (Precision), Charts (Visual Presence), MCP Modal (Exact JSON), and Settings (Token).
-- **Added Full CRUD Coverage**: MCP API tests now verify `add`, `query`, `update`, and `reinforce` (actualization) tools.
-- **Fixed RPi MCP Modal**: Refactored `/api/mcp-config` to use robust internal fetching, resolving the empty modal regression on RPi.
-- **Enhanced Audit Logs**: Success logs now include `method` and `endpoint` for improved visibility.
-- **Unified Verification**: Created a central HTML dashboard linking all Playwright reports.
+- **[FIX]** `.github/workflows/publish.yml`
+  - Line 89-93: Removed duplicate `sleep 5`, added `| head -1` to jq (deploy-staging)
+  - Line 363: Added `| head -1` to jq (deploy-prod)
 
 ## Verification
-Full verification performed across:
-- Local Macbook (Mocked UI + Docker API)
-- RPi LAN (8626)
-- RPi TS-Staging
+- [x] YAML syntax valid
+- [ ] CI pipeline passes
 
-[View Release Report](file:///Users/mikhailkogan/cybermem/release-reports/v0.13.0-RC1.md)
+### Evidence
+Changes address all 3 actionable Copilot comments from PR #29 review.
