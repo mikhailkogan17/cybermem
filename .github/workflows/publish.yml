@@ -197,7 +197,8 @@ jobs:
             TEST_STATUS="failed"
           fi
           
-          cat > release-report-staging/RPI-TS-STAGING.md << EOF
+          # Generate report with proper variable expansion
+          cat > release-report-staging/RPI-TS-STAGING.md <<EOF
           # RPI-TS-STAGING Verification Report
           
           **Date**: $(date -u +%Y-%m-%d)
@@ -213,7 +214,7 @@ jobs:
           ## Artifacts
           
           All screenshots and detailed reports are available in the uploaded artifacts.
-          EOF
+EOF
           echo "✅ Release report summary generated"
 
       - name: Slack (Staging Fail)
@@ -377,12 +378,14 @@ jobs:
           
           # Remove rpi-ts-staging subfolder if it exists and flatten structure
           if [ -d "${REPORT_DIR}/rpi-ts-staging" ]; then
-            # Move everything from rpi-ts-staging to the version directory
+            # Move everything including hidden files from rpi-ts-staging to the version directory
+            shopt -s dotglob
             if mv "${REPORT_DIR}/rpi-ts-staging"/* "${REPORT_DIR}/" 2>/dev/null; then
               echo "✅ Flattened rpi-ts-staging subfolder"
             else
               echo "⚠️ Warning: Could not move all files from rpi-ts-staging"
             fi
+            shopt -u dotglob
             # Remove the now-empty rpi-ts-staging directory
             rm -rf "${REPORT_DIR}/rpi-ts-staging"
           fi
