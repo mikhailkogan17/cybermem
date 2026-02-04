@@ -378,7 +378,11 @@ jobs:
           # Remove rpi-ts-staging subfolder if it exists and flatten structure
           if [ -d "${REPORT_DIR}/rpi-ts-staging" ]; then
             # Move everything from rpi-ts-staging to the version directory
-            mv "${REPORT_DIR}/rpi-ts-staging"/* "${REPORT_DIR}/" 2>/dev/null || true
+            if mv "${REPORT_DIR}/rpi-ts-staging"/* "${REPORT_DIR}/" 2>/dev/null; then
+              echo "✅ Flattened rpi-ts-staging subfolder"
+            else
+              echo "⚠️ Warning: Could not move all files from rpi-ts-staging"
+            fi
             # Remove the now-empty rpi-ts-staging directory
             rm -rf "${REPORT_DIR}/rpi-ts-staging"
           fi
@@ -468,7 +472,7 @@ jobs:
             echo "Waiting for Tailscale... ($i/12)"
           done
           
-          # Final verification: ensure Tailscale is connected before proceeding
+          # Ensure Tailscale is connected before proceeding
           if [ "$TAILSCALE_CONNECTED" -ne 1 ]; then
             echo "❌ Tailscale failed to connect after multiple attempts"
             tailscale status || true
