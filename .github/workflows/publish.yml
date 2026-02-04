@@ -70,14 +70,23 @@ jobs:
         run: |
           # Wait for Tailscale to be fully connected with retries
           echo "Waiting for Tailscale connection..."
+          TAILSCALE_CONNECTED=0
           for i in {1..12}; do
             sleep 5
             if tailscale status --json >/dev/null 2>&1; then
               echo "✅ Tailscale connected (attempt $i)"
+              TAILSCALE_CONNECTED=1
               break
             fi
             echo "Waiting for Tailscale... ($i/12)"
           done
+          
+          # Ensure Tailscale is connected before proceeding
+          if [ "$TAILSCALE_CONNECTED" -ne 1 ]; then
+            echo "❌ Tailscale did not connect after retries"
+            tailscale status || true
+            exit 1
+          fi
           
           # Get the RPi's MagicDNS name from connected peers
           RPI_DNS=$(tailscale status --json | jq -r '.Peer[] | select(.HostName | test("raspberrypi"; "i")) | .DNSName' | head -1 | sed 's/\.$//')
@@ -154,6 +163,7 @@ jobs:
         run: npm run build --workspaces
 
       - name: Run E2E Verification
+        id: run-e2e
         env:
           DASHBOARD_URL: ${{ needs.deploy-staging.outputs.rpi_url }}
           MCP_URL: ${{ needs.deploy-staging.outputs.rpi_url }}/mcp
@@ -179,13 +189,21 @@ jobs:
         if: always()
         run: |
           mkdir -p release-report-staging
+          # Determine actual test status from previous steps
+          TEST_STATUS="unknown"
+          if [ "${{ steps.run-e2e.outcome }}" == "success" ]; then
+            TEST_STATUS="passed"
+          elif [ "${{ steps.run-e2e.outcome }}" == "failure" ]; then
+            TEST_STATUS="failed"
+          fi
+          
           cat > release-report-staging/RPI-TS-STAGING.md << EOF
           # RPI-TS-STAGING Verification Report
           
           **Date**: $(date -u +%Y-%m-%d)
           **Environment**: RPI-TS-STAGING
           **URL**: ${{ needs.deploy-staging.outputs.rpi_url }}
-          **Status**: ${{ job.status }}
+          **Status**: ${TEST_STATUS}
           
           ## Test Results
           
@@ -350,21 +368,41 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: e2e-reports-staging
-          path: release-reports/v${{ needs.publish-npm.outputs.version }}/rpi-ts-staging
+          path: release-reports/v${{ needs.publish-npm.outputs.version }}
 
       - name: Organize Release Reports
         run: |
           VERSION="${{ needs.publish-npm.outputs.version }}"
           REPORT_DIR="release-reports/v${VERSION}"
           
-          # Create proper structure
-          mkdir -p "${REPORT_DIR}"
+          # Remove rpi-ts-staging subfolder if it exists and flatten structure
+          if [ -d "${REPORT_DIR}/rpi-ts-staging" ]; then
+            # Move everything from rpi-ts-staging to the version directory
+            mv "${REPORT_DIR}/rpi-ts-staging"/* "${REPORT_DIR}/" 2>/dev/null || true
+            # Remove the now-empty rpi-ts-staging directory
+            rm -rf "${REPORT_DIR}/rpi-ts-staging"
+          fi
           
-          # Move playwright reports if they exist
-          if [ -d "${REPORT_DIR}/rpi-ts-staging/packages" ]; then
-            find "${REPORT_DIR}/rpi-ts-staging/packages" -name "playwright-report" -type d -exec mv {} "${REPORT_DIR}/rpi-ts-staging/" \; 2>/dev/null || true
-            find "${REPORT_DIR}/rpi-ts-staging/packages" -name "test-results" -type d -exec mv {} "${REPORT_DIR}/rpi-ts-staging/" \; 2>/dev/null || true
-            rm -rf "${REPORT_DIR}/rpi-ts-staging/packages"
+          # Clean up packages directory structure if present
+          if [ -d "${REPORT_DIR}/packages" ]; then
+            # Move playwright-report and test-results directories preserving package names
+            for pkg_dir in "${REPORT_DIR}/packages"/*; do
+              if [ -d "$pkg_dir" ]; then
+                pkg_name=$(basename "$pkg_dir")
+                # Move playwright-report if exists
+                if [ -d "$pkg_dir/playwright-report" ]; then
+                  mkdir -p "${REPORT_DIR}/playwright-report"
+                  mv "$pkg_dir/playwright-report" "${REPORT_DIR}/playwright-report/${pkg_name}" 2>/dev/null || true
+                fi
+                # Move test-results if exists
+                if [ -d "$pkg_dir/test-results" ]; then
+                  mkdir -p "${REPORT_DIR}/test-results"
+                  mv "$pkg_dir/test-results" "${REPORT_DIR}/test-results/${pkg_name}" 2>/dev/null || true
+                fi
+              fi
+            done
+            # Remove the packages directory
+            rm -rf "${REPORT_DIR}/packages"
           fi
           
           echo "✅ Release reports organized for v${VERSION}"
@@ -419,14 +457,23 @@ jobs:
         run: |
           # Wait for Tailscale to be fully connected with retries
           echo "Waiting for Tailscale connection..."
+          TAILSCALE_CONNECTED=0
           for i in {1..12}; do
             sleep 5
             if tailscale status --json >/dev/null 2>&1; then
               echo "✅ Tailscale connected (attempt $i)"
+              TAILSCALE_CONNECTED=1
               break
             fi
             echo "Waiting for Tailscale... ($i/12)"
           done
+          
+          # Final verification: ensure Tailscale is connected before proceeding
+          if [ "$TAILSCALE_CONNECTED" -ne 1 ]; then
+            echo "❌ Tailscale failed to connect after multiple attempts"
+            tailscale status || true
+            exit 1
+          fi
           
           # Get the RPi's Tailscale IP with retry
           for i in {1..5}; do
