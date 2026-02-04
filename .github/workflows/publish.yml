@@ -68,16 +68,29 @@ jobs:
       - name: Get RPi Funnel URL (Dynamic)
         id: get_url
         run: |
-          # Wait for Tailscale to be fully connected
-          sleep 5
+          # Wait for Tailscale to be fully connected with retries
+          echo "Waiting for Tailscale connection..."
+          for i in {1..12}; do
+            sleep 5
+            if tailscale status --json >/dev/null 2>&1; then
+              echo "✅ Tailscale connected (attempt $i)"
+              break
+            fi
+            echo "Waiting for Tailscale... ($i/12)"
+          done
+          
           # Get the RPi's MagicDNS name from connected peers
           RPI_DNS=$(tailscale status --json | jq -r '.Peer[] | select(.HostName | test("raspberrypi"; "i")) | .DNSName' | head -1 | sed 's/\.$//')
           if [ -z "$RPI_DNS" ]; then
             echo "❌ Could not find RPi in Tailscale network"
+            tailscale status
             exit 1
           fi
-          echo "url=https://${RPI_DNS}" >> $GITHUB_OUTPUT
-          echo "✅ RPi URL: https://${RPI_DNS}"
+          
+          # For staging, use the /cybermem-staging subpath
+          FUNNEL_URL="https://${RPI_DNS}/cybermem-staging"
+          echo "url=${FUNNEL_URL}" >> $GITHUB_OUTPUT
+          echo "✅ RPi Funnel URL: ${FUNNEL_URL}"
 
       - name: Setup Ansible
         run: |
@@ -87,14 +100,21 @@ jobs:
       - name: Get RPi Tailscale IP
         id: get_rpi_ip
         run: |
-          # Get the RPi's Tailscale IP (Tailscale already connected in get_url step)
-          RPI_IP=$(tailscale status --json | jq -r '.Peer[] | select(.HostName | test("raspberrypi"; "i")) | .TailscaleIPs[0]' | head -1)
-          if [ -z "$RPI_IP" ]; then
-            echo "❌ Could not find RPi in Tailscale network"
-            exit 1
-          fi
-          echo "ip=$RPI_IP" >> $GITHUB_OUTPUT
-          echo "✅ RPi Tailscale IP: $RPI_IP"
+          # Get the RPi's Tailscale IP with retry
+          for i in {1..5}; do
+            RPI_IP=$(tailscale status --json | jq -r '.Peer[] | select(.HostName | test("raspberrypi"; "i")) | .TailscaleIPs[0]' | head -1)
+            if [ -n "$RPI_IP" ]; then
+              echo "ip=$RPI_IP" >> $GITHUB_OUTPUT
+              echo "✅ RPi Tailscale IP: $RPI_IP"
+              exit 0
+            fi
+            echo "Retrying RPi IP detection... ($i/5)"
+            sleep 3
+          done
+          
+          echo "❌ Could not find RPi in Tailscale network after retries"
+          tailscale status
+          exit 1
 
       - name: Deploy Staging (Build from Source)
         env:
@@ -135,8 +155,8 @@ jobs:
 
       - name: Run E2E Verification
         env:
-          DASHBOARD_URL: ${{ needs.deploy-staging.outputs.rpi_url }}:8625
-          MCP_URL: ${{ needs.deploy-staging.outputs.rpi_url }}:8625/mcp
+          DASHBOARD_URL: ${{ needs.deploy-staging.outputs.rpi_url }}
+          MCP_URL: ${{ needs.deploy-staging.outputs.rpi_url }}/mcp
           TEST_ENV_NAME: "rpi-ts-staging"
         run: |
           echo "Testing against: $DASHBOARD_URL"
@@ -397,16 +417,32 @@ jobs:
       - name: Get RPi Tailscale IP
         id: get_rpi_ip
         run: |
-          # Wait for Tailscale to be fully connected
-          sleep 5
-          # Get the RPi's Tailscale IP
-          RPI_IP=$(tailscale status --json | jq -r '.Peer[] | select(.HostName | test("raspberrypi"; "i")) | .TailscaleIPs[0]' | head -1)
-          if [ -z "$RPI_IP" ]; then
-            echo "❌ Could not find RPi in Tailscale network"
-            exit 1
-          fi
-          echo "ip=$RPI_IP" >> $GITHUB_OUTPUT
-          echo "✅ RPi Tailscale IP: $RPI_IP"
+          # Wait for Tailscale to be fully connected with retries
+          echo "Waiting for Tailscale connection..."
+          for i in {1..12}; do
+            sleep 5
+            if tailscale status --json >/dev/null 2>&1; then
+              echo "✅ Tailscale connected (attempt $i)"
+              break
+            fi
+            echo "Waiting for Tailscale... ($i/12)"
+          done
+          
+          # Get the RPi's Tailscale IP with retry
+          for i in {1..5}; do
+            RPI_IP=$(tailscale status --json | jq -r '.Peer[] | select(.HostName | test("raspberrypi"; "i")) | .TailscaleIPs[0]' | head -1)
+            if [ -n "$RPI_IP" ]; then
+              echo "ip=$RPI_IP" >> $GITHUB_OUTPUT
+              echo "✅ RPi Tailscale IP: $RPI_IP"
+              exit 0
+            fi
+            echo "Retrying RPi IP detection... ($i/5)"
+            sleep 3
+          done
+          
+          echo "❌ Could not find RPi in Tailscale network after retries"
+          tailscale status
+          exit 1
 
       - name: Wait for GHCR Propagation
         run: sleep 30
