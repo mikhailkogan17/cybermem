@@ -265,7 +265,7 @@
 
         tailscale funnel status
       become: true
-      when: CYBERMEM_TAILSCALE | default('false') | bool
+      when: (CYBERMEM_TAILSCALE | default('false') | bool) and (health_status is defined and not health_status.failed and (health_status.content | from_json).overall == 'ok')
       register: funnel_status
       ignore_errors: true
 
