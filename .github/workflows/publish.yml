@@ -179,12 +179,12 @@ jobs:
         if: always()
         run: |
           mkdir -p release-report-staging
-          cat > release-report-staging/RPI-TS-STAGING.md << 'EOF'
+          cat > release-report-staging/RPI-TS-STAGING.md << EOF
           # RPI-TS-STAGING Verification Report
           
           **Date**: $(date -u +%Y-%m-%d)
           **Environment**: RPI-TS-STAGING
-          **URL**: ${{ needs.deploy-staging.outputs.rpi_url }}:8625
+          **URL**: ${{ needs.deploy-staging.outputs.rpi_url }}
           **Status**: ${{ job.status }}
           
           ## Test Results
