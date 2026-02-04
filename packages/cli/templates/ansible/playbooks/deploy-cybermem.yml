@@ -113,17 +113,17 @@
         - name: Patch MCP build context
           replace:
             path: "{{ project_dir }}/docker-compose.yml"
-            regexp: 'context:\s+\.\./\.\./mcp'
+            regexp: 'context:\s+\.\.\/\.\.\/mcp'
             replace: "context: ./packages/mcp"
         - name: Patch Dashboard build context
           replace:
             path: "{{ project_dir }}/docker-compose.yml"
-            regexp: 'context:\s+\.\./\.\./dashboard'
+            regexp: 'context:\s+\.\.\/\.\.\/dashboard'
             replace: "context: ./packages/dashboard"
         - name: Patch auth-sidecar build context
           replace:
             path: "{{ project_dir }}/docker-compose.yml"
-            regexp: 'context:\s+\./auth-sidecar'
+            regexp: 'context:\s+\.\/auth-sidecar'
             replace: "context: ./auth-sidecar"
       when: build_from_source | default(false) | bool
 
