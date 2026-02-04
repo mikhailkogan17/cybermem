@@ -229,40 +229,6 @@
       when: auth_token_hash is defined
       ignore_errors: true
 
-    - name: Configure Tailscale Funnel (if enabled)
-      shell: |
-        # Reset any existing configuration
-        tailscale serve reset 2>/dev/null || true
-        tailscale funnel reset 2>/dev/null || true
-
-        # Configure paths based on environment
-        # Staging: /cybermem-staging -> 8625
-        # Prod: /cybermem -> 8626
-        if [ "{{ cybermem_env | default('prod') }}" = "staging" ]; then
-          tailscale funnel --bg --set-path=/cybermem-staging http://127.0.0.1:8625
-        else
-          tailscale funnel --bg --set-path=/cybermem http://127.0.0.1:8626
-        fi
-
-        # Also add the other environment if both ports are running
-        if docker ps | grep -q "cybermem-staging"; then
-          tailscale funnel --bg --set-path=/cybermem-staging http://127.0.0.1:8625 || true
-        fi
-        if docker ps | grep -q "cybermem" | grep -v staging; then
-          tailscale funnel --bg --set-path=/cybermem http://127.0.0.1:8626 || true
-        fi
-
-        tailscale funnel status
-      become: true
-      when: CYBERMEM_TAILSCALE | default('false') | bool
-      register: funnel_status
-      ignore_errors: true
-
-    - name: Display Tailscale Funnel Status
-      debug:
-        var: funnel_status.stdout_lines
-      when: funnel_status is defined and funnel_status.stdout_lines is defined
-
     - name: Wait for Traefik to be ready
       uri:
         url: "http://localhost:{{ TRAEFIK_PORT | default('8626') }}/health"
@@ -281,6 +247,32 @@
       retries: 5
       delay: 10
       ignore_errors: true
+
+    - name: Configure Tailscale Funnel (after health check)
+      shell: |
+        # Reset any existing configuration for clean state
+        tailscale serve reset 2>/dev/null || true
+        tailscale funnel reset 2>/dev/null || true
+
+        # Configure path based on current environment only
+        # Staging: /cybermem-staging -> 8625
+        # Prod: /cybermem -> 8626
+        if [ "{{ cybermem_env | default('prod') }}" = "staging" ]; then
+          tailscale funnel --bg --set-path=/cybermem-staging http://127.0.0.1:8625
+        else
+          tailscale funnel --bg --set-path=/cybermem http://127.0.0.1:8626
+        fi
+
+        tailscale funnel status
+      become: true
+      when: CYBERMEM_TAILSCALE | default('false') | bool
+      register: funnel_status
+      ignore_errors: true
+
+    - name: Display Tailscale Funnel Status
+      debug:
+        var: funnel_status.stdout_lines
+      when: funnel_status is defined and funnel_status.stdout_lines is defined
 
     - name: Automated Rollback on Failure
       block:
