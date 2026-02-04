@@ -181,7 +181,8 @@ jobs:
             sleep 10
           done
 
-          # Run E2E tests
+          # Run E2E tests from packages/cli where scripts are defined
+          cd packages/cli
           npm run test:e2e:dashboard:api
           npm run test:e2e:cli
 
