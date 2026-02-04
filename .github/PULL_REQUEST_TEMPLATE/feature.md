@@ -26,8 +26,8 @@ assignees: []
 - **[NEW]** `path/to/new/file`
 - **[MOD]** `path/to/modified/file`
 
-## Verification (16-Screen Rule)
-<!-- AGENT: Attach screenshots proving usage in 4 environments. -->
+## Verification
+<!-- AGENT: Attach screenshots proving usage in 4 environments (16-Screen Rule). -->
 
 ### Local (localhost:8626)
 ![Local Dashboard](...)
