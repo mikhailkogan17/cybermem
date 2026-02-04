@@ -65,8 +65,17 @@
       when: auth_token_value is defined
       ignore_errors: true
 
+    - name: Ensure data directory exists
+      file:
+        path: "{{ project_dir }}/data"
+        state: directory
+        owner: "{{ ansible_user }}"
+        group: "{{ ansible_user }}"
+        mode: "0755"
+
     - name: Create pre-deploy database backup
-      shell: "cp {{ project_dir }}/data/openmemory.sqlite {{ project_dir }}/backups/openmemory.sqlite.{{ ansible_date_time.iso8601_basic_short }}.bak"
+      shell: "cp {{ project_dir }}/data/openmemory.sqlite {{ project_dir }}/backups/openmemory.sqlite.{{ ansible_facts['date_time']['iso8601_basic_short'] }}.bak"
+      when: "{{ project_dir }}/data/openmemory.sqlite is file"
       ignore_errors: true
 
     - name: Copy Docker Compose template
@@ -154,9 +163,14 @@
         global_version: "{{ (lookup('file', playbook_dir + '/../../../../../package.json') | from_json).version }}"
 
     - name: Build images from source (staging/pre-release)
-      command: docker-compose -p {{ PROJECT_NAME | default('cybermem') }} build --no-cache
+      shell: |
+        set -a
+        source {{ project_dir }}/.env
+        set +a
+        docker-compose -p {{ PROJECT_NAME | default('cybermem') }} build --no-cache
       args:
         chdir: "{{ project_dir }}"
+        executable: /bin/bash
       when: build_from_source | default(false) | bool
       register: build_out
 

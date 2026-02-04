@@ -137,7 +137,7 @@ jobs:
         env:
           DASHBOARD_URL: ${{ needs.deploy-staging.outputs.rpi_url }}:8625
           MCP_URL: ${{ needs.deploy-staging.outputs.rpi_url }}:8625/mcp
-          TEST_ENV_NAME: "rpi-staging-ts"
+          TEST_ENV_NAME: "rpi-ts-staging"
         run: |
           echo "Testing against: $DASHBOARD_URL"
 
@@ -154,6 +154,29 @@ jobs:
           # Run E2E tests
           npm run test:e2e:dashboard:api
           npm run test:e2e:cli
+
+      - name: Generate Release Report Summary
+        if: always()
+        run: |
+          mkdir -p release-report-staging
+          cat > release-report-staging/RPI-TS-STAGING.md << 'EOF'
+          # RPI-TS-STAGING Verification Report
+          
+          **Date**: $(date -u +%Y-%m-%d)
+          **Environment**: RPI-TS-STAGING
+          **URL**: ${{ needs.deploy-staging.outputs.rpi_url }}:8625
+          **Status**: ${{ job.status }}
+          
+          ## Test Results
+          
+          - Dashboard API Tests: See playwright-report
+          - CLI Integration Tests: See test-results
+          
+          ## Artifacts
+          
+          All screenshots and detailed reports are available in the uploaded artifacts.
+          EOF
+          echo "✅ Release report summary generated"
 
       - name: Slack (Staging Fail)
         if: failure()
@@ -172,6 +195,7 @@ jobs:
           path: |
             packages/*/playwright-report/
             packages/*/test-results/
+            release-report-staging/
           retention-days: 14
 
   # ==================================================================
@@ -306,14 +330,32 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: e2e-reports-staging
-          path: release-reports/${{ needs.publish-npm.outputs.version }}
+          path: release-reports/v${{ needs.publish-npm.outputs.version }}/rpi-ts-staging
+
+      - name: Organize Release Reports
+        run: |
+          VERSION="${{ needs.publish-npm.outputs.version }}"
+          REPORT_DIR="release-reports/v${VERSION}"
+          
+          # Create proper structure
+          mkdir -p "${REPORT_DIR}"
+          
+          # Move playwright reports if they exist
+          if [ -d "${REPORT_DIR}/rpi-ts-staging/packages" ]; then
+            find "${REPORT_DIR}/rpi-ts-staging/packages" -name "playwright-report" -type d -exec mv {} "${REPORT_DIR}/rpi-ts-staging/" \; 2>/dev/null || true
+            find "${REPORT_DIR}/rpi-ts-staging/packages" -name "test-results" -type d -exec mv {} "${REPORT_DIR}/rpi-ts-staging/" \; 2>/dev/null || true
+            rm -rf "${REPORT_DIR}/rpi-ts-staging/packages"
+          fi
+          
+          echo "✅ Release reports organized for v${VERSION}"
 
       - name: Commit Version Bump & Reports
         run: |
+          VERSION="${{ needs.publish-npm.outputs.version }}"
           git add packages/*/package.json
-          git add release-reports/${{ needs.publish-npm.outputs.version }} || true
-          git commit -m "release: v${{ needs.publish-npm.outputs.version }}" || echo "Nothing to commit"
-          git tag -a "v${{ needs.publish-npm.outputs.version }}" -m "Release v${{ needs.publish-npm.outputs.version }}"
+          git add "release-reports/v${VERSION}" || true
+          git commit -m "release: v${VERSION}" || echo "Nothing to commit"
+          git tag -a "v${VERSION}" -m "Release v${VERSION}"
           git push origin main --tags
 
       - name: Create GitHub Release
