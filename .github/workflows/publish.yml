@@ -1,4 +1,4 @@
-name: Release
+name: Publish
 
 on:
   workflow_dispatch:
@@ -20,227 +20,36 @@ permissions:
 
 jobs:
   # ==================================================================
-  # 1. PRE-FLIGHT: Verify Changelog Updated
+  # 1. PRE-FLIGHT
   # ==================================================================
   check-prereqs:
+    name: "check-prereqs"
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
-          fetch-depth: 0 # Need full history to find last tag
+          fetch-depth: 0
 
       - name: Verify Changelog Updated
         run: |
-          # Get the last release tag
           LAST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
-
           if [ -z "$LAST_TAG" ]; then
             echo "✅ No previous tags found, skipping changelog check"
             exit 0
           fi
-
-          # Check if CHANGELOG.md was modified since last tag
           if git diff --name-only "$LAST_TAG" HEAD | grep -q "CHANGELOG.md"; then
             echo "✅ CHANGELOG.md was updated since $LAST_TAG"
           else
             echo "❌ ERROR: CHANGELOG.md was NOT updated since $LAST_TAG!"
-            echo "Please update CHANGELOG.md before releasing."
             exit 1
           fi
 
   # ==================================================================
-  # 2. DEPLOY STAGING (Build from Source via Ansible)
+  # 2. BUILD STAGING IMAGES (GH Actions, NOT RPi)
   # ==================================================================
-  deploy-staging:
+  build-for-testing:
+    name: "build-for-testing:${{ matrix.name }}"
     needs: check-prereqs
-    runs-on: ubuntu-latest
-    outputs:
-      rpi_url: ${{ steps.get_url.outputs.url }}
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Setup Tailscale
-        uses: tailscale/github-action@v2
-        with:
-          authkey: ${{ secrets.TAILSCALE_AUTHKEY }}
-          version: 1.76.6
-
-      - name: Get RPi Funnel URL (Dynamic)
-        id: get_url
-        run: |
-          # Wait for Tailscale to be fully connected with retries
-          echo "Waiting for Tailscale connection..."
-          TAILSCALE_CONNECTED=0
-          for i in {1..12}; do
-            sleep 5
-            if tailscale status --json >/dev/null 2>&1; then
-              echo "✅ Tailscale connected (attempt $i)"
-              TAILSCALE_CONNECTED=1
-              break
-            fi
-            echo "Waiting for Tailscale... ($i/12)"
-          done
-
-          # Ensure Tailscale is connected before proceeding
-          if [ "$TAILSCALE_CONNECTED" -ne 1 ]; then
-            echo "❌ Tailscale did not connect after retries"
-            tailscale status || true
-            exit 1
-          fi
-
-          # Get the RPi's MagicDNS name from connected peers
-          RPI_DNS=$(tailscale status --json | jq -r '.Peer[] | select(.HostName | test("raspberrypi"; "i")) | .DNSName' | head -1 | sed 's/\.$//')
-          if [ -z "$RPI_DNS" ]; then
-            echo "❌ Could not find RPi in Tailscale network"
-            tailscale status
-            exit 1
-          fi
-
-          # For staging, use the /cybermem-staging subpath
-          FUNNEL_URL="https://${RPI_DNS}/cybermem-staging"
-          echo "url=${FUNNEL_URL}" >> $GITHUB_OUTPUT
-          echo "✅ RPi Funnel URL: ${FUNNEL_URL}"
-
-      - name: Setup Ansible
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y ansible rsync
-
-      - name: Get RPi Tailscale IP
-        id: get_rpi_ip
-        run: |
-          # Get the RPi's Tailscale IP with retry
-          for i in {1..5}; do
-            RPI_IP=$(tailscale status --json | jq -r '.Peer[] | select(.HostName | test("raspberrypi"; "i")) | .TailscaleIPs[0]' | head -1)
-            if [ -n "$RPI_IP" ]; then
-              echo "ip=$RPI_IP" >> $GITHUB_OUTPUT
-              echo "✅ RPi Tailscale IP: $RPI_IP"
-              exit 0
-            fi
-            echo "Retrying RPi IP detection... ($i/5)"
-            sleep 3
-          done
-
-          echo "❌ Could not find RPi in Tailscale network after retries"
-          tailscale status
-          exit 1
-
-      - name: Deploy Staging (Build from Source)
-        env:
-          ANSIBLE_HOST_KEY_CHECKING: "False"
-        run: |
-          ansible-playbook \
-            -i packages/cli/templates/ansible/inventory/hosts.ini \
-            packages/cli/templates/ansible/playbooks/deploy-cybermem.yml \
-            --extra-vars "cybermem_env=staging build_from_source=true TRAEFIK_PORT=8625 CYBERMEM_TAILSCALE=true" \
-            --extra-vars "ansible_ssh_common_args='-o StrictHostKeyChecking=no'" \
-            --extra-vars "ansible_host=${{ steps.get_rpi_ip.outputs.ip }}"
-
-  # ==================================================================
-  # 3. VERIFY STAGING (E2E Gate via Tailscale)
-  # ==================================================================
-  verify-staging:
-    needs: deploy-staging
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Setup Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: "20"
-
-      - run: npm ci
-      - run: npx playwright install --with-deps chromium
-
-      - name: Setup Tailscale
-        uses: tailscale/github-action@v2
-        with:
-          authkey: ${{ secrets.TAILSCALE_AUTHKEY }}
-          version: 1.76.6
-
-      - name: Build Local Packages
-        run: npm run build --workspaces
-
-      - name: Run E2E Verification
-        id: run-e2e
-        env:
-          DASHBOARD_URL: ${{ needs.deploy-staging.outputs.rpi_url }}
-          MCP_URL: ${{ needs.deploy-staging.outputs.rpi_url }}/mcp
-          TEST_ENV_NAME: "rpi-ts-staging"
-        run: |
-          echo "Testing against: $DASHBOARD_URL"
-
-          # Wait for services to be ready
-          for i in {1..30}; do
-            if curl -sf "${DASHBOARD_URL}/health" > /dev/null 2>&1; then
-              echo "✅ Services ready"
-              break
-            fi
-            echo "Waiting for services... ($i/30)"
-            sleep 10
-          done
-
-          # Run E2E tests from packages/cli where scripts are defined
-          cd packages/cli
-          npm run test:e2e:dashboard:api
-          npm run test:e2e:cli
-
-      - name: Generate Release Report Summary
-        if: always()
-        run: |
-          mkdir -p release-report-staging
-          # Determine actual test status from previous steps
-          TEST_STATUS="unknown"
-          if [ "${{ steps.run-e2e.outcome }}" == "success" ]; then
-            TEST_STATUS="passed"
-          elif [ "${{ steps.run-e2e.outcome }}" == "failure" ]; then
-            TEST_STATUS="failed"
-          fi
-
-          # Generate report
-          echo "# RPI-TS-STAGING Verification Report" > release-report-staging/RPI-TS-STAGING.md
-          echo "" >> release-report-staging/RPI-TS-STAGING.md
-          echo "**Date**: $(date -u +%Y-%m-%d)" >> release-report-staging/RPI-TS-STAGING.md
-          echo "**Environment**: RPI-TS-STAGING" >> release-report-staging/RPI-TS-STAGING.md
-          echo "**URL**: ${{ needs.deploy-staging.outputs.rpi_url }}" >> release-report-staging/RPI-TS-STAGING.md
-          echo "**Status**: ${TEST_STATUS}" >> release-report-staging/RPI-TS-STAGING.md
-          echo "" >> release-report-staging/RPI-TS-STAGING.md
-          echo "## Test Results" >> release-report-staging/RPI-TS-STAGING.md
-          echo "" >> release-report-staging/RPI-TS-STAGING.md
-          echo "- Dashboard API Tests: See playwright-report" >> release-report-staging/RPI-TS-STAGING.md
-          echo "- CLI Integration Tests: See test-results" >> release-report-staging/RPI-TS-STAGING.md
-          echo "" >> release-report-staging/RPI-TS-STAGING.md
-          echo "## Artifacts" >> release-report-staging/RPI-TS-STAGING.md
-          echo "" >> release-report-staging/RPI-TS-STAGING.md
-          echo "All screenshots and detailed reports are available in the uploaded artifacts." >> release-report-staging/RPI-TS-STAGING.md
-          echo "✅ Release report summary generated"
-
-      - name: Slack (Staging Fail)
-        if: failure()
-        env:
-          SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK_URL }}
-        run: |
-          curl -X POST -H 'Content-type: application/json' \
-            --data '{"text":"❌ *Release Aborted: Staging Verification Failed*\nCheck E2E logs."}' \
-            $SLACK_WEBHOOK || true
-
-      - name: Upload E2E Reports
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: e2e-reports-staging
-          path: |
-            packages/*/playwright-report/
-            packages/*/test-results/
-            release-report-staging/
-          retention-days: 14
-
-  # ==================================================================
-  # 4. BUILD & PUSH GHCR (After E2E Passes)
-  # ==================================================================
-  push-ghcr:
-    needs: verify-staging
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -274,18 +83,208 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Build and Push ${{ matrix.name }}
+      - name: Build and Push :staging
         uses: docker/build-push-action@v5
         with:
           context: ${{ matrix.context }}
           push: true
-          tags: ghcr.io/${{ github.repository_owner }}/${{ matrix.image }}:latest
+          tags: ghcr.io/${{ github.repository_owner }}/${{ matrix.image }}:staging
 
   # ==================================================================
-  # 5. PUBLISH NPM
+  # 3. DEPLOY STAGING (Pull :staging from GHCR)
+  # ==================================================================
+  deploy-staging:
+    name: "deploy:rpi-ts-staging"
+    needs: build-for-testing
+    runs-on: ubuntu-latest
+    outputs:
+      rpi_url: ${{ steps.get_url.outputs.url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Tailscale
+        uses: tailscale/github-action@v2
+        with:
+          authkey: ${{ secrets.TAILSCALE_AUTHKEY }}
+          version: 1.76.6
+
+      - name: Get RPi Funnel URL
+        id: get_url
+        run: |
+          echo "Waiting for Tailscale connection..."
+          for i in {1..12}; do
+            sleep 5
+            if tailscale status --json >/dev/null 2>&1; then
+              echo "✅ Tailscale connected"
+              break
+            fi
+            echo "Waiting... ($i/12)"
+          done
+
+          RPI_DNS=$(tailscale status --json | jq -r '.Peer[] | select(.HostName | test("raspberrypi"; "i")) | .DNSName' | head -1 | sed 's/\.$//')
+          if [ -z "$RPI_DNS" ]; then
+            echo "❌ Could not find RPi"
+            tailscale status
+            exit 1
+          fi
+
+          FUNNEL_URL="https://${RPI_DNS}/cybermem-staging"
+          echo "url=${FUNNEL_URL}" >> $GITHUB_OUTPUT
+          echo "✅ RPi Funnel URL: ${FUNNEL_URL}"
+
+      - name: Setup Ansible
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ansible
+
+      - name: Get RPi Tailscale IP
+        id: get_rpi_ip
+        run: |
+          for i in {1..5}; do
+            RPI_IP=$(tailscale status --json | jq -r '.Peer[] | select(.HostName | test("raspberrypi"; "i")) | .TailscaleIPs[0]' | head -1)
+            if [ -n "$RPI_IP" ]; then
+              echo "ip=$RPI_IP" >> $GITHUB_OUTPUT
+              echo "✅ RPi IP: $RPI_IP"
+              exit 0
+            fi
+            sleep 3
+          done
+          exit 1
+
+      - name: Deploy Staging (Pull :staging)
+        env:
+          ANSIBLE_HOST_KEY_CHECKING: "False"
+        run: |
+          ansible-playbook \
+            -i packages/cli/templates/ansible/inventory/hosts.ini \
+            packages/cli/templates/ansible/playbooks/deploy-cybermem.yml \
+            --extra-vars "cybermem_env=staging ghcr_user=${{ github.actor }} ghcr_token=${{ secrets.GITHUB_TOKEN }} ghcr_tag=staging TRAEFIK_PORT=8625 CYBERMEM_TAILSCALE=true" \
+            --extra-vars "ansible_ssh_common_args='-o StrictHostKeyChecking=no'" \
+            --extra-vars "ansible_host=${{ steps.get_rpi_ip.outputs.ip }}"
+
+  # ==================================================================
+  # 4. E2E VERIFICATION
+  # ==================================================================
+  e2e-staging:
+    name: "e2e:rpi-ts-staging"
+    needs: deploy-staging
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+
+      - name: Setup Tailscale
+        uses: tailscale/github-action@v2
+        with:
+          authkey: ${{ secrets.TAILSCALE_AUTHKEY }}
+          version: 1.76.6
+
+      - name: Build Local Packages
+        run: npm run build --workspaces
+
+      - name: Run E2E Verification
+        id: run-e2e
+        env:
+          DASHBOARD_URL: ${{ needs.deploy-staging.outputs.rpi_url }}
+          MCP_URL: ${{ needs.deploy-staging.outputs.rpi_url }}/mcp
+          TEST_ENV_NAME: "rpi-ts-staging"
+        run: |
+          echo "Testing against: $DASHBOARD_URL"
+          for i in {1..30}; do
+            if curl -sf "${DASHBOARD_URL}/health" > /dev/null 2>&1; then
+              echo "✅ Services ready"
+              break
+            fi
+            echo "Waiting for services... ($i/30)"
+            sleep 10
+          done
+
+          cd packages/cli
+          npm run test:e2e:dashboard:api
+          npm run test:e2e:cli
+
+      - name: Generate Report
+        if: always()
+        run: |
+          mkdir -p release-report-staging
+          TEST_STATUS="unknown"
+          if [ "${{ steps.run-e2e.outcome }}" == "success" ]; then
+            TEST_STATUS="passed"
+          elif [ "${{ steps.run-e2e.outcome }}" == "failure" ]; then
+            TEST_STATUS="failed"
+          fi
+          echo "# RPI-TS-STAGING Verification" > release-report-staging/RPI-TS-STAGING.md
+          echo "**Date**: $(date -u +%Y-%m-%d)" >> release-report-staging/RPI-TS-STAGING.md
+          echo "**URL**: ${{ needs.deploy-staging.outputs.rpi_url }}" >> release-report-staging/RPI-TS-STAGING.md
+          echo "**Status**: ${TEST_STATUS}" >> release-report-staging/RPI-TS-STAGING.md
+
+      - name: Slack (Staging Fail)
+        if: failure()
+        env:
+          SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK_URL }}
+        run: |
+          curl -X POST -H 'Content-type: application/json' \
+            --data '{"text":"❌ *Publish Aborted: Staging E2E Failed*"}' \
+            $SLACK_WEBHOOK || true
+
+      - name: Upload E2E Reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-reports-staging
+          path: |
+            packages/*/playwright-report/
+            packages/*/test-results/
+            release-report-staging/
+          retention-days: 14
+
+  # ==================================================================
+  # 5. PUSH :latest TO GHCR (After E2E passes)
+  # ==================================================================
+  deploy-ghcr:
+    name: "deploy:ghcr"
+    needs: e2e-staging
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: mcp
+            image: cybermem-mcp
+          - name: dashboard
+            image: cybermem-dashboard
+          - name: auth-sidecar
+            image: cybermem-auth-sidecar
+          - name: db-exporter
+            image: cybermem-db_exporter
+          - name: log-exporter
+            image: cybermem-log_exporter
+    steps:
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Promote :staging to :latest
+        run: |
+          docker pull ghcr.io/${{ github.repository_owner }}/${{ matrix.image }}:staging
+          docker tag ghcr.io/${{ github.repository_owner }}/${{ matrix.image }}:staging ghcr.io/${{ github.repository_owner }}/${{ matrix.image }}:latest
+          docker push ghcr.io/${{ github.repository_owner }}/${{ matrix.image }}:latest
+
+  # ==================================================================
+  # 6. PUBLISH NPM
   # ==================================================================
   publish-npm:
-    needs: push-ghcr
+    name: "publish:npm"
+    needs: deploy-ghcr
     runs-on: ubuntu-latest
     outputs:
       version: ${{ steps.version.outputs.version }}
@@ -327,9 +326,10 @@ jobs:
           done
 
   # ==================================================================
-  # 6. FINALIZE (Tag, Commit, GitHub Release, Slack)
+  # 7. FINALIZE (Tag, Commit, GitHub Release, Slack)
   # ==================================================================
   finalize:
+    name: "finalize"
     needs: publish-npm
     runs-on: ubuntu-latest
     steps:
@@ -349,7 +349,7 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
-      - name: Bump Versions (again for commit)
+      - name: Bump Versions (for commit)
         run: |
           for pkg in packages/cli packages/mcp packages/dashboard; do
              (cd $pkg && npm version ${{ inputs.version_type }} --no-git-tag-version)
@@ -360,49 +360,6 @@ jobs:
         with:
           name: e2e-reports-staging
           path: release-reports/v${{ needs.publish-npm.outputs.version }}
-
-      - name: Organize Release Reports
-        run: |
-          VERSION="${{ needs.publish-npm.outputs.version }}"
-          REPORT_DIR="release-reports/v${VERSION}"
-
-          # Remove rpi-ts-staging subfolder if it exists and flatten structure
-          if [ -d "${REPORT_DIR}/rpi-ts-staging" ]; then
-            # Move everything including hidden files from rpi-ts-staging to the version directory
-            shopt -s dotglob
-            if mv "${REPORT_DIR}/rpi-ts-staging"/* "${REPORT_DIR}/" 2>/dev/null; then
-              echo "✅ Flattened rpi-ts-staging subfolder"
-            else
-              echo "⚠️ Warning: Could not move all files from rpi-ts-staging"
-            fi
-            shopt -u dotglob
-            # Remove the now-empty rpi-ts-staging directory
-            rm -rf "${REPORT_DIR}/rpi-ts-staging"
-          fi
-
-          # Clean up packages directory structure if present
-          if [ -d "${REPORT_DIR}/packages" ]; then
-            # Move playwright-report and test-results directories preserving package names
-            for pkg_dir in "${REPORT_DIR}/packages"/*; do
-              if [ -d "$pkg_dir" ]; then
-                pkg_name=$(basename "$pkg_dir")
-                # Move playwright-report if exists
-                if [ -d "$pkg_dir/playwright-report" ]; then
-                  mkdir -p "${REPORT_DIR}/playwright-report"
-                  mv "$pkg_dir/playwright-report" "${REPORT_DIR}/playwright-report/${pkg_name}" 2>/dev/null || true
-                fi
-                # Move test-results if exists
-                if [ -d "$pkg_dir/test-results" ]; then
-                  mkdir -p "${REPORT_DIR}/test-results"
-                  mv "$pkg_dir/test-results" "${REPORT_DIR}/test-results/${pkg_name}" 2>/dev/null || true
-                fi
-              fi
-            done
-            # Remove the packages directory
-            rm -rf "${REPORT_DIR}/packages"
-          fi
-
-          echo "✅ Release reports organized for v${VERSION}"
 
       - name: Commit Version Bump & Reports
         run: |
@@ -426,13 +383,14 @@ jobs:
           SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK_URL }}
         run: |
           curl -X POST -H 'Content-type: application/json' \
-            --data '{"text":"🚀 *CyberMem v${{ needs.publish-npm.outputs.version }} Published!*\n✅ GHCR images pushed\n✅ NPM packages published\n✅ GitHub release created"}' \
+            --data '{"text":"🚀 *CyberMem v${{ needs.publish-npm.outputs.version }} Published!*\n✅ GHCR\n✅ NPM\n✅ GitHub Release"}' \
             $SLACK_WEBHOOK || true
 
   # ==================================================================
-  # 7. DEPLOY PROD (Pull from GHCR)
+  # 8. DEPLOY PROD (Pull :latest from GHCR)
   # ==================================================================
   deploy-prod:
+    name: "deploy:rpi-ts-prod"
     needs: [finalize, publish-npm]
     runs-on: ubuntu-latest
     steps:
@@ -452,46 +410,29 @@ jobs:
       - name: Get RPi Tailscale IP
         id: get_rpi_ip
         run: |
-          # Wait for Tailscale to be fully connected with retries
-          echo "Waiting for Tailscale connection..."
-          TAILSCALE_CONNECTED=0
+          echo "Waiting for Tailscale..."
           for i in {1..12}; do
             sleep 5
             if tailscale status --json >/dev/null 2>&1; then
-              echo "✅ Tailscale connected (attempt $i)"
-              TAILSCALE_CONNECTED=1
               break
             fi
-            echo "Waiting for Tailscale... ($i/12)"
           done
 
-          # Ensure Tailscale is connected before proceeding
-          if [ "$TAILSCALE_CONNECTED" -ne 1 ]; then
-            echo "❌ Tailscale failed to connect after multiple attempts"
-            tailscale status || true
-            exit 1
-          fi
-
-          # Get the RPi's Tailscale IP with retry
           for i in {1..5}; do
             RPI_IP=$(tailscale status --json | jq -r '.Peer[] | select(.HostName | test("raspberrypi"; "i")) | .TailscaleIPs[0]' | head -1)
             if [ -n "$RPI_IP" ]; then
               echo "ip=$RPI_IP" >> $GITHUB_OUTPUT
-              echo "✅ RPi Tailscale IP: $RPI_IP"
+              echo "✅ RPi IP: $RPI_IP"
               exit 0
             fi
-            echo "Retrying RPi IP detection... ($i/5)"
             sleep 3
           done
-
-          echo "❌ Could not find RPi in Tailscale network after retries"
-          tailscale status
           exit 1
 
       - name: Wait for GHCR Propagation
         run: sleep 30
 
-      - name: Deploy Prod (Pull from GHCR)
+      - name: Deploy Prod (Pull :latest)
         env:
           ANSIBLE_HOST_KEY_CHECKING: "False"
         run: |
@@ -502,19 +443,15 @@ jobs:
             --extra-vars "ansible_ssh_common_args='-o StrictHostKeyChecking=no'" \
             --extra-vars "ansible_host=${{ steps.get_rpi_ip.outputs.ip }}"
 
-      # ==================================================================
-      # 8. FINAL SLACK NOTIFICATION
-      # ==================================================================
       - name: Slack (Prod Deployed)
         if: success()
         env:
           SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK_URL }}
         run: |
           VERSION="${{ needs.publish-npm.outputs.version }}"
-          MESSAGE="{\"text\":\"✅ *Production Deployed!* v${VERSION}\\n\\n🎉 Release complete:"
-          MESSAGE="${MESSAGE}\\n• NPM: @cybermem/cli, @cybermem/mcp, @cybermem/dashboard"
-          MESSAGE="${MESSAGE}\\n• GHCR: All images updated\\n• RPi: Production live\"}"
-          curl -X POST -H 'Content-type: application/json' --data "$MESSAGE" $SLACK_WEBHOOK || true
+          curl -X POST -H 'Content-type: application/json' \
+            --data "{\"text\":\"✅ *Production Deployed!* v${VERSION}\"}" \
+            $SLACK_WEBHOOK || true
 
       - name: Slack (Prod Failed)
         if: failure()
@@ -522,7 +459,6 @@ jobs:
           SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK_URL }}
         run: |
           VERSION="${{ needs.publish-npm.outputs.version }}"
-          MESSAGE="{\"text\":\"⚠️ *Production Deployment Failed* v${VERSION}\\n\\n"
-          MESSAGE="${MESSAGE}NPM and GHCR were published successfully, but RPi deployment failed."
-          MESSAGE="${MESSAGE}\\nManual intervention required.\"}"
-          curl -X POST -H 'Content-type: application/json' --data "$MESSAGE" $SLACK_WEBHOOK || true
+          curl -X POST -H 'Content-type: application/json' \
+            --data "{\"text\":\"⚠️ *Prod Deploy Failed* v${VERSION} - Manual intervention required\"}" \
+            $SLACK_WEBHOOK || true
