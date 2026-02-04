@@ -89,6 +89,7 @@ jobs:
           context: ${{ matrix.context }}
           push: true
           tags: ghcr.io/${{ github.repository_owner }}/${{ matrix.image }}:staging
+          platforms: linux/arm64,linux/amd64
 
   # ==================================================================
   # 3. DEPLOY STAGING (Pull :staging from GHCR)
@@ -112,14 +113,21 @@ jobs:
         id: get_url
         run: |
           echo "Waiting for Tailscale connection..."
+          TAILSCALE_CONNECTED=0
           for i in {1..12}; do
             sleep 5
             if tailscale status --json >/dev/null 2>&1; then
               echo "✅ Tailscale connected"
+              TAILSCALE_CONNECTED=1
               break
             fi
             echo "Waiting... ($i/12)"
           done
+
+          if [ "$TAILSCALE_CONNECTED" -ne 1 ]; then
+            echo "❌ Tailscale failed to connect"
+            exit 1
+          fi
 
           RPI_DNS=$(tailscale status --json | jq -r '.Peer[] | select(.HostName | test("raspberrypi"; "i")) | .DNSName' | head -1 | sed 's/\.$//')
           if [ -z "$RPI_DNS" ]; then
@@ -204,6 +212,9 @@ jobs:
             echo "Waiting for services... ($i/30)"
             sleep 10
           done
+
+          # Final health check to ensure services became ready
+          curl -sf "${DASHBOARD_URL}/health" > /dev/null 2>&1 || { echo "❌ Services failed to become healthy"; exit 1; }
 
           cd packages/cli
           npm run test:e2e:dashboard:api
@@ -411,12 +422,19 @@ jobs:
         id: get_rpi_ip
         run: |
           echo "Waiting for Tailscale..."
+          TAILSCALE_CONNECTED=0
           for i in {1..12}; do
             sleep 5
             if tailscale status --json >/dev/null 2>&1; then
+              TAILSCALE_CONNECTED=1
               break
             fi
           done
+
+          if [ "$TAILSCALE_CONNECTED" -ne 1 ]; then
+            echo "❌ Tailscale failed to connect"
+            exit 1
+          fi
 
           for i in {1..5}; do
             RPI_IP=$(tailscale status --json | jq -r '.Peer[] | select(.HostName | test("raspberrypi"; "i")) | .TailscaleIPs[0]' | head -1)
