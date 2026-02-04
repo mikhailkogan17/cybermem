@@ -15,4 +15,3 @@ ignore: |
   packages/cli/templates/charts/
   packages/cli/templates/docker-compose.yml
   packages/cli/templates/ansible/
-  .github/

@@ -29,7 +29,16 @@ fi
 echo ""
 echo "--- Infrastructure Linting ---"
 
-# 2. Infra Linters
+# 2. Workflow Trigger Check
+echo "🔍 Checking workflow triggers..."
+if bash scripts/tests/check-workflow-triggers.sh; then
+    echo -e "${GREEN}✅ Workflow triggers check passed${NC}"
+else
+    echo -e "${RED}❌ Workflow triggers check failed${NC}"
+    FAILED=1
+fi
+
+# 3. Infra Linters
 if command -v ansible-lint &> /dev/null; then
     echo "🔍 Running ansible-lint..."
     if ansible-lint packages/cli/templates/ansible/; then

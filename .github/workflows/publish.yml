@@ -80,14 +80,14 @@ jobs:
             fi
             echo "Waiting for Tailscale... ($i/12)"
           done
-          
+
           # Ensure Tailscale is connected before proceeding
           if [ "$TAILSCALE_CONNECTED" -ne 1 ]; then
             echo "❌ Tailscale did not connect after retries"
             tailscale status || true
             exit 1
           fi
-          
+
           # Get the RPi's MagicDNS name from connected peers
           RPI_DNS=$(tailscale status --json | jq -r '.Peer[] | select(.HostName | test("raspberrypi"; "i")) | .DNSName' | head -1 | sed 's/\.$//')
           if [ -z "$RPI_DNS" ]; then
@@ -95,7 +95,7 @@ jobs:
             tailscale status
             exit 1
           fi
-          
+
           # For staging, use the /cybermem-staging subpath
           FUNNEL_URL="https://${RPI_DNS}/cybermem-staging"
           echo "url=${FUNNEL_URL}" >> $GITHUB_OUTPUT
@@ -120,7 +120,7 @@ jobs:
             echo "Retrying RPi IP detection... ($i/5)"
             sleep 3
           done
-          
+
           echo "❌ Could not find RPi in Tailscale network after retries"
           tailscale status
           exit 1
@@ -196,25 +196,23 @@ jobs:
           elif [ "${{ steps.run-e2e.outcome }}" == "failure" ]; then
             TEST_STATUS="failed"
           fi
-          
-          # Generate report with proper variable expansion
-          cat > release-report-staging/RPI-TS-STAGING.md <<EOF
-          # RPI-TS-STAGING Verification Report
-          
-          **Date**: $(date -u +%Y-%m-%d)
-          **Environment**: RPI-TS-STAGING
-          **URL**: ${{ needs.deploy-staging.outputs.rpi_url }}
-          **Status**: ${TEST_STATUS}
-          
-          ## Test Results
-          
-          - Dashboard API Tests: See playwright-report
-          - CLI Integration Tests: See test-results
-          
-          ## Artifacts
-          
-          All screenshots and detailed reports are available in the uploaded artifacts.
-EOF
+
+          # Generate report
+          echo "# RPI-TS-STAGING Verification Report" > release-report-staging/RPI-TS-STAGING.md
+          echo "" >> release-report-staging/RPI-TS-STAGING.md
+          echo "**Date**: $(date -u +%Y-%m-%d)" >> release-report-staging/RPI-TS-STAGING.md
+          echo "**Environment**: RPI-TS-STAGING" >> release-report-staging/RPI-TS-STAGING.md
+          echo "**URL**: ${{ needs.deploy-staging.outputs.rpi_url }}" >> release-report-staging/RPI-TS-STAGING.md
+          echo "**Status**: ${TEST_STATUS}" >> release-report-staging/RPI-TS-STAGING.md
+          echo "" >> release-report-staging/RPI-TS-STAGING.md
+          echo "## Test Results" >> release-report-staging/RPI-TS-STAGING.md
+          echo "" >> release-report-staging/RPI-TS-STAGING.md
+          echo "- Dashboard API Tests: See playwright-report" >> release-report-staging/RPI-TS-STAGING.md
+          echo "- CLI Integration Tests: See test-results" >> release-report-staging/RPI-TS-STAGING.md
+          echo "" >> release-report-staging/RPI-TS-STAGING.md
+          echo "## Artifacts" >> release-report-staging/RPI-TS-STAGING.md
+          echo "" >> release-report-staging/RPI-TS-STAGING.md
+          echo "All screenshots and detailed reports are available in the uploaded artifacts." >> release-report-staging/RPI-TS-STAGING.md
           echo "✅ Release report summary generated"
 
       - name: Slack (Staging Fail)
@@ -375,7 +373,7 @@ EOF
         run: |
           VERSION="${{ needs.publish-npm.outputs.version }}"
           REPORT_DIR="release-reports/v${VERSION}"
-          
+
           # Remove rpi-ts-staging subfolder if it exists and flatten structure
           if [ -d "${REPORT_DIR}/rpi-ts-staging" ]; then
             # Move everything including hidden files from rpi-ts-staging to the version directory
@@ -389,7 +387,7 @@ EOF
             # Remove the now-empty rpi-ts-staging directory
             rm -rf "${REPORT_DIR}/rpi-ts-staging"
           fi
-          
+
           # Clean up packages directory structure if present
           if [ -d "${REPORT_DIR}/packages" ]; then
             # Move playwright-report and test-results directories preserving package names
@@ -411,7 +409,7 @@ EOF
             # Remove the packages directory
             rm -rf "${REPORT_DIR}/packages"
           fi
-          
+
           echo "✅ Release reports organized for v${VERSION}"
 
       - name: Commit Version Bump & Reports
@@ -474,14 +472,14 @@ EOF
             fi
             echo "Waiting for Tailscale... ($i/12)"
           done
-          
+
           # Ensure Tailscale is connected before proceeding
           if [ "$TAILSCALE_CONNECTED" -ne 1 ]; then
             echo "❌ Tailscale failed to connect after multiple attempts"
             tailscale status || true
             exit 1
           fi
-          
+
           # Get the RPi's Tailscale IP with retry
           for i in {1..5}; do
             RPI_IP=$(tailscale status --json | jq -r '.Peer[] | select(.HostName | test("raspberrypi"; "i")) | .TailscaleIPs[0]' | head -1)
@@ -493,7 +491,7 @@ EOF
             echo "Retrying RPi IP detection... ($i/5)"
             sleep 3
           done
-          
+
           echo "❌ Could not find RPi in Tailscale network after retries"
           tailscale status
           exit 1
@@ -520,15 +518,19 @@ EOF
         env:
           SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK_URL }}
         run: |
-          curl -X POST -H 'Content-type: application/json' \
-            --data '{"text":"✅ *Production Deployed!* v${{ needs.publish-npm.outputs.version }}\n\n🎉 Release complete:\n• NPM: @cybermem/cli, @cybermem/mcp, @cybermem/dashboard\n• GHCR: All images updated\n• RPi: Production live"}' \
-            $SLACK_WEBHOOK || true
+          VERSION="${{ needs.publish-npm.outputs.version }}"
+          MESSAGE="{\"text\":\"✅ *Production Deployed!* v${VERSION}\\n\\n🎉 Release complete:"
+          MESSAGE="${MESSAGE}\\n• NPM: @cybermem/cli, @cybermem/mcp, @cybermem/dashboard"
+          MESSAGE="${MESSAGE}\\n• GHCR: All images updated\\n• RPi: Production live\"}"
+          curl -X POST -H 'Content-type: application/json' --data "$MESSAGE" $SLACK_WEBHOOK || true
 
       - name: Slack (Prod Failed)
         if: failure()
         env:
           SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK_URL }}
         run: |
-          curl -X POST -H 'Content-type: application/json' \
-            --data '{"text":"⚠️ *Production Deployment Failed* v${{ needs.publish-npm.outputs.version }}\n\nNPM and GHCR were published successfully, but RPi deployment failed.\nManual intervention required."}' \
-            $SLACK_WEBHOOK || true
+          VERSION="${{ needs.publish-npm.outputs.version }}"
+          MESSAGE="{\"text\":\"⚠️ *Production Deployment Failed* v${VERSION}\\n\\n"
+          MESSAGE="${MESSAGE}NPM and GHCR were published successfully, but RPi deployment failed."
+          MESSAGE="${MESSAGE}\\nManual intervention required.\"}"
+          curl -X POST -H 'Content-type: application/json' --data "$MESSAGE" $SLACK_WEBHOOK || true
