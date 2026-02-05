@@ -83,10 +83,7 @@ function isLocalRequest(req) {
   //       so .local bypass works regardless of CYBERMEM_TAILSCALE being set.
   if (
     host.includes(".ts.net") ||
-    (typeof ip === "string" &&
-      ip !== null &&
-      ip !== undefined &&
-      ip.startsWith("100."))
+    (typeof ip === "string" && ip.startsWith("100."))
   ) {
     return false;
   }
