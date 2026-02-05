@@ -81,7 +81,7 @@ function isLocalRequest(req) {
   // NOTE: Legacy CYBERMEM_TAILSCALE env-flag logic was removed on purpose.
   //       We now auto-detect Tailscale by host/IP (".ts.net" / "100.x.x.x"),
   //       so .local bypass works regardless of CYBERMEM_TAILSCALE being set.
-  if (host.includes(".ts.net") || host.startsWith("100.")) {
+  if (host.includes(".ts.net") || (typeof ip === "string" && ip.startsWith("100."))) {
     return false;
   }
 
