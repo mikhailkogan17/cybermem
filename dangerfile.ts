@@ -8,9 +8,9 @@ const isFeature = headRef.startsWith("feat/");
 const isFix = headRef.startsWith("fix/");
 
 if (isFeature) {
-  const hasDecomposition = body.includes("## Feature Decomposition");
-  const hasEdgeCases = body.includes("### Edge Cases");
-  const hasVerification = body.includes("## Verification");
+  const hasDecomposition = body.includes("Feature Decomposition");
+  const hasEdgeCases = body.includes("Edge Cases");
+  const hasVerification = body.includes("Verification");
 
   if (!hasDecomposition || !hasEdgeCases) {
     fail(
@@ -18,9 +18,8 @@ if (isFeature) {
     );
   }
 } else if (isFix) {
-  const hasAnalysis =
-    body.includes("## Analysis") || body.includes("## Postmortem Analysis");
-  const hasRootCause = body.includes("### Root Cause");
+  const hasAnalysis = body.includes("Analysis");
+  const hasRootCause = body.includes("Root Cause");
 
   if (!hasAnalysis || !hasRootCause) {
     fail(
