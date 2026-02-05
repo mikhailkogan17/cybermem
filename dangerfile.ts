@@ -4,8 +4,8 @@ import { danger, fail, warn } from "danger";
 const isPR = danger.github && danger.github.pr;
 const body = isPR ? danger.github.pr.body : "";
 const headRef = isPR ? danger.github.pr.head.ref : danger.git.head || "";
-const isFeature = headRef.startsWith("feat/");
-const isFix = headRef.startsWith("fix/");
+const isFeature = headRef.startsWith("feat");
+const isFix = headRef.startsWith("fix");
 
 const fs = require("fs");
 
