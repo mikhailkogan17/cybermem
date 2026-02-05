@@ -15,11 +15,14 @@ export async function middleware(request: NextRequest) {
   const authMethod = request.headers.get("x-auth-method");
   const userId = request.headers.get("x-user-id");
 
+  // Check if host is a private IP address (10.x.x.x)
+  const isPrivateIP = /^10\.\d{1,3}\.\d{1,3}\.\d{1,3}(:\d+)?$/.test(host);
+  
   const isLocal =
     host.includes("localhost") ||
     host.includes("127.0.0.1") ||
     host.includes("raspberrypi.local") ||
-    host.startsWith("10.") ||
+    isPrivateIP ||
     authMethod === "local" ||
     userId === "local";
 
