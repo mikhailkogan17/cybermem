@@ -78,6 +78,9 @@ function isLocalRequest(req) {
   // 1. First reject Tailscale/Remote requests (.ts.net, 100.x.x.x)
   // CRITICAL: Tailscale requests (via Funnel) must NEVER be treated as local.
   // If host contains .ts.net, it's external.
+  // NOTE: Legacy CYBERMEM_TAILSCALE env-flag logic was removed on purpose.
+  //       We now auto-detect Tailscale by host/IP (".ts.net" / "100.x.x.x"),
+  //       so .local bypass works regardless of CYBERMEM_TAILSCALE being set.
   if (host.includes(".ts.net") || host.startsWith("100.")) {
     return false;
   }
