@@ -437,6 +437,9 @@ export async function install(options: any) {
           `Dashboard should be available at: http://${isRunnerAsHost ? "localhost" : host}:${isStaging ? "8625" : "8626"} (once images are pulled)`,
         ),
       );
+      // Note: Port mapping is correct:
+      // - Staging (isStaging=true): 8625
+      // - Production (isStaging=false): 8626
     }
   } catch (error) {
     console.error(chalk.red("Deployment failed:"), error);
