@@ -31,7 +31,9 @@ function validateTemplate(type, body) {
       .replace(/^---[\s\S]*?---/, "")
       .trim();
     fail(
-      `🚫 **Missing required headers from ${type} template**: ${missingHeaders.join(", ")}\n\n` +
+      `🚫 **Missing required headers from ${type} template**:\n` +
+        missingHeaders.map((h) => `- ${h}`).join("\n") +
+        `\n\n` +
         `Please ensure your PR description matches the standard format:\n\n` +
         "```md\n" +
         templateForUser +
