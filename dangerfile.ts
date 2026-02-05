@@ -15,39 +15,47 @@ const fs = require("fs");
  */
 function validateTemplate(type, body) {
   const templatePath = `.github/PULL_REQUEST_TEMPLATE/${type}.md`;
-  if (!fs.existsSync(templatePath)) {
-    warn(
-      `Expected PR template not found at "${templatePath}". ` +
-        "Please verify that the PR template exists and is correctly configured.",
+  
+  try {
+    if (!fs.existsSync(templatePath)) {
+      warn(
+        `Expected PR template not found at "${templatePath}". ` +
+          "Please verify that the PR template exists and is correctly configured.",
+      );
+      return;
+    }
+
+    const templateContent = fs.readFileSync(templatePath, "utf8");
+    // Remove frontmatter before extracting headers
+    const contentWithoutFrontmatter = templateContent.replace(/^---[\s\S]*?---\n/, "");
+    // Extract headers (lines starting with #)
+    const requiredHeaders = contentWithoutFrontmatter
+      .split("\n")
+      .filter((line) => line.startsWith("#"))
+      .map((line) => line.trim());
+
+    const missingHeaders = requiredHeaders.filter(
+      (header) => !body.includes(header),
     );
-    return;
-  }
 
-  const templateContent = fs.readFileSync(templatePath, "utf8");
-  // Remove frontmatter before extracting headers
-  const contentWithoutFrontmatter = templateContent.replace(/^---[\s\S]*?---\n/, "");
-  // Extract headers (lines starting with #)
-  const requiredHeaders = contentWithoutFrontmatter
-    .split("\n")
-    .filter((line) => line.startsWith("#"))
-    .map((line) => line.trim());
-
-  const missingHeaders = requiredHeaders.filter(
-    (header) => !body.includes(header),
-  );
-
-  if (missingHeaders.length > 0) {
-    const templateForUser = templateContent
-      .replace(/^---[\s\S]*?---\n/, "")
-      .trim();
-    fail(
-      `🚫 **Missing required headers from ${type} template**:\n` +
-        missingHeaders.map((h) => `- ${h}`).join("\n") +
-        `\n\n` +
-        `Please ensure your PR description matches the standard format:\n\n` +
-        "```md\n" +
-        templateForUser +
-        "\n```",
+    if (missingHeaders.length > 0) {
+      const templateForUser = templateContent
+        .replace(/^---[\s\S]*?---\n/, "")
+        .trim();
+      fail(
+        `🚫 **Missing required headers from ${type} template**:\n` +
+          missingHeaders.map((h) => `- ${h}`).join("\n") +
+          `\n\n` +
+          `Please ensure your PR description matches the standard format:\n\n` +
+          "```md\n" +
+          templateForUser +
+          "\n```",
+      );
+    }
+  } catch (error) {
+    warn(
+      `Failed to validate PR template: ${error.message}. ` +
+        "This may indicate a filesystem issue or misconfigured template path.",
     );
   }
 }
