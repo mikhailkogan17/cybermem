@@ -3,9 +3,10 @@ import { danger, fail, warn } from "danger";
 // 1. Verify PR Description and Template Usage
 const isPR = danger.github && danger.github.pr;
 const body = isPR ? danger.github.pr.body : "";
-const title = isPR ? danger.github.pr.title : "";
-const isFeature = title.toLowerCase().includes("feat");
-const isFix = title.toLowerCase().includes("fix");
+const title = isPR ? danger.github.pr.title.toLowerCase() : "";
+// Check for conventional commit prefixes or keywords anywhere in title
+const isFeature = title.includes("feat:") || title.includes("feat(") || title.includes("feature");
+const isFix = title.includes("fix:") || title.includes("fix(") || title.includes("bugfix");
 
 const fs = require("fs");
 
