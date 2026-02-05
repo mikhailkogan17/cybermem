@@ -134,18 +134,21 @@ test.describe("CLI:E2E (Integration)", () => {
       // If we are on RPi/Remote, we expect data from previous api.spec.ts run in CI.
       // If locally, we might need a retry or a small wait for the background fetch.
       
-      // Wait for loading skeleton to disappear (indicates data fetch complete)
+      // Wait for loading skeleton to disappear AND content to render
       // The skeleton rows have "animate-pulse" class
       await page.waitForFunction(
         () => {
           const skeletonRows = document.querySelectorAll('tr .animate-pulse');
-          return skeletonRows.length === 0;
+          const hasNoSkeleton = skeletonRows.length === 0;
+          
+          // Also check if either status pills or "no logs" message is present
+          const hasPills = document.querySelectorAll('.status-pill').length > 0;
+          const hasNoLogsMsg = document.body.textContent?.match(/No logs found/i);
+          
+          return hasNoSkeleton && (hasPills || hasNoLogsMsg);
         },
         { timeout: 30000 } // Increased timeout for remote environments
       );
-
-      // Small additional wait for React state updates to propagate
-      await page.waitForTimeout(1000);
 
       const pill = page.locator(".status-pill").first();
       const noLogs = page.getByText(/No logs found/i);
