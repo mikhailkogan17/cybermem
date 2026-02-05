@@ -3,9 +3,9 @@ import { danger, fail, warn } from "danger";
 // 1. Verify PR Description and Template Usage
 const isPR = danger.github && danger.github.pr;
 const body = isPR ? danger.github.pr.body : "";
-const branchName = isPR ? danger.github.pr.head.ref : "";
-const isFeature = branchName.startsWith("feat/");
-const isFix = branchName.startsWith("fix/");
+const title = isPR ? danger.github.pr.title : "";
+const isFeature = title.toLowerCase().includes("feat");
+const isFix = title.toLowerCase().includes("fix");
 
 const fs = require("fs");
 
