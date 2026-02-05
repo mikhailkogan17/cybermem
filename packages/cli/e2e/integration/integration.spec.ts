@@ -5,6 +5,7 @@ import { execSync } from "child_process";
 // Trace viewer provides automatic screenshots and interaction recordings.
 
 const DASHBOARD_URL = process.env.DASHBOARD_URL || "http://localhost:8626";
+const VISIBILITY_TIMEOUT = 10000; // 10s timeout for element visibility checks
 
 // CRITICAL: Only allow reset on localhost - NEVER on RPi-prod!
 const isLocalhost =
@@ -101,7 +102,7 @@ test.describe("CLI:E2E (Integration)", () => {
       // Check for LoginModal (new behavior) or /auth/signin (legacy/external)
       const loginModal = page.locator('h2:has-text("CyberMem Dashboard")');
       const isLoginRequired =
-        (await loginModal.isVisible({ timeout: 10000 })) || page.url().includes("auth/signin");
+        (await loginModal.isVisible({ timeout: VISIBILITY_TIMEOUT })) || page.url().includes("auth/signin");
 
       if (isLoginRequired) {
         await testInfo.attach("🔐 Auth Required", {
@@ -116,8 +117,8 @@ test.describe("CLI:E2E (Integration)", () => {
         await page.keyboard.press("Enter");
 
         // Wait for auth UI to disappear
-        if (await loginModal.isVisible({ timeout: 10000 })) {
-          await expect(loginModal).not.toBeVisible({ timeout: 10000 });
+        if (await loginModal.isVisible({ timeout: VISIBILITY_TIMEOUT })) {
+          await expect(loginModal).not.toBeVisible({ timeout: VISIBILITY_TIMEOUT });
         } else {
           await page.waitForURL("**/");
         }
@@ -135,11 +136,11 @@ test.describe("CLI:E2E (Integration)", () => {
       const pill = page.locator(".status-pill").first();
 
       try {
-        await expect(pill).toBeVisible({ timeout: 10000 });
+        await expect(pill).toBeVisible({ timeout: VISIBILITY_TIMEOUT });
       } catch (e) {
         // Sanity: If no pills, check if "No logs found" is visible (empty DB)
         const noLogs = page.getByText(/No logs found/i);
-        if (await noLogs.isVisible({ timeout: 10000 })) {
+        if (await noLogs.isVisible({ timeout: VISIBILITY_TIMEOUT })) {
           await testInfo.attach("⚠️ Empty State", {
             body: "Dashboard loaded successfully but database is empty (0 records).\nThis is expected if reset was called or if this is the first test in a clean environment.",
             contentType: "text/plain",
@@ -172,7 +173,7 @@ test.describe("CLI:E2E (Integration)", () => {
       await expect(page.getByText(/ACCESS TOKEN/i).first()).toBeVisible();
 
       const eyeBtn = page.getByTestId("toggle-visibility");
-      if (await eyeBtn.isVisible({ timeout: 10000 })) {
+      if (await eyeBtn.isVisible({ timeout: VISIBILITY_TIMEOUT })) {
         await testInfo.attach("⚙️ Settings Modal", {
           body: `Settings modal opened.\n\nDisplayed fields:\n- ACCESS TOKEN (masked by default)\n- Instance ID\n- Environment type\n\nAction: Toggling token visibility (password → text)`,
           contentType: "text/plain",
