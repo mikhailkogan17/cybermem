@@ -45,58 +45,23 @@ jobs:
           fi
 
   # ==================================================================
-  # 2. BUILD STAGING IMAGES (GH Actions, NOT RPi)
+  # 2. BUILD STAGING IMAGES (Reusable Workflow)
   # ==================================================================
-  build-for-testing:
-    name: "build-for-testing:${{ matrix.name }}"
+  build-staging:
+    name: "build:staging"
     needs: check-prereqs
-    runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - name: mcp
-            context: packages/mcp
-            image: cybermem-mcp
-          - name: dashboard
-            context: packages/dashboard
-            image: cybermem-dashboard
-          - name: auth-sidecar
-            context: packages/cli/templates/auth-sidecar
-            image: cybermem-auth-sidecar
-          - name: db-exporter
-            context: packages/cli/templates/monitoring/db_exporter
-            image: cybermem-db_exporter
-          - name: log-exporter
-            context: packages/cli/templates/monitoring/log_exporter
-            image: cybermem-log_exporter
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Log in to GHCR
-        uses: docker/login-action@v3
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Build and Push :staging
-        uses: docker/build-push-action@v5
-        with:
-          context: ${{ matrix.context }}
-          push: true
-          tags: ghcr.io/${{ github.repository_owner }}/${{ matrix.image }}:staging
-          platforms: linux/arm64,linux/amd64
+    uses: ./.github/workflows/build-images.yml
+    with:
+      tag: staging
+      force_build: true
+    secrets: inherit
 
   # ==================================================================
   # 3. DEPLOY STAGING (Pull :staging from GHCR)
   # ==================================================================
   deploy-staging:
     name: "deploy:rpi-ts-staging"
-    needs: build-for-testing
+    needs: build-staging
     runs-on: ubuntu-latest
     outputs:
       rpi_url: ${{ steps.get_url.outputs.url }}

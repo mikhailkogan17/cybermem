@@ -16,8 +16,8 @@ jobs:
   # ------------------------------------------------------------------
   # 1. Quality Gates (Lint, Danger)
   # ------------------------------------------------------------------
-  quality:
-    name: Quality Gates
+  pr-lint:
+    name: "pr:lint"
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -38,9 +38,9 @@ jobs:
   # ------------------------------------------------------------------
   # 3. Local E2E (Dogfooding) - "e2e:pr"
   # ------------------------------------------------------------------
-  e2e-local:
-    name: "E2E: Local (PR)"
-    needs: quality
+  pr-e2e-localhost-staging:
+    name: "pr:e2e:localhost-staging"
+    needs: pr-lint
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

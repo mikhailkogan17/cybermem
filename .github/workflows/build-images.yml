@@ -25,6 +25,16 @@ on:
           - auth
           - exporters
         default: all
+  workflow_call:
+    inputs:
+      tag:
+        description: "Docker tag to push (e.g., staging)"
+        type: string
+        required: true
+      force_build:
+        description: "Force build all images"
+        type: boolean
+        default: true
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -178,6 +188,7 @@ jobs:
             type=ref,event=branch
             type=sha,prefix={{branch}}-
             type=raw,value=latest,enable={{is_default_branch}}
+            type=raw,value=${{ inputs.tag }},enable=${{ inputs.tag != '' }}
 
       - name: Create manifest list and push
         run: |
@@ -239,6 +250,7 @@ jobs:
             type=ref,event=branch
             type=sha,prefix={{branch}}-
             type=raw,value=latest,enable={{is_default_branch}}
+            type=raw,value=${{ inputs.tag }},enable=${{ inputs.tag != '' }}
 
       - name: Build and push ${{ matrix.exporter }} image
         uses: docker/build-push-action@v5
@@ -291,6 +303,7 @@ jobs:
             type=ref,event=branch
             type=sha,prefix={{branch}}-
             type=raw,value=latest,enable={{is_default_branch}}
+            type=raw,value=${{ inputs.tag }},enable=${{ inputs.tag != '' }}
 
       - name: Build and push auth-sidecar image
         uses: docker/build-push-action@v5
@@ -343,6 +356,7 @@ jobs:
             type=ref,event=branch
             type=sha,prefix={{branch}}-
             type=raw,value=latest,enable={{is_default_branch}}
+            type=raw,value=${{ inputs.tag }},enable=${{ inputs.tag != '' }}
 
       - name: Build and push MCP image
         uses: docker/build-push-action@v5
