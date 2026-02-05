@@ -13,7 +13,13 @@ const fs = require("fs");
  */
 function validateTemplate(type, body) {
   const templatePath = `.github/PULL_REQUEST_TEMPLATE/${type}.md`;
-  if (!fs.existsSync(templatePath)) return;
+  if (!fs.existsSync(templatePath)) {
+    warn(
+      `Expected PR template not found at "${templatePath}". ` +
+        "Please verify that the PR template exists and is correctly configured.",
+    );
+    return;
+  }
 
   const templateContent = fs.readFileSync(templatePath, "utf8");
   // Extract headers (lines starting with #)
