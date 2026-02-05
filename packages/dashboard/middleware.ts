@@ -15,28 +15,39 @@ export async function middleware(request: NextRequest) {
   const authMethod = request.headers.get("x-auth-method");
   const userId = request.headers.get("x-user-id");
 
+  // Check if host is a private IP address (10.x.x.x)
+  const isPrivateIP = /^10\.\d{1,3}\.\d{1,3}\.\d{1,3}(:\d+)?$/.test(host);
+  
   const isLocal =
     host.includes("localhost") ||
     host.includes("127.0.0.1") ||
     host.includes("raspberrypi.local") ||
-    host.startsWith("10.") ||
+    isPrivateIP ||
     authMethod === "local" ||
     userId === "local";
 
-  if (!isLocal) {
-    // REMOTE: Check cookie token
-    const token = request.cookies.get("cybermem_token")?.value;
+  if (isLocal) {
+    const responseHeaders = new Headers(request.headers);
+    responseHeaders.set("X-User-Id", "local");
+    return NextResponse.next({
+      request: {
+        headers: responseHeaders,
+      },
+    });
+  }
 
-    // We do NOT redirect here anymore to avoid 307 loops and respect Law #6.
-    // Unauthorized requests will simply not have the X-User-Id header,
-    // and the UI (app/page.tsx) will render the LoginModal with a 200 OK.
-    if (
-      !token &&
-      !userId &&
-      !request.nextUrl.pathname.startsWith("/api/auth")
-    ) {
-      console.log("MiddleWare: No token/userId found for remote request");
-    }
+  // REMOTE: Check cookie token
+  const token = request.cookies.get("cybermem_token")?.value;
+
+  // We do NOT redirect here anymore to avoid 307 loops and respect Law #6.
+  // Unauthorized requests will simply not have the X-User-Id header,
+  // and the UI (app/page.tsx) will render the LoginModal with a 200 OK.
+  if (
+    !token &&
+    !userId &&
+    !request.nextUrl.pathname.startsWith("/api/auth")
+  ) {
+    console.log("MiddleWare: No token/userId found for remote request");
   }
 
   // CSRF Protection for mutating requests

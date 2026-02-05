@@ -21,12 +21,6 @@ assignees: []
 ### Prevention
 - How to ensure it never happens again? (e.g. "Added regression test")
 
-## Changes
-- **[FIX]** `path/to/file`
-
 ## Verification
 - [ ] Regression Test Added?
 - [ ] Verified on Environment where bug occurred?
-
-### Evidence
-![Fix Verification](...)

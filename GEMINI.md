@@ -77,7 +77,7 @@ To Ensure "Always Availability" and shorter token usage, follow this strict cycl
     - Agent fixes bugs locally.
 
 4.  **Publication (Automated)**:
-    - Agent opens PR (via `auto-pr`).
+    - Agent opens PR (via **GitHub MCP**).
     - CI/CD runs Verification Matrix.
     - **Double Gatekeeping**: Both **Agent** (locally) AND **CI** (remotely) must run the E2E matrix before release.
     - User merges.
@@ -122,19 +122,23 @@ To Ensure "Always Availability" and shorter token usage, follow this strict cycl
 2.  **Pull Request**: All changes must go through a PR (no direct commits to `main`).
 3.  **Danger Checks**:
     - **Docs**: Must be updated if code changes.
-    - **Evidence**: Screenshots required in PR description.
-    - **Release Report**: Required for `feat/*` branches.
+    - **Evidence**: Screenshots recommended in PR description.
 4.  **Merge**: Only possible after CI passes and Tech Lead approves.
 
-## 1.5.1 IDENTITY SEPARATION & AUTO-PR
+## 1.5.1 PR TEMPLATE SELECTION & GITHUB MCP
 
 > [!IMPORTANT]
-> **We avoid Identity Collision by delegating PR creation to CI.**
+> **Agents MUST strictly map branches to PR templates before creation.**
+
+| PR Title Prefix | Template Path                              | Requirement                                        |
+| :-------------- | :----------------------------------------- | :------------------------------------------------- |
+| `feat`          | `.github/PULL_REQUEST_TEMPLATE/feature.md` | Must include Decomposition & Verification headers. |
+| `fix`           | `.github/PULL_REQUEST_TEMPLATE/bugfix.md`  | Must include Analysis & Root Cause headers.        |
 
 1.  **Work**: Agent commits to `feat/*` or `chore/*` branches with `Antigravity Agent` git config.
-2.  **Hand-off**: Agent commits a `PR_DESCRIPTION.md` file to the branch root.
-3.  **Automation**: The `auto-pr.yml` workflow triggers on push, and the **GitHub Actions Bot** opens the PR.
-4.  **Review**: User (Tech Lead) reviews the PR (created by Bot) and merges.
+2.  **Template Verification**: BEFORE calling GitHub MCP, Agent MUST verify that the PR body contains all headers from the required template.
+3.  **PR Creation**: Agent uses `mcp_github-mcp-server_create_pull_request` to open the PR.
+4.  **Review**: User (Tech Lead) reviews the PR and merges.
 
 
 

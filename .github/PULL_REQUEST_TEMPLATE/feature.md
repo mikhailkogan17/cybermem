@@ -21,11 +21,6 @@ assignees: []
 - [ ] Failure Mode 1: (e.g. Network Down)
 - [ ] Failure Mode 2: (e.g. Read-only Filesystem)
 
-## Implementation
-### Changes
-- **[NEW]** `path/to/new/file`
-- **[MOD]** `path/to/modified/file`
-
 ## Verification
 <!-- AGENT: Attach screenshots proving usage in 4 environments (16-Screen Rule). -->
 
