@@ -130,10 +130,10 @@ To Ensure "Always Availability" and shorter token usage, follow this strict cycl
 > [!IMPORTANT]
 > **Agents MUST strictly map branches to PR templates before creation.**
 
-| Branch Prefix | Template Path                              | Requirement                                        |
-| :------------ | :----------------------------------------- | :------------------------------------------------- |
-| `feat/*`      | `.github/PULL_REQUEST_TEMPLATE/feature.md` | Must include Decomposition & Verification headers. |
-| `fix/*`       | `.github/PULL_REQUEST_TEMPLATE/bugfix.md`  | Must include Analysis & Root Cause headers.        |
+| PR Title Prefix | Template Path                              | Requirement                                        |
+| :-------------- | :----------------------------------------- | :------------------------------------------------- |
+| `feat`          | `.github/PULL_REQUEST_TEMPLATE/feature.md` | Must include Decomposition & Verification headers. |
+| `fix`           | `.github/PULL_REQUEST_TEMPLATE/bugfix.md`  | Must include Analysis & Root Cause headers.        |
 
 1.  **Work**: Agent commits to `feat/*` or `chore/*` branches with `Antigravity Agent` git config.
 2.  **Template Verification**: BEFORE calling GitHub MCP, Agent MUST verify that the PR body contains all headers from the required template.
