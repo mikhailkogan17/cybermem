@@ -34,7 +34,7 @@ function validateTemplate(type, body) {
 
   if (missingHeaders.length > 0) {
     const templateForUser = templateContent
-      .replace(/^---[\s\S]*?---/, "")
+      .replace(/^---[\s\S]*?---\n/, "")
       .trim();
     fail(
       `🚫 **Missing required headers from ${type} template**:\n` +
