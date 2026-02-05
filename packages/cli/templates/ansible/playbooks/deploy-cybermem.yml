@@ -125,6 +125,7 @@
           DATA_DIR={{ project_dir }}/data
           CYBERMEM_ENV_PATH={{ project_dir }}/.env
           CYBERMEM_HOME={{ project_dir }}
+          CYBERMEM_BASE_PATH={{ '/cybermem-staging' if cybermem_env == 'staging' else '/cybermem' }}
           # Add other envs as needed
         dest: "{{ project_dir }}/.env"
         force: true
