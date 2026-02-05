@@ -7,7 +7,7 @@ import React, {
     useEffect,
     useState,
 } from "react";
-import { AuditLogEntry, DashboardStats, TimeSeriesData } from "./types";
+import { AuditLogEntry, DashboardStats } from "./types";
 
 interface ClientConfig {
   id: string;
@@ -38,7 +38,6 @@ interface SystemHealth {
 interface DashboardContextType {
   stats: DashboardStats | null;
   logs: AuditLogEntry[];
-  timeSeries: TimeSeriesData | null;
   loading: boolean;
   isDemo: boolean;
   toggleDemo: () => void;
@@ -96,7 +95,6 @@ export function DashboardProvider({
   const [isDemo, setIsDemo] = useState(false);
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [logs, setLogs] = useState<AuditLogEntry[]>([]);
-  const [timeSeries, setTimeSeries] = useState<TimeSeriesData | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshSignal, setRefreshSignal] = useState(0);
   const [clientConfigs, setClientConfigs] = useState<ClientConfig[]>([]);
@@ -121,7 +119,6 @@ export function DashboardProvider({
       if (metricsRes.ok) {
         const metrics = await metricsRes.json();
         setStats(metrics.stats);
-        setTimeSeries(metrics.timeSeries);
       }
 
       if (logsRes.ok) {
@@ -210,7 +207,6 @@ export function DashboardProvider({
       value={{
         stats,
         logs,
-        timeSeries,
         loading,
         isDemo,
         toggleDemo,
