@@ -101,7 +101,7 @@ test.describe("CLI:E2E (Integration)", () => {
       // Check for LoginModal (new behavior) or /auth/signin (legacy/external)
       const loginModal = page.locator('h2:has-text("CyberMem Dashboard")');
       const isLoginRequired =
-        (await loginModal.isVisible()) || page.url().includes("auth/signin");
+        (await loginModal.isVisible({ timeout: 10000 })) || page.url().includes("auth/signin");
 
       if (isLoginRequired) {
         await testInfo.attach("🔐 Auth Required", {
@@ -116,7 +116,7 @@ test.describe("CLI:E2E (Integration)", () => {
         await page.keyboard.press("Enter");
 
         // Wait for auth UI to disappear
-        if (await loginModal.isVisible()) {
+        if (await loginModal.isVisible({ timeout: 10000 })) {
           await expect(loginModal).not.toBeVisible({ timeout: 10000 });
         } else {
           await page.waitForURL("**/");
@@ -139,7 +139,7 @@ test.describe("CLI:E2E (Integration)", () => {
       } catch (e) {
         // Sanity: If no pills, check if "No logs found" is visible (empty DB)
         const noLogs = page.getByText(/No logs found/i);
-        if (await noLogs.isVisible()) {
+        if (await noLogs.isVisible({ timeout: 10000 })) {
           await testInfo.attach("⚠️ Empty State", {
             body: "Dashboard loaded successfully but database is empty (0 records).\nThis is expected if reset was called or if this is the first test in a clean environment.",
             contentType: "text/plain",
@@ -172,7 +172,7 @@ test.describe("CLI:E2E (Integration)", () => {
       await expect(page.getByText(/ACCESS TOKEN/i).first()).toBeVisible();
 
       const eyeBtn = page.getByTestId("toggle-visibility");
-      if (await eyeBtn.isVisible()) {
+      if (await eyeBtn.isVisible({ timeout: 10000 })) {
         await testInfo.attach("⚙️ Settings Modal", {
           body: `Settings modal opened.\n\nDisplayed fields:\n- ACCESS TOKEN (masked by default)\n- Instance ID\n- Environment type\n\nAction: Toggling token visibility (password → text)`,
           contentType: "text/plain",
