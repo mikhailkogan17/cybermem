@@ -3,8 +3,9 @@ import { danger, fail, warn } from "danger";
 // 1. Verify PR Description and Template Usage
 const isPR = danger.github && danger.github.pr;
 const body = isPR ? danger.github.pr.body : "";
-const isFeature = danger.github.pr.title.startsWith("feat");
-const isFix = danger.github.pr.title.startsWith("fix");
+const branchName = isPR ? danger.github.pr.head.ref : "";
+const isFeature = branchName.startsWith("feat/");
+const isFix = branchName.startsWith("fix/");
 
 const fs = require("fs");
 
@@ -22,8 +23,10 @@ function validateTemplate(type, body) {
   }
 
   const templateContent = fs.readFileSync(templatePath, "utf8");
+  // Remove frontmatter before extracting headers
+  const contentWithoutFrontmatter = templateContent.replace(/^---[\s\S]*?---\n/, "");
   // Extract headers (lines starting with #)
-  const requiredHeaders = templateContent
+  const requiredHeaders = contentWithoutFrontmatter
     .split("\n")
     .filter((line) => line.startsWith("#"))
     .map((line) => line.trim());

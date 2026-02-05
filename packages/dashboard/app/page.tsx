@@ -102,6 +102,8 @@ export default function DashboardPage() {
       {!isAuthenticated && (
         <LoginModal
           onLogin={(token) => {
+            // Note: Cookie is set server-side via /api/auth/token with HttpOnly flag.
+            // Client-side we only trigger state refresh.
             login();
             refresh();
           }}
