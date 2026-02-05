@@ -64,13 +64,21 @@ jobs:
 
       - run: npm ci
 
-      # Verification: Install & Health Check
-      - name: Build CLI & Install (Staging Mode)
+      # Install Ansible for Runner-as-Staging-Host
+      - name: Install Ansible
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ansible
+
+      # Verification: Install & Health Check using CLI --ci mode
+      - name: Build CLI & Install (CI Staging Mode)
         env:
           DOCKER_DEFAULT_PLATFORM: linux/amd64
         run: |
           npm run build -w @cybermem/cli
-          node packages/cli/dist/index.js install --staging
+          # Use --ci --rpi --staging for "Runner-as-Staging-Host" mode
+          # This deploys to localhost using Ansible with staging configuration
+          node packages/cli/dist/index.js install --ci --rpi --staging
           sleep 30
 
       - run: npx playwright install --with-deps chromium

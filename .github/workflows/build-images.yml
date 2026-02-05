@@ -118,6 +118,8 @@ jobs:
           - platform: arm64
             runner: ${{ fromJSON(needs.detect-runner.outputs.arm64_runner) }}
     runs-on: ${{ matrix.runner }}
+    # Skip ARM64 build for staging tag to avoid RPi overload
+    if: ${{ matrix.platform != 'arm64' || inputs.tag != 'staging' }}
     permissions:
       contents: read
       packages: write
@@ -192,25 +194,38 @@ jobs:
 
       - name: Create manifest list and push
         run: |
-          # Combine the two separate arch tags into a single manifest
+          # Combine the separate arch tags into a single manifest
           TAGS=$(echo "${{ steps.meta.outputs.tags }}" | tr '\n' ' ')
           SHA_PREFIX="sha-$(echo ${{ github.sha }} | cut -c1-7)"
 
           # Source images
-          # Note: metadata-action default sha tag format is sha-abcdef7
           AMD64_IMAGE="${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}-dashboard:amd64-${SHA_PREFIX}"
           ARM64_IMAGE="${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}-dashboard:arm64-${SHA_PREFIX}"
 
-          # Create and push combined manifest for each tag
-          for tag in $TAGS; do
-            echo "Creating manifest for tag: $tag"
-            docker buildx imagetools create -t $tag $AMD64_IMAGE $ARM64_IMAGE
-          done
+          # For staging builds, only AMD64 is built (RPi reserved for production)
+          # For production builds, both AMD64 and ARM64 are built
+          if [ "${{ inputs.tag }}" = "staging" ]; then
+            echo "Creating AMD64-only manifest for staging tag"
+            for tag in $TAGS; do
+              echo "Creating manifest for tag: $tag"
+              docker buildx imagetools create -t $tag $AMD64_IMAGE
+            done
+          else
+            echo "Creating multi-arch manifest (amd64/arm64)"
+            for tag in $TAGS; do
+              echo "Creating manifest for tag: $tag"
+              docker buildx imagetools create -t $tag $AMD64_IMAGE $ARM64_IMAGE
+            done
+          fi
 
       - name: Final Summary
         run: |
-          echo "### 🚀 Multi-Arch Manifest Created" >> $GITHUB_STEP_SUMMARY
-          echo "The Dashboard is now available as a multi-architecture image (amd64/arm64)." >> $GITHUB_STEP_SUMMARY
+          echo "### 🚀 Manifest Created" >> $GITHUB_STEP_SUMMARY
+          if [ "${{ inputs.tag }}" = "staging" ]; then
+            echo "The Dashboard is now available as an AMD64-only image (staging)." >> $GITHUB_STEP_SUMMARY
+          else
+            echo "The Dashboard is now available as a multi-architecture image (amd64/arm64)." >> $GITHUB_STEP_SUMMARY
+          fi
           echo "- **Image**: \`${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}-dashboard:latest\`" >> $GITHUB_STEP_SUMMARY
 
   build-exporters:

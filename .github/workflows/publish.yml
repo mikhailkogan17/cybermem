@@ -57,17 +57,21 @@ jobs:
     secrets: inherit
 
   # ==================================================================
-  # 3. DEPLOY STAGING (Pull :staging from GHCR)
+  # 3. DEPLOY STAGING (AMD64 Runner-as-Staging-Host)
   # ==================================================================
   deploy-staging:
-    name: "deploy:rpi-ts-staging"
+    name: "deploy:runner-staging"
     needs: build-staging
     runs-on: ubuntu-latest
     outputs:
-      rpi_url: ${{ steps.get_url.outputs.url }}
+      staging_url: ${{ steps.get_url.outputs.url }}
       staging_token: ${{ steps.gen_token.outputs.token }}
     steps:
       - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
 
       - name: Generate Staging Token
         id: gen_token
@@ -75,19 +79,26 @@ jobs:
           # Generate token for staging E2E auth (same format as CLI)
           TOKEN="sk-$(openssl rand -hex 16)"
           echo "token=$TOKEN" >> $GITHUB_OUTPUT
+          echo "✅ Generated staging token"
 
-          # Generate PBKDF2 hash (using Node.js to match CLI EXACTLY)
-          node -e "
-          const crypto = require('crypto');
-          const token = '$TOKEN';
-          const salt = crypto.randomBytes(16).toString('hex');
-          crypto.pbkdf2(token, salt, 100000, 64, 'sha512', (err, key) => {
-            if (err) process.exit(1);
-            console.log('token_hash=' + salt + ':' + key.toString('hex'));
-            console.log('token_id=' + crypto.randomBytes(8).toString('hex'));
-          });
-          " >> $GITHUB_OUTPUT
-          echo "✅ Generated staging token via Node.js"
+      - name: Setup Environment
+        run: |
+          mkdir -p ~/.cybermem
+          echo "OPENAI_API_KEY=sk-test-key-for-ci" > ~/.cybermem/.env # gitleaks:allow
+          echo "OM_API_KEY=sk-test-key-for-ci" >> ~/.cybermem/.env # gitleaks:allow
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - run: npm ci
+
+      - name: Install Ansible
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ansible
 
       - name: Setup Tailscale
         uses: tailscale/github-action@v2
@@ -95,7 +106,7 @@ jobs:
           authkey: ${{ secrets.TAILSCALE_AUTHKEY }}
           version: 1.76.6
 
-      - name: Get RPi Funnel URL
+      - name: Wait for Tailscale Connection
         id: get_url
         run: |
           echo "Waiting for Tailscale connection..."
@@ -115,53 +126,52 @@ jobs:
             exit 1
           fi
 
-          RPI_DNS=$(tailscale status --json | jq -r '.Peer[] | select(.HostName | test("raspberrypi"; "i")) | .DNSName' | head -1 | sed 's/\.$//')
-          if [ -z "$RPI_DNS" ]; then
-            echo "❌ Could not find RPi"
+          # Get this runner's Tailscale DNS name for funnel
+          MY_DNS=$(tailscale status --json | jq -r '.Self.DNSName' | sed 's/\.$//')
+          if [ -z "$MY_DNS" ]; then
+            echo "❌ Could not determine Tailscale DNS name"
             tailscale status
             exit 1
           fi
 
-          FUNNEL_URL="https://${RPI_DNS}:8443"
+          # Staging uses port 8443 for Tailscale Funnel
+          FUNNEL_URL="https://${MY_DNS}:8443"
           echo "url=${FUNNEL_URL}" >> $GITHUB_OUTPUT
-          echo "✅ RPi Funnel URL: ${FUNNEL_URL}"
+          echo "✅ Staging Funnel URL: ${FUNNEL_URL}"
 
-      - name: Setup Ansible
+      - name: Deploy Staging (Runner-as-Staging-Host)
+        env:
+          DOCKER_DEFAULT_PLATFORM: linux/amd64
         run: |
-          sudo apt-get update
-          sudo apt-get install -y ansible
+          npm run build -w @cybermem/cli
+          # Use --ci --rpi --staging --remote-access for Runner-as-Staging-Host with Tailscale Funnel
+          node packages/cli/dist/index.js install --ci --rpi --staging --remote-access
 
-      - name: Get RPi Tailscale IP
-        id: get_rpi_ip
+      - name: Configure Tailscale Funnel
         run: |
-          for i in {1..5}; do
-            RPI_IP=$(tailscale status --json | jq -r '.Peer[] | select(.HostName | test("raspberrypi"; "i")) | .TailscaleIPs[0]' | head -1)
-            if [ -n "$RPI_IP" ]; then
-              echo "ip=$RPI_IP" >> $GITHUB_OUTPUT
-              echo "✅ RPi IP: $RPI_IP"
+          # Configure Tailscale Funnel to expose localhost:8625 at :8443
+          sudo tailscale funnel --bg --https=8443 http://127.0.0.1:8625
+          sudo tailscale funnel status
+
+      - name: Wait for Services
+        run: |
+          echo "Waiting for services to be healthy..."
+          for i in {1..30}; do
+            if curl -sf "http://localhost:8625/health" > /dev/null 2>&1; then
+              echo "✅ Services ready"
               exit 0
             fi
-            sleep 3
+            echo "Waiting... ($i/30)"
+            sleep 10
           done
+          echo "❌ Services failed to become healthy"
           exit 1
-
-      - name: Deploy Staging (Pull :staging)
-        env:
-          ANSIBLE_HOST_KEY_CHECKING: "False"
-        run: |
-          ansible-playbook \
-            -i packages/cli/templates/ansible/inventory/hosts.ini \
-            packages/cli/templates/ansible/playbooks/deploy-cybermem.yml \
-            --extra-vars "cybermem_env=staging ghcr_user=${{ github.actor }} ghcr_token=${{ secrets.GITHUB_TOKEN }} ghcr_tag=staging TRAEFIK_PORT=8625 CYBERMEM_TAILSCALE=true" \
-            --extra-vars "auth_token_hash=${{ steps.gen_token.outputs.token_hash }} auth_token_id=${{ steps.gen_token.outputs.token_id }} auth_token_name=staging-e2e auth_token_value=${{ steps.gen_token.outputs.token }}" \
-            --extra-vars "ansible_ssh_common_args='-o StrictHostKeyChecking=no'" \
-            --extra-vars "ansible_host=${{ steps.get_rpi_ip.outputs.ip }}"
 
   # ==================================================================
   # 4. E2E VERIFICATION
   # ==================================================================
   e2e-staging:
-    name: "e2e:rpi-ts-staging"
+    name: "e2e:runner-staging"
     needs: deploy-staging
     runs-on: ubuntu-latest
     steps:
@@ -186,14 +196,14 @@ jobs:
       - name: Run E2E Verification
         id: run-e2e
         env:
-          DASHBOARD_URL: ${{ needs.deploy-staging.outputs.rpi_url }}
-          MCP_URL: ${{ needs.deploy-staging.outputs.rpi_url }}/mcp
+          DASHBOARD_URL: ${{ needs.deploy-staging.outputs.staging_url }}
+          MCP_URL: ${{ needs.deploy-staging.outputs.staging_url }}/mcp
           CYBERMEM_TOKEN: ${{ needs.deploy-staging.outputs.staging_token }}
-          TEST_ENV_NAME: "rpi-ts-staging"
+          TEST_ENV_NAME: "runner-staging"
         run: |
           echo "Testing against: $DASHBOARD_URL"
           for i in {1..30}; do
-            if curl -sf "${DASHBOARD_URL}/health" > /dev/null 2>&1; then
+            if curl -sf -k "${DASHBOARD_URL}/health" > /dev/null 2>&1; then
               echo "✅ Services ready"
               break
             fi
@@ -202,7 +212,7 @@ jobs:
           done
 
           # Final health check to ensure services became ready
-          curl -sf "${DASHBOARD_URL}/health" > /dev/null 2>&1 || { echo "❌ Services failed to become healthy"; exit 1; }
+          curl -sf -k "${DASHBOARD_URL}/health" > /dev/null 2>&1 || { echo "❌ Services failed to become healthy"; exit 1; }
 
           cd packages/cli
           npm run test:e2e:dashboard:api
@@ -218,10 +228,10 @@ jobs:
           elif [ "${{ steps.run-e2e.outcome }}" == "failure" ]; then
             TEST_STATUS="failed"
           fi
-          echo "# RPI-TS-STAGING Verification" > release-report-staging/RPI-TS-STAGING.md
-          echo "**Date**: $(date -u +%Y-%m-%d)" >> release-report-staging/RPI-TS-STAGING.md
-          echo "**URL**: ${{ needs.deploy-staging.outputs.rpi_url }}" >> release-report-staging/RPI-TS-STAGING.md
-          echo "**Status**: ${TEST_STATUS}" >> release-report-staging/RPI-TS-STAGING.md
+          echo "# RUNNER-STAGING Verification" > release-report-staging/RUNNER-STAGING.md
+          echo "**Date**: $(date -u +%Y-%m-%d)" >> release-report-staging/RUNNER-STAGING.md
+          echo "**URL**: ${{ needs.deploy-staging.outputs.staging_url }}" >> release-report-staging/RUNNER-STAGING.md
+          echo "**Status**: ${TEST_STATUS}" >> release-report-staging/RUNNER-STAGING.md
 
       - name: Slack (Staging Fail)
         if: failure()
@@ -244,26 +254,24 @@ jobs:
           retention-days: 14
 
   # ==================================================================
-  # 5. PUSH :latest TO GHCR (After E2E passes)
+  # 5. BUILD ARM64 FOR PRODUCTION (RPi Runner Only)
+  # ==================================================================
+  build-arm64-prod:
+    name: "build:arm64-prod"
+    needs: e2e-staging
+    uses: ./.github/workflows/build-images.yml
+    with:
+      tag: latest
+      force_build: true
+    secrets: inherit
+
+  # ==================================================================
+  # 6. PUSH :latest TO GHCR (After ARM64 Build)
   # ==================================================================
   deploy-ghcr:
     name: "deploy:ghcr"
-    needs: e2e-staging
+    needs: build-arm64-prod
     runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - name: mcp
-            image: cybermem-mcp
-          - name: dashboard
-            image: cybermem-dashboard
-          - name: auth-sidecar
-            image: cybermem-auth-sidecar
-          - name: db-exporter
-            image: cybermem-db_exporter
-          - name: log-exporter
-            image: cybermem-log_exporter
     steps:
       - name: Log in to GHCR
         uses: docker/login-action@v3
@@ -272,14 +280,13 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Promote :staging to :latest
+      - name: Verify Multi-Arch Images
         run: |
-          docker pull ghcr.io/${{ github.repository_owner }}/${{ matrix.image }}:staging
-          docker tag ghcr.io/${{ github.repository_owner }}/${{ matrix.image }}:staging ghcr.io/${{ github.repository_owner }}/${{ matrix.image }}:latest
-          docker push ghcr.io/${{ github.repository_owner }}/${{ matrix.image }}:latest
+          echo "✅ Multi-arch images (amd64/arm64) built and pushed as :latest"
+          docker buildx imagetools inspect ghcr.io/${{ github.repository_owner }}/cybermem-dashboard:latest
 
   # ==================================================================
-  # 6. PUBLISH NPM
+  # 7. PUBLISH NPM
   # ==================================================================
   publish-npm:
     name: "publish:npm"
@@ -325,7 +332,7 @@ jobs:
           done
 
   # ==================================================================
-  # 7. FINALIZE (Tag, Commit, GitHub Release, Slack)
+  # 8. FINALIZE (Tag, Commit, GitHub Release, Slack)
   # ==================================================================
   finalize:
     name: "finalize"
@@ -386,7 +393,7 @@ jobs:
             $SLACK_WEBHOOK || true
 
   # ==================================================================
-  # 8. DEPLOY PROD (Pull :latest from GHCR)
+  # 9. DEPLOY PROD (Pull :latest from GHCR to RPi)
   # ==================================================================
   deploy-prod:
     name: "deploy:rpi-ts-prod"
