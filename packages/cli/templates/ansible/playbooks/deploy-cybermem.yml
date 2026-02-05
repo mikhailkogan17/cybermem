@@ -198,12 +198,11 @@
         tailscale funnel reset 2>/dev/null || true
 
         # Configure path based on current environment only
-        # Staging: /cybermem-staging
-        # Prod: /cybermem
+        # Configure path based on current environment only
         if [ "{{ cybermem_env | default('prod') }}" = "staging" ]; then
-          tailscale funnel --bg --set-path=/cybermem-staging http://127.0.0.1:{{ TRAEFIK_PORT | default('8626') }}
+          tailscale funnel --bg 8443 http://127.0.0.1:{{ TRAEFIK_PORT | default('8625') }}
         else
-          tailscale funnel --bg --set-path=/cybermem http://127.0.0.1:{{ TRAEFIK_PORT | default('8626') }}
+          tailscale funnel --bg 443 http://127.0.0.1:{{ TRAEFIK_PORT | default('8626') }}
         fi
 
         tailscale funnel status

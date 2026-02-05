@@ -209,9 +209,9 @@ To Ensure "Always Availability" and shorter token usage, follow this strict cycl
 > | **LOCALHOST-PROD**  | `http://localhost:8626`            |
 > | **RPI-LAN-STG**     | `http://raspberrypi.local:8625`    |
 > | **RPI-LAN-PROD**    | `http://raspberrypi.local:8626`    |
-> | **RPI-TS-STG**      | `https://raspberrypi.ts.net/cybermem-staging` |
-> | **RPI-TS-PROD**     | `https://raspberrypi.ts.net/cybermem` |
-> | **K3D-STAGING**     | `http://localhost:8627`            |           |
+> | **RPI-TS-STG**      | `https://raspberrypi.ts.net:8443`  |
+> | **RPI-TS-PROD**     | `https://raspberrypi.ts.net`       |
+> | **K3D-STAGING**     | `http://localhost:8627`            |
 
 > [!ATTENTION] it is FORBIDDEN to change:
 > - base URL of any environment
@@ -222,11 +222,11 @@ To Ensure "Always Availability" and shorter token usage, follow this strict cycl
 
 ### Test Workflow Rules
 
-| Workflow                     | Local                 | RPi                     |
-| ---------------------------- | --------------------- | ----------------------- |
-| `npm run test:e2e` (local)   | ✅ Full CRUD + DB wipe | ❌ Never run             |
-| `npm run test:e2e` (RPi)     | ❌ N/A                 | ✅ Read-only checks only |
-| `cybermem backup/restore`    | ✅ Restore TO local    | ❌ Backup FROM RPi only  |
+| Workflow                   | Local                 | RPi                     |
+| -------------------------- | --------------------- | ----------------------- |
+| `npm run test:e2e` (local) | ✅ Full CRUD + DB wipe | ❌ Never run             |
+| `npm run test:e2e` (RPi)   | ❌ N/A                 | ✅ Read-only checks only |
+| `cybermem backup/restore`  | ✅ Restore TO local    | ❌ Backup FROM RPi only  |
 
 ---
 
@@ -395,14 +395,14 @@ sequenceDiagram
 
 ### Core Workflows
 
-| Workflow                  | Purpose                          | Environment    |
-| ------------------------- | -------------------------------- | -------------- |
-| `npm run test:e2e`        | Complete E2E system verification | All            |
-| `.hooks/pre-commit`       | Linting checks (auto-installed)  | Local          |
-| `npm run release`         | Publish npm packages             | Local/CI       |
-| `gh workflow run publish.yml` | Trigger GitHub release workflow | GitHub Actions |
-| `.agent/workflows/publish.md` | Agent release workflow       | Agent          |
-| `.agent/workflows/commit.md`  | Agent commit workflow        | Agent          |
+| Workflow                      | Purpose                          | Environment    |
+| ----------------------------- | -------------------------------- | -------------- |
+| `npm run test:e2e`            | Complete E2E system verification | All            |
+| `.hooks/pre-commit`           | Linting checks (auto-installed)  | Local          |
+| `npm run release`             | Publish npm packages             | Local/CI       |
+| `gh workflow run publish.yml` | Trigger GitHub release workflow  | GitHub Actions |
+| `.agent/workflows/publish.md` | Agent release workflow           | Agent          |
+| `.agent/workflows/commit.md`  | Agent commit workflow            | Agent          |
 
 ### Weekly Maintenance
 
