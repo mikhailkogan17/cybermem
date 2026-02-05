@@ -93,11 +93,11 @@ jobs:
           # Detect if any runner with label 'arm' is online
           # Falls back to ubuntu-latest if RPi is offline
           # uses || echo "" to prevent set -e failure
-          RUNNERS=$(gh api repos/${{ github.repository }}/actions/runners --jq '.runners[] | select(.labels[].name == "arm" and .status == "online") | .name' 2>/dev/null || echo "")
+          RUNNERS=$(gh api repos/${{ github.repository }}/actions/runners --jq '.runners[] | select((.labels[].name | test("(?i)arm")) and .status == "online") | .name' 2>/dev/null || echo "")
 
           if [ -n "$RUNNERS" ]; then
             echo "RPi Runner detected: $RUNNERS"
-            echo "runner=[\"self-hosted\", \"linux\", \"arm\"]" >> $GITHUB_OUTPUT
+            echo "runner=[\"self-hosted\", \"Linux\", \"ARM\"]" >> $GITHUB_OUTPUT
             echo "### 🚀 CI Mode: Native ARM64 (RPi)" >> $GITHUB_STEP_SUMMARY
           else
             echo "No RPi Runner detected or API failure. Falling back to QEMU."
