@@ -13,7 +13,7 @@ import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
 export default function DashboardPage() {
-  const { stats, logs, loading, refresh, timeSeries, isAuthenticated, login } =
+  const { stats, logs, loading, refresh, isAuthenticated, login } =
     useDashboard();
   const [showSettings, setShowSettings] = useState(false);
   const [showMCPConfig, setShowMCPConfig] = useState(false);
@@ -102,7 +102,7 @@ export default function DashboardPage() {
       {!isAuthenticated && (
         <LoginModal
           onLogin={(token) => {
-            document.cookie = `cybermem_token=${token}; path=/; max-age=${60 * 60 * 24 * 30}`;
+            document.cookie = `cybermem_token=${token}; path=/; max-age=${60 * 60 * 24 * 30}; SameSite=Lax; Secure`;
             login();
             refresh();
           }}

@@ -75,9 +75,14 @@ function isLocalRequest(req) {
   const ip =
     forwarded?.split(",")[0]?.trim() || realIp || req.socket.remoteAddress;
 
-  console.log(`[DEBUG] Host: ${host}, IP: ${ip}, URL: ${req.url}`);
+  // 1. First reject Tailscale/Remote requests (.ts.net, 100.x.x.x)
+  // CRITICAL: Tailscale requests (via Funnel) must NEVER be treated as local.
+  // If host contains .ts.net, it's external.
+  if (host.includes(".ts.net") || host.startsWith("100.")) {
+    return false;
+  }
 
-  // Allow .local (mDNS) bypass for RPi LAN access
+  // 2. Allow .local (mDNS) bypass for RPi LAN access
   const hostname = host.split(":")[0];
   if (hostname.endsWith(".local")) {
     return true;
@@ -85,11 +90,6 @@ function isLocalRequest(req) {
 
   // Host-based check REMOVED for security (CVE-2026-001)
   // We only trust loopback IP if not on Tailscale.
-  // CRITICAL: Tailscale requests (via Funnel) must NEVER be treated as local.
-  // If host contains .ts.net, it's external.
-  if (host.includes(".ts.net") || host.startsWith("100.")) {
-    return false;
-  }
 
   // Allow localhost bypass ONLY for local Dev environment (Docker Desktop)
   const isDev = process.env.CYBERMEM_INSTANCE === "local";

@@ -110,9 +110,7 @@ test.describe("CLI:E2E (Integration)", () => {
         });
 
         // Use the token input (handles both modal and standalone page)
-        const tokenInput = page
-          .locator("input#token, input#access-token")
-          .first();
+        const tokenInput = page.locator("input#token").first();
         await expect(tokenInput).toBeVisible();
         await tokenInput.fill(process.env.CYBERMEM_TOKEN || "");
         await page.keyboard.press("Enter");
