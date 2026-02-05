@@ -4,9 +4,9 @@ import { danger, fail, warn } from "danger";
 const isPR = danger.github && danger.github.pr;
 const body = isPR ? danger.github.pr.body : "";
 const title = isPR ? danger.github.pr.title.toLowerCase() : "";
-// Check for conventional commit prefixes or keywords anywhere in title
-const isFeature = title.includes("feat:") || title.includes("feat(") || title.includes("feature");
-const isFix = title.includes("fix:") || title.includes("fix(") || title.includes("bugfix");
+// Check for "feat" or "fix" anywhere in title (matches feat:, feat(, feature, fix:, fix(, bugfix, etc.)
+const isFeature = title.includes("feat");
+const isFix = title.includes("fix");
 
 const fs = require("fs");
 
