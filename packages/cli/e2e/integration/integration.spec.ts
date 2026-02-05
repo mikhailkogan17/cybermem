@@ -135,15 +135,15 @@ test.describe("CLI:E2E (Integration)", () => {
       // If locally, we might need a retry or a small wait for the background fetch.
       
       // Wait for loading skeleton to disappear AND content to render
-      // The skeleton rows have "animate-pulse" class
+      // The skeleton rows have "animate-pulse" class on child elements
       await page.waitForFunction(
         () => {
-          const skeletonRows = document.querySelectorAll('tr .animate-pulse');
-          const hasNoSkeleton = skeletonRows.length === 0;
+          const skeletonElements = document.querySelectorAll('tr .animate-pulse');
+          const hasNoSkeleton = skeletonElements.length === 0;
           
           // Also check if either status pills or "no logs" message is present
           const hasPills = document.querySelectorAll('.status-pill').length > 0;
-          const hasNoLogsMsg = document.body.textContent?.match(/No logs found/i);
+          const hasNoLogsMsg = !!document.body.textContent?.match(/No logs found/i);
           
           return hasNoSkeleton && (hasPills || hasNoLogsMsg);
         },
