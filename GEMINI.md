@@ -409,8 +409,7 @@ sequenceDiagram
 
 1. Run `npm run test:e2e` to verify all systems
 2. Check npm versions match local packages
-3. Sync landing submodule if behind (manual process)
-4. Review audit logs on dashboard
+3. Review audit logs on dashboard
 
 ### Release Process
 
