@@ -92,6 +92,67 @@ To Ensure "Always Availability" and shorter token usage, follow this strict cycl
 - **CHANGELOG.md**: Executive Summary. MUST link to the specific Release Report.
 - **GitHub Release**: Artifact distribution. Inherits content from CHANGELOG.
 
+## 1.3.2 FAST-CI ARCHITECTURE
+
+> [!IMPORTANT]
+> **Fast-CI Model: RPi Reserved for Production Only**
+
+### Role Distribution (Non-Negotiable)
+
+| Component | Staging (PR/Publish) | Production |
+| :-------- | :------------------- | :--------- |
+| **Runner** | AMD64 GitHub runners | RPi self-hosted (ARM64 only) |
+| **Purpose** | PR checks, staging verification | Production deployment only |
+| **Build** | AMD64 images only | Multi-arch (AMD64 + ARM64) |
+| **Deployment** | Runner emulates RPi with Tailscale | Real RPi deployment |
+
+### Workflow Pipeline
+
+1. **PR Checks** (`e2e.yml`):
+   - Uses `cybermem install --ci --rpi --staging` on AMD64 runner
+   - Runner becomes its own staging environment
+   - No RPi involvement
+
+2. **Publish Staging** (`publish.yml`):
+   - Build AMD64-only `:staging` images on GitHub runners
+   - Deploy to AMD64 runner using `--ci --rpi --staging --remote-access`
+   - Setup Tailscale Funnel at port 8443
+   - Run E2E tests against `https://<runner>.ts.net:8443`
+
+3. **Production Build**:
+   - After staging E2E passes, trigger ARM64 build on RPi runner
+   - Build multi-arch (AMD64 + ARM64) `:latest` images
+   - Push to GHCR
+
+4. **Production Deploy**:
+   - Deploy `:latest` to real RPi via Ansible
+   - Tailscale Funnel at port 443
+
+### CLI --ci Flag
+
+The `--ci` flag enables non-interactive mode for GitHub Actions:
+
+```bash
+# PR/Staging: Runner emulates RPi
+cybermem install --ci --rpi --staging --remote-access
+
+# Behavior:
+# - Non-interactive (no prompts)
+# - Deploys to localhost using Ansible
+# - Uses /tmp/cybermem-ci as project directory
+# - Skips apt/sudo operations
+# - Sets up Tailscale Funnel automatically
+```
+
+### Resource Constraints
+
+Memory limits in `docker-compose.yml`:
+- Dashboard: 512MB (limit), 256MB (reservation)
+- MCP Server: 256MB (limit), 128MB (reservation)
+- Traefik: 128MB (limit), 64MB (reservation)
+
+These limits ensure stability on both RPi and GitHub runners.
+
 ## 1.4 LETHAL LAWS OF AGENT BEHAVIOR (Non-Negotiable)
 
 > [!CAUTION]
@@ -415,10 +476,16 @@ sequenceDiagram
 1. Ensure clean git state
 2. Run `gh workflow run publish.yml --field version_type=patch`
 3. Monitor with `gh run view --watch`
-4. Deploy to RPi: `ansible-playbook -i inventory/hosts.ini playbooks/deploy-cybermem.yml`
+4. **Workflow automatically**:
+   - Builds AMD64 staging images
+   - Deploys to GitHub runner (emulates RPi with Tailscale)
+   - Runs E2E tests against Tailscale Funnel URL
+   - Builds ARM64 production images on RPi runner
+   - Publishes to NPM
+   - Deploys to production RPi via Ansible
 
 > [!CAUTION]
-> **ANSIBLE-ONLY DEPLOYMENT**: It is STRICTLY FORBIDDEN to use `docker-compose pull` or raw SSH commands for RPi updates. Use Ansible to ensure idempotent state and automated health checks.
+> **RPi RESERVED FOR PRODUCTION**: The RPi self-hosted runner ONLY builds ARM64 production images. All PR checks and staging verification run on AMD64 GitHub runners to avoid RPi overload.
 > [!NOTE]
 > **We use Linear via MCP for all task tracking.**
 
