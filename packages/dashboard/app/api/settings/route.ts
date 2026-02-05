@@ -30,12 +30,13 @@ function getMcpEndpoint(request: NextRequest): {
     };
   }
 
-  // Priority 2: Tailscale / Funnel Subpaths (No port, explicit subpath)
+  // Priority 2: Tailscale / Funnel (Port-Based)
   if (isTailscale) {
     const protocol = request.headers.get("x-forwarded-proto") || "https";
-    const subpath = isStaging ? "/cybermem-staging" : "/cybermem";
+    const displayPort = isStaging ? "8443" : "443";
+    // If port is already in the host, it will be used. Hostname is enough.
     return {
-      endpoint: `${protocol}://${hostname}${subpath}/mcp`,
+      endpoint: `${protocol}://${hostname}${port ? ":" + port : displayPort === "443" ? "" : ":" + displayPort}/mcp`,
       isLocal: false,
     };
   }

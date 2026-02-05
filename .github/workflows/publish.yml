@@ -122,7 +122,7 @@ jobs:
             exit 1
           fi
 
-          FUNNEL_URL="https://${RPI_DNS}/cybermem-staging"
+          FUNNEL_URL="https://${RPI_DNS}:8443"
           echo "url=${FUNNEL_URL}" >> $GITHUB_OUTPUT
           echo "✅ RPi Funnel URL: ${FUNNEL_URL}"
 
