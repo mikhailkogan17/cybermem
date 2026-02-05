@@ -226,7 +226,7 @@ To Ensure "Always Availability" and shorter token usage, follow this strict cycl
 | ---------------------------- | --------------------- | ----------------------- |
 | `npm run test:e2e` (local)   | ✅ Full CRUD + DB wipe | ❌ Never run             |
 | `npm run test:e2e` (RPi)     | ❌ N/A                 | ✅ Read-only checks only |
-| `tools/test-backup-restore`  | ✅ Restore TO local    | ❌ Backup FROM RPi only  |
+| `cybermem backup/restore`    | ✅ Restore TO local    | ❌ Backup FROM RPi only  |
 | `scripts/rpi-sync-build.sh`  | ✅ Receive data        | ❌ Source only (read)    |
 
 ---
