@@ -133,24 +133,48 @@ test.describe("CLI:E2E (Integration)", () => {
     await test.step("📊 Dashboard Home — Verify Logs Loaded", async () => {
       // If we are on RPi/Remote, we expect data from previous api.spec.ts run in CI.
       // If locally, we might need a retry or a small wait for the background fetch.
-      const pill = page.locator(".status-pill").first();
+      
+      // Wait for loading skeleton to disappear (indicates data fetch complete)
+      // The skeleton rows have "animate-pulse" class
+      await page.waitForFunction(
+        () => {
+          const skeletonRows = document.querySelectorAll('tr .animate-pulse');
+          return skeletonRows.length === 0;
+        },
+        { timeout: 30000 } // Increased timeout for remote environments
+      );
 
-      try {
-        await expect(pill).toBeVisible({ timeout: VISIBILITY_TIMEOUT });
-      } catch (e) {
-        // Sanity: If no pills, check if "No logs found" is visible (empty DB)
-        const noLogs = page.getByText(/No logs found/i);
-        if (await noLogs.isVisible({ timeout: VISIBILITY_TIMEOUT })) {
-          await testInfo.attach("⚠️ Empty State", {
-            body: "Dashboard loaded successfully but database is empty (0 records).\nThis is expected if reset was called or if this is the first test in a clean environment.",
-            contentType: "text/plain",
-          });
-          // On CI, we WANT data to be there because api.spec.ts runs first.
-          // For now, let's treat "No logs found" as a partial success for the UI load itself.
-          await expect(noLogs).toBeVisible();
-        } else {
-          throw e;
-        }
+      // Small additional wait for React state updates to propagate
+      await page.waitForTimeout(1000);
+
+      const pill = page.locator(".status-pill").first();
+      const noLogs = page.getByText(/No logs found/i);
+
+      // Check if either pills or "no logs" message is visible
+      const pillVisible = await pill.isVisible().catch(() => false);
+      const noLogsVisible = await noLogs.isVisible().catch(() => false);
+
+      if (pillVisible) {
+        await expect(pill).toBeVisible();
+        await testInfo.attach("✅ Data Loaded", {
+          body: "Dashboard successfully loaded with audit log data from previous tests.",
+          contentType: "text/plain",
+        });
+      } else if (noLogsVisible) {
+        await testInfo.attach("⚠️ Empty State", {
+          body: "Dashboard loaded successfully but database is empty (0 records).\nThis is expected if reset was called or if this is the first test in a clean environment.",
+          contentType: "text/plain",
+        });
+        await expect(noLogs).toBeVisible();
+      } else {
+        // Neither condition met - this is a failure
+        throw new Error(
+          `Dashboard loaded but expected elements not found.\n` +
+          `Expected either:\n` +
+          `  1. Status pill (.status-pill) for audit logs\n` +
+          `  2. "No logs found" message for empty state\n` +
+          `Current page content may not have rendered correctly.`
+        );
       }
     });
 
