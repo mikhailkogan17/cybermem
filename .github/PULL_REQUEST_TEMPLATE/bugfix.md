@@ -6,7 +6,7 @@ labels: ["bug"]
 assignees: []
 ---
 
-## Postmortem Analysis
+## Analysis
 <!-- AGENT: You MUST fill this out. Do not fix blindly. -->
 
 ### Symptom
