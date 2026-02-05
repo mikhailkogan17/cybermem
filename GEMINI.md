@@ -122,18 +122,23 @@ To Ensure "Always Availability" and shorter token usage, follow this strict cycl
 2.  **Pull Request**: All changes must go through a PR (no direct commits to `main`).
 3.  **Danger Checks**:
     - **Docs**: Must be updated if code changes.
-    - **Evidence**: Screenshots required in PR description.
-    - **Release Report**: Required for `feat/*` branches.
+    - **Evidence**: Screenshots recommended in PR description.
 4.  **Merge**: Only possible after CI passes and Tech Lead approves.
 
-## 1.5.1 IDENTITY SEPARATION & GITHUB MCP
+## 1.5.1 PR TEMPLATE SELECTION & GITHUB MCP
 
 > [!IMPORTANT]
-> **We avoid Identity Collision by delegating PR creation to the GitHub MCP.**
+> **Agents MUST strictly map branches to PR templates before creation.**
+
+| Branch Prefix | Template Path                              | Requirement                                        |
+| :------------ | :----------------------------------------- | :------------------------------------------------- |
+| `feat/*`      | `.github/PULL_REQUEST_TEMPLATE/feature.md` | Must include Decomposition & Verification headers. |
+| `fix/*`       | `.github/PULL_REQUEST_TEMPLATE/bugfix.md`  | Must include Analysis & Root Cause headers.        |
 
 1.  **Work**: Agent commits to `feat/*` or `chore/*` branches with `Antigravity Agent` git config.
-2.  **PR Creation**: Agent uses `mcp_github-mcp-server_create_pull_request` to open the PR.
-3.  **Review**: User (Tech Lead) reviews the PR and merges.
+2.  **Template Verification**: BEFORE calling GitHub MCP, Agent MUST verify that the PR body contains all headers from the required template.
+3.  **PR Creation**: Agent uses `mcp_github-mcp-server_create_pull_request` to open the PR.
+4.  **Review**: User (Tech Lead) reviews the PR and merges.
 
 
 
