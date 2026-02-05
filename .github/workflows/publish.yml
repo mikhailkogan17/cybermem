@@ -57,10 +57,10 @@ jobs:
     secrets: inherit
 
   # ==================================================================
-  # 3. DEPLOY STAGING (AMD64 Runner-as-Staging-Host)
+  # 3. DEPLOY STAGING (AMD64 Runner emulates RPi with Tailscale)
   # ==================================================================
   deploy-staging:
-    name: "deploy:runner-staging"
+    name: "deploy:rpi-ts-staging"
     needs: build-staging
     runs-on: ubuntu-latest
     outputs:
@@ -139,12 +139,13 @@ jobs:
           echo "url=${FUNNEL_URL}" >> $GITHUB_OUTPUT
           echo "✅ Staging Funnel URL: ${FUNNEL_URL}"
 
-      - name: Deploy Staging (Runner-as-Staging-Host)
+      - name: Deploy Staging (Runner emulates RPi with Tailscale)
         env:
           DOCKER_DEFAULT_PLATFORM: linux/amd64
         run: |
           npm run build -w @cybermem/cli
-          # Use --ci --rpi --staging --remote-access for Runner-as-Staging-Host with Tailscale Funnel
+          # Use --ci --rpi --staging --remote-access
+          # Runner emulates RPi deployment with Tailscale Funnel
           node packages/cli/dist/index.js install --ci --rpi --staging --remote-access
 
       - name: Configure Tailscale Funnel
@@ -171,7 +172,7 @@ jobs:
   # 4. E2E VERIFICATION
   # ==================================================================
   e2e-staging:
-    name: "e2e:runner-staging"
+    name: "e2e:rpi-ts-staging"
     needs: deploy-staging
     runs-on: ubuntu-latest
     steps:
@@ -199,7 +200,7 @@ jobs:
           DASHBOARD_URL: ${{ needs.deploy-staging.outputs.staging_url }}
           MCP_URL: ${{ needs.deploy-staging.outputs.staging_url }}/mcp
           CYBERMEM_TOKEN: ${{ needs.deploy-staging.outputs.staging_token }}
-          TEST_ENV_NAME: "runner-staging"
+          TEST_ENV_NAME: "rpi-ts-staging"
         run: |
           echo "Testing against: $DASHBOARD_URL"
           for i in {1..30}; do
@@ -228,10 +229,11 @@ jobs:
           elif [ "${{ steps.run-e2e.outcome }}" == "failure" ]; then
             TEST_STATUS="failed"
           fi
-          echo "# RUNNER-STAGING Verification" > release-report-staging/RUNNER-STAGING.md
-          echo "**Date**: $(date -u +%Y-%m-%d)" >> release-report-staging/RUNNER-STAGING.md
-          echo "**URL**: ${{ needs.deploy-staging.outputs.staging_url }}" >> release-report-staging/RUNNER-STAGING.md
-          echo "**Status**: ${TEST_STATUS}" >> release-report-staging/RUNNER-STAGING.md
+          echo "# RPI-TS-STAGING Verification" > release-report-staging/RPI-TS-STAGING.md
+          echo "**Date**: $(date -u +%Y-%m-%d)" >> release-report-staging/RPI-TS-STAGING.md
+          echo "**URL**: ${{ needs.deploy-staging.outputs.staging_url }}" >> release-report-staging/RPI-TS-STAGING.md
+          echo "**Status**: ${TEST_STATUS}" >> release-report-staging/RPI-TS-STAGING.md
+          echo "**Note**: Deployed on AMD64 GitHub runner emulating RPi with Tailscale Funnel" >> release-report-staging/RPI-TS-STAGING.md
 
       - name: Slack (Staging Fail)
         if: failure()
