@@ -2,6 +2,7 @@
 
 import ChartsSection from "@/components/dashboard/charts-section";
 import DashboardHeader from "@/components/dashboard/header";
+import LoginModal from "@/components/dashboard/login-modal";
 import LogViewer from "@/components/dashboard/logs/log-viewer";
 import MCPConfigModal from "@/components/dashboard/mcp-config-modal";
 import MetricsGrid from "@/components/dashboard/metrics-grid";
@@ -12,7 +13,8 @@ import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
 export default function DashboardPage() {
-  const { stats, logs, loading, refresh, timeSeries } = useDashboard();
+  const { stats, logs, loading, refresh, timeSeries, isAuthenticated, login } =
+    useDashboard();
   const [showSettings, setShowSettings] = useState(false);
   const [showMCPConfig, setShowMCPConfig] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
@@ -96,6 +98,16 @@ export default function DashboardPage() {
         onShowMCPConfig={() => setShowMCPConfig(true)}
         memoryCount={currentStats.memoryRecords}
       />
+
+      {!isAuthenticated && (
+        <LoginModal
+          onLogin={(token) => {
+            document.cookie = `cybermem_token=${token}; path=/; max-age=${60 * 60 * 24 * 30}`;
+            login();
+            refresh();
+          }}
+        />
+      )}
 
       <div className="max-w-7xl mx-auto px-6 pt-32 pb-20 space-y-12 animate-in fade-in duration-700">
         <MetricsGrid

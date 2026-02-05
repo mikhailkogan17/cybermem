@@ -1,4 +1,4 @@
-name: E2E & Deploy
+name: PR Checks
 
 on:
   push:
@@ -9,15 +9,15 @@ on:
 
 permissions:
   contents: read
-  pull-requests: write # For DangerJS
-  packages: read # For ghcr.io access
+  pull-requests: write
+  packages: read
 
 jobs:
   # ------------------------------------------------------------------
   # 1. Quality Gates (Lint, Danger)
   # ------------------------------------------------------------------
   pr-lint:
-    name: "pr:lint"
+    name: "Lint & Danger"
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -39,7 +39,7 @@ jobs:
   # 3. Local E2E (Dogfooding) - "e2e:pr"
   # ------------------------------------------------------------------
   pr-e2e-localhost-staging:
-    name: "pr:e2e:localhost-staging"
+    name: "E2E: Localhost Staging"
     needs: pr-lint
     runs-on: ubuntu-latest
     steps:
@@ -95,6 +95,6 @@ jobs:
           if-no-files-found: warn
           retention-days: 7
 
-  # NOTE: Remote E2E (RPi) is NOT run on MR.
+  # NOTE: Remote E2E (RPi) is NOT run on PR.
   # It is only run during Release pipeline (publish.yml) on rpi-ts-staging,
   # after which prod is deployed WITHOUT additional tests.

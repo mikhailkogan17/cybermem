@@ -23,6 +23,16 @@ export async function middleware(request: NextRequest) {
     authMethod === "local" ||
     userId === "local";
 
+  if (isLocal) {
+    const responseHeaders = new Headers(request.headers);
+    responseHeaders.set("X-User-Id", "local");
+    return NextResponse.next({
+      request: {
+        headers: responseHeaders,
+      },
+    });
+  }
+
   if (!isLocal) {
     // REMOTE: Check cookie token
     const token = request.cookies.get("cybermem_token")?.value;
