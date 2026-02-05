@@ -33,20 +33,18 @@ export async function middleware(request: NextRequest) {
     });
   }
 
-  if (!isLocal) {
-    // REMOTE: Check cookie token
-    const token = request.cookies.get("cybermem_token")?.value;
+  // REMOTE: Check cookie token
+  const token = request.cookies.get("cybermem_token")?.value;
 
-    // We do NOT redirect here anymore to avoid 307 loops and respect Law #6.
-    // Unauthorized requests will simply not have the X-User-Id header,
-    // and the UI (app/page.tsx) will render the LoginModal with a 200 OK.
-    if (
-      !token &&
-      !userId &&
-      !request.nextUrl.pathname.startsWith("/api/auth")
-    ) {
-      console.log("MiddleWare: No token/userId found for remote request");
-    }
+  // We do NOT redirect here anymore to avoid 307 loops and respect Law #6.
+  // Unauthorized requests will simply not have the X-User-Id header,
+  // and the UI (app/page.tsx) will render the LoginModal with a 200 OK.
+  if (
+    !token &&
+    !userId &&
+    !request.nextUrl.pathname.startsWith("/api/auth")
+  ) {
+    console.log("MiddleWare: No token/userId found for remote request");
   }
 
   // CSRF Protection for mutating requests
