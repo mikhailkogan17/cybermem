@@ -18,12 +18,13 @@ if (isFeature) {
     );
   }
 } else if (isFix) {
-  const hasPostmortem = body.includes("## Postmortem Analysis");
+  const hasAnalysis =
+    body.includes("## Analysis") || body.includes("## Postmortem Analysis");
   const hasRootCause = body.includes("### Root Cause");
 
-  if (!hasPostmortem || !hasRootCause) {
+  if (!hasAnalysis || !hasRootCause) {
     fail(
-      "Bugfixes MUST use the Bugfix Template and include a Postmortem (Root Cause).",
+      "Bugfixes MUST use the Bugfix Template and include an Analysis (Root Cause).",
     );
   }
 } else {
