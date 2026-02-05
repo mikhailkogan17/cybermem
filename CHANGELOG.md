@@ -52,7 +52,7 @@ All notable changes to this project will be documented in this file.
 
 ### Added
 
-- **Release Report Gatekeeper**: Strict pre-commit verification with `scripts/validate-release-report.js`.
+- **Release Report Gatekeeper**: Strict pre-publish verification with `scripts/verify-release-report.ts`.
 - Specialized `.env` templates for `local`, `rpi`, `rpi-tailscale`, and `vps`.
 
 ### Changed

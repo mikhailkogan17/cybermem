@@ -29,6 +29,8 @@ CyberMem is a monorepo managed by NPM Workspaces.
    ```bash
    npm install
    ```
+   
+   This will automatically set up git hooks from `.hooks/` to `.git/hooks/` via the `prepare` script.
 
 3. **Start local development**:
    The project has a startup workflow to prevent sleep mode on Mac.

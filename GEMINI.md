@@ -2,7 +2,7 @@
 
 > [!CAUTION]
 > **STRICT PROHIBITION: NO AUTO-RELEASE**
-> It is **STRICTLY FORBIDDEN** to trigger a release (`gh workflow run release.yml`) without:
+> It is **STRICTLY FORBIDDEN** to trigger a release (`gh workflow run publish.yml`) without:
 > 1.   explicit user command: "RELEASE" or "DEPLOY".
 > 2.   **AND** explicit user confirmation phrase: "I CONFIRM RELEASE" or "Я ПОДТВЕРЖДАЮ".
 > 3.   **AND** the current branch MUST be `main`.
@@ -118,7 +118,7 @@ To Ensure "Always Availability" and shorter token usage, follow this strict cycl
 > [!IMPORTANT]
 > **We use Automated Quality Gates via CI and DangerJS.**
 
-1.  **Local Verification**: Run `/pre_commit` and `npm run test:e2e local` BEFORE pushing.
+1.  **Local Verification**: The pre-commit hook (automatically installed from `.hooks/pre-commit`) runs linting checks before each commit. Run `npm run test:e2e` for full E2E verification BEFORE pushing.
 2.  **Pull Request**: All changes must go through a PR (no direct commits to `main`).
 3.  **Danger Checks**:
     - **Docs**: Must be updated if code changes.
@@ -222,12 +222,11 @@ To Ensure "Always Availability" and shorter token usage, follow this strict cycl
 
 ### Test Workflow Rules
 
-| Workflow               | Local                 | RPi                     |
-| ---------------------- | --------------------- | ----------------------- |
-| `/test-local`          | ✅ Full CRUD + DB wipe | ❌ Never run             |
-| `/test-rpi`            | ❌ N/A                 | ✅ Read-only checks only |
-| `/test-backup-restore` | ✅ Restore TO local    | ❌ Backup FROM RPi only  |
-| `/sync-from-rpi`       | ✅ Receive data        | ❌ Source only (read)    |
+| Workflow                     | Local                 | RPi                     |
+| ---------------------------- | --------------------- | ----------------------- |
+| `npm run test:e2e` (local)   | ✅ Full CRUD + DB wipe | ❌ Never run             |
+| `npm run test:e2e` (RPi)     | ❌ N/A                 | ✅ Read-only checks only |
+| `cybermem backup/restore`    | ✅ Restore TO local    | ❌ Backup FROM RPi only  |
 
 ---
 
@@ -392,30 +391,29 @@ sequenceDiagram
 ## 11. Maintenance Workflows
 
 > [!IMPORTANT]
-> Run `/health-check` weekly or before demos/interviews.
+> Run `npm run test:e2e` weekly or before demos/interviews to verify all systems.
 
 ### Core Workflows
 
-| Workflow        | Purpose                      | Environment    |
-| --------------- | ---------------------------- | -------------- |
-| `/health-check` | Complete system verification | All            |
-| `/pre_commit`   | Run before any commit        | Local          |
-| `/release`      | Publish npm packages         | GitHub Actions |
-| `/refresh-docs` | Sync landing + docs          | Local          |
-| `/test-local`   | E2E tests on localhost       | Local only     |
-| `/test-rpi`     | Read-only RPi validation     | RPi (prod)     |
+| Workflow                  | Purpose                          | Environment    |
+| ------------------------- | -------------------------------- | -------------- |
+| `npm run test:e2e`        | Complete E2E system verification | All            |
+| `.hooks/pre-commit`       | Linting checks (auto-installed)  | Local          |
+| `npm run release`         | Publish npm packages             | Local/CI       |
+| `gh workflow run publish.yml` | Trigger GitHub release workflow | GitHub Actions |
+| `.agent/workflows/publish.md` | Agent release workflow       | Agent          |
+| `.agent/workflows/commit.md`  | Agent commit workflow        | Agent          |
 
 ### Weekly Maintenance
 
-1. Run `/health-check` to verify all systems
+1. Run `npm run test:e2e` to verify all systems
 2. Check npm versions match local packages
-3. Sync landing submodule if behind
-4. Review audit logs on dashboard
+3. Review audit logs on dashboard
 
 ### Release Process
 
 1. Ensure clean git state
-2. Run `gh workflow run release.yml --field version_type=patch`
+2. Run `gh workflow run publish.yml --field version_type=patch`
 3. Monitor with `gh run view --watch`
 4. Deploy to RPi: `ansible-playbook -i inventory/hosts.ini playbooks/deploy-cybermem.yml`
 
