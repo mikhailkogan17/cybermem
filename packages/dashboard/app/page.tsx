@@ -102,7 +102,6 @@ export default function DashboardPage() {
       {!isAuthenticated && (
         <LoginModal
           onLogin={(token) => {
-            document.cookie = `cybermem_token=${token}; path=/; max-age=${60 * 60 * 24 * 30}; SameSite=Lax; Secure`;
             login();
             refresh();
           }}
