@@ -91,12 +91,21 @@
         group: "{{ ansible_user }}"
         mode: "0644"
 
+    - name: Replace GHCR image tag (staging uses :staging, prod uses :latest)
+      replace:
+        path: "{{ project_dir }}/docker-compose.yml"
+        regexp: "(ghcr.io/[^/]+/cybermem-[^:]+):latest"
+        replace: '\1:{{ ghcr_tag | default("latest") }}'
+      when: ghcr_tag is defined and ghcr_tag != 'latest'
+
     - name: Sync monitoring configuration
       synchronize:
         src: "../../monitoring"
         dest: "{{ project_dir }}/"
         recursive: true
         delete: true
+
+    # NOTE: build_from_source removed - all builds happen on GH Actions now
 
     - name: Patch Traefik configuration
       replace:
@@ -108,11 +117,15 @@
       copy:
         content: |
           CYBERMEM_INSTANCE=rpi
-          CYBERMEM_ENV={{ CYBERMEM_ENV | default('prod') }}
+          CYBERMEM_ENV={{ cybermem_env | default('prod') }}
           PROJECT_NAME={{ PROJECT_NAME | default('cybermem') }}
           TRAEFIK_PORT={{ TRAEFIK_PORT | default('8626') }}
           CYBERMEM_TAILSCALE={{ CYBERMEM_TAILSCALE | default('false') }}
           SECRETS_DIR={{ project_dir }}/secrets
+          DATA_DIR={{ project_dir }}/data
+          CYBERMEM_ENV_PATH={{ project_dir }}/.env
+          CYBERMEM_HOME={{ project_dir }}
+          CYBERMEM_BASE_PATH={{ '/cybermem-staging' if cybermem_env == 'staging' else '/cybermem' }}
           # Add other envs as needed
         dest: "{{ project_dir }}/.env"
         force: true
@@ -124,7 +137,7 @@
       set_fact:
         global_version: "{{ (lookup('file', playbook_dir + '/../../../../../package.json') | from_json).version }}"
 
-    - name: Pull latest images from GHCR
+    - name: Pull images from GHCR
       command: docker-compose -p {{ PROJECT_NAME | default('cybermem') }} pull
       args:
         chdir: "{{ project_dir }}"
@@ -177,6 +190,32 @@
       retries: 5
       delay: 10
       ignore_errors: true
+
+    - name: Configure Tailscale Funnel (after health check)
+      shell: |
+        # Reset any existing configuration for clean state
+        tailscale serve reset 2>/dev/null || true
+        tailscale funnel reset 2>/dev/null || true
+
+        # Configure path based on current environment only
+        # Staging: /cybermem-staging
+        # Prod: /cybermem
+        if [ "{{ cybermem_env | default('prod') }}" = "staging" ]; then
+          tailscale funnel --bg --set-path=/cybermem-staging http://127.0.0.1:{{ TRAEFIK_PORT | default('8626') }}
+        else
+          tailscale funnel --bg --set-path=/cybermem http://127.0.0.1:{{ TRAEFIK_PORT | default('8626') }}
+        fi
+
+        tailscale funnel status
+      become: true
+      when: (CYBERMEM_TAILSCALE | default('false') | bool) and (health_status is defined and not health_status.failed and (health_status.content | from_json).overall == 'ok')
+      register: funnel_status
+      ignore_errors: true
+
+    - name: Display Tailscale Funnel Status
+      debug:
+        var: funnel_status.stdout_lines
+      when: funnel_status is defined and funnel_status.stdout_lines is defined
 
     - name: Automated Rollback on Failure
       block:

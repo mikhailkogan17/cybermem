@@ -202,6 +202,7 @@ services:
       CYBERMEM_ENV: ${CYBERMEM_ENV:-prod}
       CYBERMEM_INSTANCE: ${CYBERMEM_INSTANCE:-local}
       CYBERMEM_TAILSCALE: ${CYBERMEM_TAILSCALE:-false}
+      CYBERMEM_BASE_PATH: ${CYBERMEM_BASE_PATH}
     volumes:
       - ${DATA_DIR:-${HOME}/.cybermem/data}:/data
       - /var/run/docker.sock:/var/run/docker.sock
