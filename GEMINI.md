@@ -2,7 +2,7 @@
 
 > [!CAUTION]
 > **STRICT PROHIBITION: NO AUTO-RELEASE**
-> It is **STRICTLY FORBIDDEN** to trigger a release (`gh workflow run release.yml`) without:
+> It is **STRICTLY FORBIDDEN** to trigger a release (`gh workflow run publish.yml`) without:
 > 1.   explicit user command: "RELEASE" or "DEPLOY".
 > 2.   **AND** explicit user confirmation phrase: "I CONFIRM RELEASE" or "Я ПОДТВЕРЖДАЮ".
 > 3.   **AND** the current branch MUST be `main`.
@@ -415,7 +415,7 @@ sequenceDiagram
 ### Release Process
 
 1. Ensure clean git state
-2. Run `gh workflow run release.yml --field version_type=patch`
+2. Run `gh workflow run publish.yml --field version_type=patch`
 3. Monitor with `gh run view --watch`
 4. Deploy to RPi: `ansible-playbook -i inventory/hosts.ini playbooks/deploy-cybermem.yml`
 
