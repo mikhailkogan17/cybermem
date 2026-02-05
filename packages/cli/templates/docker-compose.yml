@@ -208,14 +208,16 @@ services:
       - ${CYBERMEM_ENV_PATH:-${HOME}/.cybermem/.env}:/app/shared.env
     labels:
       - traefik.enable=true
-      - traefik.http.routers.${PROJECT_NAME:-cybermem}-dashboard-public.rule=PathPrefix(`/auth`) || PathPrefix(`/_next`) || PathPrefix(`/static`) || PathPrefix(`/api/auth`)
+      - traefik.http.middlewares.${PROJECT_NAME:-cybermem}-strip-prefix.stripprefix.prefixes=/cybermem-staging,/cybermem
+      - traefik.http.routers.${PROJECT_NAME:-cybermem}-dashboard-public.rule=(PathPrefix(`/auth`) || PathPrefix(`/_next`) || PathPrefix(`/static`) || PathPrefix(`/api/auth`)) && (PathPrefix(`/cybermem-staging`) || PathPrefix(`/cybermem`) || PathPrefix(`/`))
       - traefik.http.routers.${PROJECT_NAME:-cybermem}-dashboard-public.entrypoints=web
       - traefik.http.routers.${PROJECT_NAME:-cybermem}-dashboard-public.priority=120
       - traefik.http.routers.${PROJECT_NAME:-cybermem}-dashboard-public.service=${PROJECT_NAME:-cybermem}-dashboard
-      - traefik.http.routers.${PROJECT_NAME:-cybermem}-dashboard.rule=PathPrefix(`/`)
+      - traefik.http.routers.${PROJECT_NAME:-cybermem}-dashboard-public.middlewares=${PROJECT_NAME:-cybermem}-strip-prefix
+      - traefik.http.routers.${PROJECT_NAME:-cybermem}-dashboard.rule=PathPrefix(`/cybermem-staging`) || PathPrefix(`/cybermem`) || PathPrefix(`/`)
       - traefik.http.routers.${PROJECT_NAME:-cybermem}-dashboard.entrypoints=web
       - traefik.http.routers.${PROJECT_NAME:-cybermem}-dashboard.priority=1
-      - traefik.http.routers.${PROJECT_NAME:-cybermem}-dashboard.middlewares=auth-check
+      - traefik.http.routers.${PROJECT_NAME:-cybermem}-dashboard.middlewares=auth-check,${PROJECT_NAME:-cybermem}-strip-prefix
       - traefik.http.services.${PROJECT_NAME:-cybermem}-dashboard.loadbalancer.server.port=3000
     restart: unless-stopped
     # secrets:
