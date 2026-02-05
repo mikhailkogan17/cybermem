@@ -23,6 +23,7 @@ program
   .option("--vps", "Deploy to VPS/Cloud server")
   .option("--staging", "Deploy to staging environment (different ports/data)")
   .option("--remote-access", "Enable Tailscale Funnel for HTTPS remote access")
+  .option("--ci", "CI mode: non-interactive, skip prompts, use environment variables")
   .action(install);
 
 // Command: Uninstall

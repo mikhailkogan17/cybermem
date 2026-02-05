@@ -61,10 +61,16 @@ export async function install(options: any) {
   const isStaging = !!options.staging;
   const envType = isStaging ? "staging" : "prod";
   const useTailscale = !!options.remoteAccess;
+  const isCIMode = !!options.ci;
+
+  // CI Mode: Runner-as-Staging-Host
+  // When --ci --rpi is used, deploy to localhost using Ansible (targeting localhost)
+  // This allows GitHub runners to become their own staging environment
+  const isRunnerAsHost = isCIMode && options.rpi;
 
   console.log(
     chalk.blue(
-      `Initializing CyberMem (${target}-${envType}${useTailscale ? "-ts" : "-local"})...`,
+      `Initializing CyberMem (${target}-${envType}${useTailscale ? "-ts" : "-local"}${isCIMode ? " [CI]" : ""})...`,
     ),
   );
 
@@ -312,18 +318,34 @@ export async function install(options: any) {
     } else if (target === "rpi" || target === "vps") {
       const composeFile = path.join(templateDir, "docker-compose.yml");
 
-      const answers = await inquirer.prompt([
-        {
-          type: "input",
-          name: "host",
-          message: "Enter SSH Host (e.g. pi@raspberrypi.local):",
-          validate: (input) =>
-            input.includes("@") ? true : "Format must be user@host",
-        },
-      ]);
-      const sshHost = answers.host;
+      // CI Mode: Skip interactive prompts
+      let sshHost: string;
+      if (isCIMode || isRunnerAsHost) {
+        // In CI mode, use localhost or environment variable
+        sshHost = isRunnerAsHost
+          ? `${process.env.USER || "runner"}@localhost`
+          : process.env.ANSIBLE_HOST || "pi@raspberrypi.local";
+        console.log(
+          chalk.gray(`CI Mode: Using host ${sshHost} (non-interactive)`),
+        );
+      } else {
+        const answers = await inquirer.prompt([
+          {
+            type: "input",
+            name: "host",
+            message: "Enter SSH Host (e.g. pi@raspberrypi.local):",
+            validate: (input) =>
+              input.includes("@") ? true : "Format must be user@host",
+          },
+        ]);
+        sshHost = answers.host;
+      }
 
-      console.log(chalk.blue(`Remote deploying to ${sshHost} via Ansible...`));
+      console.log(
+        chalk.blue(
+          `${isRunnerAsHost ? "Local" : "Remote"} deploying to ${sshHost} via Ansible...`,
+        ),
+      );
 
       // 1. Check if ansible-playbook is available
       try {
@@ -354,8 +376,11 @@ export async function install(options: any) {
       // 4. Run Ansible Playbook with Token Injection
       console.log(chalk.blue("Running CyberMem Deployment Playbook..."));
 
-      // We use the comma-separated inventory trick for single host
-      const inventory = `${host},`;
+      // Runner-as-Host mode uses connection=local for localhost
+      const inventory = isRunnerAsHost ? "localhost," : `${host},`;
+      const connectionArgs = isRunnerAsHost
+        ? ["--connection", "local"]
+        : ["-u", sshUser];
 
       try {
         await execa(
@@ -363,15 +388,12 @@ export async function install(options: any) {
           [
             "-i",
             inventory,
-            "-u",
-            sshUser,
+            ...connectionArgs,
             playbookPath,
             "--extra-vars",
             `ansible_ssh_extra_args='-o StrictHostKeyChecking=no'`,
             "--extra-vars",
             `auth_token_hash=${tokenHash}`, // Pass the hash
-            "--extra-vars",
-            `auth_token_id=${tokenId}`,
             "--extra-vars",
             `auth_token_id=${tokenId}`,
             "--extra-vars",
@@ -386,6 +408,14 @@ export async function install(options: any) {
             `CYBERMEM_TAILSCALE=${useTailscale}`,
             "--extra-vars",
             `PROJECT_NAME=${isStaging ? "cybermem-staging" : "cybermem"}`,
+            ...(isRunnerAsHost
+              ? [
+                  "--extra-vars",
+                  `ansible_user=${sshUser}`,
+                  "--extra-vars",
+                  "is_ci_mode=true",
+                ]
+              : []),
           ],
           {
             stdio: "inherit",
@@ -404,7 +434,7 @@ export async function install(options: any) {
       console.log("");
       console.log(
         chalk.bold(
-          `Dashboard should be available at: http://${host}:${isStaging ? "3001" : "3000"} (once images are pulled)`,
+          `Dashboard should be available at: http://${isRunnerAsHost ? "localhost" : host}:${isStaging ? "8625" : "8626"} (once images are pulled)`,
         ),
       );
     }

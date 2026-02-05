@@ -1,9 +1,10 @@
 ---
 - name: Deploy CyberMem to Raspberry Pi
   hosts: all
-  become: true
+  # CI Mode: Don't require sudo when deploying to localhost (runner has Docker access)
+  become: "{{ false if (is_ci_mode | default(false)) else true }}"
   vars:
-    project_dir: /home/{{ ansible_user }}/cybermem
+    project_dir: "{{ '/home/' + ansible_user + '/cybermem' if not (is_ci_mode | default(false)) else '/tmp/cybermem-ci' }}"
     env_file: .env.rpi
     # Default ports based on environment
     TRAEFIK_PORT_STAGING: "8625"
@@ -17,6 +18,8 @@
       apt:
         update_cache: true
         cache_valid_time: 3600
+      when: not (is_ci_mode | default(false))
+      become: true
 
     - name: Install dependencies
       apt:
@@ -24,18 +27,24 @@
           - git
           - rsync
         state: present
+      when: not (is_ci_mode | default(false))
+      become: true
 
     - name: Ensure Docker service is running
       service:
         name: docker
         state: started
         enabled: true
+      when: not (is_ci_mode | default(false))
+      become: true
 
     - name: Add user to docker group
       user:
         name: "{{ ansible_user }}"
         groups: docker
         append: true
+      when: not (is_ci_mode | default(false))
+      become: true
 
     - name: Create project directory
       file:
@@ -44,6 +53,7 @@
         owner: "{{ ansible_user }}"
         group: "{{ ansible_user }}"
         mode: "0755"
+      become: "{{ false if (is_ci_mode | default(false)) else true }}"
 
     - name: Ensure backup directory exists
       file:
@@ -160,6 +170,8 @@
       apt:
         name: sqlite3
         state: present
+      when: not (is_ci_mode | default(false))
+      become: true
 
     - name: Inject Authentication Token
       shell: |
