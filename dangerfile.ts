@@ -12,7 +12,7 @@ const fs = require("fs");
 /**
  * Validates that the PR body contains all required headers from the template.
  */
-function validateTemplate(type: "feature" | "bugfix", body: string) {
+function validateTemplate(type, body) {
   const templatePath = `.github/PULL_REQUEST_TEMPLATE/${type}.md`;
   if (!fs.existsSync(templatePath)) return;
 
@@ -20,11 +20,11 @@ function validateTemplate(type: "feature" | "bugfix", body: string) {
   // Extract headers (lines starting with #)
   const requiredHeaders = templateContent
     .split("\n")
-    .filter((line: string) => line.startsWith("#"))
-    .map((line: string) => line.trim());
+    .filter((line) => line.startsWith("#"))
+    .map((line) => line.trim());
 
   const missingHeaders = requiredHeaders.filter(
-    (header: string) => !body.includes(header),
+    (header) => !body.includes(header),
   );
 
   if (missingHeaders.length > 0) {
