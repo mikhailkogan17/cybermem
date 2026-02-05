@@ -9,6 +9,7 @@
     "@playwright/test": "^1.57.0"
   },
   "scripts": {
+    "prepare": "bash scripts/setup-hooks.sh",
     "build": "npm run build --workspaces --if-present",
     "test:unit": "jest",
     "test:e2e": "npx ts-node packages/cli/e2e/e2e.ts",
