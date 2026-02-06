@@ -126,23 +126,12 @@ jobs:
           sudo tailscale status
           echo ""
           
-          echo "=== Configuring Tailscale Funnel (Two-Step Approach) ==="
-          
-          # Step 1: Configure serve (ingress proxy)
-          echo "Step 1: Configure serve..."
-          sudo tailscale serve --bg https:10000 http://localhost:8625
-          
-          # Step 2: Enable funnel (make it public)
-          echo "Step 2: Enable funnel..."
-          sudo tailscale funnel --bg 10000
+          echo "=== Configuring Tailscale Funnel ==="
+          sudo tailscale funnel --bg --https=10000 8625
           
           echo ""
           echo "=== Funnel Status ==="
           sudo tailscale funnel status
-          
-          echo ""
-          echo "=== Serve Status ==="
-          sudo tailscale serve status
           
           echo ""
           echo "=== Tailscale Status AFTER Funnel ==="
@@ -151,7 +140,7 @@ jobs:
           echo ""
           echo "=== Network Info ==="
           MY_DNS=$(tailscale status --json | jq -r '.Self.DNSName' | sed 's/\.$//')
-          echo "Expected Funnel URL: https://${MY_DNS}:10000"
+          echo "Funnel URL: https://${MY_DNS}:10000"
 
       - name: Wait for Tailscale Connection
         id: get_url
