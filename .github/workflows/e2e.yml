@@ -239,13 +239,24 @@ jobs:
 
           # Create a wrapper script for Ansible to use Tailscale SSH
           # ACL: tag:ci → tag:rpi, users: root/pi, action: accept
-          sudo tee /usr/local/bin/ts-ssh >/dev/null <<'EOF'
-          #!/bin/bash
-          # Wrapper: translates Ansible SSH calls to tailscale ssh
-          # Ansible calls: ssh [opts] [-o Key=Val]... user@host [command...]
-          # We pass everything to tailscale ssh which handles the rest
-          exec tailscale ssh "$@"
-          EOF
+          # Strips SSH options before user@host, passes command through unchanged
+          printf '%s\n' '#!/bin/bash' \
+            'ARGS=()' \
+            'FOUND_HOST=false' \
+            'while [[ $# -gt 0 ]]; do' \
+            '  if $FOUND_HOST; then' \
+            '    ARGS+=("$1"); shift' \
+            '  else' \
+            '    case "$1" in' \
+            '      -o|-F|-i|-p|-l|-S|-W|-J|-c|-m) shift 2 ;;' \
+            '      -o*|-F*|-i*|-p*|-l*) shift ;;' \
+            '      -[a-zA-Z]*) shift ;;' \
+            '      *) ARGS+=("$1"); FOUND_HOST=true; shift ;;' \
+            '    esac' \
+            '  fi' \
+            'done' \
+            'exec tailscale ssh "${ARGS[@]}"' \
+            | sudo tee /usr/local/bin/ts-ssh >/dev/null
           sudo chmod +x /usr/local/bin/ts-ssh
 
       - name: Deploy Staging to RPi
