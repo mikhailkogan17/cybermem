@@ -118,6 +118,14 @@ jobs:
             echo "✅ Tailscale node is ready"
           fi
 
+      # Configure Tailscale Funnel BEFORE deployment
+      - name: Configure Tailscale Funnel
+        if: matrix.setup_tailscale
+        run: |
+          echo "Setting up Tailscale Funnel..."
+          sudo tailscale funnel --bg --https=8443 http://127.0.0.1:${{ matrix.traefik_port }}
+          sudo tailscale funnel status
+
       # Build and deploy using CLI (local deployment in CI mode)
       - name: Build CLI & Install (${{ matrix.env_name }})
         env:
@@ -138,15 +146,7 @@ jobs:
 
           sleep 30
 
-      # Configure Tailscale Funnel for RPi emulation
-      - name: Configure Tailscale Funnel
-        if: matrix.setup_tailscale
-        run: |
-          echo "Setting up Tailscale Funnel..."
-          sudo tailscale funnel --bg --https=8443 http://127.0.0.1:${{ matrix.traefik_port }}
-          sudo tailscale funnel status
-
-      # Verify Tailscale Funnel is accessible
+      # Verify Tailscale Funnel is accessible (with retry logic)
       - name: Verify Tailscale Funnel
         if: matrix.setup_tailscale
         run: |
@@ -154,14 +154,23 @@ jobs:
           MY_DNS=$(tailscale status --json | jq -r '.Self.DNSName' | sed 's/\.$//')
           FUNNEL_URL="https://${MY_DNS}:8443"
 
-          # Check Funnel URL is accessible (this verifies external access works!)
           echo "Checking Funnel health at ${FUNNEL_URL}/health..."
-          if ! curl -sf --max-time 10 "${FUNNEL_URL}/health" > /dev/null 2>&1; then
-            echo "❌ Funnel health check failed - external access not working"
-            exit 1
-          fi
-          echo "✅ Tailscale Funnel is verified and accessible at ${FUNNEL_URL}"
-          echo "   (Tests will use this Funnel URL to verify authentication)"
+          echo "Will retry every 10 seconds for up to 5 minutes..."
+          
+          # Retry up to 30 times (10 seconds × 30 = 5 minutes)
+          for i in $(seq 1 30); do
+            if curl -sf --max-time 10 "${FUNNEL_URL}/health" > /dev/null 2>&1; then
+              echo "✅ Tailscale Funnel is accessible (attempt $i/30)"
+              echo "   Funnel URL: ${FUNNEL_URL}"
+              echo "   (Tests will use this URL to verify authentication)"
+              exit 0
+            fi
+            echo "⏳ Waiting for Funnel to be accessible... (attempt $i/30)"
+            sleep 10
+          done
+          
+          echo "❌ Funnel failed to become accessible after 5 minutes"
+          exit 1
 
       - run: npx playwright install --with-deps chromium
 
