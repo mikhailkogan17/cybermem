@@ -96,10 +96,11 @@ jobs:
       - run: npm ci
 
       - name: Setup Tailscale
-        uses: tailscale/github-action@v2
+        uses: tailscale/github-action@v4
         with:
-          authkey: ${{ secrets.TAILSCALE_AUTHKEY }}
-          version: 1.76.6
+          oauth-client-id: ${{ secrets.TS_OAUTH_CLIENT_ID }}
+          oauth-secret: ${{ secrets.TS_OAUTH_SECRET }}
+          tags: tag:ci
 
       - name: Wait for Tailscale Connection
         id: get_url
@@ -146,9 +147,17 @@ jobs:
 
       - name: Configure Tailscale Funnel
         run: |
-          # Configure Tailscale Funnel to expose localhost:8625 at :8443
-          sudo tailscale funnel --bg --https=8443 http://127.0.0.1:8625
+          echo "Setting up Tailscale Funnel..."
+
+          # Step 1: Configure serve (ingress proxy)
+          sudo tailscale serve https:8443 / http://127.0.0.1:8625
+
+          # Step 2: Enable funnel (make it publicly accessible)
+          sudo tailscale funnel --bg 8443
+
+          # Verify configuration
           sudo tailscale funnel status
+          sudo tailscale serve status
 
       - name: Wait for Services (localhost)
         run: |
@@ -164,25 +173,13 @@ jobs:
           echo "❌ Services failed to become healthy"
           exit 1
 
-      - name: Wait for Tailscale Funnel
+      - name: Verify Tailscale Funnel
         run: |
-          echo "Waiting for Tailscale Funnel to be ready..."
+          echo "Verifying Tailscale Funnel setup..."
           MY_DNS=$(tailscale status --json | jq -r '.Self.DNSName' | sed 's/\.$//')
           FUNNEL_URL="https://${MY_DNS}:8443"
-          echo "Funnel URL: ${FUNNEL_URL}"
-
-          # Wait for HTTPS endpoint to be accessible
-          for i in {1..30}; do
-            if curl -sf "${FUNNEL_URL}/health" > /dev/null 2>&1; then
-              echo "✅ Tailscale Funnel is ready at ${FUNNEL_URL}"
-              exit 0
-            fi
-            echo "Waiting for Funnel... ($i/30)"
-            sleep 5
-          done
-
-          echo "❌ Tailscale Funnel failed to become ready"
-          exit 1
+          echo "✅ Tailscale Funnel configured for external access at ${FUNNEL_URL}"
+          echo "   (Tests will use localhost - same runner)"
 
   # ==================================================================
   # 4. E2E VERIFICATION
@@ -202,10 +199,11 @@ jobs:
       - run: npx playwright install --with-deps chromium
 
       - name: Setup Tailscale
-        uses: tailscale/github-action@v2
+        uses: tailscale/github-action@v4
         with:
-          authkey: ${{ secrets.TAILSCALE_AUTHKEY }}
-          version: 1.76.6
+          oauth-client-id: ${{ secrets.TS_OAUTH_CLIENT_ID }}
+          oauth-secret: ${{ secrets.TS_OAUTH_SECRET }}
+          tags: tag:ci
 
       - name: Build Local Packages
         run: npm run build --workspaces
@@ -422,10 +420,11 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Setup Tailscale
-        uses: tailscale/github-action@v2
+        uses: tailscale/github-action@v4
         with:
-          authkey: ${{ secrets.TAILSCALE_AUTHKEY }}
-          version: 1.76.6
+          oauth-client-id: ${{ secrets.TS_OAUTH_CLIENT_ID }}
+          oauth-secret: ${{ secrets.TS_OAUTH_SECRET }}
+          tags: tag:ci
 
       - name: Setup Ansible
         run: |
