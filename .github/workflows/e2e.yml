@@ -94,12 +94,6 @@ jobs:
 
       - run: npm ci
 
-      # Install Ansible for Runner-as-Host deployments
-      - name: Install Ansible
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y ansible
-
       # Setup Tailscale for RPi emulation
       - name: Setup Tailscale
         if: matrix.setup_tailscale
@@ -108,27 +102,22 @@ jobs:
           authkey: ${{ secrets.TAILSCALE_AUTHKEY }}
           version: 1.76.6
 
-      # Build and deploy using CLI
+      # Build and deploy using CLI (local deployment in CI mode)
       - name: Build CLI & Install (${{ matrix.env_name }})
         env:
           DOCKER_DEFAULT_PLATFORM: linux/amd64
+          PROJECT_NAME: ${{ matrix.project_name }}
+          TRAEFIK_PORT: ${{ matrix.traefik_port }}
         run: |
           npm run build -w @cybermem/cli
 
-          # Deploy based on environment configuration
-          if [ "${{ matrix.use_ci_mode }}" = "true" ]; then
-            if [ "${{ matrix.is_staging }}" = "true" ]; then
-              if [ "${{ matrix.setup_tailscale }}" = "true" ]; then
-                # RPi Tailscale Staging Emulation
-                node packages/cli/dist/index.js install --ci --rpi --staging --remote-access
-              else
-                # Localhost Staging
-                node packages/cli/dist/index.js install --ci --rpi --staging
-              fi
-            else
-              # Localhost Production
-              node packages/cli/dist/index.js install --ci --rpi
-            fi
+          # Deploy using --ci flag (forces local deployment)
+          if [ "${{ matrix.is_staging }}" = "true" ]; then
+            # Staging deployment
+            node packages/cli/dist/index.js install --ci --staging
+          else
+            # Production deployment
+            node packages/cli/dist/index.js install --ci
           fi
 
           sleep 30

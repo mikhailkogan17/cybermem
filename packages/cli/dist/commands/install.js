@@ -102,10 +102,12 @@ async function install(options) {
     const envType = isStaging ? "staging" : "prod";
     const useTailscale = !!options.remoteAccess;
     const isCIMode = !!options.ci;
-    // CI Mode: Runner-as-Staging-Host
-    // When --ci --rpi is used, deploy to localhost using Ansible (targeting localhost)
-    // This allows GitHub runners to become their own staging environment
-    const isRunnerAsHost = isCIMode && options.rpi;
+    // CI Mode: Force local deployment
+    // When --ci is used, always deploy locally using docker-compose (not Ansible)
+    // The --rpi flag in CI just indicates "use RPi-like ports/config" but deploy locally
+    if (isCIMode) {
+        target = "local";
+    }
     console.log(chalk_1.default.blue(`Initializing CyberMem (${target}-${envType}${useTailscale ? "-ts" : "-local"}${isCIMode ? " [CI]" : ""})...`));
     try {
         // Resolve Template Directory (Support both Dev and Prod)
@@ -291,13 +293,11 @@ async function install(options) {
         }
         else if (target === "rpi" || target === "vps") {
             const composeFile = path_1.default.join(templateDir, "docker-compose.yml");
-            // CI Mode: Skip interactive prompts
+            // Skip interactive prompts in CI mode (but CI mode uses local deployment, not this branch)
             let sshHost;
-            if (isCIMode || isRunnerAsHost) {
-                // In CI mode, use localhost or environment variable
-                sshHost = isRunnerAsHost
-                    ? `${process.env.USER || "runner"}@localhost`
-                    : process.env.ANSIBLE_HOST || "pi@raspberrypi.local";
+            if (isCIMode) {
+                // In CI mode, use environment variable or default
+                sshHost = process.env.ANSIBLE_HOST || "pi@raspberrypi.local";
                 console.log(chalk_1.default.gray(`CI Mode: Using host ${sshHost} (non-interactive)`));
             }
             else {
@@ -311,7 +311,7 @@ async function install(options) {
                 ]);
                 sshHost = answers.host;
             }
-            console.log(chalk_1.default.blue(`${isRunnerAsHost ? "Local" : "Remote"} deploying to ${sshHost} via Ansible...`));
+            console.log(chalk_1.default.blue(`Remote deploying to ${sshHost} via Ansible...`));
             // 1. Check if ansible-playbook is available
             try {
                 await (0, execa_1.default)("ansible-playbook", ["--version"]);
@@ -332,11 +332,9 @@ async function install(options) {
             }
             // 4. Run Ansible Playbook with Token Injection
             console.log(chalk_1.default.blue("Running CyberMem Deployment Playbook..."));
-            // Runner-as-Host mode uses connection=local for localhost
-            const inventory = isRunnerAsHost ? "localhost," : `${host},`;
-            const connectionArgs = isRunnerAsHost
-                ? ["--connection", "local"]
-                : ["-u", sshUser];
+            // Standard remote deployment (CI mode won't reach this code path)
+            const inventory = `${host},`;
+            const connectionArgs = ["-u", sshUser];
             try {
                 await (0, execa_1.default)("ansible-playbook", [
                     "-i",
@@ -361,14 +359,6 @@ async function install(options) {
                     `CYBERMEM_TAILSCALE=${useTailscale}`,
                     "--extra-vars",
                     `PROJECT_NAME=${isStaging ? "cybermem-staging" : "cybermem"}`,
-                    ...(isRunnerAsHost
-                        ? [
-                            "--extra-vars",
-                            `ansible_user=${sshUser}`,
-                            "--extra-vars",
-                            "is_ci_mode=true",
-                        ]
-                        : []),
                 ], {
                     stdio: "inherit",
                     cwd: ansibleDir, // Run from ansible template dir so it finds roles/etc
@@ -381,7 +371,7 @@ async function install(options) {
             console.log(chalk_1.default.bold("⚡ Your Initial Access Token:"));
             console.log(chalk_1.default.cyan.bold(`   ${accessToken}`));
             console.log("");
-            console.log(chalk_1.default.bold(`Dashboard should be available at: http://${isRunnerAsHost ? "localhost" : host}:${isStaging ? "8625" : "8626"} (once images are pulled)`));
+            console.log(chalk_1.default.bold(`Dashboard should be available at: http://${host}:${isStaging ? "8625" : "8626"} (once images are pulled)`));
             // Note: Port mapping is correct:
             // - Staging (isStaging=true): 8625
             // - Production (isStaging=false): 8626

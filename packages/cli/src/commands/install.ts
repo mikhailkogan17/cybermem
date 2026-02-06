@@ -320,13 +320,11 @@ export async function install(options: any) {
     } else if (target === "rpi" || target === "vps") {
       const composeFile = path.join(templateDir, "docker-compose.yml");
 
-      // CI Mode: Skip interactive prompts
+      // Skip interactive prompts in CI mode (but CI mode uses local deployment, not this branch)
       let sshHost: string;
-      if (isCIMode || isRunnerAsHost) {
-        // In CI mode, use localhost or environment variable
-        sshHost = isRunnerAsHost
-          ? `${process.env.USER || "runner"}@localhost`
-          : process.env.ANSIBLE_HOST || "pi@raspberrypi.local";
+      if (isCIMode) {
+        // In CI mode, use environment variable or default
+        sshHost = process.env.ANSIBLE_HOST || "pi@raspberrypi.local";
         console.log(
           chalk.gray(`CI Mode: Using host ${sshHost} (non-interactive)`),
         );
@@ -345,7 +343,7 @@ export async function install(options: any) {
 
       console.log(
         chalk.blue(
-          `${isRunnerAsHost ? "Local" : "Remote"} deploying to ${sshHost} via Ansible...`,
+          `Remote deploying to ${sshHost} via Ansible...`,
         ),
       );
 
@@ -378,11 +376,9 @@ export async function install(options: any) {
       // 4. Run Ansible Playbook with Token Injection
       console.log(chalk.blue("Running CyberMem Deployment Playbook..."));
 
-      // Runner-as-Host mode uses connection=local for localhost
-      const inventory = isRunnerAsHost ? "localhost," : `${host},`;
-      const connectionArgs = isRunnerAsHost
-        ? ["--connection", "local"]
-        : ["-u", sshUser];
+      // Standard remote deployment (CI mode won't reach this code path)
+      const inventory = `${host},`;
+      const connectionArgs = ["-u", sshUser];
 
       try {
         await execa(
@@ -410,14 +406,6 @@ export async function install(options: any) {
             `CYBERMEM_TAILSCALE=${useTailscale}`,
             "--extra-vars",
             `PROJECT_NAME=${isStaging ? "cybermem-staging" : "cybermem"}`,
-            ...(isRunnerAsHost
-              ? [
-                  "--extra-vars",
-                  `ansible_user=${sshUser}`,
-                  "--extra-vars",
-                  "is_ci_mode=true",
-                ]
-              : []),
           ],
           {
             stdio: "inherit",
@@ -436,7 +424,7 @@ export async function install(options: any) {
       console.log("");
       console.log(
         chalk.bold(
-          `Dashboard should be available at: http://${isRunnerAsHost ? "localhost" : host}:${isStaging ? "8625" : "8626"} (once images are pulled)`,
+          `Dashboard should be available at: http://${host}:${isStaging ? "8625" : "8626"} (once images are pulled)`,
         ),
       );
       // Note: Port mapping is correct:
