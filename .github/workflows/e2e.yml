@@ -100,21 +100,21 @@ jobs:
         if: matrix.setup_tailscale
         uses: tailscale/github-action@v4
         with:
-          authkey: ${{ secrets.TAILSCALE_AUTHKEY }}
+          oauth-client-id: ${{ secrets.TS_OAUTH_CLIENT_ID }}
+          oauth-secret: ${{ secrets.TS_OAUTH_SECRET }}
           tags: tag:ci
-          hostname: gha-${{ github.run_id }}  # Unique hostname per run to avoid DNS collision
-
+          hostname: gha-${{ github.run_id }}
       # Verify Tailscale Connectivity and Network
       - name: Verify Tailscale Connectivity
         if: matrix.setup_tailscale
         run: |
           echo "=== Tailscale Status ==="
           tailscale status --json | jq '.'
-          
+
           echo ""
           echo "=== Network Check ==="
           tailscale netcheck
-          
+
           echo ""
           echo "=== Node Info ==="
           MY_DNS=$(tailscale status --json | jq -r '.Self.DNSName' | sed 's/\.$//')
@@ -163,21 +163,21 @@ jobs:
           echo "Services are running on localhost:${{ matrix.traefik_port }}"
           echo "Configuring Funnel to expose port 10000 → localhost:${{ matrix.traefik_port }}"
           echo ""
-          
+
           sudo tailscale funnel --bg --https=10000 http://localhost:${{ matrix.traefik_port }}
-          
+
           echo ""
           echo "=== Funnel Status ==="
           sudo tailscale funnel status
-          
+
           echo ""
           MY_DNS=$(tailscale status --json | jq -r '.Self.DNSName' | sed 's/\.$//')
           echo "✅ Funnel configured: https://${MY_DNS}:10000 → http://localhost:${{ matrix.traefik_port }}"
-          
+
           echo ""
           echo "Waiting 2 minutes for DNS/cert propagation..."
           sleep 120
-      
+
       # Debug DNS resolution
       - name: Debug Funnel DNS
         if: matrix.setup_tailscale
@@ -200,31 +200,31 @@ jobs:
           echo "Checking health endpoint: ${FUNNEL_URL}/health"
           echo "Will retry every 10 seconds for up to 5 minutes..."
           echo ""
-          
+
           # Retry up to 30 times (10 seconds × 30 = 5 minutes)
           for i in $(seq 1 30); do
             echo "Attempt $i/30..."
-            
+
             # Show verbose output on first and last attempts for debugging
             if [ $i -eq 1 ] || [ $i -eq 30 ]; then
               echo "=== Verbose curl output ==="
               curl -v --max-time 10 "${FUNNEL_URL}/health" 2>&1 || true
               echo ""
             fi
-            
+
             if curl -sf --max-time 10 "${FUNNEL_URL}/health" > /dev/null 2>&1; then
               echo "✅ Tailscale Funnel is accessible (attempt $i/30)"
               echo "   Funnel URL: ${FUNNEL_URL}"
               echo "   (Tests will use this URL to verify authentication)"
               exit 0
             fi
-            
+
             if [ $i -ne 30 ]; then
               echo "⏳ Not accessible yet, waiting 10 seconds..."
               sleep 10
             fi
           done
-          
+
           echo ""
           echo "❌ Funnel failed to become accessible after 5 minutes"
           echo ""
@@ -240,7 +240,7 @@ jobs:
           echo ""
           echo "Checking if service is responding locally:"
           curl -v http://127.0.0.1:${{ matrix.traefik_port }}/health 2>&1 || true
-          
+
           exit 1
 
       - run: npx playwright install --with-deps chromium

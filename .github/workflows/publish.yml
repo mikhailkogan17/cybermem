@@ -98,8 +98,10 @@ jobs:
       - name: Setup Tailscale
         uses: tailscale/github-action@v4
         with:
-          authkey: ${{ secrets.TAILSCALE_AUTHKEY }}
+          oauth-client-id: ${{ secrets.TS_OAUTH_CLIENT_ID }}
+          oauth-secret: ${{ secrets.TS_OAUTH_SECRET }}
           tags: tag:ci
+          hostname: gha-${{ github.run_id }}
           # GitHub Action has built-in wait for node propagation (up to 3 minutes)
 
       # Verify Tailscale Connectivity and Network
@@ -107,11 +109,11 @@ jobs:
         run: |
           echo "=== Tailscale Status ==="
           tailscale status --json | jq '.'
-          
+
           echo ""
           echo "=== Network Check ==="
           tailscale netcheck
-          
+
           echo ""
           echo "=== Node Info ==="
           MY_DNS=$(tailscale status --json | jq -r '.Self.DNSName' | sed 's/\.$//')
@@ -124,27 +126,27 @@ jobs:
           echo "=== Tailscale Status BEFORE Funnel ==="
           sudo tailscale status
           echo ""
-          
+
           echo "=== Configuring Tailscale Funnel ==="
           sudo tailscale funnel --bg --https=10000 http://localhost:8625
-          
+
           echo ""
           echo "=== Funnel Status ==="
           sudo tailscale funnel status
-          
+
           echo ""
           echo "=== Tailscale Status AFTER Funnel ==="
           sudo tailscale status --json | jq '.Self.Funnel // "No funnel"'
-          
+
           echo ""
           echo "=== Network Info ==="
           MY_DNS=$(tailscale status --json | jq -r '.Self.DNSName' | sed 's/\.$//')
           echo "Funnel URL: https://${MY_DNS}:10000"
-          
+
           echo ""
           echo "Waiting 2 minutes for DNS/cert propagation..."
           sleep 120
-      
+
       # Debug DNS resolution
       - name: Debug Funnel DNS
         run: |
@@ -193,20 +195,20 @@ jobs:
           # Retry up to 30 times (10 seconds × 30 = 5 minutes)
           for i in $(seq 1 30); do
             echo "Attempt $i/30..."
-            
+
             # Show verbose output on first and last attempts for debugging
             if [ $i -eq 1 ] || [ $i -eq 30 ]; then
               echo "=== Verbose curl output ==="
               curl -v --max-time 10 "${FUNNEL_URL}/health" 2>&1 || true
               echo ""
             fi
-            
+
             if curl -sf --max-time 10 "${FUNNEL_URL}/health" > /dev/null 2>&1; then
               echo "✅ Tailscale Funnel is accessible (attempt $i/30)"
               echo "   Funnel URL: ${FUNNEL_URL}"
               exit 0
             fi
-            
+
             if [ $i -ne 30 ]; then
               echo "⏳ Not accessible yet, waiting 10 seconds..."
               sleep 10
@@ -250,20 +252,21 @@ jobs:
       - name: Setup Tailscale
         uses: tailscale/github-action@v4
         with:
-          authkey: ${{ secrets.TAILSCALE_AUTHKEY }}
+          oauth-client-id: ${{ secrets.TS_OAUTH_CLIENT_ID }}
+          oauth-secret: ${{ secrets.TS_OAUTH_SECRET }}
           tags: tag:ci
-          hostname: gha-e2e-${{ github.run_id }}  # Unique hostname per run to avoid DNS collision
+          hostname: gha-${{ github.run_id }}
 
       # Verify Tailscale Connectivity and Network
       - name: Verify Tailscale Connectivity
         run: |
           echo "=== Tailscale Status ==="
           tailscale status --json | jq '.'
-          
+
           echo ""
           echo "=== Network Check ==="
           tailscale netcheck
-          
+
           echo ""
           echo "=== Node Info ==="
           MY_DNS=$(tailscale status --json | jq -r '.Self.DNSName' | sed 's/\.$//')
@@ -487,21 +490,21 @@ jobs:
       - name: Setup Tailscale
         uses: tailscale/github-action@v4
         with:
-          authkey: ${{ secrets.TAILSCALE_AUTHKEY }}
+          oauth-client-id: ${{ secrets.TS_OAUTH_CLIENT_ID }}
+          oauth-secret: ${{ secrets.TS_OAUTH_SECRET }}
           tags: tag:ci
-          # Ping raspberrypi to verify it's online before deploying
-          ping: raspberrypi
+          hostname: gha-${{ github.run_id }}
 
       # Verify Tailscale Connectivity and Network
       - name: Verify Tailscale Connectivity
         run: |
           echo "=== Tailscale Status ==="
           tailscale status --json | jq '.'
-          
+
           echo ""
           echo "=== Network Check ==="
           tailscale netcheck
-          
+
           echo ""
           echo "=== Node Info ==="
           MY_DNS=$(tailscale status --json | jq -r '.Self.DNSName' | sed 's/\.$//')
