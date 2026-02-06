@@ -42,13 +42,14 @@ jobs:
     name: "E2E: ${{ matrix.env_name }}"
     # Run in parallel with pr-lint (no dependency)
     # Danger failure won't block E2E tests
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.runner }}
     strategy:
       fail-fast: false
       matrix:
         include:
-          # Localhost Staging (port 8625)
+          # Localhost Staging (port 8625) on AMD64
           - env_name: "localhost-staging"
+            runner: ubuntu-latest
             is_staging: true
             use_ci_mode: true
             traefik_port: 8625
@@ -56,8 +57,9 @@ jobs:
             setup_tailscale: false
             base_url: "http://localhost:8625"
 
-          # Localhost Production (port 8626)
+          # Localhost Production (port 8626) on AMD64
           - env_name: "localhost-prod"
+            runner: ubuntu-latest
             is_staging: false
             use_ci_mode: true
             traefik_port: 8626
@@ -65,15 +67,15 @@ jobs:
             setup_tailscale: false
             base_url: "http://localhost:8626"
 
-          # RPi LAN Production (via mDNS - raspberrypi.local)
-          - env_name: "rpi-lan-prod"
-            is_staging: false
-            use_ci_mode: false
-            traefik_port: 8626
-            project_name: "cybermem-prod"
-            setup_tailscale: false
-            base_url: "http://raspberrypi.local:8626"
-            skip_deployment: true
+          # RPi Tailscale Staging (on RPi self-hosted runner, localhost:8625)
+          - env_name: "rpi-ts-staging"
+            runner: self-hosted
+            is_staging: true
+            use_ci_mode: true
+            traefik_port: 8625
+            project_name: "cybermem-rpi-staging"
+            setup_tailscale: true
+            base_url: "http://localhost:8625"
 
     steps:
       - uses: actions/checkout@v4
@@ -83,6 +85,15 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: "20"
+
+      # Setup Tailscale (only for rpi-ts-staging)
+      - name: Setup Tailscale
+        if: matrix.setup_tailscale
+        uses: tailscale/github-action@v4
+        with:
+          authkey: ${{ secrets.TAILSCALE_AUTHKEY }}
+          tags: tag:ci
+          hostname: gha-rpi-${{ github.run_id }}
 
       # Setup Environment
       - name: Setup CyberMem Environment
@@ -101,9 +112,8 @@ jobs:
 
       # Build and deploy using CLI (local deployment in CI mode)
       - name: Build CLI & Install (${{ matrix.env_name }})
-        if: "!matrix.skip_deployment"
         env:
-          DOCKER_DEFAULT_PLATFORM: linux/amd64
+          DOCKER_DEFAULT_PLATFORM: ${{ matrix.runner == 'ubuntu-latest' && 'linux/amd64' || 'linux/arm64' }}
           PROJECT_NAME: ${{ matrix.project_name }}
           TRAEFIK_PORT: ${{ matrix.traefik_port }}
         run: |
