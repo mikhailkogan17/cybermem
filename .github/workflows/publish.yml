@@ -95,11 +95,6 @@ jobs:
 
       - run: npm ci
 
-      - name: Install Ansible
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y ansible
-
       - name: Setup Tailscale
         uses: tailscale/github-action@v2
         with:
@@ -139,14 +134,15 @@ jobs:
           echo "url=${FUNNEL_URL}" >> $GITHUB_OUTPUT
           echo "✅ Staging Funnel URL: ${FUNNEL_URL}"
 
-      - name: Deploy Staging (Runner emulates RPi with Tailscale)
+      - name: Deploy Staging (Local deployment with CI mode)
         env:
           DOCKER_DEFAULT_PLATFORM: linux/amd64
+          PROJECT_NAME: cybermem-staging
+          TRAEFIK_PORT: 8625
         run: |
           npm run build -w @cybermem/cli
-          # Use --ci --rpi --staging --remote-access
-          # Runner emulates RPi deployment with Tailscale Funnel
-          node packages/cli/dist/index.js install --ci --rpi --staging --remote-access
+          # Use --ci flag for local deployment
+          node packages/cli/dist/index.js install --ci --staging
 
       - name: Configure Tailscale Funnel
         run: |
@@ -204,7 +200,8 @@ jobs:
         run: |
           echo "Testing against: $DASHBOARD_URL"
           for i in {1..30}; do
-            if curl -sf -k "${DASHBOARD_URL}/health" > /dev/null 2>&1; then
+            # Note: Tailscale Funnel provides valid certificates, no -k needed
+            if curl -sf "${DASHBOARD_URL}/health" > /dev/null 2>&1; then
               echo "✅ Services ready"
               break
             fi
@@ -213,7 +210,7 @@ jobs:
           done
 
           # Final health check to ensure services became ready
-          curl -sf -k "${DASHBOARD_URL}/health" > /dev/null 2>&1 || { echo "❌ Services failed to become healthy"; exit 1; }
+          curl -sf "${DASHBOARD_URL}/health" > /dev/null 2>&1 || { echo "❌ Services failed to become healthy"; exit 1; }
 
           cd packages/cli
           npm run test:e2e:dashboard:api
