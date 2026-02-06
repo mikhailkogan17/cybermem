@@ -118,9 +118,30 @@ jobs:
       # Configure Tailscale Funnel BEFORE deployment
       - name: Configure Tailscale Funnel
         run: |
-          echo "Setting up Tailscale Funnel..."
-          sudo tailscale funnel --bg --https=8443 http://127.0.0.1:8625
+          echo "=== Tailscale Status BEFORE Funnel ==="
+          sudo tailscale status
+          echo ""
+          
+          echo "=== Configuring Tailscale Funnel ==="
+          # Use serve first, then funnel (modern two-step approach)
+          echo "Step 1: Configure serve..."
+          sudo tailscale serve https:8443 / http://127.0.0.1:8625
+          
+          echo "Step 2: Enable funnel..."
+          sudo tailscale funnel --bg 8443
+          
+          echo ""
+          echo "=== Funnel Status ==="
           sudo tailscale funnel status
+          
+          echo ""
+          echo "=== Tailscale Status AFTER Funnel ==="
+          sudo tailscale status
+          
+          echo ""
+          echo "=== Network Info ==="
+          MY_DNS=$(tailscale status --json | jq -r '.Self.DNSName' | sed 's/\.$//')
+          echo "Funnel URL should be: https://${MY_DNS}:8443"
 
       - name: Wait for Tailscale Connection
         id: get_url
@@ -156,23 +177,46 @@ jobs:
           FUNNEL_URL="https://${MY_DNS}:8443"
           echo "Funnel URL: ${FUNNEL_URL}"
           echo "Will retry every 10 seconds for up to 5 minutes..."
+          echo ""
 
           # Retry up to 30 times (10 seconds × 30 = 5 minutes)
           for i in $(seq 1 30); do
+            echo "Attempt $i/30..."
+            
+            # Show verbose output on first and last attempts for debugging
+            if [ $i -eq 1 ] || [ $i -eq 30 ]; then
+              echo "=== Verbose curl output ==="
+              curl -v --max-time 10 "${FUNNEL_URL}/health" 2>&1 || true
+              echo ""
+            fi
+            
             if curl -sf --max-time 10 "${FUNNEL_URL}/health" > /dev/null 2>&1; then
               echo "✅ Tailscale Funnel is accessible (attempt $i/30)"
               echo "   Funnel URL: ${FUNNEL_URL}"
               exit 0
             fi
-            echo "⏳ Waiting for Funnel to be accessible... (attempt $i/30)"
-            sleep 10
+            
+            if [ $i -ne 30 ]; then
+              echo "⏳ Not accessible yet, waiting 10 seconds..."
+              sleep 10
+            fi
           done
 
+          echo ""
           echo "❌ Tailscale Funnel failed to become accessible after 5 minutes"
+          echo ""
+          echo "=== Final Diagnostics ==="
           echo "Funnel status:"
-          sudo tailscale funnel status
-          echo "Localhost health:"
-          curl -sf "http://localhost:8625/health" || echo "Localhost also not accessible"
+          sudo tailscale funnel status || true
+          echo ""
+          echo "Serve status:"
+          sudo tailscale serve status || true
+          echo ""
+          echo "Tailscale status:"
+          sudo tailscale status || true
+          echo ""
+          echo "Checking if service is responding locally:"
+          curl -v http://localhost:8625/health 2>&1 || true
           exit 1
 
   # ==================================================================
