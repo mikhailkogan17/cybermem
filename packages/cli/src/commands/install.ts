@@ -63,10 +63,12 @@ export async function install(options: any) {
   const useTailscale = !!options.remoteAccess;
   const isCIMode = !!options.ci;
 
-  // CI Mode: Runner-as-Staging-Host
-  // When --ci --rpi is used, deploy to localhost using Ansible (targeting localhost)
-  // This allows GitHub runners to become their own staging environment
-  const isRunnerAsHost = isCIMode && options.rpi;
+  // CI Mode: Force local deployment
+  // When --ci is used, always deploy locally using docker-compose (not Ansible)
+  // The --rpi flag in CI just indicates "use RPi-like ports/config" but deploy locally
+  if (isCIMode) {
+    target = "local";
+  }
 
   console.log(
     chalk.blue(
