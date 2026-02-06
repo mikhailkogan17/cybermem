@@ -95,24 +95,6 @@ jobs:
 
       - run: npm ci
 
-      - name: Debug OAuth Secrets
-        run: |
-          echo "Checking TS_OAUTH_CLIENT_ID"
-          if [ -z "${{ secrets.TS_OAUTH_CLIENT_ID }}" ]; then
-            echo "::error::TS_OAUTH_CLIENT_ID is empty"
-            exit 1
-          else
-            echo "TS_OAUTH_CLIENT_ID is set (length: ${#TS_OAUTH_CLIENT_ID})"
-          fi
-
-          echo "Checking TS_OAUTH_SECRET"
-          if [ -z "${{ secrets.TS_OAUTH_SECRET }}" ]; then
-            echo "::error::TS_OAUTH_SECRET is empty"
-            exit 1
-          else
-            echo "TS_OAUTH_SECRET is set (length: ${#TS_OAUTH_SECRET})"
-          fi
-
       - name: Setup Tailscale
         uses: tailscale/github-action@v4
         with:
