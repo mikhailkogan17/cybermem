@@ -212,13 +212,23 @@
       shell: |
         # Reset any existing configuration for clean state
         tailscale funnel reset 2>/dev/null || true
+        tailscale serve reset 2>/dev/null || true
 
         # Configure port based on current environment only
         # Staging: 10000, Prod: 8443 (не занимаем дефолтный 443)
         if [ "{{ cybermem_env | default('prod') }}" = "staging" ]; then
-          tailscale funnel --bg --https=10000 {{ EFFECTIVE_TRAEFIK_PORT }}
+          # Two-step approach for staging
+          tailscale serve --bg https:10000 http://localhost:{{ EFFECTIVE_TRAEFIK_PORT }}
+          tailscale funnel --bg 10000
         else
-          tailscale funnel --bg --https=8443 {{ EFFECTIVE_TRAEFIK_PORT }}
+          # Two-step approach for prod
+          tailscale serve --bg https:8443 http://localhost:{{ EFFECTIVE_TRAEFIK_PORT }}
+          tailscale funnel --bg 8443
+        fi
+        
+        # Show configuration
+        tailscale funnel status
+        tailscale serve status
         fi
 
         tailscale funnel status

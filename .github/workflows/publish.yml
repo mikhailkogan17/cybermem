@@ -100,21 +100,24 @@ jobs:
         with:
           authkey: ${{ secrets.TAILSCALE_AUTHKEY }}
           tags: tag:ci
+          # Wait for node to be fully propagated (up to 3 minutes)
+          ping: ${{ github.run_id }}
 
-      # Wait for Tailscale node to propagate
+      # Verify Tailscale Connectivity and Network
       - name: Verify Tailscale Connectivity
         run: |
-          echo "Waiting for Tailscale node to propagate..."
+          echo "=== Tailscale Status ==="
+          tailscale status --json | jq '.'
+          
+          echo ""
+          echo "=== Network Check ==="
+          tailscale netcheck
+          
+          echo ""
+          echo "=== Node Info ==="
           MY_DNS=$(tailscale status --json | jq -r '.Self.DNSName' | sed 's/\.$//')
           echo "Node DNS: ${MY_DNS}"
-
-          # Ping self to verify node is ready (up to 3 minutes)
-          if ! tailscale ping --timeout 180s "${MY_DNS}"; then
-            echo "⚠️ Self-ping failed, but continuing..."
-            tailscale status
-          else
-            echo "✅ Tailscale node is ready"
-          fi
+          echo "✅ Tailscale connectivity verified"
 
       # Configure Tailscale Funnel BEFORE deployment
       - name: Configure Tailscale Funnel
@@ -123,23 +126,32 @@ jobs:
           sudo tailscale status
           echo ""
           
-          echo "=== Configuring Tailscale Funnel ==="
-          # Staging uses port 10000
-          echo "Running: tailscale funnel --bg --https=10000 8625"
-          sudo tailscale funnel --bg --https=10000 8625
+          echo "=== Configuring Tailscale Funnel (Two-Step Approach) ==="
+          
+          # Step 1: Configure serve (ingress proxy)
+          echo "Step 1: Configure serve..."
+          sudo tailscale serve --bg https:10000 http://localhost:8625
+          
+          # Step 2: Enable funnel (make it public)
+          echo "Step 2: Enable funnel..."
+          sudo tailscale funnel --bg 10000
           
           echo ""
-          echo "=== Funnel Configuration ==="
+          echo "=== Funnel Status ==="
           sudo tailscale funnel status
           
           echo ""
+          echo "=== Serve Status ==="
+          sudo tailscale serve status
+          
+          echo ""
           echo "=== Tailscale Status AFTER Funnel ==="
-          sudo tailscale status
+          sudo tailscale status --json | jq '.Self.Funnel // "No funnel"'
           
           echo ""
           echo "=== Network Info ==="
           MY_DNS=$(tailscale status --json | jq -r '.Self.DNSName' | sed 's/\.$//')
-          echo "Funnel URL should be: https://${MY_DNS}:10000"
+          echo "Expected Funnel URL: https://${MY_DNS}:10000"
 
       - name: Wait for Tailscale Connection
         id: get_url
@@ -239,21 +251,24 @@ jobs:
         with:
           authkey: ${{ secrets.TAILSCALE_AUTHKEY }}
           tags: tag:ci
+          # Wait for node to be fully propagated (up to 3 minutes)
+          ping: ${{ github.run_id }}
 
-      # Wait for Tailscale node to propagate
+      # Verify Tailscale Connectivity and Network
       - name: Verify Tailscale Connectivity
         run: |
-          echo "Waiting for Tailscale node to propagate..."
+          echo "=== Tailscale Status ==="
+          tailscale status --json | jq '.'
+          
+          echo ""
+          echo "=== Network Check ==="
+          tailscale netcheck
+          
+          echo ""
+          echo "=== Node Info ==="
           MY_DNS=$(tailscale status --json | jq -r '.Self.DNSName' | sed 's/\.$//')
           echo "Node DNS: ${MY_DNS}"
-
-          # Ping self to verify node is ready (up to 3 minutes)
-          if ! tailscale ping --timeout 180s "${MY_DNS}"; then
-            echo "⚠️ Self-ping failed, but continuing..."
-            tailscale status
-          else
-            echo "✅ Tailscale node is ready"
-          fi
+          echo "✅ Tailscale connectivity verified"
 
       - name: Build Local Packages
         run: npm run build --workspaces
@@ -474,21 +489,24 @@ jobs:
         with:
           authkey: ${{ secrets.TAILSCALE_AUTHKEY }}
           tags: tag:ci
+          # Wait for node to be fully propagated (up to 3 minutes)
+          ping: raspberrypi
 
-      # Wait for Tailscale node to propagate
+      # Verify Tailscale Connectivity and Network
       - name: Verify Tailscale Connectivity
         run: |
-          echo "Waiting for Tailscale node to propagate..."
+          echo "=== Tailscale Status ==="
+          tailscale status --json | jq '.'
+          
+          echo ""
+          echo "=== Network Check ==="
+          tailscale netcheck
+          
+          echo ""
+          echo "=== Node Info ==="
           MY_DNS=$(tailscale status --json | jq -r '.Self.DNSName' | sed 's/\.$//')
           echo "Node DNS: ${MY_DNS}"
-
-          # Ping self to verify node is ready (up to 3 minutes)
-          if ! tailscale ping --timeout 180s "${MY_DNS}"; then
-            echo "⚠️ Self-ping failed, but continuing..."
-            tailscale status
-          else
-            echo "✅ Tailscale node is ready"
-          fi
+          echo "✅ Tailscale connectivity verified"
 
       - name: Setup Ansible
         run: |
