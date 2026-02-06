@@ -121,21 +121,13 @@ jobs:
 
           sleep 30
 
-      # Configure Tailscale Funnel for RPi emulation (two-step setup)
+      # Configure Tailscale Funnel for RPi emulation
       - name: Configure Tailscale Funnel
         if: matrix.setup_tailscale
         run: |
           echo "Setting up Tailscale Funnel..."
-
-          # Step 1: Configure serve (ingress proxy)
-          sudo tailscale serve https:8443 / http://127.0.0.1:${{ matrix.traefik_port }}
-
-          # Step 2: Enable funnel (make it publicly accessible)
-          sudo tailscale funnel --bg 8443
-
-          # Verify configuration
+          sudo tailscale funnel --bg --https=8443 http://127.0.0.1:${{ matrix.traefik_port }}
           sudo tailscale funnel status
-          sudo tailscale serve status
 
       # Verify Tailscale Funnel and check localhost
       - name: Verify Tailscale Funnel

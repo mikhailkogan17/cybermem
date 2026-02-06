@@ -146,16 +146,8 @@ jobs:
       - name: Configure Tailscale Funnel
         run: |
           echo "Setting up Tailscale Funnel..."
-
-          # Step 1: Configure serve (ingress proxy)
-          sudo tailscale serve https:8443 / http://127.0.0.1:8625
-
-          # Step 2: Enable funnel (make it publicly accessible)
-          sudo tailscale funnel --bg 8443
-
-          # Verify configuration
+          sudo tailscale funnel --bg --https=8443 http://127.0.0.1:8625
           sudo tailscale funnel status
-          sudo tailscale serve status
 
       - name: Wait for Services (localhost)
         run: |
