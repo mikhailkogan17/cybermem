@@ -244,6 +244,8 @@ jobs:
             -i packages/cli/templates/ansible/inventory/hosts.ini \
             packages/cli/templates/ansible/playbooks/deploy-cybermem.yml \
             --extra-vars "cybermem_env=staging" \
+            --extra-vars "ghcr_user=${{ github.actor }}" \
+            --extra-vars "ghcr_token=${{ secrets.GITHUB_TOKEN }}" \
             --extra-vars "ghcr_tag=staging" \
             --extra-vars "TRAEFIK_PORT=8625" \
             --extra-vars "CYBERMEM_TAILSCALE=true" \
