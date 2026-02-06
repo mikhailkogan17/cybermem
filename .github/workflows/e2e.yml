@@ -79,6 +79,7 @@ jobs:
         run: npx playwright test
         env:
           CI: true
+          DASHBOARD_URL: http://localhost:8625
           MCP_URL: http://localhost:8625/mcp
           OM_DB_PATH: /home/runner/.cybermem/data-staging/openmemory.sqlite
           INTERNAL_MCP_URL: http://localhost:8625
