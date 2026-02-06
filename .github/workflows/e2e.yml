@@ -40,7 +40,8 @@ jobs:
   # ------------------------------------------------------------------
   pr-e2e-matrix:
     name: "E2E: ${{ matrix.env_name }}"
-    needs: pr-lint
+    # Run in parallel with pr-lint (no dependency)
+    # Danger failure won't block E2E tests
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
