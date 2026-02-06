@@ -101,7 +101,6 @@ jobs:
           oauth-client-id: ${{ secrets.TS_OAUTH_CLIENT_ID }}
           oauth-secret: ${{ secrets.TS_OAUTH_SECRET }}
           tags: tag:ci
-          hostname: gha-${{ github.run_id }}
           # GitHub Action has built-in wait for node propagation (up to 3 minutes)
 
       # Verify Tailscale Connectivity and Network
@@ -255,7 +254,6 @@ jobs:
           oauth-client-id: ${{ secrets.TS_OAUTH_CLIENT_ID }}
           oauth-secret: ${{ secrets.TS_OAUTH_SECRET }}
           tags: tag:ci
-          hostname: gha-${{ github.run_id }}
 
       # Verify Tailscale Connectivity and Network
       - name: Verify Tailscale Connectivity
@@ -493,7 +491,6 @@ jobs:
           oauth-client-id: ${{ secrets.TS_OAUTH_CLIENT_ID }}
           oauth-secret: ${{ secrets.TS_OAUTH_SECRET }}
           tags: tag:ci
-          hostname: gha-${{ github.run_id }}
 
       # Verify Tailscale Connectivity and Network
       - name: Verify Tailscale Connectivity

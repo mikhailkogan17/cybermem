@@ -95,27 +95,6 @@ jobs:
 
       - run: npm ci
 
-      - name: Debug OAuth Secrets
-        env:
-          TS_OAUTH_CLIENT_ID: ${{ secrets.TS_OAUTH_CLIENT_ID }}
-          TS_OAUTH_SECRET: ${{ secrets.TS_OAUTH_SECRET }}
-        run: |
-          echo "Checking TS_OAUTH_CLIENT_ID"
-          if [ -z "$TS_OAUTH_CLIENT_ID" ]; then
-            echo "::error::TS_OAUTH_CLIENT_ID is empty"
-            exit 1
-          else
-            echo "TS_OAUTH_CLIENT_ID is set (length: ${#TS_OAUTH_CLIENT_ID})"
-          fi
-
-          echo "Checking TS_OAUTH_SECRET"
-          if [ -z "$TS_OAUTH_SECRET" ]; then
-            echo "::error::TS_OAUTH_SECRET is empty"
-            exit 1
-          else
-            echo "TS_OAUTH_SECRET is set (length: ${#TS_OAUTH_SECRET})"
-          fi
-
       # Setup Tailscale for RPi emulation
       - name: Setup Tailscale
         if: matrix.setup_tailscale
@@ -124,7 +103,23 @@ jobs:
           oauth-client-id: ${{ secrets.TS_OAUTH_CLIENT_ID }}
           oauth-secret: ${{ secrets.TS_OAUTH_SECRET }}
           tags: tag:ci
-          hostname: gha-${{ github.run_id }}
+
+      - name: Debug tailscale up
+        if: failure()
+        env:
+          TS_OAUTH_CLIENT_ID: ${{ secrets.TS_OAUTH_CLIENT_ID }}
+          TS_OAUTH_SECRET: ${{ secrets.TS_OAUTH_SECRET }}
+        run: |
+          which tailscale
+          tailscale version || true
+          echo "Manual tailscale up:"
+          sudo tailscale up \
+            --oauth-client-id="${TS_OAUTH_CLIENT_ID}" \
+            --oauth-secret="${TS_OAUTH_SECRET}" \
+            --advertise-tags=tag:ci \
+            --reset \
+            -verbose
+
       # Verify Tailscale Connectivity and Network
       - name: Verify Tailscale Connectivity
         if: matrix.setup_tailscale
