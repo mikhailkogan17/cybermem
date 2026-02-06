@@ -96,9 +96,12 @@ jobs:
       - run: npm ci
 
       - name: Debug OAuth Secrets
+        env:
+          TS_OAUTH_CLIENT_ID: ${{ secrets.TS_OAUTH_CLIENT_ID }}
+          TS_OAUTH_SECRET: ${{ secrets.TS_OAUTH_SECRET }}
         run: |
           echo "Checking TS_OAUTH_CLIENT_ID"
-          if [ -z "${{ secrets.TS_OAUTH_CLIENT_ID }}" ]; then
+          if [ -z "$TS_OAUTH_CLIENT_ID" ]; then
             echo "::error::TS_OAUTH_CLIENT_ID is empty"
             exit 1
           else
@@ -106,7 +109,7 @@ jobs:
           fi
 
           echo "Checking TS_OAUTH_SECRET"
-          if [ -z "${{ secrets.TS_OAUTH_SECRET }}" ]; then
+          if [ -z "$TS_OAUTH_SECRET" ]; then
             echo "::error::TS_OAUTH_SECRET is empty"
             exit 1
           else
