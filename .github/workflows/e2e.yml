@@ -232,10 +232,21 @@ jobs:
           " >> $GITHUB_OUTPUT
           echo "✅ Generated staging E2E token"
 
-      - name: Setup Ansible
+      - name: Setup Ansible + Tailscale SSH
         run: |
           sudo apt-get update
           sudo apt-get install -y ansible
+
+          # Create a wrapper script for Ansible to use Tailscale SSH
+          # ACL: tag:ci → tag:rpi, users: root/pi, action: accept
+          sudo tee /usr/local/bin/ts-ssh >/dev/null <<'EOF'
+          #!/bin/bash
+          # Wrapper: translates Ansible SSH calls to tailscale ssh
+          # Ansible calls: ssh [opts] [-o Key=Val]... user@host [command...]
+          # We pass everything to tailscale ssh which handles the rest
+          exec tailscale ssh "$@"
+          EOF
+          sudo chmod +x /usr/local/bin/ts-ssh
 
       - name: Deploy Staging to RPi
         env:
@@ -254,7 +265,7 @@ jobs:
             --extra-vars "auth_token_id=${{ steps.gen_token.outputs.token_id }}" \
             --extra-vars "auth_token_name=staging-e2e" \
             --extra-vars "auth_token_value=${{ steps.gen_token.outputs.token }}" \
-            --extra-vars "ansible_ssh_common_args='-o StrictHostKeyChecking=no'" \
+            --extra-vars "ansible_ssh_executable=/usr/local/bin/ts-ssh" \
             --extra-vars "ansible_host=${{ steps.rpi_info.outputs.ip }}"
 
       - run: npm ci

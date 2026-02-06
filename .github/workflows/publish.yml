@@ -128,10 +128,18 @@ jobs:
           echo "url=${FUNNEL_URL}" >> $GITHUB_OUTPUT
           echo "✅ RPi Staging Funnel URL: ${FUNNEL_URL}"
 
-      - name: Setup Ansible
+      - name: Setup Ansible + Tailscale SSH
         run: |
           sudo apt-get update
           sudo apt-get install -y ansible
+
+          # Create a wrapper script for Ansible to use Tailscale SSH
+          # ACL: tag:ci → tag:rpi, users: root/pi, action: accept
+          sudo tee /usr/local/bin/ts-ssh >/dev/null <<'EOF'
+          #!/bin/bash
+          exec tailscale ssh "$@"
+          EOF
+          sudo chmod +x /usr/local/bin/ts-ssh
 
       - name: Get RPi Tailscale IP
         id: get_rpi_ip
@@ -159,7 +167,7 @@ jobs:
             --extra-vars "auth_token_id=${{ steps.gen_token.outputs.token_id }}" \
             --extra-vars "auth_token_name=staging-e2e" \
             --extra-vars "auth_token_value=${{ steps.gen_token.outputs.token }}" \
-            --extra-vars "ansible_ssh_common_args='-o StrictHostKeyChecking=no'" \
+            --extra-vars "ansible_ssh_executable=/usr/local/bin/ts-ssh" \
             --extra-vars "ansible_host=${{ steps.get_rpi_ip.outputs.ip }}"
 
   # ==================================================================
@@ -410,10 +418,16 @@ jobs:
           tags: tag:ci
           version: 1.76.6
 
-      - name: Setup Ansible
+      - name: Setup Ansible + Tailscale SSH
         run: |
           sudo apt-get update
           sudo apt-get install -y ansible
+
+          sudo tee /usr/local/bin/ts-ssh >/dev/null <<'EOF'
+          #!/bin/bash
+          exec tailscale ssh "$@"
+          EOF
+          sudo chmod +x /usr/local/bin/ts-ssh
 
       - name: Get RPi Tailscale IP
         id: get_rpi_ip
@@ -455,7 +469,7 @@ jobs:
             -i packages/cli/templates/ansible/inventory/hosts.ini \
             packages/cli/templates/ansible/playbooks/deploy-cybermem.yml \
             --extra-vars "cybermem_env=prod ghcr_user=${{ github.actor }} ghcr_token=${{ secrets.GITHUB_TOKEN }} CYBERMEM_TAILSCALE=true" \
-            --extra-vars "ansible_ssh_common_args='-o StrictHostKeyChecking=no'" \
+            --extra-vars "ansible_ssh_executable=/usr/local/bin/ts-ssh" \
             --extra-vars "ansible_host=${{ steps.get_rpi_ip.outputs.ip }}"
 
       - name: Slack (Prod Deployed)
