@@ -16,6 +16,7 @@ export default defineConfig({
   retries: 1,
 
   use: {
+    ignoreHTTPSErrors: true, // Allow Tailscale Funnel SSL certificates
     screenshot: "only-on-failure",
     trace: "on-first-retry",
   },
