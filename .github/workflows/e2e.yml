@@ -36,22 +36,52 @@ jobs:
         run: npx danger ci
 
   # ------------------------------------------------------------------
-  # 3. Local E2E (Dogfooding) - "e2e:pr"
+  # 3. E2E Matrix Testing (Parallel Execution)
   # ------------------------------------------------------------------
-  pr-e2e-localhost-staging:
-    name: "E2E: Localhost Staging"
+  pr-e2e-matrix:
+    name: "E2E: ${{ matrix.env_name }}"
     needs: pr-lint
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # Localhost Staging (port 8625)
+          - env_name: "localhost-staging"
+            is_staging: true
+            use_ci_mode: true
+            traefik_port: 8625
+            project_name: "cybermem-staging"
+            setup_tailscale: false
+
+          # Localhost Production (port 8626)
+          - env_name: "localhost-prod"
+            is_staging: false
+            use_ci_mode: true
+            traefik_port: 8626
+            project_name: "cybermem-prod"
+            setup_tailscale: false
+
+          # RPi Tailscale Staging Emulation (port 8625 + Tailscale)
+          - env_name: "rpi-ts-staging"
+            is_staging: true
+            use_ci_mode: true
+            traefik_port: 8625
+            project_name: "cybermem-rpi-staging"
+            setup_tailscale: true
+
     steps:
       - uses: actions/checkout@v4
         with:
           submodules: recursive
+
       - uses: actions/setup-node@v4
         with:
           node-version: "20"
 
       # Setup Environment
-      - run: |
+      - name: Setup CyberMem Environment
+        run: |
           mkdir -p ~/.cybermem
           echo "OPENAI_API_KEY=sk-test-key-for-ci" > ~/.cybermem/.env # gitleaks:allow
           echo "OM_API_KEY=sk-test-key-for-ci" >> ~/.cybermem/.env # gitleaks:allow
@@ -64,37 +94,81 @@ jobs:
 
       - run: npm ci
 
-      # Install Ansible for Runner-as-Staging-Host
+      # Install Ansible for Runner-as-Host deployments
       - name: Install Ansible
         run: |
           sudo apt-get update
           sudo apt-get install -y ansible
 
-      # Verification: Install & Health Check using CLI --ci mode
-      - name: Build CLI & Install (CI Staging Mode)
+      # Setup Tailscale for RPi emulation
+      - name: Setup Tailscale
+        if: matrix.setup_tailscale
+        uses: tailscale/github-action@v2
+        with:
+          authkey: ${{ secrets.TAILSCALE_AUTHKEY }}
+          version: 1.76.6
+
+      # Build and deploy using CLI
+      - name: Build CLI & Install (${{ matrix.env_name }})
         env:
           DOCKER_DEFAULT_PLATFORM: linux/amd64
         run: |
           npm run build -w @cybermem/cli
-          # Use --ci --rpi --staging for "Runner-as-Staging-Host" mode
-          # This deploys to localhost using Ansible with staging configuration
-          node packages/cli/dist/index.js install --ci --rpi --staging
+
+          # Deploy based on environment configuration
+          if [ "${{ matrix.use_ci_mode }}" = "true" ]; then
+            if [ "${{ matrix.is_staging }}" = "true" ]; then
+              if [ "${{ matrix.setup_tailscale }}" = "true" ]; then
+                # RPi Tailscale Staging Emulation
+                node packages/cli/dist/index.js install --ci --rpi --staging --remote-access
+              else
+                # Localhost Staging
+                node packages/cli/dist/index.js install --ci --rpi --staging
+              fi
+            else
+              # Localhost Production
+              node packages/cli/dist/index.js install --ci --rpi
+            fi
+          fi
+
           sleep 30
+
+      # Configure Tailscale Funnel for RPi emulation
+      - name: Configure Tailscale Funnel
+        if: matrix.setup_tailscale
+        run: |
+          sudo tailscale funnel --bg --https=8443 http://127.0.0.1:${{ matrix.traefik_port }}
+          sudo tailscale funnel status
 
       - run: npx playwright install --with-deps chromium
 
-      - name: Run E2E Verification (Unified Playwright)
+      # Determine test URL
+      - name: Set Test URL
+        id: test_url
+        run: |
+          if [ "${{ matrix.setup_tailscale }}" = "true" ]; then
+            # Get Tailscale DNS name for funnel URL
+            MY_DNS=$(tailscale status --json | jq -r '.Self.DNSName' | sed 's/\.$//')
+            echo "url=https://${MY_DNS}:8443" >> $GITHUB_OUTPUT
+          else
+            echo "url=http://localhost:${{ matrix.traefik_port }}" >> $GITHUB_OUTPUT
+          fi
+
+      # Run E2E Tests
+      - name: Run E2E Verification
         run: npx playwright test
         env:
           CI: true
-          DASHBOARD_URL: http://localhost:8625
-          MCP_URL: http://localhost:8625/mcp
+          DASHBOARD_URL: ${{ steps.test_url.outputs.url }}
+          MCP_URL: ${{ steps.test_url.outputs.url }}/mcp
+          TEST_ENV_NAME: ${{ matrix.env_name }}
 
-      - name: Upload Playwright Reports (Local)
+      # Upload environment-specific reports
+      - name: Upload Playwright Reports
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: e2e-reports-local-ci
+          name: e2e-reports-${{ matrix.env_name }}
           path: |
             playwright-report/
             test-results/
@@ -103,6 +177,5 @@ jobs:
           if-no-files-found: warn
           retention-days: 7
 
-  # NOTE: Remote E2E (RPi) is NOT run on PR.
-  # It is only run during Release pipeline (publish.yml) on rpi-ts-staging,
-  # after which prod is deployed WITHOUT additional tests.
+  # NOTE: Remote E2E (actual RPi hardware) is NOT run on PR.
+  # It is only run during Release pipeline (publish.yml) after staging verification.
