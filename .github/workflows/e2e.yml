@@ -128,13 +128,13 @@ jobs:
           echo ""
           
           echo "=== Configuring Tailscale Funnel ==="
-          # Use new modern CLI syntax (single command)
-          echo "Configuring serve with Funnel..."
-          sudo tailscale serve --bg --https 8443 http://127.0.0.1:${{ matrix.traefik_port }}
+          # Staging uses port 10000
+          echo "Running: tailscale funnel --bg --https=10000 ${{ matrix.traefik_port }}"
+          sudo tailscale funnel --bg --https=10000 ${{ matrix.traefik_port }}
           
           echo ""
           echo "=== Funnel Configuration ==="
-          sudo tailscale status --json | jq -r '.Self.Funnel // "No funnel configured"'
+          sudo tailscale funnel status
           
           echo ""
           echo "=== Tailscale Status AFTER Funnel ==="
@@ -143,7 +143,7 @@ jobs:
           echo ""
           echo "=== Network Info ==="
           MY_DNS=$(tailscale status --json | jq -r '.Self.DNSName' | sed 's/\.$//')
-          echo "Funnel URL should be: https://${MY_DNS}:8443"
+          echo "Funnel URL should be: https://${MY_DNS}:10000"
 
       # Build and deploy using CLI (local deployment in CI mode)
       - name: Build CLI & Install (${{ matrix.env_name }})
@@ -171,7 +171,7 @@ jobs:
         run: |
           echo "Verifying Tailscale Funnel is accessible..."
           MY_DNS=$(tailscale status --json | jq -r '.Self.DNSName' | sed 's/\.$//')
-          FUNNEL_URL="https://${MY_DNS}:8443"
+          FUNNEL_URL="https://${MY_DNS}:10000"
 
           echo "Funnel URL: ${FUNNEL_URL}"
           echo "Checking health endpoint: ${FUNNEL_URL}/health"
@@ -230,7 +230,7 @@ jobs:
             # Get Tailscale DNS name for funnel URL
             # CRITICAL: Use Funnel URL to test authentication (localhost bypasses auth!)
             MY_DNS=$(tailscale status --json | jq -r '.Self.DNSName' | sed 's/\.$//')
-            echo "url=https://${MY_DNS}:8443" >> $GITHUB_OUTPUT
+            echo "url=https://${MY_DNS}:10000" >> $GITHUB_OUTPUT
             echo "Using Funnel URL for testing (required for auth verification)"
           else
             echo "url=http://localhost:${{ matrix.traefik_port }}" >> $GITHUB_OUTPUT

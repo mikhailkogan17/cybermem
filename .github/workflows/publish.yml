@@ -124,13 +124,13 @@ jobs:
           echo ""
           
           echo "=== Configuring Tailscale Funnel ==="
-          # Use new modern CLI syntax (single command)
-          echo "Configuring serve with Funnel..."
-          sudo tailscale serve --bg --https 8443 http://127.0.0.1:8625
+          # Staging uses port 10000
+          echo "Running: tailscale funnel --bg --https=10000 8625"
+          sudo tailscale funnel --bg --https=10000 8625
           
           echo ""
           echo "=== Funnel Configuration ==="
-          sudo tailscale status --json | jq -r '.Self.Funnel // "No funnel configured"'
+          sudo tailscale funnel status
           
           echo ""
           echo "=== Tailscale Status AFTER Funnel ==="
@@ -139,7 +139,7 @@ jobs:
           echo ""
           echo "=== Network Info ==="
           MY_DNS=$(tailscale status --json | jq -r '.Self.DNSName' | sed 's/\.$//')
-          echo "Funnel URL should be: https://${MY_DNS}:8443"
+          echo "Funnel URL should be: https://${MY_DNS}:10000"
 
       - name: Wait for Tailscale Connection
         id: get_url
@@ -152,8 +152,8 @@ jobs:
             exit 1
           fi
 
-          # Staging uses port 8443 for Tailscale Funnel
-          FUNNEL_URL="https://${MY_DNS}:8443"
+          # Staging uses port 10000 for Tailscale Funnel
+          FUNNEL_URL="https://${MY_DNS}:10000"
           echo "url=${FUNNEL_URL}" >> $GITHUB_OUTPUT
           echo "✅ Staging Funnel URL: ${FUNNEL_URL}"
 
@@ -172,7 +172,7 @@ jobs:
         run: |
           echo "Waiting for Tailscale Funnel to be externally accessible..."
           MY_DNS=$(tailscale status --json | jq -r '.Self.DNSName' | sed 's/\.$//')
-          FUNNEL_URL="https://${MY_DNS}:8443"
+          FUNNEL_URL="https://${MY_DNS}:10000"
           echo "Funnel URL: ${FUNNEL_URL}"
           echo "Will retry every 10 seconds for up to 5 minutes..."
           echo ""
