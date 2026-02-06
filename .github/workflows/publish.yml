@@ -140,6 +140,19 @@ jobs:
           echo "=== Network Info ==="
           MY_DNS=$(tailscale status --json | jq -r '.Self.DNSName' | sed 's/\.$//')
           echo "Funnel URL: https://${MY_DNS}:10000"
+          
+          echo ""
+          echo "Waiting 2 minutes for DNS/cert propagation..."
+          sleep 120
+      
+      # Debug DNS resolution
+      - name: Debug Funnel DNS
+        run: |
+          MY_DNS=$(tailscale status --json | jq -r '.Self.DNSName' | sed 's/\.$//')
+          echo "=== DNS Debug ==="
+          echo "DNS: $MY_DNS"
+          nslookup $MY_DNS || echo "⚠️  DNS not resolved yet"
+          dig $MY_DNS || echo "⚠️  dig failed"
 
       - name: Wait for Tailscale Connection
         id: get_url
@@ -239,7 +252,7 @@ jobs:
         with:
           authkey: ${{ secrets.TAILSCALE_AUTHKEY }}
           tags: tag:ci
-          # GitHub Action has built-in wait for node propagation (up to 3 minutes)
+          hostname: gha-e2e-${{ github.run_id }}  # Unique hostname per run to avoid DNS collision
 
       # Verify Tailscale Connectivity and Network
       - name: Verify Tailscale Connectivity
