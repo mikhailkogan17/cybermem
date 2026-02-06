@@ -74,10 +74,7 @@ export default defineConfig({
   // Start the dashboard server for local tests
   webServer: [
     {
-      command:
-        process.env.USE_TURBOPACK === "true"
-          ? "cd packages/dashboard && npm run dev:turbo"
-          : "cd packages/dashboard && npm run dev",
+      command: "cd packages/dashboard && npm run dev:turbo",
       port: 3000,
       reuseExistingServer: true,
       stdout: "pipe",

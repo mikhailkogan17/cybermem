@@ -36,10 +36,130 @@ jobs:
         run: npx danger ci
 
   # ------------------------------------------------------------------
-  # 2. E2E: rpi-ts-staging (TS SSH from runner to RPi host)
+  # 2. E2E: localhost-staging (port 8625) — NO DEPENDENCIES
+  #    Docker backend + Turbopack dashboard on :3000
+  # ------------------------------------------------------------------
+  pr-e2e-localhost-staging:
+    name: "E2E: localhost-staging"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - run: |
+          mkdir -p ~/.cybermem
+          echo "OPENAI_API_KEY=sk-test-key-for-ci" > ~/.cybermem/.env # gitleaks:allow
+          echo "OM_API_KEY=sk-test-key-for-ci" >> ~/.cybermem/.env # gitleaks:allow
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - run: npm ci
+
+      - name: Build CLI & Install (Staging)
+        env:
+          DOCKER_DEFAULT_PLATFORM: linux/amd64
+        run: |
+          npm run build -w @cybermem/cli
+          node packages/cli/dist/index.js install --staging
+          sleep 30
+
+      - run: npx playwright install --with-deps chromium
+
+      # Turbopack dashboard on :3000, Docker backend on :8625
+      # Dashboard API reads shared SQLite + proxies to MCP via Traefik
+      - name: Run E2E
+        run: npx playwright test
+        env:
+          CI: true
+          MCP_URL: http://localhost:8625/mcp
+          OM_DB_PATH: /home/runner/.cybermem/data-staging/openmemory.sqlite
+          INTERNAL_MCP_URL: http://localhost:8625
+
+      - name: Upload Playwright Reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-reports-localhost-staging
+          path: |
+            playwright-report/
+            test-results/
+            packages/*/playwright-report/
+            packages/*/test-results/
+          if-no-files-found: warn
+          retention-days: 7
+
+  # ------------------------------------------------------------------
+  # 3. E2E: localhost-prod (port 8626) — NO DEPENDENCIES
+  #    Full Docker stack (dashboard via Traefik, not Turbopack)
+  # ------------------------------------------------------------------
+  pr-e2e-localhost-prod:
+    name: "E2E: localhost-prod"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - run: |
+          mkdir -p ~/.cybermem
+          echo "OPENAI_API_KEY=sk-test-key-for-ci" > ~/.cybermem/.env # gitleaks:allow
+          echo "OM_API_KEY=sk-test-key-for-ci" >> ~/.cybermem/.env # gitleaks:allow
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - run: npm ci
+
+      - name: Build CLI & Install (Prod)
+        env:
+          DOCKER_DEFAULT_PLATFORM: linux/amd64
+        run: |
+          npm run build -w @cybermem/cli
+          node packages/cli/dist/index.js install
+          sleep 30
+
+      - run: npx playwright install --with-deps chromium
+
+      # All tests go through Docker Traefik on :8626
+      - name: Run E2E
+        run: npx playwright test
+        env:
+          CI: true
+          DASHBOARD_URL: http://localhost:8626
+          MCP_URL: http://localhost:8626/mcp
+
+      - name: Upload Playwright Reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-reports-localhost-prod
+          path: |
+            playwright-report/
+            test-results/
+            packages/*/playwright-report/
+            packages/*/test-results/
+          if-no-files-found: warn
+          retention-days: 7
+
+  # ------------------------------------------------------------------
+  # 4. E2E: rpi-ts-staging (port 10000 via Tailscale)
   #    — NO DEPENDENCIES
-  #    Runner joins tailnet → SSHes to RPi → deploys staging → tests
-  #    Funnel runs on RPi HOST (not runner — TLS unsolvable on runner)
+  #    Runner joins tailnet → deploys staging to RPi → tests
+  #    Funnel runs on RPi HOST (not runner)
   # ------------------------------------------------------------------
   pr-e2e-rpi-ts-staging:
     name: "E2E: rpi-ts-staging"
@@ -53,12 +173,11 @@ jobs:
         with:
           node-version: "20"
 
-      # Tailscale: OAuth (not authkey) — secrets already in repo
       - name: Setup Tailscale
         uses: tailscale/github-action@v2
         with:
-          oauth-client-id: ${{ secrets.TS_AUTH_CLIENT_ID }}
-          oauth-secret: ${{ secrets.TS_AUTH_CLIENT_SECRET }}
+          oauth-client-id: ${{ secrets.TS_OAUTH_CLIENT_ID }}
+          oauth-secret: ${{ secrets.TS_OAUTH_CLIENT_SECRET }}
           tags: tag:ci
           version: 1.76.6
 
@@ -75,8 +194,12 @@ jobs:
             echo "Waiting... ($i/12)"
           done
 
-          RPI_DNS=$(tailscale status --json | jq -r '.Peer[] | select(.HostName | test("raspberrypi"; "i")) | .DNSName' | head -1 | sed 's/\.$//')
-          RPI_IP=$(tailscale status --json | jq -r '.Peer[] | select(.HostName | test("raspberrypi"; "i")) | .TailscaleIPs[0]' | head -1)
+          RPI_DNS=$(tailscale status --json | jq -r \
+            '.Peer[] | select(.HostName | test("raspberrypi"; "i")) | .DNSName' \
+            | head -1 | sed 's/\.$//')
+          RPI_IP=$(tailscale status --json | jq -r \
+            '.Peer[] | select(.HostName | test("raspberrypi"; "i")) | .TailscaleIPs[0]' \
+            | head -1)
 
           if [ -z "$RPI_DNS" ] || [ -z "$RPI_IP" ]; then
             echo "❌ Could not find RPi on tailnet"
@@ -84,7 +207,6 @@ jobs:
             exit 1
           fi
 
-          # Staging funnel on RPi HOST uses port 10000
           echo "dns=${RPI_DNS}" >> $GITHUB_OUTPUT
           echo "ip=${RPI_IP}" >> $GITHUB_OUTPUT
           echo "url=https://${RPI_DNS}:10000" >> $GITHUB_OUTPUT
@@ -114,7 +236,6 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y ansible
 
-      # Deploy staging to RPi via Tailscale SSH + Ansible
       - name: Deploy Staging to RPi
         env:
           ANSIBLE_HOST_KEY_CHECKING: "False"
@@ -122,7 +243,10 @@ jobs:
           ansible-playbook \
             -i packages/cli/templates/ansible/inventory/hosts.ini \
             packages/cli/templates/ansible/playbooks/deploy-cybermem.yml \
-            --extra-vars "cybermem_env=staging ghcr_user=${{ github.actor }} ghcr_token=${{ secrets.GITHUB_TOKEN }} ghcr_tag=staging TRAEFIK_PORT=8625 CYBERMEM_TAILSCALE=true" \
+            --extra-vars "cybermem_env=staging" \
+            --extra-vars "ghcr_tag=staging" \
+            --extra-vars "TRAEFIK_PORT=8625" \
+            --extra-vars "CYBERMEM_TAILSCALE=true" \
             --extra-vars "auth_token_hash=${{ steps.gen_token.outputs.token_hash }}" \
             --extra-vars "auth_token_id=${{ steps.gen_token.outputs.token_id }}" \
             --extra-vars "auth_token_name=staging-e2e" \
@@ -145,122 +269,22 @@ jobs:
             echo "Waiting for services... ($i/30)"
             sleep 10
           done
-          curl -sf --max-time 10 "${STAGING_URL}/health" > /dev/null 2>&1 || { echo "❌ RPi staging services failed to become healthy"; exit 1; }
+          curl -sf --max-time 10 "${STAGING_URL}/health" > /dev/null 2>&1 \
+            || { echo "❌ RPi staging services not healthy"; exit 1; }
 
-      - name: Run E2E against RPi Staging
+      - name: Run E2E
         run: npx playwright test
         env:
           CI: true
           DASHBOARD_URL: ${{ steps.rpi_info.outputs.url }}
           MCP_URL: ${{ steps.rpi_info.outputs.url }}/mcp
           CYBERMEM_TOKEN: ${{ steps.gen_token.outputs.token }}
-          TEST_ENV_NAME: "rpi-ts-staging"
 
       - name: Upload Playwright Reports
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: e2e-reports-rpi-ts-staging
-          path: |
-            playwright-report/
-            test-results/
-            packages/*/playwright-report/
-            packages/*/test-results/
-          if-no-files-found: warn
-          retention-days: 7
-
-  # ------------------------------------------------------------------
-  # 3. E2E: localhost-staging (TURBOPACK) — NO DEPENDENCIES
-  #    Dashboard dev server with Turbopack + mock-based UI tests
-  # ------------------------------------------------------------------
-  pr-e2e-localhost-turbopack:
-    name: "E2E: localhost-staging (TURBOPACK)"
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          submodules: recursive
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: "20"
-
-      - run: npm ci
-      - run: npx playwright install --with-deps chromium
-
-      # Turbopack mode: dashboard dev server started by Playwright webServer
-      # Only runs dashboard-ui tests (mock-based, no backend needed)
-      - name: Run E2E with Turbopack
-        run: npx playwright test --project=dashboard-ui
-        env:
-          CI: true
-          USE_TURBOPACK: "true"
-
-      - name: Upload Playwright Reports
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: e2e-reports-localhost-turbopack
-          path: |
-            playwright-report/
-            test-results/
-            packages/*/playwright-report/
-            packages/*/test-results/
-          if-no-files-found: warn
-          retention-days: 7
-
-  # ------------------------------------------------------------------
-  # 4. E2E: localhost-staging (WEBPACK) — NO DEPENDENCIES
-  #    Full Docker stack with production dashboard build
-  # ------------------------------------------------------------------
-  pr-e2e-localhost-webpack:
-    name: "E2E: localhost-staging (WEBPACK)"
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          submodules: recursive
-      - uses: actions/setup-node@v4
-        with:
-          node-version: "20"
-
-      # Setup Environment
-      - run: |
-          mkdir -p ~/.cybermem
-          echo "OPENAI_API_KEY=sk-test-key-for-ci" > ~/.cybermem/.env # gitleaks:allow
-          echo "OM_API_KEY=sk-test-key-for-ci" >> ~/.cybermem/.env # gitleaks:allow
-
-      - uses: docker/login-action@v3
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - run: npm ci
-
-      # Verification: Install & Health Check
-      - name: Build CLI & Install (Staging Mode)
-        env:
-          DOCKER_DEFAULT_PLATFORM: linux/amd64
-        run: |
-          npm run build -w @cybermem/cli
-          node packages/cli/dist/index.js install --staging
-          sleep 30
-
-      - run: npx playwright install --with-deps chromium
-
-      - name: Run E2E Verification (Webpack)
-        run: npx playwright test
-        env:
-          CI: true
-          DASHBOARD_URL: http://localhost:8625
-          MCP_URL: http://localhost:8625/mcp
-
-      - name: Upload Playwright Reports
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: e2e-reports-localhost-webpack
           path: |
             playwright-report/
             test-results/
