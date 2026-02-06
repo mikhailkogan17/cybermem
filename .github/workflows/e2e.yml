@@ -100,6 +100,7 @@ jobs:
         uses: tailscale/github-action@v4
         with:
           authkey: ${{ secrets.TAILSCALE_AUTHKEY }}
+          tags: tag:ci
 
       # Wait for Tailscale node to propagate across tailnet
       - name: Verify Tailscale Connectivity
@@ -127,16 +128,13 @@ jobs:
           echo ""
           
           echo "=== Configuring Tailscale Funnel ==="
-          # Use serve first, then funnel (modern two-step approach)
-          echo "Step 1: Configure serve..."
-          sudo tailscale serve https:8443 / http://127.0.0.1:${{ matrix.traefik_port }}
-          
-          echo "Step 2: Enable funnel..."
-          sudo tailscale funnel --bg 8443
+          # Use new modern CLI syntax (single command)
+          echo "Configuring serve with Funnel..."
+          sudo tailscale serve --bg --https 8443 http://127.0.0.1:${{ matrix.traefik_port }}
           
           echo ""
-          echo "=== Funnel Status ==="
-          sudo tailscale funnel status
+          echo "=== Funnel Configuration ==="
+          sudo tailscale status --json | jq -r '.Self.Funnel // "No funnel configured"'
           
           echo ""
           echo "=== Tailscale Status AFTER Funnel ==="
