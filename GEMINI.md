@@ -116,8 +116,8 @@ To Ensure "Always Availability" and shorter token usage, follow this strict cycl
 2. **Publish Staging** (`publish.yml`):
    - Build AMD64-only `:staging` images on GitHub runners
    - Deploy to AMD64 runner using `--ci --rpi --staging --remote-access`
-   - Setup Tailscale Funnel at port 8443
-   - Run E2E tests against `https://<runner>.ts.net:8443`
+   - Setup Tailscale Funnel at port 10000
+   - Run E2E tests against `https://<runner>.ts.net:10000`
 
 3. **Production Build**:
    - After staging E2E passes, trigger ARM64 build on RPi runner
