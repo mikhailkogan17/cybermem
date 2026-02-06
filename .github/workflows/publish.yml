@@ -126,7 +126,7 @@ jobs:
           echo ""
           
           echo "=== Configuring Tailscale Funnel ==="
-          sudo tailscale funnel --bg --https=10000 8625
+          sudo tailscale funnel --bg --https=10000 http://localhost:8625
           
           echo ""
           echo "=== Funnel Status ==="

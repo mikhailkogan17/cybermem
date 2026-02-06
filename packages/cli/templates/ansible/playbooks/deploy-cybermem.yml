@@ -215,11 +215,11 @@
 
         # Configure port based on current environment only
         # Staging: 10000, Prod: 8443 (не занимаем дефолтный 443)
-        # Syntax: tailscale funnel --bg --https=<PUBLIC_PORT> <LOCAL_PORT>
+        # Syntax: tailscale funnel --bg --https=<PUBLIC_PORT> http://localhost:<LOCAL_PORT>
         if [ "{{ cybermem_env | default('prod') }}" = "staging" ]; then
-          tailscale funnel --bg --https=10000 {{ EFFECTIVE_TRAEFIK_PORT }}
+          tailscale funnel --bg --https=10000 http://localhost:{{ EFFECTIVE_TRAEFIK_PORT }}
         else
-          tailscale funnel --bg --https=8443 {{ EFFECTIVE_TRAEFIK_PORT }}
+          tailscale funnel --bg --https=8443 http://localhost:{{ EFFECTIVE_TRAEFIK_PORT }}
         fi
         
         # Show configuration

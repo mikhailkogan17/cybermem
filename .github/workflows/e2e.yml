@@ -164,7 +164,7 @@ jobs:
           echo "Configuring Funnel to expose port 10000 → localhost:${{ matrix.traefik_port }}"
           echo ""
           
-          sudo tailscale funnel --bg --https=10000 ${{ matrix.traefik_port }}
+          sudo tailscale funnel --bg --https=10000 http://localhost:${{ matrix.traefik_port }}
           
           echo ""
           echo "=== Funnel Status ==="
