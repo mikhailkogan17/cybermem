@@ -109,6 +109,13 @@ async function globalSetup(_config: FullConfig) {
   // CRITICAL: In CI, we trust the workflow to have installed the CLI
   // Rerunning install would trigger a rebuild or npm fetch, breaking the flow
   if (process.env.CI) {
+    // Turbopack mode: only dashboard-ui tests (mock-based), no MCP needed
+    if (process.env.USE_TURBOPACK === "true") {
+      console.log("🚀 Turbopack mode — skipping MCP readiness check");
+      console.log("   Only dashboard-ui tests will run (mock-based).\n");
+      return;
+    }
+
     console.log("🤖 CI Environment detected.");
     console.log("   Skipping CLI install/reset (trusting workflow step).");
     console.log("   Verifying API readiness...");

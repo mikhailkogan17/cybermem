@@ -92,7 +92,9 @@ jobs:
       - name: Setup Tailscale
         uses: tailscale/github-action@v2
         with:
-          authkey: ${{ secrets.TAILSCALE_AUTHKEY }}
+          oauth-client-id: ${{ secrets.TS_AUTH_CLIENT_ID }}
+          oauth-secret: ${{ secrets.TS_AUTH_CLIENT_SECRET }}
+          tags: tag:ci
           version: 1.76.6
 
       - name: Get RPi Funnel URL
@@ -122,9 +124,9 @@ jobs:
             exit 1
           fi
 
-          FUNNEL_URL="https://${RPI_DNS}:8443"
+          FUNNEL_URL="https://${RPI_DNS}:10000"
           echo "url=${FUNNEL_URL}" >> $GITHUB_OUTPUT
-          echo "✅ RPi Funnel URL: ${FUNNEL_URL}"
+          echo "✅ RPi Staging Funnel URL: ${FUNNEL_URL}"
 
       - name: Setup Ansible
         run: |
@@ -153,7 +155,10 @@ jobs:
             -i packages/cli/templates/ansible/inventory/hosts.ini \
             packages/cli/templates/ansible/playbooks/deploy-cybermem.yml \
             --extra-vars "cybermem_env=staging ghcr_user=${{ github.actor }} ghcr_token=${{ secrets.GITHUB_TOKEN }} ghcr_tag=staging TRAEFIK_PORT=8625 CYBERMEM_TAILSCALE=true" \
-            --extra-vars "auth_token_hash=${{ steps.gen_token.outputs.token_hash }} auth_token_id=${{ steps.gen_token.outputs.token_id }} auth_token_name=staging-e2e auth_token_value=${{ steps.gen_token.outputs.token }}" \
+            --extra-vars "auth_token_hash=${{ steps.gen_token.outputs.token_hash }}" \
+            --extra-vars "auth_token_id=${{ steps.gen_token.outputs.token_id }}" \
+            --extra-vars "auth_token_name=staging-e2e" \
+            --extra-vars "auth_token_value=${{ steps.gen_token.outputs.token }}" \
             --extra-vars "ansible_ssh_common_args='-o StrictHostKeyChecking=no'" \
             --extra-vars "ansible_host=${{ steps.get_rpi_ip.outputs.ip }}"
 
@@ -177,7 +182,9 @@ jobs:
       - name: Setup Tailscale
         uses: tailscale/github-action@v2
         with:
-          authkey: ${{ secrets.TAILSCALE_AUTHKEY }}
+          oauth-client-id: ${{ secrets.TS_AUTH_CLIENT_ID }}
+          oauth-secret: ${{ secrets.TS_AUTH_CLIENT_SECRET }}
+          tags: tag:ci
           version: 1.76.6
 
       - name: Build Local Packages
@@ -398,7 +405,9 @@ jobs:
       - name: Setup Tailscale
         uses: tailscale/github-action@v2
         with:
-          authkey: ${{ secrets.TAILSCALE_AUTHKEY }}
+          oauth-client-id: ${{ secrets.TS_AUTH_CLIENT_ID }}
+          oauth-secret: ${{ secrets.TS_AUTH_CLIENT_SECRET }}
+          tags: tag:ci
           version: 1.76.6
 
       - name: Setup Ansible

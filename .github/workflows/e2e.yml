@@ -14,7 +14,7 @@ permissions:
 
 jobs:
   # ------------------------------------------------------------------
-  # 1. Quality Gates (Lint, Danger)
+  # 1. Quality Gates (Lint, Danger) — NO DEPENDENCIES
   # ------------------------------------------------------------------
   pr-lint:
     name: "Lint & Danger"
@@ -36,11 +36,185 @@ jobs:
         run: npx danger ci
 
   # ------------------------------------------------------------------
-  # 3. Local E2E (Dogfooding) - "e2e:pr"
+  # 2. E2E: rpi-ts-staging (TURBOPACK via TS SSH to RPi host)
+  #    — NO DEPENDENCIES
+  #    Runner joins tailnet → SSHes to RPi → deploys staging → tests
+  #    Funnel runs on RPi HOST (not runner — TLS unsolvable on runner)
   # ------------------------------------------------------------------
-  pr-e2e-localhost-staging:
-    name: "E2E: Localhost Staging"
-    needs: pr-lint
+  pr-e2e-rpi-ts-staging:
+    name: "E2E: rpi-ts-staging"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      # Tailscale: OAuth (not authkey) — secrets already in repo
+      - name: Setup Tailscale
+        uses: tailscale/github-action@v2
+        with:
+          oauth-client-id: ${{ secrets.TS_AUTH_CLIENT_ID }}
+          oauth-secret: ${{ secrets.TS_AUTH_CLIENT_SECRET }}
+          tags: tag:ci
+          version: 1.76.6
+
+      - name: Get RPi Tailscale Info
+        id: rpi_info
+        run: |
+          echo "Waiting for Tailscale connection..."
+          for i in {1..12}; do
+            sleep 5
+            if tailscale status --json >/dev/null 2>&1; then
+              echo "✅ Tailscale connected"
+              break
+            fi
+            echo "Waiting... ($i/12)"
+          done
+
+          RPI_DNS=$(tailscale status --json | jq -r '.Peer[] | select(.HostName | test("raspberrypi"; "i")) | .DNSName' | head -1 | sed 's/\.$//')
+          RPI_IP=$(tailscale status --json | jq -r '.Peer[] | select(.HostName | test("raspberrypi"; "i")) | .TailscaleIPs[0]' | head -1)
+
+          if [ -z "$RPI_DNS" ] || [ -z "$RPI_IP" ]; then
+            echo "❌ Could not find RPi on tailnet"
+            tailscale status
+            exit 1
+          fi
+
+          # Staging funnel on RPi HOST uses port 10000
+          echo "dns=${RPI_DNS}" >> $GITHUB_OUTPUT
+          echo "ip=${RPI_IP}" >> $GITHUB_OUTPUT
+          echo "url=https://${RPI_DNS}:10000" >> $GITHUB_OUTPUT
+          echo "✅ RPi DNS: ${RPI_DNS}, IP: ${RPI_IP}"
+          echo "✅ Staging URL: https://${RPI_DNS}:10000"
+
+      - name: Generate Staging Token
+        id: gen_token
+        run: |
+          TOKEN="sk-$(openssl rand -hex 16)"
+          echo "token=$TOKEN" >> $GITHUB_OUTPUT
+
+          node -e "
+          const crypto = require('crypto');
+          const token = '$TOKEN';
+          const salt = crypto.randomBytes(16).toString('hex');
+          crypto.pbkdf2(token, salt, 100000, 64, 'sha512', (err, key) => {
+            if (err) process.exit(1);
+            console.log('token_hash=' + salt + ':' + key.toString('hex'));
+            console.log('token_id=' + crypto.randomBytes(8).toString('hex'));
+          });
+          " >> $GITHUB_OUTPUT
+          echo "✅ Generated staging E2E token"
+
+      - name: Setup Ansible
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ansible
+
+      # Deploy staging to RPi via Tailscale SSH + Ansible
+      - name: Deploy Staging to RPi
+        env:
+          ANSIBLE_HOST_KEY_CHECKING: "False"
+        run: |
+          ansible-playbook \
+            -i packages/cli/templates/ansible/inventory/hosts.ini \
+            packages/cli/templates/ansible/playbooks/deploy-cybermem.yml \
+            --extra-vars "cybermem_env=staging ghcr_user=${{ github.actor }} ghcr_token=${{ secrets.GITHUB_TOKEN }} ghcr_tag=staging TRAEFIK_PORT=8625 CYBERMEM_TAILSCALE=true" \
+            --extra-vars "auth_token_hash=${{ steps.gen_token.outputs.token_hash }}" \
+            --extra-vars "auth_token_id=${{ steps.gen_token.outputs.token_id }}" \
+            --extra-vars "auth_token_name=staging-e2e" \
+            --extra-vars "auth_token_value=${{ steps.gen_token.outputs.token }}" \
+            --extra-vars "ansible_ssh_common_args='-o StrictHostKeyChecking=no'" \
+            --extra-vars "ansible_host=${{ steps.rpi_info.outputs.ip }}"
+
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+
+      - name: Wait for RPi Staging Services
+        run: |
+          STAGING_URL="${{ steps.rpi_info.outputs.url }}"
+          echo "Waiting for services at: ${STAGING_URL}/health"
+          for i in {1..30}; do
+            if curl -sf --max-time 10 "${STAGING_URL}/health" > /dev/null 2>&1; then
+              echo "✅ RPi staging services ready"
+              break
+            fi
+            echo "Waiting for services... ($i/30)"
+            sleep 10
+          done
+          curl -sf --max-time 10 "${STAGING_URL}/health" > /dev/null 2>&1 || { echo "❌ RPi staging services failed to become healthy"; exit 1; }
+
+      - name: Run E2E against RPi Staging
+        run: npx playwright test
+        env:
+          CI: true
+          DASHBOARD_URL: ${{ steps.rpi_info.outputs.url }}
+          MCP_URL: ${{ steps.rpi_info.outputs.url }}/mcp
+          CYBERMEM_TOKEN: ${{ steps.gen_token.outputs.token }}
+          TEST_ENV_NAME: "rpi-ts-staging"
+
+      - name: Upload Playwright Reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-reports-rpi-ts-staging
+          path: |
+            playwright-report/
+            test-results/
+            packages/*/playwright-report/
+            packages/*/test-results/
+          if-no-files-found: warn
+          retention-days: 7
+
+  # ------------------------------------------------------------------
+  # 3. E2E: localhost-staging (TURBOPACK) — NO DEPENDENCIES
+  #    Dashboard dev server with Turbopack + mock-based UI tests
+  # ------------------------------------------------------------------
+  pr-e2e-localhost-turbopack:
+    name: "E2E: localhost-staging (TURBOPACK)"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+
+      # Turbopack mode: dashboard dev server started by Playwright webServer
+      # Only runs dashboard-ui tests (mock-based, no backend needed)
+      - name: Run E2E with Turbopack
+        run: npx playwright test --project=dashboard-ui
+        env:
+          CI: true
+          USE_TURBOPACK: "true"
+
+      - name: Upload Playwright Reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-reports-localhost-turbopack
+          path: |
+            playwright-report/
+            test-results/
+            packages/*/playwright-report/
+            packages/*/test-results/
+          if-no-files-found: warn
+          retention-days: 7
+
+  # ------------------------------------------------------------------
+  # 4. E2E: localhost-staging (WEBPACK) — NO DEPENDENCIES
+  #    Full Docker stack with production dashboard build
+  # ------------------------------------------------------------------
+  pr-e2e-localhost-webpack:
+    name: "E2E: localhost-staging (WEBPACK)"
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -75,18 +249,18 @@ jobs:
 
       - run: npx playwright install --with-deps chromium
 
-      - name: Run E2E Verification (Unified Playwright)
+      - name: Run E2E Verification (Webpack)
         run: npx playwright test
         env:
           CI: true
           DASHBOARD_URL: http://localhost:8625
           MCP_URL: http://localhost:8625/mcp
 
-      - name: Upload Playwright Reports (Local)
+      - name: Upload Playwright Reports
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: e2e-reports-local-ci
+          name: e2e-reports-localhost-webpack
           path: |
             playwright-report/
             test-results/
@@ -94,7 +268,3 @@ jobs:
             packages/*/test-results/
           if-no-files-found: warn
           retention-days: 7
-
-  # NOTE: Remote E2E (RPi) is NOT run on PR.
-  # It is only run during Release pipeline (publish.yml) on rpi-ts-staging,
-  # after which prod is deployed WITHOUT additional tests.
