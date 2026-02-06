@@ -101,6 +101,23 @@ jobs:
         with:
           authkey: ${{ secrets.TAILSCALE_AUTHKEY }}
 
+      # Wait for Tailscale node to propagate across tailnet
+      - name: Verify Tailscale Connectivity
+        if: matrix.setup_tailscale
+        run: |
+          echo "Waiting for Tailscale node to propagate..."
+          # Get this node's DNS name
+          MY_DNS=$(tailscale status --json | jq -r '.Self.DNSName' | sed 's/\.$//')
+          echo "Node DNS: ${MY_DNS}"
+
+          # Ping self to verify node is fully propagated (up to 3 minutes)
+          if ! tailscale ping --timeout 180s "${MY_DNS}"; then
+            echo "⚠️ Self-ping failed, but continuing..."
+            tailscale status
+          else
+            echo "✅ Tailscale node is ready"
+          fi
+
       # Build and deploy using CLI (local deployment in CI mode)
       - name: Build CLI & Install (${{ matrix.env_name }})
         env:

@@ -100,6 +100,21 @@ jobs:
         with:
           authkey: ${{ secrets.TAILSCALE_AUTHKEY }}
 
+      # Wait for Tailscale node to propagate
+      - name: Verify Tailscale Connectivity
+        run: |
+          echo "Waiting for Tailscale node to propagate..."
+          MY_DNS=$(tailscale status --json | jq -r '.Self.DNSName' | sed 's/\.$//')
+          echo "Node DNS: ${MY_DNS}"
+
+          # Ping self to verify node is ready (up to 3 minutes)
+          if ! tailscale ping --timeout 180s "${MY_DNS}"; then
+            echo "⚠️ Self-ping failed, but continuing..."
+            tailscale status
+          else
+            echo "✅ Tailscale node is ready"
+          fi
+
       - name: Wait for Tailscale Connection
         id: get_url
         run: |
@@ -217,6 +232,21 @@ jobs:
         uses: tailscale/github-action@v4
         with:
           authkey: ${{ secrets.TAILSCALE_AUTHKEY }}
+
+      # Wait for Tailscale node to propagate
+      - name: Verify Tailscale Connectivity
+        run: |
+          echo "Waiting for Tailscale node to propagate..."
+          MY_DNS=$(tailscale status --json | jq -r '.Self.DNSName' | sed 's/\.$//')
+          echo "Node DNS: ${MY_DNS}"
+
+          # Ping self to verify node is ready (up to 3 minutes)
+          if ! tailscale ping --timeout 180s "${MY_DNS}"; then
+            echo "⚠️ Self-ping failed, but continuing..."
+            tailscale status
+          else
+            echo "✅ Tailscale node is ready"
+          fi
 
       - name: Build Local Packages
         run: npm run build --workspaces
@@ -436,6 +466,21 @@ jobs:
         uses: tailscale/github-action@v4
         with:
           authkey: ${{ secrets.TAILSCALE_AUTHKEY }}
+
+      # Wait for Tailscale node to propagate
+      - name: Verify Tailscale Connectivity
+        run: |
+          echo "Waiting for Tailscale node to propagate..."
+          MY_DNS=$(tailscale status --json | jq -r '.Self.DNSName' | sed 's/\.$//')
+          echo "Node DNS: ${MY_DNS}"
+
+          # Ping self to verify node is ready (up to 3 minutes)
+          if ! tailscale ping --timeout 180s "${MY_DNS}"; then
+            echo "⚠️ Self-ping failed, but continuing..."
+            tailscale status
+          else
+            echo "✅ Tailscale node is ready"
+          fi
 
       - name: Setup Ansible
         run: |
