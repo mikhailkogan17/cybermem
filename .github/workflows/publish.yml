@@ -100,8 +100,7 @@ jobs:
         with:
           authkey: ${{ secrets.TAILSCALE_AUTHKEY }}
           tags: tag:ci
-          # Wait for node to be fully propagated (up to 3 minutes)
-          ping: ${{ github.run_id }}
+          # GitHub Action has built-in wait for node propagation (up to 3 minutes)
 
       # Verify Tailscale Connectivity and Network
       - name: Verify Tailscale Connectivity
@@ -240,8 +239,7 @@ jobs:
         with:
           authkey: ${{ secrets.TAILSCALE_AUTHKEY }}
           tags: tag:ci
-          # Wait for node to be fully propagated (up to 3 minutes)
-          ping: ${{ github.run_id }}
+          # GitHub Action has built-in wait for node propagation (up to 3 minutes)
 
       # Verify Tailscale Connectivity and Network
       - name: Verify Tailscale Connectivity
@@ -478,7 +476,7 @@ jobs:
         with:
           authkey: ${{ secrets.TAILSCALE_AUTHKEY }}
           tags: tag:ci
-          # Wait for node to be fully propagated (up to 3 minutes)
+          # Ping raspberrypi to verify it's online before deploying
           ping: raspberrypi
 
       # Verify Tailscale Connectivity and Network
