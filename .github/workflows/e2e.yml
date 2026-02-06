@@ -146,23 +146,22 @@ jobs:
           sudo tailscale funnel --bg --https=8443 http://127.0.0.1:${{ matrix.traefik_port }}
           sudo tailscale funnel status
 
-      # Verify Tailscale Funnel and check localhost
+      # Verify Tailscale Funnel is accessible
       - name: Verify Tailscale Funnel
         if: matrix.setup_tailscale
         run: |
-          echo "Verifying Tailscale Funnel setup..."
+          echo "Verifying Tailscale Funnel is accessible..."
           MY_DNS=$(tailscale status --json | jq -r '.Self.DNSName' | sed 's/\.$//')
           FUNNEL_URL="https://${MY_DNS}:8443"
 
-          # Verify localhost is working
-          echo "Checking localhost health..."
-          if ! curl -sf "http://localhost:${{ matrix.traefik_port }}/health" > /dev/null 2>&1; then
-            echo "❌ Localhost health check failed - services not ready"
+          # Check Funnel URL is accessible (this verifies external access works!)
+          echo "Checking Funnel health at ${FUNNEL_URL}/health..."
+          if ! curl -sf --max-time 10 "${FUNNEL_URL}/health" > /dev/null 2>&1; then
+            echo "❌ Funnel health check failed - external access not working"
             exit 1
           fi
-          echo "✅ Localhost is healthy"
-          echo "✅ Tailscale Funnel configured for external access at ${FUNNEL_URL}"
-          echo "   (Tests will use localhost - same runner)"
+          echo "✅ Tailscale Funnel is verified and accessible at ${FUNNEL_URL}"
+          echo "   (Tests will use this Funnel URL to verify authentication)"
 
       - run: npx playwright install --with-deps chromium
 
