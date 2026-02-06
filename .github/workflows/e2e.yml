@@ -54,6 +54,7 @@ jobs:
             traefik_port: 8625
             project_name: "cybermem-staging"
             setup_tailscale: false
+            base_url: "http://localhost:8625"
 
           # Localhost Production (port 8626)
           - env_name: "localhost-prod"
@@ -62,14 +63,17 @@ jobs:
             traefik_port: 8626
             project_name: "cybermem-prod"
             setup_tailscale: false
+            base_url: "http://localhost:8626"
 
-          # RPi Tailscale Staging Emulation (port 8625 + Tailscale Serve)
-          - env_name: "rpi-ts-staging"
-            is_staging: true
-            use_ci_mode: true
-            traefik_port: 8625
-            project_name: "cybermem-rpi-staging"
-            setup_tailscale: true
+          # RPi LAN Production (via mDNS - raspberrypi.local)
+          - env_name: "rpi-lan-prod"
+            is_staging: false
+            use_ci_mode: false
+            traefik_port: 8626
+            project_name: "cybermem-prod"
+            setup_tailscale: false
+            base_url: "http://raspberrypi.local:8626"
+            skip_deployment: true
 
     steps:
       - uses: actions/checkout@v4
@@ -95,34 +99,9 @@ jobs:
 
       - run: npm ci
 
-      # Setup Tailscale for RPi emulation
-      - name: Setup Tailscale
-        if: matrix.setup_tailscale
-        uses: tailscale/github-action@v4
-        with:
-          oauth-client-id: ${{ secrets.TS_OAUTH_CLIENT_ID }}
-          oauth-secret: ${{ secrets.TS_OAUTH_SECRET }}
-          tags: tag:ci
-
-      # Verify Tailscale Connectivity and Network
-      - name: Verify Tailscale Connectivity
-        if: matrix.setup_tailscale
-        run: |
-          echo "=== Tailscale Status ==="
-          tailscale status --json | jq '.'
-
-          echo ""
-          echo "=== Network Check ==="
-          tailscale netcheck
-
-          echo ""
-          echo "=== Node Info ==="
-          MY_DNS=$(tailscale status --json | jq -r '.Self.DNSName' | sed 's/\.$//')
-          echo "Node DNS: ${MY_DNS}"
-          echo "✅ Tailscale connectivity verified"
-
       # Build and deploy using CLI (local deployment in CI mode)
       - name: Build CLI & Install (${{ matrix.env_name }})
+        if: "!matrix.skip_deployment"
         env:
           DOCKER_DEFAULT_PLATFORM: linux/amd64
           PROJECT_NAME: ${{ matrix.project_name }}
@@ -141,112 +120,14 @@ jobs:
 
           sleep 30
 
-      # Wait for local services to be healthy first
-      - name: Wait for Services
-        if: matrix.setup_tailscale
-        run: |
-          echo "Waiting for localhost services to be ready..."
-          for i in $(seq 1 30); do
-            if curl -sf "http://localhost:${{ matrix.traefik_port }}/health" > /dev/null 2>&1; then
-              echo "✅ Services are healthy on localhost:${{ matrix.traefik_port }}"
-              break
-            fi
-            echo "⏳ Waiting for services... (attempt $i/30)"
-            sleep 5
-          done
-
-      # Configure Tailscale Serve (internal tailnet access, more stable than Funnel)
-      - name: Configure Tailscale Serve
-        if: matrix.setup_tailscale
-        run: |
-          echo "=== Configuring Tailscale Serve (Tailnet-only access) ==="
-          echo "Services are running on localhost:${{ matrix.traefik_port }}"
-          echo "Configuring Serve to expose HTTPS → localhost:${{ matrix.traefik_port }}"
-          echo ""
-
-          # Serve on default HTTPS port (443) within tailnet
-          sudo tailscale serve --bg --https=443 http://localhost:${{ matrix.traefik_port }}
-
-          echo ""
-          echo "=== Serve Status ==="
-          sudo tailscale serve status
-
-          echo ""
-          MY_DNS=$(tailscale status --json | jq -r '.Self.DNSName' | sed 's/\.$//')
-          echo "✅ Serve configured: https://${MY_DNS} → http://localhost:${{ matrix.traefik_port }}"
-          echo "   (Accessible only within tailnet - no public internet exposure)"
-
-          echo ""
-          echo "Waiting 30 seconds for Serve to stabilize..."
-          sleep 30
-
-      # Verify Tailscale Serve is accessible (within tailnet)
-      - name: Verify Tailscale Serve
-        if: matrix.setup_tailscale
-        run: |
-          echo "Verifying Tailscale Serve is accessible within tailnet..."
-          MY_DNS=$(tailscale status --json | jq -r '.Self.DNSName' | sed 's/\.$//')
-          SERVE_URL="https://${MY_DNS}"
-
-          echo "Serve URL: ${SERVE_URL}"
-          echo "Checking health endpoint: ${SERVE_URL}/health"
-          echo "Will retry every 10 seconds for up to 3 minutes..."
-          echo ""
-
-          # Retry up to 18 times (10 seconds × 18 = 3 minutes)
-          for i in $(seq 1 18); do
-            echo "Attempt $i/18..."
-
-            # Show verbose output on first and last attempts for debugging
-            if [ $i -eq 1 ] || [ $i -eq 18 ]; then
-              echo "=== Verbose curl output ==="
-              curl -v --max-time 10 "${SERVE_URL}/health" 2>&1 || true
-              echo ""
-            fi
-
-            if curl -sf --max-time 10 "${SERVE_URL}/health" > /dev/null 2>&1; then
-              echo "✅ Tailscale Serve is accessible (attempt $i/18)"
-              echo "   Serve URL: ${SERVE_URL}"
-              echo "   (Tests will use this URL to verify authentication within tailnet)"
-              exit 0
-            fi
-
-            if [ $i -ne 18 ]; then
-              echo "⏳ Not accessible yet, waiting 10 seconds..."
-              sleep 10
-            fi
-          done
-
-          echo ""
-          echo "❌ Serve failed to become accessible after 3 minutes"
-          echo ""
-          echo "=== Final Diagnostics ==="
-          echo "Serve status:"
-          sudo tailscale serve status || true
-          echo ""
-          echo "Tailscale status:"
-          sudo tailscale status || true
-          echo ""
-          echo "Checking if service is responding locally:"
-          curl -v http://127.0.0.1:${{ matrix.traefik_port }}/health 2>&1 || true
-
-          exit 1
-
       - run: npx playwright install --with-deps chromium
 
-      # Determine test URL - use Serve URL for tailnet access testing
+      # Use base URL from matrix configuration
       - name: Set Test URL
         id: test_url
         run: |
-          if [ "${{ matrix.setup_tailscale }}" = "true" ]; then
-            # Get Tailscale DNS name for serve URL (default HTTPS port 443)
-            MY_DNS=$(tailscale status --json | jq -r '.Self.DNSName' | sed 's/\.$//')
-            echo "url=https://${MY_DNS}" >> $GITHUB_OUTPUT
-            echo "Using Serve URL for tailnet access testing"
-          else
-            echo "url=http://localhost:${{ matrix.traefik_port }}" >> $GITHUB_OUTPUT
-            echo "Using localhost URL for local testing"
-          fi
+          echo "url=${{ matrix.base_url }}" >> $GITHUB_OUTPUT
+          echo "Using test URL: ${{ matrix.base_url }}"
 
       # Run E2E Tests
       - name: Run E2E Verification

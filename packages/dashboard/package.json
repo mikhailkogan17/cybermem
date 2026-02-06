@@ -13,8 +13,8 @@
     "access": "public"
   },
   "scripts": {
-    "build": "next build --webpack",
-    "dev": "next dev --webpack",
+    "build": "next build",
+    "dev": "next dev --turbo",
     "lint": "eslint .",
     "start": "next start",
     "test:e2e": "playwright test"
