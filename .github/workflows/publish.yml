@@ -150,18 +150,38 @@ jobs:
           sudo tailscale funnel --bg --https=8443 http://127.0.0.1:8625
           sudo tailscale funnel status
 
-      - name: Wait for Services
+      - name: Wait for Services (localhost)
         run: |
-          echo "Waiting for services to be healthy..."
+          echo "Waiting for services to be healthy on localhost..."
           for i in {1..30}; do
             if curl -sf "http://localhost:8625/health" > /dev/null 2>&1; then
-              echo "✅ Services ready"
+              echo "✅ Services ready on localhost"
               exit 0
             fi
             echo "Waiting... ($i/30)"
             sleep 10
           done
           echo "❌ Services failed to become healthy"
+          exit 1
+
+      - name: Wait for Tailscale Funnel
+        run: |
+          echo "Waiting for Tailscale Funnel to be ready..."
+          MY_DNS=$(tailscale status --json | jq -r '.Self.DNSName' | sed 's/\.$//')
+          FUNNEL_URL="https://${MY_DNS}:8443"
+          echo "Funnel URL: ${FUNNEL_URL}"
+
+          # Wait for HTTPS endpoint to be accessible
+          for i in {1..30}; do
+            if curl -sf "${FUNNEL_URL}/health" > /dev/null 2>&1; then
+              echo "✅ Tailscale Funnel is ready at ${FUNNEL_URL}"
+              exit 0
+            fi
+            echo "Waiting for Funnel... ($i/30)"
+            sleep 5
+          done
+
+          echo "❌ Tailscale Funnel failed to become ready"
           exit 1
 
   # ==================================================================
