@@ -149,13 +149,20 @@ jobs:
 
       - run: npx playwright install --with-deps chromium
 
-      # Determine test URL (always use localhost - tests run on same runner)
+      # Determine test URL - use Funnel URL to test authentication!
       - name: Set Test URL
         id: test_url
         run: |
-          # Tests always use localhost since they run on the same runner
-          # Tailscale Funnel is for external access only
-          echo "url=http://localhost:${{ matrix.traefik_port }}" >> $GITHUB_OUTPUT
+          if [ "${{ matrix.setup_tailscale }}" = "true" ]; then
+            # Get Tailscale DNS name for funnel URL
+            # CRITICAL: Use Funnel URL to test authentication (localhost bypasses auth!)
+            MY_DNS=$(tailscale status --json | jq -r '.Self.DNSName' | sed 's/\.$//')
+            echo "url=https://${MY_DNS}:8443" >> $GITHUB_OUTPUT
+            echo "Using Funnel URL for testing (required for auth verification)"
+          else
+            echo "url=http://localhost:${{ matrix.traefik_port }}" >> $GITHUB_OUTPUT
+            echo "Using localhost URL (no auth testing)"
+          fi
 
       # Run E2E Tests
       - name: Run E2E Verification

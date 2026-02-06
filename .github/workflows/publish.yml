@@ -163,13 +163,38 @@ jobs:
           echo "❌ Services failed to become healthy"
           exit 1
 
-      - name: Verify Tailscale Funnel
+      - name: Wait for Tailscale Funnel to be Accessible
         run: |
-          echo "Verifying Tailscale Funnel setup..."
+          echo "Waiting for Tailscale Funnel to be externally accessible..."
           MY_DNS=$(tailscale status --json | jq -r '.Self.DNSName' | sed 's/\.$//')
           FUNNEL_URL="https://${MY_DNS}:8443"
-          echo "✅ Tailscale Funnel configured for external access at ${FUNNEL_URL}"
-          echo "   (Tests will use localhost - same runner)"
+          echo "Funnel URL: ${FUNNEL_URL}"
+
+          # Wait up to 3 minutes for Funnel to become accessible
+          MAX_ATTEMPTS=36
+          SLEEP_TIME=5
+
+          for i in $(seq 1 $MAX_ATTEMPTS); do
+            echo "Attempt $i/$MAX_ATTEMPTS - checking ${FUNNEL_URL}/health"
+
+            # Note: Tailscale Funnel provides valid certificates, no -k needed
+            if curl -sf --max-time 10 "${FUNNEL_URL}/health" > /dev/null 2>&1; then
+              echo "✅ Tailscale Funnel is accessible at ${FUNNEL_URL}"
+              exit 0
+            fi
+
+            if [ $i -lt $MAX_ATTEMPTS ]; then
+              echo "Not ready yet, waiting ${SLEEP_TIME}s..."
+              sleep $SLEEP_TIME
+            fi
+          done
+
+          echo "❌ Tailscale Funnel failed to become accessible after $((MAX_ATTEMPTS * SLEEP_TIME)) seconds"
+          echo "Funnel status:"
+          sudo tailscale funnel status
+          echo "Localhost health:"
+          curl -sf "http://localhost:8625/health" || echo "Localhost also not accessible"
+          exit 1
 
   # ==================================================================
   # 4. E2E VERIFICATION
