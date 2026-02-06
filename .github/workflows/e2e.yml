@@ -63,7 +63,7 @@ jobs:
             project_name: "cybermem-prod"
             setup_tailscale: false
 
-          # RPi Tailscale Staging Emulation (port 8625 + Tailscale)
+          # RPi Tailscale Staging Emulation (port 8625 + Tailscale Serve)
           - env_name: "rpi-ts-staging"
             is_staging: true
             use_ci_mode: true
@@ -103,22 +103,6 @@ jobs:
           oauth-client-id: ${{ secrets.TS_OAUTH_CLIENT_ID }}
           oauth-secret: ${{ secrets.TS_OAUTH_SECRET }}
           tags: tag:ci
-
-      - name: Debug tailscale up
-        if: failure()
-        env:
-          TS_OAUTH_CLIENT_ID: ${{ secrets.TS_OAUTH_CLIENT_ID }}
-          TS_OAUTH_SECRET: ${{ secrets.TS_OAUTH_SECRET }}
-        run: |
-          which tailscale
-          tailscale version || true
-          echo "Manual tailscale up:"
-          sudo tailscale up \
-            --oauth-client-id="${TS_OAUTH_CLIENT_ID}" \
-            --oauth-secret="${TS_OAUTH_SECRET}" \
-            --advertise-tags=tag:ci \
-            --reset \
-            -verbose
 
       # Verify Tailscale Connectivity and Network
       - name: Verify Tailscale Connectivity
@@ -171,83 +155,72 @@ jobs:
             sleep 5
           done
 
-      # Configure Tailscale Funnel AFTER services are running
-      - name: Configure Tailscale Funnel
+      # Configure Tailscale Serve (internal tailnet access, more stable than Funnel)
+      - name: Configure Tailscale Serve
         if: matrix.setup_tailscale
         run: |
-          echo "=== Configuring Tailscale Funnel ==="
+          echo "=== Configuring Tailscale Serve (Tailnet-only access) ==="
           echo "Services are running on localhost:${{ matrix.traefik_port }}"
-          echo "Configuring Funnel to expose port 10000 → localhost:${{ matrix.traefik_port }}"
+          echo "Configuring Serve to expose HTTPS → localhost:${{ matrix.traefik_port }}"
           echo ""
 
-          sudo tailscale funnel --bg --https=10000 http://localhost:${{ matrix.traefik_port }}
+          # Serve on default HTTPS port (443) within tailnet
+          sudo tailscale serve --bg --https=443 http://localhost:${{ matrix.traefik_port }}
 
           echo ""
-          echo "=== Funnel Status ==="
-          sudo tailscale funnel status
+          echo "=== Serve Status ==="
+          sudo tailscale serve status
 
           echo ""
           MY_DNS=$(tailscale status --json | jq -r '.Self.DNSName' | sed 's/\.$//')
-          echo "✅ Funnel configured: https://${MY_DNS}:10000 → http://localhost:${{ matrix.traefik_port }}"
+          echo "✅ Serve configured: https://${MY_DNS} → http://localhost:${{ matrix.traefik_port }}"
+          echo "   (Accessible only within tailnet - no public internet exposure)"
 
           echo ""
-          echo "Waiting 2 minutes for DNS/cert propagation..."
-          sleep 120
+          echo "Waiting 30 seconds for Serve to stabilize..."
+          sleep 30
 
-      # Debug DNS resolution
-      - name: Debug Funnel DNS
+      # Verify Tailscale Serve is accessible (within tailnet)
+      - name: Verify Tailscale Serve
         if: matrix.setup_tailscale
         run: |
+          echo "Verifying Tailscale Serve is accessible within tailnet..."
           MY_DNS=$(tailscale status --json | jq -r '.Self.DNSName' | sed 's/\.$//')
-          echo "=== DNS Debug ==="
-          echo "DNS: $MY_DNS"
-          nslookup $MY_DNS || echo "⚠️  DNS not resolved yet"
-          dig $MY_DNS || echo "⚠️  dig failed"
+          SERVE_URL="https://${MY_DNS}"
 
-      # Verify Tailscale Funnel is accessible (with retry logic)
-      - name: Verify Tailscale Funnel
-        if: matrix.setup_tailscale
-        run: |
-          echo "Verifying Tailscale Funnel is accessible..."
-          MY_DNS=$(tailscale status --json | jq -r '.Self.DNSName' | sed 's/\.$//')
-          FUNNEL_URL="https://${MY_DNS}:10000"
-
-          echo "Funnel URL: ${FUNNEL_URL}"
-          echo "Checking health endpoint: ${FUNNEL_URL}/health"
-          echo "Will retry every 10 seconds for up to 5 minutes..."
+          echo "Serve URL: ${SERVE_URL}"
+          echo "Checking health endpoint: ${SERVE_URL}/health"
+          echo "Will retry every 10 seconds for up to 3 minutes..."
           echo ""
 
-          # Retry up to 30 times (10 seconds × 30 = 5 minutes)
-          for i in $(seq 1 30); do
-            echo "Attempt $i/30..."
+          # Retry up to 18 times (10 seconds × 18 = 3 minutes)
+          for i in $(seq 1 18); do
+            echo "Attempt $i/18..."
 
             # Show verbose output on first and last attempts for debugging
-            if [ $i -eq 1 ] || [ $i -eq 30 ]; then
+            if [ $i -eq 1 ] || [ $i -eq 18 ]; then
               echo "=== Verbose curl output ==="
-              curl -v --max-time 10 "${FUNNEL_URL}/health" 2>&1 || true
+              curl -v --max-time 10 "${SERVE_URL}/health" 2>&1 || true
               echo ""
             fi
 
-            if curl -sf --max-time 10 "${FUNNEL_URL}/health" > /dev/null 2>&1; then
-              echo "✅ Tailscale Funnel is accessible (attempt $i/30)"
-              echo "   Funnel URL: ${FUNNEL_URL}"
-              echo "   (Tests will use this URL to verify authentication)"
+            if curl -sf --max-time 10 "${SERVE_URL}/health" > /dev/null 2>&1; then
+              echo "✅ Tailscale Serve is accessible (attempt $i/18)"
+              echo "   Serve URL: ${SERVE_URL}"
+              echo "   (Tests will use this URL to verify authentication within tailnet)"
               exit 0
             fi
 
-            if [ $i -ne 30 ]; then
+            if [ $i -ne 18 ]; then
               echo "⏳ Not accessible yet, waiting 10 seconds..."
               sleep 10
             fi
           done
 
           echo ""
-          echo "❌ Funnel failed to become accessible after 5 minutes"
+          echo "❌ Serve failed to become accessible after 3 minutes"
           echo ""
           echo "=== Final Diagnostics ==="
-          echo "Funnel status:"
-          sudo tailscale funnel status || true
-          echo ""
           echo "Serve status:"
           sudo tailscale serve status || true
           echo ""
@@ -261,15 +234,15 @@ jobs:
 
       - run: npx playwright install --with-deps chromium
 
-      # Determine test URL - use Funnel URL for remote access testing
+      # Determine test URL - use Serve URL for tailnet access testing
       - name: Set Test URL
         id: test_url
         run: |
           if [ "${{ matrix.setup_tailscale }}" = "true" ]; then
-            # Get Tailscale DNS name for funnel URL
+            # Get Tailscale DNS name for serve URL (default HTTPS port 443)
             MY_DNS=$(tailscale status --json | jq -r '.Self.DNSName' | sed 's/\.$//')
-            echo "url=https://${MY_DNS}:10000" >> $GITHUB_OUTPUT
-            echo "Using Funnel URL for remote access testing"
+            echo "url=https://${MY_DNS}" >> $GITHUB_OUTPUT
+            echo "Using Serve URL for tailnet access testing"
           else
             echo "url=http://localhost:${{ matrix.traefik_port }}" >> $GITHUB_OUTPUT
             echo "Using localhost URL for local testing"
