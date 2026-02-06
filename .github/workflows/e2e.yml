@@ -36,7 +36,7 @@ jobs:
         run: npx danger ci
 
   # ------------------------------------------------------------------
-  # 2. E2E: rpi-ts-staging (TURBOPACK via TS SSH to RPi host)
+  # 2. E2E: rpi-ts-staging (TS SSH from runner to RPi host)
   #    — NO DEPENDENCIES
   #    Runner joins tailnet → SSHes to RPi → deploys staging → tests
   #    Funnel runs on RPi HOST (not runner — TLS unsolvable on runner)
