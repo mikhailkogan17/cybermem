@@ -16,7 +16,8 @@ export default defineConfig({
   retries: 1,
 
   use: {
-    ignoreHTTPSErrors: true, // Allow Tailscale Funnel SSL certificates
+    // Only ignore HTTPS errors for Tailscale Funnel URLs (not localhost)
+    ignoreHTTPSErrors: process.env.BASE_URL?.includes('.ts.net') || false,
     screenshot: "only-on-failure",
     trace: "on-first-retry",
   },

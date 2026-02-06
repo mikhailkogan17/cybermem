@@ -4,6 +4,25 @@ const BASE_URL = process.env.MCP_URL
   ? process.env.MCP_URL.replace(/\/mcp$/, "")
   : "http://localhost:8626";
 
+// Get auth token if provided (needed for Tailscale Funnel URLs)
+const CYBERMEM_TOKEN = process.env.CYBERMEM_TOKEN || "";
+
+// Helper to get headers with optional auth
+function getHeaders(extraHeaders: Record<string, string> = {}) {
+  const headers: Record<string, string> = {
+    "X-Client-Name": "antigravity-client",
+    "X-Client-Version": "0.13.0",
+    ...extraHeaders,
+  };
+  
+  // Add Authorization header if token is provided (required for non-localhost URLs)
+  if (CYBERMEM_TOKEN) {
+    headers["Authorization"] = `Bearer ${CYBERMEM_TOKEN}`;
+  }
+  
+  return headers;
+}
+
 // CRITICAL: MCP CRUD tests MUST run in serial order (each depends on the previous)
 test.describe.configure({ mode: "serial" });
 
@@ -39,10 +58,7 @@ test.describe("MCP:E2E (Core CRUD)", () => {
 
       const response = await request.post(`${BASE_URL}/add`, {
         data: payload,
-        headers: {
-          "X-Client-Name": "antigravity-client",
-          "X-Client-Version": "0.13.0",
-        },
+        headers: getHeaders(),
         timeout: 30000, // 30s timeout
       });
 
@@ -96,7 +112,7 @@ test.describe("MCP:E2E (Core CRUD)", () => {
 
       const response = await request.post(`${BASE_URL}/query`, {
         data: payload,
-        headers: { "X-Client-Name": "antigravity-client" },
+        headers: getHeaders(),
       });
 
       const body = await response.json();
@@ -138,7 +154,7 @@ test.describe("MCP:E2E (Core CRUD)", () => {
 
       const response = await request.patch(`${BASE_URL}/memory/${memoryId}`, {
         data: payload,
-        headers: { "X-Client-Name": "antigravity-client" },
+        headers: getHeaders(),
       });
 
       const body = await response.json();
@@ -178,7 +194,7 @@ test.describe("MCP:E2E (Core CRUD)", () => {
         `${BASE_URL}/memory/${memoryId}/reinforce`,
         {
           data: payload,
-          headers: { "X-Client-Name": "antigravity-client" },
+          headers: getHeaders(),
         },
       );
 
@@ -213,7 +229,7 @@ test.describe("MCP:E2E (Core CRUD)", () => {
       console.log(`📤 DELETE /memory/${memoryId}`);
 
       const response = await request.delete(`${BASE_URL}/memory/${memoryId}`, {
-        headers: { "X-Client-Name": "antigravity-client" },
+        headers: getHeaders(),
       });
 
       const body = await response.json();

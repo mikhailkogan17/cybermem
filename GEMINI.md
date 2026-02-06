@@ -138,7 +138,7 @@ cybermem install --ci --rpi --staging --remote-access
 
 # Behavior:
 # - Non-interactive (no prompts)
-# - Deploys to localhost using Ansible
+# - Uses local docker-compose deployment on localhost (no Ansible)
 # - Uses /tmp/cybermem-ci as project directory
 # - Skips apt/sudo operations
 # - Sets up Tailscale Funnel automatically

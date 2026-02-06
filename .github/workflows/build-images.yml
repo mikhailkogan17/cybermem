@@ -117,9 +117,9 @@ jobs:
             runner: "ubuntu-latest"
           - platform: arm64
             runner: ${{ fromJSON(needs.detect-runner.outputs.arm64_runner) }}
+            # Skip ARM64 build for staging tag to avoid RPi overload
+            skip_on_staging: true
     runs-on: ${{ matrix.runner }}
-    # Skip ARM64 build for staging tag to avoid RPi overload
-    if: ${{ matrix.platform != 'arm64' || inputs.tag != 'staging' }}
     permissions:
       contents: read
       packages: write
@@ -152,6 +152,8 @@ jobs:
             type=sha,prefix=${{ matrix.platform }}-sha-
 
       - name: Build and push Dashboard image
+        # Skip ARM64 build for staging tag to avoid RPi overload
+        if: ${{ !(matrix.skip_on_staging == true && inputs.tag == 'staging') }}
         uses: docker/build-push-action@v5
         with:
           context: ./packages/dashboard

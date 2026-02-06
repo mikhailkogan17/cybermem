@@ -222,6 +222,22 @@ jobs:
 
       - run: npx playwright install --with-deps chromium
 
+      # Read the generated token for Funnel URL authentication
+      - name: Get Auth Token
+        if: matrix.setup_tailscale
+        id: get_token
+        run: |
+          # CLI stores the token in ~/.cybermem/secrets/om_api_key
+          TOKEN_FILE="/tmp/cybermem-ci/secrets/om_api_key"
+          if [ -f "$TOKEN_FILE" ]; then
+            TOKEN=$(cat "$TOKEN_FILE")
+            echo "token=$TOKEN" >> $GITHUB_OUTPUT
+            echo "✅ Token retrieved for Funnel authentication"
+          else
+            echo "⚠️  Token file not found at $TOKEN_FILE"
+            exit 1
+          fi
+
       # Determine test URL - use Funnel URL to test authentication!
       - name: Set Test URL
         id: test_url
@@ -244,7 +260,10 @@ jobs:
           CI: true
           DASHBOARD_URL: ${{ steps.test_url.outputs.url }}
           MCP_URL: ${{ steps.test_url.outputs.url }}/mcp
+          BASE_URL: ${{ steps.test_url.outputs.url }}
           TEST_ENV_NAME: ${{ matrix.env_name }}
+          # Pass token for Funnel URL authentication (localhost bypasses auth)
+          CYBERMEM_TOKEN: ${{ matrix.setup_tailscale && steps.get_token.outputs.token || '' }}
 
       # Upload environment-specific reports
       - name: Upload Playwright Reports
