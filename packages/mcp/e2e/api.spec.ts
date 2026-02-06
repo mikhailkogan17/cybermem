@@ -4,21 +4,13 @@ const BASE_URL = process.env.MCP_URL
   ? process.env.MCP_URL.replace(/\/mcp$/, "")
   : "http://localhost:8626";
 
-// Get auth token if provided (needed for Tailscale Funnel URLs)
-const CYBERMEM_TOKEN = process.env.CYBERMEM_TOKEN || "";
-
-// Helper to get headers with optional auth
+// Helper to get standard headers
 function getHeaders(extraHeaders: Record<string, string> = {}) {
   const headers: Record<string, string> = {
     "X-Client-Name": "antigravity-client",
     "X-Client-Version": "0.13.0",
     ...extraHeaders,
   };
-  
-  // Add Authorization header if token is provided (required for non-localhost URLs)
-  if (CYBERMEM_TOKEN) {
-    headers["Authorization"] = `Bearer ${CYBERMEM_TOKEN}`;
-  }
   
   return headers;
 }

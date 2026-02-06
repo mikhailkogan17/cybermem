@@ -121,30 +121,6 @@ jobs:
           echo "Node DNS: ${MY_DNS}"
           echo "✅ Tailscale connectivity verified"
 
-      # Configure Tailscale Funnel BEFORE deployment
-      - name: Configure Tailscale Funnel
-        if: matrix.setup_tailscale
-        run: |
-          echo "=== Tailscale Status BEFORE Funnel ==="
-          sudo tailscale status
-          echo ""
-          
-          echo "=== Configuring Tailscale Funnel ==="
-          sudo tailscale funnel --bg --https=10000 ${{ matrix.traefik_port }}
-          
-          echo ""
-          echo "=== Funnel Status ==="
-          sudo tailscale funnel status
-          
-          echo ""
-          echo "=== Tailscale Status AFTER Funnel ==="
-          sudo tailscale status --json | jq '.Self.Funnel // "No funnel"'
-          
-          echo ""
-          echo "=== Network Info ==="
-          MY_DNS=$(tailscale status --json | jq -r '.Self.DNSName' | sed 's/\.$//')
-          echo "Funnel URL: https://${MY_DNS}:10000"
-
       # Build and deploy using CLI (local deployment in CI mode)
       - name: Build CLI & Install (${{ matrix.env_name }})
         env:
@@ -164,6 +140,39 @@ jobs:
           fi
 
           sleep 30
+
+      # Wait for local services to be healthy first
+      - name: Wait for Services
+        if: matrix.setup_tailscale
+        run: |
+          echo "Waiting for localhost services to be ready..."
+          for i in $(seq 1 30); do
+            if curl -sf "http://localhost:${{ matrix.traefik_port }}/health" > /dev/null 2>&1; then
+              echo "✅ Services are healthy on localhost:${{ matrix.traefik_port }}"
+              break
+            fi
+            echo "⏳ Waiting for services... (attempt $i/30)"
+            sleep 5
+          done
+
+      # Configure Tailscale Funnel AFTER services are running
+      - name: Configure Tailscale Funnel
+        if: matrix.setup_tailscale
+        run: |
+          echo "=== Configuring Tailscale Funnel ==="
+          echo "Services are running on localhost:${{ matrix.traefik_port }}"
+          echo "Configuring Funnel to expose port 10000 → localhost:${{ matrix.traefik_port }}"
+          echo ""
+          
+          sudo tailscale funnel --bg --https=10000 ${{ matrix.traefik_port }}
+          
+          echo ""
+          echo "=== Funnel Status ==="
+          sudo tailscale funnel status
+          
+          echo ""
+          MY_DNS=$(tailscale status --json | jq -r '.Self.DNSName' | sed 's/\.$//')
+          echo "✅ Funnel configured: https://${MY_DNS}:10000 → http://localhost:${{ matrix.traefik_port }}"
 
       # Verify Tailscale Funnel is accessible (with retry logic)
       - name: Verify Tailscale Funnel
@@ -222,35 +231,18 @@ jobs:
 
       - run: npx playwright install --with-deps chromium
 
-      # Read the generated token for Funnel URL authentication
-      - name: Get Auth Token
-        if: matrix.setup_tailscale
-        id: get_token
-        run: |
-          # CLI stores the token in ~/.cybermem/secrets/om_api_key
-          TOKEN_FILE="/tmp/cybermem-ci/secrets/om_api_key"
-          if [ -f "$TOKEN_FILE" ]; then
-            TOKEN=$(cat "$TOKEN_FILE")
-            echo "token=$TOKEN" >> $GITHUB_OUTPUT
-            echo "✅ Token retrieved for Funnel authentication"
-          else
-            echo "⚠️  Token file not found at $TOKEN_FILE"
-            exit 1
-          fi
-
-      # Determine test URL - use Funnel URL to test authentication!
+      # Determine test URL - use Funnel URL for remote access testing
       - name: Set Test URL
         id: test_url
         run: |
           if [ "${{ matrix.setup_tailscale }}" = "true" ]; then
             # Get Tailscale DNS name for funnel URL
-            # CRITICAL: Use Funnel URL to test authentication (localhost bypasses auth!)
             MY_DNS=$(tailscale status --json | jq -r '.Self.DNSName' | sed 's/\.$//')
             echo "url=https://${MY_DNS}:10000" >> $GITHUB_OUTPUT
-            echo "Using Funnel URL for testing (required for auth verification)"
+            echo "Using Funnel URL for remote access testing"
           else
             echo "url=http://localhost:${{ matrix.traefik_port }}" >> $GITHUB_OUTPUT
-            echo "Using localhost URL (no auth testing)"
+            echo "Using localhost URL for local testing"
           fi
 
       # Run E2E Tests
@@ -262,8 +254,6 @@ jobs:
           MCP_URL: ${{ steps.test_url.outputs.url }}/mcp
           BASE_URL: ${{ steps.test_url.outputs.url }}
           TEST_ENV_NAME: ${{ matrix.env_name }}
-          # Pass token for Funnel URL authentication (localhost bypasses auth)
-          CYBERMEM_TOKEN: ${{ matrix.setup_tailscale && steps.get_token.outputs.token || '' }}
 
       # Upload environment-specific reports
       - name: Upload Playwright Reports
