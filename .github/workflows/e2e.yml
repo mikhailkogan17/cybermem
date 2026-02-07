@@ -232,14 +232,13 @@ jobs:
           " >> $GITHUB_OUTPUT
           echo "✅ Generated staging E2E token"
 
-      - name: Setup Ansible + Tailscale SSH
+      - name: Setup Ansible + Tailscale SSH wrapper
         run: |
           sudo apt-get update
           sudo apt-get install -y ansible
 
-          # Create a wrapper script for Ansible to use Tailscale SSH
-          # ACL: tag:ci → tag:rpi, users: root/pi, action: accept
-          # Captures -l <user>, strips other SSH options, converts to user@host
+          # Create wrapper: strips SSH options, captures -l user, passes to tailscale ssh
+          # Prerequisite: RPi must have `sudo tailscale set --ssh` enabled
           printf '%s\n' '#!/bin/bash' \
             'USER=""' \
             'ARGS=()' \
@@ -268,25 +267,48 @@ jobs:
             | sudo tee /usr/local/bin/ts-ssh >/dev/null
           sudo chmod +x /usr/local/bin/ts-ssh
 
+      - name: Verify Tailscale SSH Connectivity
+        run: |
+          echo "=== Tailscale Self Status ==="
+          tailscale status --self --json | jq '{BackendState, Self: .Self | {DNSName, Online, TailscaleIPs}}'
+
+          echo "=== RPi Peer Status ==="
+          tailscale status --json | jq '.Peer[] | select(.HostName | test("raspberrypi";"i")) | {HostName, DNSName, Online, TailscaleIPs, Active, LastSeen, Relay}'
+
+          echo "=== Tailscale Ping RPi ==="
+          tailscale ping --c 3 --timeout 10s ${{ steps.rpi_info.outputs.ip }} || echo "⚠️ Ping failed"
+
+          echo "=== Test: tailscale ssh pi@hostname echo hello ==="
+          timeout 30 tailscale ssh pi@${{ steps.rpi_info.outputs.dns }} echo "✅ Tailscale SSH works" || {
+            echo "❌ tailscale ssh FAILED (exit $?)"
+            echo ""
+            echo "TROUBLESHOOTING:"
+            echo "  1. On RPi run: sudo tailscale set --ssh"
+            echo "  2. On RPi run: tailscale status (verify connected)"
+            echo "  3. ACL ssh section must allow tag:ci → tag:rpi"
+            exit 1
+          }
+
       - name: Deploy Staging to RPi
         env:
           ANSIBLE_HOST_KEY_CHECKING: "False"
+          ANSIBLE_REMOTE_TMP: /tmp/.ansible-tmp
         run: |
           ansible-playbook \
             -i packages/cli/templates/ansible/inventory/hosts.ini \
             packages/cli/templates/ansible/playbooks/deploy-cybermem.yml \
-            --extra-vars "cybermem_env=staging" \
-            --extra-vars "ghcr_user=${{ github.actor }}" \
-            --extra-vars "ghcr_token=${{ secrets.GITHUB_TOKEN }}" \
-            --extra-vars "ghcr_tag=staging" \
-            --extra-vars "TRAEFIK_PORT=8625" \
-            --extra-vars "CYBERMEM_TAILSCALE=true" \
-            --extra-vars "auth_token_hash=${{ steps.gen_token.outputs.token_hash }}" \
-            --extra-vars "auth_token_id=${{ steps.gen_token.outputs.token_id }}" \
-            --extra-vars "auth_token_name=staging-e2e" \
-            --extra-vars "auth_token_value=${{ steps.gen_token.outputs.token }}" \
-            --extra-vars "ansible_ssh_executable=/usr/local/bin/ts-ssh" \
-            --extra-vars "ansible_host=${{ steps.rpi_info.outputs.ip }}"
+            -e "cybermem_env=staging" \
+            -e "ghcr_user=${{ github.actor }}" \
+            -e "ghcr_token=${{ secrets.GITHUB_TOKEN }}" \
+            -e "ghcr_tag=staging" \
+            -e "TRAEFIK_PORT=8625" \
+            -e "CYBERMEM_TAILSCALE=true" \
+            -e "auth_token_hash=${{ steps.gen_token.outputs.token_hash }}" \
+            -e "auth_token_id=${{ steps.gen_token.outputs.token_id }}" \
+            -e "auth_token_name=staging-e2e" \
+            -e "auth_token_value=${{ steps.gen_token.outputs.token }}" \
+            -e "ansible_ssh_executable=/usr/local/bin/ts-ssh" \
+            -e "ansible_host=${{ steps.rpi_info.outputs.dns }}"
 
       - run: npm ci
       - run: npx playwright install --with-deps chromium
