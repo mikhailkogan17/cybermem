@@ -239,8 +239,9 @@ jobs:
 
           # Create a wrapper script for Ansible to use Tailscale SSH
           # ACL: tag:ci → tag:rpi, users: root/pi, action: accept
-          # Strips SSH options before user@host, passes command through unchanged
+          # Captures -l <user>, strips other SSH options, converts to user@host
           printf '%s\n' '#!/bin/bash' \
+            'USER=""' \
             'ARGS=()' \
             'FOUND_HOST=false' \
             'while [[ $# -gt 0 ]]; do' \
@@ -248,10 +249,18 @@ jobs:
             '    ARGS+=("$1"); shift' \
             '  else' \
             '    case "$1" in' \
-            '      -o|-F|-i|-p|-l|-S|-W|-J|-c|-m) shift 2 ;;' \
-            '      -o*|-F*|-i*|-p*|-l*) shift ;;' \
+            '      -l) USER="$2"; shift 2 ;;' \
+            '      -o|-F|-i|-p|-S|-W|-J|-c|-m) shift 2 ;;' \
+            '      -o*|-F*|-i*|-p*) shift ;;' \
+            '      -l*) USER="${1#-l}"; shift ;;' \
             '      -[a-zA-Z]*) shift ;;' \
-            '      *) ARGS+=("$1"); FOUND_HOST=true; shift ;;' \
+            '      *)' \
+            '        if [ -n "$USER" ] && [[ "$1" != *@* ]]; then' \
+            '          ARGS+=("${USER}@${1}")' \
+            '        else' \
+            '          ARGS+=("$1")' \
+            '        fi' \
+            '        FOUND_HOST=true; shift ;;' \
             '    esac' \
             '  fi' \
             'done' \
