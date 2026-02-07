@@ -156,7 +156,7 @@ jobs:
           ansible-playbook \
             -i packages/cli/templates/ansible/inventory/hosts.ini \
             packages/cli/templates/ansible/playbooks/deploy-cybermem.yml \
-            --extra-vars "cybermem_env=staging ghcr_user=${{ github.actor }} ghcr_token=${{ secrets.GITHUB_TOKEN }} ghcr_tag=staging TRAEFIK_PORT=8625 CYBERMEM_TAILSCALE=true" \
+            --extra-vars "cybermem_env=staging ghcr_user=${{ github.actor }} ghcr_token=${{ secrets.GITHUB_TOKEN }} ghcr_tag=staging TRAEFIK_PORT=8625 CYBERMEM_TAILSCALE=false" \
             --extra-vars "auth_token_hash=${{ steps.gen_token.outputs.token_hash }}" \
             --extra-vars "auth_token_id=${{ steps.gen_token.outputs.token_id }}" \
             --extra-vars "auth_token_name=staging-e2e" \
@@ -460,7 +460,7 @@ jobs:
           ansible-playbook \
             -i packages/cli/templates/ansible/inventory/hosts.ini \
             packages/cli/templates/ansible/playbooks/deploy-cybermem.yml \
-            --extra-vars "cybermem_env=prod ghcr_user=${{ github.actor }} ghcr_token=${{ secrets.GITHUB_TOKEN }} CYBERMEM_TAILSCALE=true" \
+            --extra-vars "cybermem_env=prod ghcr_user=${{ github.actor }} ghcr_token=${{ secrets.GITHUB_TOKEN }} CYBERMEM_TAILSCALE=false" \
             --extra-vars "ansible_ssh_executable=/usr/local/bin/ts-ssh" \
             --extra-vars "ansible_host=${{ steps.get_rpi_ip.outputs.ip }}" \
             --extra-vars "ansible_ssh_pass=" \

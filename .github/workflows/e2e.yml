@@ -275,7 +275,7 @@ jobs:
             -e "ghcr_token=${{ secrets.GITHUB_TOKEN }}" \
             -e "ghcr_tag=staging" \
             -e "TRAEFIK_PORT=8625" \
-            -e "CYBERMEM_TAILSCALE=true" \
+            -e "CYBERMEM_TAILSCALE=false" \
             -e "auth_token_hash=${{ steps.gen_token.outputs.token_hash }}" \
             -e "auth_token_id=${{ steps.gen_token.outputs.token_id }}" \
             -e "auth_token_name=staging-e2e" \
