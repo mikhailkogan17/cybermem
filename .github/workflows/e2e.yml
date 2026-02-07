@@ -283,9 +283,10 @@ jobs:
             echo "❌ tailscale ssh FAILED (exit $?)"
             echo ""
             echo "TROUBLESHOOTING:"
-            echo "  1. On RPi run: sudo tailscale set --ssh"
-            echo "  2. On RPi run: tailscale status (verify connected)"
-            echo "  3. ACL ssh section must allow tag:ci → tag:rpi"
+            echo "  1. On RPi: sudo tailscale up --advertise-tags=tag:rpi --ssh"
+            echo "     (re-login may have removed tag:rpi — verify with tailscale status --self)"
+            echo "  2. In Tailscale admin: verify RPi shows tag:rpi (not user@)"
+            echo "  3. ACL ssh section must allow tag:ci → tag:rpi for users pi,root"
             exit 1
           }
 
