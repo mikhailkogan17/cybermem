@@ -13,7 +13,7 @@ const CYBERMEM_TOKEN = process.env.CYBERMEM_TOKEN || "";
 function getHeaders(clientName: string): Record<string, string> {
   const headers: Record<string, string> = { "X-Client-Name": clientName };
   if (!isLocalhost && CYBERMEM_TOKEN) {
-    headers["Authorization"] = `Bearer ${CYBERMEM_TOKEN}`;
+    headers["X-API-Key"] = CYBERMEM_TOKEN;
   }
   return headers;
 }
