@@ -250,8 +250,8 @@ jobs:
           echo "=== Tailscale Ping RPi ==="
           tailscale ping --c 3 --timeout 10s ${{ steps.rpi_info.outputs.ip }} || echo "⚠️ Ping failed"
 
-          echo "=== Test: tailscale ssh root@hostname echo hello ==="
-          timeout 30 tailscale ssh root@${{ steps.rpi_info.outputs.dns }} echo "✅ Tailscale SSH works" || {
+          echo "=== Test: tailscale ssh pi@hostname echo hello ==="
+          timeout 30 tailscale ssh pi@${{ steps.rpi_info.outputs.dns }} echo "✅ Tailscale SSH works" || {
             echo "❌ tailscale ssh FAILED (exit $?)"
             echo ""
             echo "TROUBLESHOOTING:"
@@ -283,9 +283,9 @@ jobs:
             -e "ansible_ssh_executable=/usr/local/bin/ts-ssh" \
             -e "ansible_host=${{ steps.rpi_info.outputs.dns }}" \
             -e "ansible_ssh_pass=" \
-            -e "ansible_user=root" \
-            -e "ansible_become=false" \
-            -e "project_dir=/home/pi/cybermem"
+            -e "ansible_user=pi" \
+            -e "ansible_become_flags=-n" \
+            -e "ansible_timeout=60"
 
       - run: npm ci
       - run: npx playwright install --with-deps chromium

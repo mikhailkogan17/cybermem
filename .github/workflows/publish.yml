@@ -164,7 +164,7 @@ jobs:
             --extra-vars "ansible_ssh_executable=/usr/local/bin/ts-ssh" \
             --extra-vars "ansible_host=${{ steps.get_rpi_ip.outputs.ip }}" \
             --extra-vars "ansible_ssh_pass=" \
-            --extra-vars "ansible_user=root ansible_become=false project_dir=/home/pi/cybermem"
+            --extra-vars "ansible_user=pi ansible_become_flags=-n ansible_timeout=60"
 
   # ==================================================================
   # 4. E2E VERIFICATION
@@ -464,7 +464,7 @@ jobs:
             --extra-vars "ansible_ssh_executable=/usr/local/bin/ts-ssh" \
             --extra-vars "ansible_host=${{ steps.get_rpi_ip.outputs.ip }}" \
             --extra-vars "ansible_ssh_pass=" \
-            --extra-vars "ansible_user=root ansible_become=false project_dir=/home/pi/cybermem"
+            --extra-vars "ansible_user=pi ansible_become_flags=-n ansible_timeout=60"
 
       - name: Slack (Prod Deployed)
         if: success()
