@@ -132,35 +132,7 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y ansible
-
-          # Create a wrapper script for Ansible to use Tailscale SSH
-          # ACL: tag:ci → tag:rpi, users: root/pi, action: accept
-          printf '%s\n' '#!/bin/bash' \
-            'USER=""' \
-            'ARGS=()' \
-            'FOUND_HOST=false' \
-            'while [[ $# -gt 0 ]]; do' \
-            '  if $FOUND_HOST; then' \
-            '    ARGS+=("$1"); shift' \
-            '  else' \
-            '    case "$1" in' \
-            '      -l) USER="$2"; shift 2 ;;' \
-            '      -o|-F|-i|-p|-S|-W|-J|-c|-m) shift 2 ;;' \
-            '      -o*|-F*|-i*|-p*) shift ;;' \
-            '      -l*) USER="${1#-l}"; shift ;;' \
-            '      -[a-zA-Z]*) shift ;;' \
-            '      *)' \
-            '        if [ -n "$USER" ] && [[ "$1" != *@* ]]; then' \
-            '          ARGS+=("${USER}@${1}")' \
-            '        else' \
-            '          ARGS+=("$1")' \
-            '        fi' \
-            '        FOUND_HOST=true; shift ;;' \
-            '    esac' \
-            '  fi' \
-            'done' \
-            'exec tailscale ssh "${ARGS[@]}"' \
-            | sudo tee /usr/local/bin/ts-ssh >/dev/null
+          sudo cp tools/ts-ssh /usr/local/bin/ts-ssh
           sudo chmod +x /usr/local/bin/ts-ssh
 
       - name: Get RPi Tailscale IP
@@ -190,7 +162,8 @@ jobs:
             --extra-vars "auth_token_name=staging-e2e" \
             --extra-vars "auth_token_value=${{ steps.gen_token.outputs.token }}" \
             --extra-vars "ansible_ssh_executable=/usr/local/bin/ts-ssh" \
-            --extra-vars "ansible_host=${{ steps.get_rpi_ip.outputs.ip }}"
+            --extra-vars "ansible_host=${{ steps.get_rpi_ip.outputs.ip }}" \
+            --extra-vars "ansible_ssh_pass="
 
   # ==================================================================
   # 4. E2E VERIFICATION
@@ -444,33 +417,7 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y ansible
-
-          printf '%s\n' '#!/bin/bash' \
-            'USER=""' \
-            'ARGS=()' \
-            'FOUND_HOST=false' \
-            'while [[ $# -gt 0 ]]; do' \
-            '  if $FOUND_HOST; then' \
-            '    ARGS+=("$1"); shift' \
-            '  else' \
-            '    case "$1" in' \
-            '      -l) USER="$2"; shift 2 ;;' \
-            '      -o|-F|-i|-p|-S|-W|-J|-c|-m) shift 2 ;;' \
-            '      -o*|-F*|-i*|-p*) shift ;;' \
-            '      -l*) USER="${1#-l}"; shift ;;' \
-            '      -[a-zA-Z]*) shift ;;' \
-            '      *)' \
-            '        if [ -n "$USER" ] && [[ "$1" != *@* ]]; then' \
-            '          ARGS+=("${USER}@${1}")' \
-            '        else' \
-            '          ARGS+=("$1")' \
-            '        fi' \
-            '        FOUND_HOST=true; shift ;;' \
-            '    esac' \
-            '  fi' \
-            'done' \
-            'exec tailscale ssh "${ARGS[@]}"' \
-            | sudo tee /usr/local/bin/ts-ssh >/dev/null
+          sudo cp tools/ts-ssh /usr/local/bin/ts-ssh
           sudo chmod +x /usr/local/bin/ts-ssh
 
       - name: Get RPi Tailscale IP
@@ -514,7 +461,8 @@ jobs:
             packages/cli/templates/ansible/playbooks/deploy-cybermem.yml \
             --extra-vars "cybermem_env=prod ghcr_user=${{ github.actor }} ghcr_token=${{ secrets.GITHUB_TOKEN }} CYBERMEM_TAILSCALE=true" \
             --extra-vars "ansible_ssh_executable=/usr/local/bin/ts-ssh" \
-            --extra-vars "ansible_host=${{ steps.get_rpi_ip.outputs.ip }}"
+            --extra-vars "ansible_host=${{ steps.get_rpi_ip.outputs.ip }}" \
+            --extra-vars "ansible_ssh_pass="
 
       - name: Slack (Prod Deployed)
         if: success()

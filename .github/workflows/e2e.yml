@@ -236,35 +236,7 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y ansible
-
-          # Create wrapper: strips SSH options, captures -l user, passes to tailscale ssh
-          # Prerequisite: RPi must have `sudo tailscale set --ssh` enabled
-          printf '%s\n' '#!/bin/bash' \
-            'USER=""' \
-            'ARGS=()' \
-            'FOUND_HOST=false' \
-            'while [[ $# -gt 0 ]]; do' \
-            '  if $FOUND_HOST; then' \
-            '    ARGS+=("$1"); shift' \
-            '  else' \
-            '    case "$1" in' \
-            '      -l) USER="$2"; shift 2 ;;' \
-            '      -o|-F|-i|-p|-S|-W|-J|-c|-m) shift 2 ;;' \
-            '      -o*|-F*|-i*|-p*) shift ;;' \
-            '      -l*) USER="${1#-l}"; shift ;;' \
-            '      -[a-zA-Z]*) shift ;;' \
-            '      *)' \
-            '        if [ -n "$USER" ] && [[ "$1" != *@* ]]; then' \
-            '          ARGS+=("${USER}@${1}")' \
-            '        else' \
-            '          ARGS+=("$1")' \
-            '        fi' \
-            '        FOUND_HOST=true; shift ;;' \
-            '    esac' \
-            '  fi' \
-            'done' \
-            'exec tailscale ssh "${ARGS[@]}"' \
-            | sudo tee /usr/local/bin/ts-ssh >/dev/null
+          sudo cp tools/ts-ssh /usr/local/bin/ts-ssh
           sudo chmod +x /usr/local/bin/ts-ssh
 
       - name: Verify Tailscale SSH Connectivity
@@ -309,7 +281,8 @@ jobs:
             -e "auth_token_name=staging-e2e" \
             -e "auth_token_value=${{ steps.gen_token.outputs.token }}" \
             -e "ansible_ssh_executable=/usr/local/bin/ts-ssh" \
-            -e "ansible_host=${{ steps.rpi_info.outputs.dns }}"
+            -e "ansible_host=${{ steps.rpi_info.outputs.dns }}" \
+            -e "ansible_ssh_pass="
 
       - run: npm ci
       - run: npx playwright install --with-deps chromium
