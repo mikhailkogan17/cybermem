@@ -163,7 +163,8 @@ jobs:
             --extra-vars "auth_token_value=${{ steps.gen_token.outputs.token }}" \
             --extra-vars "ansible_ssh_executable=/usr/local/bin/ts-ssh" \
             --extra-vars "ansible_host=${{ steps.get_rpi_ip.outputs.ip }}" \
-            --extra-vars "ansible_ssh_pass="
+            --extra-vars "ansible_ssh_pass=" \
+            --extra-vars "ansible_user=root ansible_become=false project_dir=/home/pi/cybermem"
 
   # ==================================================================
   # 4. E2E VERIFICATION
@@ -462,7 +463,8 @@ jobs:
             --extra-vars "cybermem_env=prod ghcr_user=${{ github.actor }} ghcr_token=${{ secrets.GITHUB_TOKEN }} CYBERMEM_TAILSCALE=true" \
             --extra-vars "ansible_ssh_executable=/usr/local/bin/ts-ssh" \
             --extra-vars "ansible_host=${{ steps.get_rpi_ip.outputs.ip }}" \
-            --extra-vars "ansible_ssh_pass="
+            --extra-vars "ansible_ssh_pass=" \
+            --extra-vars "ansible_user=root ansible_become=false project_dir=/home/pi/cybermem"
 
       - name: Slack (Prod Deployed)
         if: success()
