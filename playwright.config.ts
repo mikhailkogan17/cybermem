@@ -71,9 +71,10 @@ export default defineConfig({
     },
   ],
 
-  // Start the dashboard server for local tests (skip when dashboard runs remotely)
+  // Start the dashboard dev server for local tests only.
+  // In CI, Docker serves the dashboard via Traefik (no turbopack needed).
   webServer:
-    process.env.SKIP_WEBSERVER === "true"
+    process.env.CI || process.env.SKIP_WEBSERVER === "true"
       ? undefined
       : [
           {

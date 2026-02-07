@@ -10,10 +10,11 @@ on:
 permissions:
   contents: read
   pull-requests: write
+  packages: read
 
 jobs:
   # ------------------------------------------------------------------
-  # 1. Quality Gates (Lint, Danger) — NO DEPENDENCIES
+  # 1. Quality Gates (Lint, Danger)
   # ------------------------------------------------------------------
   pr-lint:
     name: "Lint & Danger"
@@ -35,8 +36,8 @@ jobs:
         run: npx danger ci
 
   # ------------------------------------------------------------------
-  # 2. E2E: localhost-staging (port 8625) — NO DEPENDENCIES
-  #    Docker backend + Turbopack dashboard on :3000
+  # 2. E2E: localhost-staging (port 8625)
+  #    Identical flow: checkout → npm ci → CLI install → Playwright
   # ------------------------------------------------------------------
   pr-e2e-localhost-staging:
     name: "E2E: localhost-staging"
@@ -54,15 +55,9 @@ jobs:
           echo "OPENAI_API_KEY=sk-test-key-for-ci" > ~/.cybermem/.env # gitleaks:allow
           echo "OM_API_KEY=sk-test-key-for-ci" >> ~/.cybermem/.env # gitleaks:allow
 
-      - uses: docker/login-action@v3
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
       - run: npm ci
 
-      - name: Build CLI & Install (Staging)
+      - name: Build CLI & Install
         env:
           DOCKER_DEFAULT_PLATFORM: linux/amd64
         run: |
@@ -72,16 +67,12 @@ jobs:
 
       - run: npx playwright install --with-deps chromium
 
-      # Turbopack dashboard on :3000, Docker backend on :8625
-      # Dashboard API reads shared SQLite + proxies to MCP via Traefik
       - name: Run E2E
         run: npx playwright test
         env:
           CI: true
           DASHBOARD_URL: http://localhost:8625
           MCP_URL: http://localhost:8625/mcp
-          OM_DB_PATH: /home/runner/.cybermem/data-staging/openmemory.sqlite
-          INTERNAL_MCP_URL: http://localhost:8625
 
       - name: Upload Playwright Reports
         if: always()
@@ -97,8 +88,8 @@ jobs:
           retention-days: 7
 
   # ------------------------------------------------------------------
-  # 3. E2E: localhost-prod (port 8626) — NO DEPENDENCIES
-  #    Full Docker stack (dashboard via Traefik, not Turbopack)
+  # 3. E2E: localhost-prod (port 8626)
+  #    Identical flow: checkout → npm ci → CLI install → Playwright
   # ------------------------------------------------------------------
   pr-e2e-localhost-prod:
     name: "E2E: localhost-prod"
@@ -116,15 +107,9 @@ jobs:
           echo "OPENAI_API_KEY=sk-test-key-for-ci" > ~/.cybermem/.env # gitleaks:allow
           echo "OM_API_KEY=sk-test-key-for-ci" >> ~/.cybermem/.env # gitleaks:allow
 
-      - uses: docker/login-action@v3
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
       - run: npm ci
 
-      - name: Build CLI & Install (Prod)
+      - name: Build CLI & Install
         env:
           DOCKER_DEFAULT_PLATFORM: linux/amd64
         run: |
@@ -134,7 +119,6 @@ jobs:
 
       - run: npx playwright install --with-deps chromium
 
-      # All tests go through Docker Traefik on :8626
       - name: Run E2E
         run: npx playwright test
         env:
@@ -156,193 +140,43 @@ jobs:
           retention-days: 7
 
   # ------------------------------------------------------------------
-  # 4. E2E: rpi-ts-staging — NO GHCR, NO published packages
-  #    Build ALL arm64 images via QEMU → docker save → tailscale ssh
-  #    → docker load on RPi → Ansible deploy → Dashboard via Turbopack
-  #    Everything runs on RPi (backend + dashboard dev/turbopack)
+  # 4. E2E: rpi-ts-staging (port 8625 on RPi)
+  #    Identical flow: checkout → npm ci → CLI install --rpi → Playwright
+  #    Runs on self-hosted Mac M1 (arm64) — builds natively, no QEMU
+  #    CLI builds images → transfers to RPi → Ansible deploys
   # ------------------------------------------------------------------
   pr-e2e-rpi-ts-staging:
     name: "E2E: rpi-ts-staging"
-    runs-on: ubuntu-latest
-    if: github.event.pull_request.head.repo.full_name == github.repository || github.event_name != 'pull_request'
+    runs-on: [self-hosted, macOS, ARM64]
     steps:
       - uses: actions/checkout@v4
         with:
           submodules: recursive
-
       - uses: actions/setup-node@v4
         with:
           node-version: "20"
 
-      # --- Tailscale ---
-      - name: Setup Tailscale
-        uses: tailscale/github-action@v4
-        with:
-          oauth-client-id: ${{ secrets.TS_OAUTH_CLIENT_ID }}
-          oauth-secret: ${{ secrets.TS_OAUTH_SECRET }}
-          tags: tag:ci
-          version: 1.76.6
+      - run: |
+          mkdir -p ~/.cybermem
+          echo "OPENAI_API_KEY=sk-test-key-for-ci" > ~/.cybermem/.env # gitleaks:allow
+          echo "OM_API_KEY=sk-test-key-for-ci" >> ~/.cybermem/.env # gitleaks:allow
 
-      - name: Get RPi Tailscale Info
-        id: rpi_info
-        run: |
-          for i in {1..12}; do
-            sleep 5
-            if tailscale status --json >/dev/null 2>&1; then break; fi
-            echo "Waiting... ($i/12)"
-          done
-
-          RPI_DNS=$(tailscale status --json | jq -r \
-            '.Peer[] | select(.HostName | test("raspberrypi"; "i")) | .DNSName' \
-            | head -1 | sed 's/\.$//')
-          RPI_IP=$(tailscale status --json | jq -r \
-            '.Peer[] | select(.HostName | test("raspberrypi"; "i")) | .TailscaleIPs[0]' \
-            | head -1)
-
-          if [ -z "$RPI_DNS" ] || [ -z "$RPI_IP" ]; then
-            echo "❌ Could not find RPi on tailnet"
-            tailscale status
-            exit 1
-          fi
-
-          echo "dns=${RPI_DNS}" >> $GITHUB_OUTPUT
-          echo "ip=${RPI_IP}" >> $GITHUB_OUTPUT
-          echo "✅ RPi: ${RPI_DNS} (${RPI_IP})"
-
-      - name: Verify Tailscale SSH
-        run: |
-          tailscale ping --c 1 --timeout 10s ${{ steps.rpi_info.outputs.ip }} || true
-          timeout 30 tailscale ssh pi@${{ steps.rpi_info.outputs.dns }} echo "✅ SSH OK" || {
-            echo "❌ tailscale ssh FAILED"
-            echo "Fix: sudo tailscale up --advertise-tags=tag:rpi --ssh"
-            exit 1
-          }
-
-      # --- Build ALL arm64 images from PR code (QEMU, no GHCR) ---
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Build arm64 images (backend + dashboard dev/turbopack)
-        run: |
-          # Backend images (production build)
-          IMAGES=(
-            "cybermem-mcp:packages/mcp:"
-            "cybermem-auth-sidecar:packages/cli/templates/auth-sidecar:"
-            "cybermem-db_exporter:packages/cli/templates/monitoring/db_exporter:"
-            "cybermem-log_exporter:packages/cli/templates/monitoring/log_exporter:"
-          )
-          for entry in "${IMAGES[@]}"; do
-            IFS=: read -r NAME CTX TARGET <<< "$entry"
-            echo "🔨 Building ${NAME} (arm64)..."
-            docker buildx build \
-              --platform linux/arm64 \
-              --load \
-              -t "ghcr.io/mikhailkogan17/${NAME}:e2e" \
-              "${CTX}"
-          done
-
-          # Dashboard image: dev stage = skip webpack, use Turbopack (fast!)
-          echo "🔨 Building dashboard (arm64, dev/turbopack)..."
-          docker buildx build \
-            --platform linux/arm64 \
-            --target dev \
-            --load \
-            -t "ghcr.io/mikhailkogan17/cybermem-dashboard:e2e" \
-            packages/dashboard
-
-          echo "✅ All arm64 images built (dashboard = dev/turbopack)"
-
-      - name: Transfer images to RPi
-        run: |
-          echo "📦 Saving and transferring ALL images to RPi..."
-          docker save \
-            ghcr.io/mikhailkogan17/cybermem-mcp:e2e \
-            ghcr.io/mikhailkogan17/cybermem-auth-sidecar:e2e \
-            ghcr.io/mikhailkogan17/cybermem-db_exporter:e2e \
-            ghcr.io/mikhailkogan17/cybermem-log_exporter:e2e \
-            ghcr.io/mikhailkogan17/cybermem-dashboard:e2e \
-          | tailscale ssh pi@${{ steps.rpi_info.outputs.dns }} docker load
-          echo "✅ All images loaded on RPi (including dashboard)"
-
-      # --- Generate token & deploy via Ansible ---
-      - name: Generate Staging Token
-        id: gen_token
-        run: |
-          TOKEN="sk-$(openssl rand -hex 16)"
-          echo "token=$TOKEN" >> $GITHUB_OUTPUT
-          node -e "
-          const crypto = require('crypto');
-          const token = '$TOKEN';
-          const salt = crypto.randomBytes(16).toString('hex');
-          crypto.pbkdf2(token, salt, 100000, 64, 'sha512', (err, key) => {
-            if (err) process.exit(1);
-            console.log('token_hash=' + salt + ':' + key.toString('hex'));
-            console.log('token_id=' + crypto.randomBytes(8).toString('hex'));
-          });
-          " >> $GITHUB_OUTPUT
-
-      - name: Setup Ansible
-        run: |
-          sudo apt-get update -qq
-          sudo apt-get install -y -qq ansible
-          sudo cp tools/ts-ssh /usr/local/bin/ts-ssh
-          sudo chmod +x /usr/local/bin/ts-ssh
-
-      - name: Deploy to RPi
-        env:
-          ANSIBLE_HOST_KEY_CHECKING: "False"
-          ANSIBLE_REMOTE_TMP: /tmp/.ansible-tmp
-        run: |
-          ansible-playbook \
-            -i packages/cli/templates/ansible/inventory/hosts.ini \
-            packages/cli/templates/ansible/playbooks/deploy-cybermem.yml \
-            -e "cybermem_env=staging" \
-            -e "ghcr_tag=e2e" \
-            -e "skip_pull=true" \
-            -e "TRAEFIK_PORT=8625" \
-            -e "CYBERMEM_TAILSCALE=false" \
-            -e "auth_token_hash=${{ steps.gen_token.outputs.token_hash }}" \
-            -e "auth_token_id=${{ steps.gen_token.outputs.token_id }}" \
-            -e "auth_token_name=staging-e2e" \
-            -e "auth_token_value=${{ steps.gen_token.outputs.token }}" \
-            -e "ansible_ssh_executable=/usr/local/bin/ts-ssh" \
-            -e "ansible_host=${{ steps.rpi_info.outputs.dns }}" \
-            -e "ansible_ssh_pass=" \
-            -e "ansible_user=pi" \
-            -e "ansible_become_flags=-n" \
-            -e "ansible_timeout=60"
-
-      # --- E2E tests: everything on RPi (dashboard + backend) ---
       - run: npm ci
+
+      - name: Build CLI & Install
+        run: |
+          npm run build -w @cybermem/cli
+          node packages/cli/dist/index.js install --rpi --staging --host pi@raspberrypi.local
+          sleep 30
+
       - run: npx playwright install --with-deps chromium
 
-      - name: Wait for RPi Stack
-        run: |
-          RPI="${{ steps.rpi_info.outputs.dns }}"
-          echo "Waiting for RPi stack (backend + dashboard)..."
-          for i in {1..30}; do
-            if tailscale ssh pi@${RPI} \
-              curl -sf --max-time 5 http://localhost:8625/health >/dev/null 2>&1; then
-              echo "✅ RPi stack ready"
-              break
-            fi
-            echo "Waiting... ($i/30)"
-            sleep 10
-          done
-
-      # All tests point at RPi — dashboard via Traefik :8625, MCP via :8625/mcp
-      # SKIP_WEBSERVER=true prevents Playwright from starting local dashboard
       - name: Run E2E
         run: npx playwright test
         env:
           CI: true
-          SKIP_WEBSERVER: "true"
-          DASHBOARD_URL: http://${{ steps.rpi_info.outputs.ip }}:8625
-          MCP_URL: http://${{ steps.rpi_info.outputs.ip }}:8625/mcp
-          CYBERMEM_TOKEN: ${{ steps.gen_token.outputs.token }}
+          DASHBOARD_URL: http://raspberrypi.local:8625
+          MCP_URL: http://raspberrypi.local:8625/mcp
 
       - name: Upload Playwright Reports
         if: always()

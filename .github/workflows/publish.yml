@@ -124,7 +124,7 @@ jobs:
             exit 1
           fi
 
-          FUNNEL_URL="https://${RPI_DNS}:10000"
+          FUNNEL_URL="https://${RPI_DNS}:8443"
           echo "url=${FUNNEL_URL}" >> $GITHUB_OUTPUT
           echo "✅ RPi Staging Funnel URL: ${FUNNEL_URL}"
 
