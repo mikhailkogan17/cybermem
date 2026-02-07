@@ -22,8 +22,9 @@ while [[ $# -gt 0 ]]; do
       -l*) USER="${1#-l}"; shift ;;
       -o)
         # Capture -o User=xxx, strip everything else
+        # Ansible quotes the value: User="pi" — strip quotes
         case "$2" in
-          User=*) USER="${2#User=}"; shift 2 ;;
+          User=*) USER="${2#User=}"; USER="${USER//\"/}"; shift 2 ;;
           *) shift 2 ;;
         esac ;;
       -o*) shift ;;  # -oOption=value (combined)
