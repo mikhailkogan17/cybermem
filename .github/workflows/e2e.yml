@@ -157,9 +157,9 @@ jobs:
 
   # ------------------------------------------------------------------
   # 4. E2E: rpi-ts-staging — NO GHCR, NO published packages
-  #    Build arm64 backend images via QEMU → docker save → tailscale ssh
-  #    → docker load on RPi → Ansible deploy → Turbopack dashboard on runner
-  #    Same flow as localhost-staging but backend runs on RPi
+  #    Build ALL arm64 images via QEMU → docker save → tailscale ssh
+  #    → docker load on RPi → Ansible deploy → Dashboard via Turbopack
+  #    Everything runs on RPi (backend + dashboard dev/turbopack)
   # ------------------------------------------------------------------
   pr-e2e-rpi-ts-staging:
     name: "E2E: rpi-ts-staging"
@@ -218,24 +218,24 @@ jobs:
             exit 1
           }
 
-      # --- Build arm64 backend images from PR code (QEMU, no GHCR) ---
+      # --- Build ALL arm64 images from PR code (QEMU, no GHCR) ---
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Build arm64 backend images
+      - name: Build arm64 images (backend + dashboard dev/turbopack)
         run: |
+          # Backend images (production build)
           IMAGES=(
-            "cybermem-mcp:packages/mcp"
-            "cybermem-auth-sidecar:packages/cli/templates/auth-sidecar"
-            "cybermem-db_exporter:packages/cli/templates/monitoring/db_exporter"
-            "cybermem-log_exporter:packages/cli/templates/monitoring/log_exporter"
+            "cybermem-mcp:packages/mcp:"
+            "cybermem-auth-sidecar:packages/cli/templates/auth-sidecar:"
+            "cybermem-db_exporter:packages/cli/templates/monitoring/db_exporter:"
+            "cybermem-log_exporter:packages/cli/templates/monitoring/log_exporter:"
           )
           for entry in "${IMAGES[@]}"; do
-            NAME="${entry%%:*}"
-            CTX="${entry#*:}"
+            IFS=: read -r NAME CTX TARGET <<< "$entry"
             echo "🔨 Building ${NAME} (arm64)..."
             docker buildx build \
               --platform linux/arm64 \
@@ -243,18 +243,29 @@ jobs:
               -t "ghcr.io/mikhailkogan17/${NAME}:e2e" \
               "${CTX}"
           done
-          echo "✅ All arm64 backend images built"
+
+          # Dashboard image: dev stage = skip webpack, use Turbopack (fast!)
+          echo "🔨 Building dashboard (arm64, dev/turbopack)..."
+          docker buildx build \
+            --platform linux/arm64 \
+            --target dev \
+            --load \
+            -t "ghcr.io/mikhailkogan17/cybermem-dashboard:e2e" \
+            packages/dashboard
+
+          echo "✅ All arm64 images built (dashboard = dev/turbopack)"
 
       - name: Transfer images to RPi
         run: |
-          echo "📦 Saving and transferring images to RPi..."
+          echo "📦 Saving and transferring ALL images to RPi..."
           docker save \
             ghcr.io/mikhailkogan17/cybermem-mcp:e2e \
             ghcr.io/mikhailkogan17/cybermem-auth-sidecar:e2e \
             ghcr.io/mikhailkogan17/cybermem-db_exporter:e2e \
             ghcr.io/mikhailkogan17/cybermem-log_exporter:e2e \
+            ghcr.io/mikhailkogan17/cybermem-dashboard:e2e \
           | tailscale ssh pi@${{ steps.rpi_info.outputs.dns }} docker load
-          echo "✅ Images loaded on RPi"
+          echo "✅ All images loaded on RPi (including dashboard)"
 
       # --- Generate token & deploy via Ansible ---
       - name: Generate Staging Token
@@ -304,33 +315,33 @@ jobs:
             -e "ansible_become_flags=-n" \
             -e "ansible_timeout=60"
 
-      # --- Turbopack dashboard on runner + E2E tests ---
+      # --- E2E tests: everything on RPi (dashboard + backend) ---
       - run: npm ci
       - run: npx playwright install --with-deps chromium
 
-      - name: Wait for RPi Backend
+      - name: Wait for RPi Stack
         run: |
-          RPI="http://${{ steps.rpi_info.outputs.ip }}:8625"
-          echo "Waiting for backend at ${RPI}/health..."
+          RPI="${{ steps.rpi_info.outputs.dns }}"
+          echo "Waiting for RPi stack (backend + dashboard)..."
           for i in {1..30}; do
-            if tailscale ssh pi@${{ steps.rpi_info.outputs.dns }} \
+            if tailscale ssh pi@${RPI} \
               curl -sf --max-time 5 http://localhost:8625/health >/dev/null 2>&1; then
-              echo "✅ RPi backend ready"
+              echo "✅ RPi stack ready"
               break
             fi
             echo "Waiting... ($i/30)"
             sleep 10
           done
 
-      # Turbopack dashboard on :3000, RPi backend on :8625 via Tailscale
-      # MCP tests → RPi directly, Dashboard tests → local Turbopack → RPi
+      # All tests point at RPi — dashboard via Traefik :8625, MCP via :8625/mcp
+      # SKIP_WEBSERVER=true prevents Playwright from starting local dashboard
       - name: Run E2E
         run: npx playwright test
         env:
           CI: true
-          DASHBOARD_URL: http://localhost:3000
+          SKIP_WEBSERVER: "true"
+          DASHBOARD_URL: http://${{ steps.rpi_info.outputs.ip }}:8625
           MCP_URL: http://${{ steps.rpi_info.outputs.ip }}:8625/mcp
-          INTERNAL_MCP_URL: http://${{ steps.rpi_info.outputs.ip }}:8625
           CYBERMEM_TOKEN: ${{ steps.gen_token.outputs.token }}
 
       - name: Upload Playwright Reports

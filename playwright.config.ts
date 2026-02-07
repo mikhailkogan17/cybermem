@@ -71,15 +71,18 @@ export default defineConfig({
     },
   ],
 
-  // Start the dashboard server for local tests
-  webServer: [
-    {
-      command: "cd packages/dashboard && npm run dev:turbo",
-      port: 3000,
-      reuseExistingServer: true,
-      stdout: "pipe",
-      stderr: "pipe",
-      timeout: 60000, // 60s to start
-    },
-  ],
+  // Start the dashboard server for local tests (skip when dashboard runs remotely)
+  webServer:
+    process.env.SKIP_WEBSERVER === "true"
+      ? undefined
+      : [
+          {
+            command: "cd packages/dashboard && npm run dev:turbo",
+            port: 3000,
+            reuseExistingServer: true,
+            stdout: "pipe",
+            stderr: "pipe",
+            timeout: 60000, // 60s to start
+          },
+        ],
 });
