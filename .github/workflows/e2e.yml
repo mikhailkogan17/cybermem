@@ -10,9 +10,21 @@ on:
 permissions:
   contents: read
   pull-requests: write
-  packages: read
+  packages: write
 
 jobs:
+  # ------------------------------------------------------------------
+  # 0. Build Docker images from PR code → push to GHCR with e2e-staging tag
+  #    arm64 on self-hosted ARM runner (or QEMU fallback), amd64 on ubuntu
+  # ------------------------------------------------------------------
+  build-e2e-images:
+    name: "Build E2E Images"
+    uses: ./.github/workflows/build-images.yml
+    with:
+      tag: e2e-staging
+      force_build: true
+    secrets: inherit
+
   # ------------------------------------------------------------------
   # 1. Quality Gates (Lint, Danger) — NO DEPENDENCIES
   # ------------------------------------------------------------------
@@ -158,12 +170,13 @@ jobs:
 
   # ------------------------------------------------------------------
   # 4. E2E: rpi-ts-staging (port 10000 via Tailscale)
-  #    — NO DEPENDENCIES
-  #    Runner joins tailnet → deploys staging to RPi → tests
+  #    Depends on build-e2e-images → deploys e2e-staging images to RPi
+  #    Runner joins tailnet → Ansible deploy → E2E tests
   #    Funnel runs on RPi HOST (not runner)
   # ------------------------------------------------------------------
   pr-e2e-rpi-ts-staging:
     name: "E2E: rpi-ts-staging"
+    needs: build-e2e-images
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -273,7 +286,7 @@ jobs:
             -e "cybermem_env=staging" \
             -e "ghcr_user=${{ github.actor }}" \
             -e "ghcr_token=${{ secrets.GITHUB_TOKEN }}" \
-            -e "ghcr_tag=staging" \
+            -e "ghcr_tag=e2e-staging" \
             -e "TRAEFIK_PORT=8625" \
             -e "CYBERMEM_TAILSCALE=false" \
             -e "auth_token_hash=${{ steps.gen_token.outputs.token_hash }}" \
