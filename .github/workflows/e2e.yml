@@ -10,21 +10,8 @@ on:
 permissions:
   contents: read
   pull-requests: write
-  packages: write
 
 jobs:
-  # ------------------------------------------------------------------
-  # 0. Build Docker images from PR code → push to GHCR with e2e-staging tag
-  #    arm64 on self-hosted ARM runner (or QEMU fallback), amd64 on ubuntu
-  # ------------------------------------------------------------------
-  build-e2e-images:
-    name: "Build E2E Images"
-    uses: ./.github/workflows/build-images.yml
-    with:
-      tag: e2e-staging
-      force_build: true
-    secrets: inherit
-
   # ------------------------------------------------------------------
   # 1. Quality Gates (Lint, Danger) — NO DEPENDENCIES
   # ------------------------------------------------------------------
@@ -169,15 +156,15 @@ jobs:
           retention-days: 7
 
   # ------------------------------------------------------------------
-  # 4. E2E: rpi-ts-staging (port 10000 via Tailscale)
-  #    Depends on build-e2e-images → deploys e2e-staging images to RPi
-  #    Runner joins tailnet → Ansible deploy → E2E tests
-  #    Funnel runs on RPi HOST (not runner)
+  # 4. E2E: rpi-ts-staging — NO GHCR, NO published packages
+  #    Build arm64 backend images via QEMU → docker save → tailscale ssh
+  #    → docker load on RPi → Ansible deploy → Turbopack dashboard on runner
+  #    Same flow as localhost-staging but backend runs on RPi
   # ------------------------------------------------------------------
   pr-e2e-rpi-ts-staging:
     name: "E2E: rpi-ts-staging"
-    needs: build-e2e-images
     runs-on: ubuntu-latest
+    if: github.event.pull_request.head.repo.full_name == github.repository || github.event_name != 'pull_request'
     steps:
       - uses: actions/checkout@v4
         with:
@@ -187,6 +174,7 @@ jobs:
         with:
           node-version: "20"
 
+      # --- Tailscale ---
       - name: Setup Tailscale
         uses: tailscale/github-action@v4
         with:
@@ -198,13 +186,9 @@ jobs:
       - name: Get RPi Tailscale Info
         id: rpi_info
         run: |
-          echo "Waiting for Tailscale connection..."
           for i in {1..12}; do
             sleep 5
-            if tailscale status --json >/dev/null 2>&1; then
-              echo "✅ Tailscale connected"
-              break
-            fi
+            if tailscale status --json >/dev/null 2>&1; then break; fi
             echo "Waiting... ($i/12)"
           done
 
@@ -223,16 +207,61 @@ jobs:
 
           echo "dns=${RPI_DNS}" >> $GITHUB_OUTPUT
           echo "ip=${RPI_IP}" >> $GITHUB_OUTPUT
-          echo "url=https://${RPI_DNS}:10000" >> $GITHUB_OUTPUT
-          echo "✅ RPi DNS: ${RPI_DNS}, IP: ${RPI_IP}"
-          echo "✅ Staging URL: https://${RPI_DNS}:10000"
+          echo "✅ RPi: ${RPI_DNS} (${RPI_IP})"
 
+      - name: Verify Tailscale SSH
+        run: |
+          tailscale ping --c 1 --timeout 10s ${{ steps.rpi_info.outputs.ip }} || true
+          timeout 30 tailscale ssh pi@${{ steps.rpi_info.outputs.dns }} echo "✅ SSH OK" || {
+            echo "❌ tailscale ssh FAILED"
+            echo "Fix: sudo tailscale up --advertise-tags=tag:rpi --ssh"
+            exit 1
+          }
+
+      # --- Build arm64 backend images from PR code (QEMU, no GHCR) ---
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build arm64 backend images
+        run: |
+          IMAGES=(
+            "cybermem-mcp:packages/mcp"
+            "cybermem-auth-sidecar:packages/cli/templates/auth-sidecar"
+            "cybermem-db_exporter:packages/cli/templates/monitoring/db_exporter"
+            "cybermem-log_exporter:packages/cli/templates/monitoring/log_exporter"
+          )
+          for entry in "${IMAGES[@]}"; do
+            NAME="${entry%%:*}"
+            CTX="${entry#*:}"
+            echo "🔨 Building ${NAME} (arm64)..."
+            docker buildx build \
+              --platform linux/arm64 \
+              --load \
+              -t "ghcr.io/mikhailkogan17/${NAME}:e2e" \
+              "${CTX}"
+          done
+          echo "✅ All arm64 backend images built"
+
+      - name: Transfer images to RPi
+        run: |
+          echo "📦 Saving and transferring images to RPi..."
+          docker save \
+            ghcr.io/mikhailkogan17/cybermem-mcp:e2e \
+            ghcr.io/mikhailkogan17/cybermem-auth-sidecar:e2e \
+            ghcr.io/mikhailkogan17/cybermem-db_exporter:e2e \
+            ghcr.io/mikhailkogan17/cybermem-log_exporter:e2e \
+          | tailscale ssh pi@${{ steps.rpi_info.outputs.dns }} docker load
+          echo "✅ Images loaded on RPi"
+
+      # --- Generate token & deploy via Ansible ---
       - name: Generate Staging Token
         id: gen_token
         run: |
           TOKEN="sk-$(openssl rand -hex 16)"
           echo "token=$TOKEN" >> $GITHUB_OUTPUT
-
           node -e "
           const crypto = require('crypto');
           const token = '$TOKEN';
@@ -243,39 +272,15 @@ jobs:
             console.log('token_id=' + crypto.randomBytes(8).toString('hex'));
           });
           " >> $GITHUB_OUTPUT
-          echo "✅ Generated staging E2E token"
 
-      - name: Setup Ansible + Tailscale SSH wrapper
+      - name: Setup Ansible
         run: |
-          sudo apt-get update
-          sudo apt-get install -y ansible
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq ansible
           sudo cp tools/ts-ssh /usr/local/bin/ts-ssh
           sudo chmod +x /usr/local/bin/ts-ssh
 
-      - name: Verify Tailscale SSH Connectivity
-        run: |
-          echo "=== Tailscale Self Status ==="
-          tailscale status --self --json | jq '{BackendState, Self: .Self | {DNSName, Online, TailscaleIPs}}'
-
-          echo "=== RPi Peer Status ==="
-          tailscale status --json | jq '.Peer[] | select(.HostName | test("raspberrypi";"i")) | {HostName, DNSName, Online, TailscaleIPs, Active, LastSeen, Relay}'
-
-          echo "=== Tailscale Ping RPi ==="
-          tailscale ping --c 3 --timeout 10s ${{ steps.rpi_info.outputs.ip }} || echo "⚠️ Ping failed"
-
-          echo "=== Test: tailscale ssh pi@hostname echo hello ==="
-          timeout 30 tailscale ssh pi@${{ steps.rpi_info.outputs.dns }} echo "✅ Tailscale SSH works" || {
-            echo "❌ tailscale ssh FAILED (exit $?)"
-            echo ""
-            echo "TROUBLESHOOTING:"
-            echo "  1. On RPi: sudo tailscale up --advertise-tags=tag:rpi --ssh"
-            echo "     (re-login may have removed tag:rpi — verify with tailscale status --self)"
-            echo "  2. In Tailscale admin: verify RPi shows tag:rpi (not user@)"
-            echo "  3. ACL ssh section must allow tag:ci → tag:rpi for users pi,root"
-            exit 1
-          }
-
-      - name: Deploy Staging to RPi
+      - name: Deploy to RPi
         env:
           ANSIBLE_HOST_KEY_CHECKING: "False"
           ANSIBLE_REMOTE_TMP: /tmp/.ansible-tmp
@@ -284,9 +289,8 @@ jobs:
             -i packages/cli/templates/ansible/inventory/hosts.ini \
             packages/cli/templates/ansible/playbooks/deploy-cybermem.yml \
             -e "cybermem_env=staging" \
-            -e "ghcr_user=${{ github.actor }}" \
-            -e "ghcr_token=${{ secrets.GITHUB_TOKEN }}" \
-            -e "ghcr_tag=e2e-staging" \
+            -e "ghcr_tag=e2e" \
+            -e "skip_pull=true" \
             -e "TRAEFIK_PORT=8625" \
             -e "CYBERMEM_TAILSCALE=false" \
             -e "auth_token_hash=${{ steps.gen_token.outputs.token_hash }}" \
@@ -300,30 +304,33 @@ jobs:
             -e "ansible_become_flags=-n" \
             -e "ansible_timeout=60"
 
+      # --- Turbopack dashboard on runner + E2E tests ---
       - run: npm ci
       - run: npx playwright install --with-deps chromium
 
-      - name: Wait for RPi Staging Services
+      - name: Wait for RPi Backend
         run: |
-          STAGING_URL="${{ steps.rpi_info.outputs.url }}"
-          echo "Waiting for services at: ${STAGING_URL}/health"
+          RPI="http://${{ steps.rpi_info.outputs.ip }}:8625"
+          echo "Waiting for backend at ${RPI}/health..."
           for i in {1..30}; do
-            if curl -sf --max-time 10 "${STAGING_URL}/health" > /dev/null 2>&1; then
-              echo "✅ RPi staging services ready"
+            if tailscale ssh pi@${{ steps.rpi_info.outputs.dns }} \
+              curl -sf --max-time 5 http://localhost:8625/health >/dev/null 2>&1; then
+              echo "✅ RPi backend ready"
               break
             fi
-            echo "Waiting for services... ($i/30)"
+            echo "Waiting... ($i/30)"
             sleep 10
           done
-          curl -sf --max-time 10 "${STAGING_URL}/health" > /dev/null 2>&1 \
-            || { echo "❌ RPi staging services not healthy"; exit 1; }
 
+      # Turbopack dashboard on :3000, RPi backend on :8625 via Tailscale
+      # MCP tests → RPi directly, Dashboard tests → local Turbopack → RPi
       - name: Run E2E
         run: npx playwright test
         env:
           CI: true
-          DASHBOARD_URL: ${{ steps.rpi_info.outputs.url }}
-          MCP_URL: ${{ steps.rpi_info.outputs.url }}/mcp
+          DASHBOARD_URL: http://localhost:3000
+          MCP_URL: http://${{ steps.rpi_info.outputs.ip }}:8625/mcp
+          INTERNAL_MCP_URL: http://${{ steps.rpi_info.outputs.ip }}:8625
           CYBERMEM_TOKEN: ${{ steps.gen_token.outputs.token }}
 
       - name: Upload Playwright Reports

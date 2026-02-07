@@ -148,6 +148,7 @@
         chdir: "{{ project_dir }}"
       register: pull_out
       changed_when: "'Downloaded newer image' in pull_out.stdout or 'Downloaded newer image' in pull_out.stderr"
+      when: not (skip_pull | default(false) | bool)
 
     - name: Start services
       command: docker-compose -p {{ PROJECT_NAME | default('cybermem') }} up -d --remove-orphans
