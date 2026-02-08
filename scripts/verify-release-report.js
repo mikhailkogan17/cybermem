@@ -11,9 +11,12 @@ const packageJson = JSON.parse(
 const version = packageJson.version;
 const reportPath = path.join(
   __dirname,
-  `../release-reports/release-report-${version}.md`,
+  `../release-reports/${version}/release-report-${version}-assets/release-report-${version}.md`,
 );
-const templatePath = path.join(__dirname, `../release-reports/TEMPLATE.md`);
+const assetsDirPath = path.join(
+  __dirname,
+  `../release-reports/${version}/release-report-${version}-assets`,
+);
 
 console.log(chalk.blue(`🛡️  Verifying Release Report for v${version}...`));
 
@@ -26,7 +29,6 @@ if (!fs.existsSync(reportPath)) {
 }
 
 const content = fs.readFileSync(reportPath, "utf-8");
-const templateContent = fs.readFileSync(templatePath, "utf-8");
 
 // 1. Check for unchecked boxes
 if (content.includes("- [ ]")) {
@@ -49,12 +51,8 @@ if (content.includes("- [ ]")) {
 }
 
 // 2. Check for missing screenshots (Asset validation)
-const assetDir = path.join(
-  __dirname,
-  `../release-reports/release-report-${version}-assets`,
-);
-if (!fs.existsSync(assetDir)) {
-  console.error(chalk.red(`❌ Missing Assets Directory: ${assetDir}`));
+if (!fs.existsSync(assetsDirPath)) {
+  console.error(chalk.red(`❌ Missing Assets Directory: ${assetsDirPath}`));
   process.exit(1);
 }
 
