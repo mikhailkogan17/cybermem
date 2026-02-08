@@ -122,7 +122,6 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: "20"
-          registry-url: "https://registry.npmjs.org"
 
       - run: npm ci
 
@@ -134,15 +133,16 @@ jobs:
       - name: Bump Versions
         id: version
         run: |
-          for pkg in packages/cli packages/mcp packages/dashboard; do
-             (cd $pkg && npm version ${{ inputs.version_type }} --no-git-tag-version)
-          done
+          npm version ${{ inputs.version_type }} --workspaces --include-workspace-root --no-git-tag-version
           NEW_VERSION=$(node -p "require('./packages/cli/package.json').version")
           echo "version=$NEW_VERSION" >> $GITHUB_OUTPUT
           echo "📦 New version: $NEW_VERSION"
 
       - name: Build Packages
         run: npm run build --workspaces
+
+      - name: Verify NPM Identity (OIDC)
+        run: npm whoami
 
       - name: Publish to NPM (OIDC)
         run: |
@@ -176,9 +176,7 @@ jobs:
 
       - name: Bump Versions (for commit)
         run: |
-          for pkg in packages/cli packages/mcp packages/dashboard; do
-             (cd $pkg && npm version ${{ inputs.version_type }} --no-git-tag-version)
-          done
+          npm version ${{ inputs.version_type }} --workspaces --include-workspace-root --no-git-tag-version
 
       - name: Download E2E Reports (localhost-staging)
         uses: actions/download-artifact@v4
