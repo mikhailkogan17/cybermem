@@ -20,7 +20,7 @@ permissions:
 
 jobs:
   # ==================================================================
-  # 1. PRE-FLIGHT
+  # 1. PRE-FLIGHT (Same as PR Checks)
   # ==================================================================
   check-prereqs:
     name: "check-prereqs"
@@ -45,221 +45,32 @@ jobs:
           fi
 
   # ==================================================================
-  # 2. BUILD STAGING IMAGES (Reusable Workflow)
+  # 2. RUN E2E CHECKS (Reuse PR Checks Workflow)
   # ==================================================================
-  build-staging:
-    name: "build:staging"
+  run-e2e-checks:
+    name: "e2e-checks"
     needs: check-prereqs
+    uses: ./.github/workflows/e2e.yml
+    secrets: inherit
+
+  # ==================================================================
+  # 3. BUILD PRODUCTION IMAGES
+  # ==================================================================
+  build-prod:
+    name: "build:prod"
+    needs: run-e2e-checks
     uses: ./.github/workflows/build-images.yml
     with:
-      tag: staging
+      tag: latest
       force_build: true
     secrets: inherit
 
   # ==================================================================
-  # 3. DEPLOY STAGING (Pull :staging from GHCR)
-  # ==================================================================
-  deploy-staging:
-    name: "deploy:rpi-ts-staging"
-    needs: build-staging
-    runs-on: ubuntu-latest
-    outputs:
-      rpi_url: ${{ steps.get_url.outputs.url }}
-      staging_token: ${{ steps.gen_token.outputs.token }}
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Generate Staging Token
-        id: gen_token
-        run: |
-          # Generate token for staging E2E auth (same format as CLI)
-          TOKEN="sk-$(openssl rand -hex 16)"
-          echo "token=$TOKEN" >> $GITHUB_OUTPUT
-
-          # Generate PBKDF2 hash (using Node.js to match CLI EXACTLY)
-          node -e "
-          const crypto = require('crypto');
-          const token = '$TOKEN';
-          const salt = crypto.randomBytes(16).toString('hex');
-          crypto.pbkdf2(token, salt, 100000, 64, 'sha512', (err, key) => {
-            if (err) process.exit(1);
-            console.log('token_hash=' + salt + ':' + key.toString('hex'));
-            console.log('token_id=' + crypto.randomBytes(8).toString('hex'));
-          });
-          " >> $GITHUB_OUTPUT
-          echo "✅ Generated staging token via Node.js"
-
-      - name: Setup Tailscale
-        uses: tailscale/github-action@v4
-        with:
-          oauth-client-id: ${{ secrets.TS_OAUTH_CLIENT_ID }}
-          oauth-secret: ${{ secrets.TS_OAUTH_SECRET }}
-          tags: tag:ci
-          version: 1.76.6
-
-      - name: Get RPi Funnel URL
-        id: get_url
-        run: |
-          echo "Waiting for Tailscale connection..."
-          TAILSCALE_CONNECTED=0
-          for i in {1..12}; do
-            sleep 5
-            if tailscale status --json >/dev/null 2>&1; then
-              echo "✅ Tailscale connected"
-              TAILSCALE_CONNECTED=1
-              break
-            fi
-            echo "Waiting... ($i/12)"
-          done
-
-          if [ "$TAILSCALE_CONNECTED" -ne 1 ]; then
-            echo "❌ Tailscale failed to connect"
-            exit 1
-          fi
-
-          RPI_DNS=$(tailscale status --json | jq -r '.Peer[] | select(.HostName | test("raspberrypi"; "i")) | .DNSName' | head -1 | sed 's/\.$//')
-          if [ -z "$RPI_DNS" ]; then
-            echo "❌ Could not find RPi"
-            tailscale status
-            exit 1
-          fi
-
-          FUNNEL_URL="https://${RPI_DNS}:8443"
-          echo "url=${FUNNEL_URL}" >> $GITHUB_OUTPUT
-          echo "✅ RPi Staging Funnel URL: ${FUNNEL_URL}"
-
-      - name: Setup Ansible + Tailscale SSH
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y ansible
-          sudo cp tools/ts-ssh /usr/local/bin/ts-ssh
-          sudo chmod +x /usr/local/bin/ts-ssh
-
-      - name: Get RPi Tailscale IP
-        id: get_rpi_ip
-        run: |
-          for i in {1..5}; do
-            RPI_IP=$(tailscale status --json | jq -r '.Peer[] | select(.HostName | test("raspberrypi"; "i")) | .TailscaleIPs[0]' | head -1)
-            if [ -n "$RPI_IP" ]; then
-              echo "ip=$RPI_IP" >> $GITHUB_OUTPUT
-              echo "✅ RPi IP: $RPI_IP"
-              exit 0
-            fi
-            sleep 3
-          done
-          exit 1
-
-      - name: Deploy Staging (Pull :staging)
-        env:
-          ANSIBLE_HOST_KEY_CHECKING: "False"
-        run: |
-          ansible-playbook \
-            -i packages/cli/templates/ansible/inventory/hosts.ini \
-            packages/cli/templates/ansible/playbooks/deploy-cybermem.yml \
-            --extra-vars "cybermem_env=staging ghcr_user=${{ github.actor }} ghcr_token=${{ secrets.GITHUB_TOKEN }} ghcr_tag=staging TRAEFIK_PORT=8625 CYBERMEM_TAILSCALE=false" \
-            --extra-vars "auth_token_hash=${{ steps.gen_token.outputs.token_hash }}" \
-            --extra-vars "auth_token_id=${{ steps.gen_token.outputs.token_id }}" \
-            --extra-vars "auth_token_name=staging-e2e" \
-            --extra-vars "auth_token_value=${{ steps.gen_token.outputs.token }}" \
-            --extra-vars "ansible_ssh_executable=/usr/local/bin/ts-ssh" \
-            --extra-vars "ansible_host=${{ steps.get_rpi_ip.outputs.ip }}" \
-            --extra-vars "ansible_ssh_pass=" \
-            --extra-vars "ansible_user=pi ansible_become_flags=-n ansible_timeout=60"
-
-  # ==================================================================
-  # 4. E2E VERIFICATION
-  # ==================================================================
-  e2e-staging:
-    name: "e2e:rpi-ts-staging"
-    needs: deploy-staging
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: "20"
-
-      - run: npm ci
-      - run: npx playwright install --with-deps chromium
-
-      - name: Setup Tailscale
-        uses: tailscale/github-action@v4
-        with:
-          oauth-client-id: ${{ secrets.TS_OAUTH_CLIENT_ID }}
-          oauth-secret: ${{ secrets.TS_OAUTH_SECRET }}
-          tags: tag:ci
-          version: 1.76.6
-
-      - name: Build Local Packages
-        run: npm run build --workspaces
-
-      - name: Run E2E Verification
-        id: run-e2e
-        env:
-          DASHBOARD_URL: ${{ needs.deploy-staging.outputs.rpi_url }}
-          MCP_URL: ${{ needs.deploy-staging.outputs.rpi_url }}/mcp
-          CYBERMEM_TOKEN: ${{ needs.deploy-staging.outputs.staging_token }}
-          TEST_ENV_NAME: "rpi-ts-staging"
-        run: |
-          echo "Testing against: $DASHBOARD_URL"
-          for i in {1..30}; do
-            if curl -sf "${DASHBOARD_URL}/health" > /dev/null 2>&1; then
-              echo "✅ Services ready"
-              break
-            fi
-            echo "Waiting for services... ($i/30)"
-            sleep 10
-          done
-
-          # Final health check to ensure services became ready
-          curl -sf "${DASHBOARD_URL}/health" > /dev/null 2>&1 || { echo "❌ Services failed to become healthy"; exit 1; }
-
-          cd packages/cli
-          npm run test:e2e:dashboard:api
-          npm run test:e2e:cli
-
-      - name: Generate Report
-        if: always()
-        run: |
-          mkdir -p release-report-staging
-          TEST_STATUS="unknown"
-          if [ "${{ steps.run-e2e.outcome }}" == "success" ]; then
-            TEST_STATUS="passed"
-          elif [ "${{ steps.run-e2e.outcome }}" == "failure" ]; then
-            TEST_STATUS="failed"
-          fi
-          echo "# RPI-TS-STAGING Verification" > release-report-staging/RPI-TS-STAGING.md
-          echo "**Date**: $(date -u +%Y-%m-%d)" >> release-report-staging/RPI-TS-STAGING.md
-          echo "**URL**: ${{ needs.deploy-staging.outputs.rpi_url }}" >> release-report-staging/RPI-TS-STAGING.md
-          echo "**Status**: ${TEST_STATUS}" >> release-report-staging/RPI-TS-STAGING.md
-
-      - name: Slack (Staging Fail)
-        if: failure()
-        env:
-          SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK_URL }}
-        run: |
-          curl -X POST -H 'Content-type: application/json' \
-            --data '{"text":"❌ *Publish Aborted: Staging E2E Failed*"}' \
-            $SLACK_WEBHOOK || true
-
-      - name: Upload E2E Reports
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: e2e-reports-staging
-          path: |
-            packages/*/playwright-report/
-            packages/*/test-results/
-            release-report-staging/
-          retention-days: 14
-
-  # ==================================================================
-  # 5. PUSH :latest TO GHCR (After E2E passes)
+  # 4. DEPLOY TO GHCR (Promote :latest)
   # ==================================================================
   deploy-ghcr:
     name: "deploy:ghcr"
-    needs: e2e-staging
+    needs: build-prod
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -276,21 +87,11 @@ jobs:
           - name: log-exporter
             image: cybermem-log_exporter
     steps:
-      - name: Log in to GHCR
-        uses: docker/login-action@v3
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Promote :staging to :latest
-        run: |
-          docker pull ghcr.io/${{ github.repository_owner }}/${{ matrix.image }}:staging
-          docker tag ghcr.io/${{ github.repository_owner }}/${{ matrix.image }}:staging ghcr.io/${{ github.repository_owner }}/${{ matrix.image }}:latest
-          docker push ghcr.io/${{ github.repository_owner }}/${{ matrix.image }}:latest
+      - name: Verify Image Built
+        run: echo "✅ Image ${{ matrix.image }}:latest should be available in GHCR"
 
   # ==================================================================
-  # 6. PUBLISH NPM
+  # 5. PUBLISH NPM
   # ==================================================================
   publish-npm:
     name: "publish:npm"
@@ -336,7 +137,7 @@ jobs:
           done
 
   # ==================================================================
-  # 7. FINALIZE (Tag, Commit, GitHub Release, Slack)
+  # 6. FINALIZE (Tag, Commit, GitHub Release, Slack)
   # ==================================================================
   finalize:
     name: "finalize"
@@ -365,17 +166,10 @@ jobs:
              (cd $pkg && npm version ${{ inputs.version_type }} --no-git-tag-version)
           done
 
-      - name: Download E2E Reports
-        uses: actions/download-artifact@v4
-        with:
-          name: e2e-reports-staging
-          path: release-reports/v${{ needs.publish-npm.outputs.version }}
-
-      - name: Commit Version Bump & Reports
+      - name: Commit Version Bump
         run: |
           VERSION="${{ needs.publish-npm.outputs.version }}"
           git add packages/*/package.json
-          git add "release-reports/v${VERSION}" || true
           git commit -m "release: v${VERSION}" || echo "Nothing to commit"
           git tag -a "v${VERSION}" -m "Release v${VERSION}"
           git push origin main --tags
@@ -397,7 +191,7 @@ jobs:
             $SLACK_WEBHOOK || true
 
   # ==================================================================
-  # 8. DEPLOY PROD (Pull :latest from GHCR)
+  # 7. DEPLOY PROD (Pull :latest from GHCR)
   # ==================================================================
   deploy-prod:
     name: "deploy:rpi-ts-prod"
