@@ -1,38 +1,35 @@
-FROM node:20-alpine AS builder
-
+# Base stage
+FROM node:20-alpine AS base
 WORKDIR /app
-# Install build dependencies for native modules (better-sqlite3)
 RUN apk add --no-cache python3 make g++
 
-# Copy package files
+# Build stage
+FROM base AS builder
 COPY package.json ./
-# Install ALL dependencies (including devDeps for build if TS)
 RUN npm install
-
-# Copy source
 COPY . .
-
-# Build TypeScript
 RUN npm run build
-
-# Prune dev dependencies
 RUN npm prune --production
 
+# Native stage for sqlite3 bindings
+FROM node:20-alpine AS native-builder
+RUN apk update && apk add --no-cache python3 python3-dev make g++
+WORKDIR /native
+RUN npm init -y && npm install sqlite3@5.1.7 sqlite@5.1.1
 
+# Runtime stage
 FROM node:20-alpine AS runner
-
-WORKDIR /app
 RUN apk add --no-cache libc6-compat
-# Install runtime dependencies for native modules if needed (usually just glibc/musl compatibility, but better-sqlite3 bundles binaries or needs rebuild.
-# We copy node_modules from builder so native addons should work if arc matches.
-# For cross-platform (building amd64 on arm64 or vice versa), we might need QEMU or specific handling.
-# GitHub Actions runner is likely amd64, RPi is arm64.
-# We rely on docker buildx (multi-arch) in CI.
+WORKDIR /app
 
 # Copy built artifacts and deps
 COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/package.json ./package.json
+
+# Copy compiled native modules (sqlite3 and sqlite)
+COPY --from=native-builder /native/node_modules/sqlite3 ./node_modules/sqlite3
+COPY --from=native-builder /native/node_modules/sqlite ./node_modules/sqlite
 
 # Environment defaults
 ENV NODE_ENV=production
