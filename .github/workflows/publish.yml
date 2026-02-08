@@ -60,6 +60,10 @@ jobs:
   build-prod:
     name: "build:prod"
     needs: e2e
+    permissions:
+      actions: read
+      contents: read
+      packages: write
     uses: ./.github/workflows/build-images.yml
     with:
       tag: latest
