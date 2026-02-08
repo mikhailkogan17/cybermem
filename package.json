@@ -14,9 +14,9 @@
     "test:unit": "jest",
     "test:e2e": "npx ts-node packages/cli/e2e/e2e.ts",
     "test:e2e:ci": "npx ts-node packages/cli/e2e/e2e.ts --only-testing localhost-prod",
-    "cli": "npm run start -w @cybermem/cli",
-    "dashboard:dev": "npm run dev -w @cybermem/dashboard",
-    "mcp:dev": "npm run dev -w @cybermem/mcp",
+    "cli": "npm run start -w packages/cli",
+    "dashboard:dev": "npm run dev -w packages/dashboard",
+    "mcp:dev": "npm run dev -w packages/mcp",
     "release": "./tools/release.sh"
   },
   "devDependencies": {

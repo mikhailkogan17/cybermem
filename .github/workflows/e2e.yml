@@ -61,7 +61,7 @@ jobs:
         env:
           DOCKER_DEFAULT_PLATFORM: linux/amd64
         run: |
-          npm run build -w @cybermem/cli
+          npm run build -w packages/cli
           node packages/cli/dist/index.js install --staging
           sleep 30
 
@@ -113,7 +113,7 @@ jobs:
         env:
           DOCKER_DEFAULT_PLATFORM: linux/amd64
         run: |
-          npm run build -w @cybermem/cli
+          npm run build -w packages/cli
           node packages/cli/dist/index.js install
           sleep 30
 
@@ -165,7 +165,7 @@ jobs:
 
       - name: Build CLI & Install
         run: |
-          npm run build -w @cybermem/cli
+          npm run build -w packages/cli
           node packages/cli/dist/index.js install --rpi --staging --host pi@raspberrypi.local
           sleep 30
 

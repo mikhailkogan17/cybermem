@@ -275,8 +275,8 @@ test.describe("CLI:E2E (Integration)", () => {
 
     await test.step("🔐 Verify Access Token Format — sk-<sha32>", async () => {
       // Run install to capture stdout with access token
-      console.log("🔐 Running: npx @cybermem/cli install (capturing token)");
-      const result = runCLI("npx @cybermem/cli install");
+      console.log("🔐 Running: node packages/cli/dist/index.js install (capturing token)");
+      const result = runCLI("node packages/cli/dist/index.js install");
 
       // Access token should be in format: sk-<32 hex chars>
       const tokenMatch = result.stdout.match(/sk-[a-f0-9]{32,64}/i);
@@ -298,8 +298,8 @@ test.describe("CLI:E2E (Integration)", () => {
 
   test("CLI Sanity: Version and Health", async ({}, testInfo) => {
     await test.step("📦 CLI Version Check", async () => {
-      console.log("📦 Running: npx @cybermem/cli --version");
-      const result = runCLI("npx @cybermem/cli --version");
+      console.log("📦 Running: node packages/cli/dist/index.js --version");
+      const result = runCLI("node packages/cli/dist/index.js --version");
 
       const versionMatch = result.stdout.match(/\d+\.\d+\.\d+/);
       const hasVersion = versionMatch !== null;
@@ -307,7 +307,7 @@ test.describe("CLI:E2E (Integration)", () => {
       console.log(`   Version: ${versionMatch ? versionMatch[0] : "N/A"}`);
 
       await testInfo.attach("📦 CLI Version", {
-        body: `Command: npx @cybermem/cli --version\nSuccess: ${result.success}\nVersion: ${versionMatch ? versionMatch[0] : "N/A"}`,
+        body: `Command: node packages/cli/dist/index.js --version\nSuccess: ${result.success}\nVersion: ${versionMatch ? versionMatch[0] : "N/A"}`,
         contentType: "text/plain",
       });
 
@@ -315,9 +315,9 @@ test.describe("CLI:E2E (Integration)", () => {
     });
 
     await test.step("🏥 Docker Health Check via CLI", async () => {
-      console.log("🏥 Running: npx @cybermem/cli dashboard (status check)");
+      console.log("🏥 Running: node packages/cli/dist/index.js dashboard (status check)");
       const result = runCLI(
-        "npx @cybermem/cli dashboard --status-only 2>/dev/null || echo 'status not available'",
+        "node packages/cli/dist/index.js dashboard --status-only 2>/dev/null || echo 'status not available'",
       );
 
       // Check docker ps for running containers
