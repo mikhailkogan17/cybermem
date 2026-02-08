@@ -150,15 +150,14 @@
       changed_when: "'Downloaded newer image' in pull_out.stdout or 'Downloaded newer image' in pull_out.stderr"
       when: not (skip_pull | default(false) | bool)
 
-    - name: Stop conflicting containers (prevent port conflicts from stale projects)
+    - name: Stop staging containers (prevent port conflicts, NEVER touch prod)
       shell: |
-        for proj in cybermem cybermem-staging; do
-          docker-compose -p "$proj" down --remove-orphans 2>/dev/null || true
-        done
+        docker-compose -p cybermem-staging down --remove-orphans 2>/dev/null || true
       args:
         chdir: "{{ project_dir }}"
       changed_when: false
       ignore_errors: true
+      when: cybermem_env | default('prod') == 'staging'
 
     - name: Start services
       command: docker-compose -p {{ PROJECT_NAME | default('cybermem') }} up -d --remove-orphans

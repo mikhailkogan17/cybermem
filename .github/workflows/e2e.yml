@@ -163,6 +163,11 @@ jobs:
 
       - run: npm ci
 
+      - name: Fix Docker credential helper (macOS keychain locked in CI)
+        run: |
+          mkdir -p ~/.docker
+          echo '{}' > ~/.docker/config.json
+
       - name: Build CLI & Install
         run: |
           npm run build -w packages/cli
