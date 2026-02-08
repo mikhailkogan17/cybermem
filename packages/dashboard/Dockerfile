@@ -28,7 +28,7 @@ RUN --mount=type=cache,target=/root/.pnpm-store \
 
 # Native stage for sqlite3 bindings and wrapper
 FROM node:20-alpine AS native-builder
-RUN apk add --no-cache python3 make g++
+RUN apk update && apk add --no-cache python3 python3-dev make g++
 WORKDIR /native
 RUN npm init -y && npm install sqlite3@5.1.7 sqlite@5.1.1
 
