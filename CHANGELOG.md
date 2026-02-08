@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased]
+
+### Changed
+
+- **CI/CD**: Dashboard ARM64 builds now use macOS runner instead of RPi runner for better performance and reliability
+
 ## [0.13.0] - 2026-02-03
 
 ### Added
