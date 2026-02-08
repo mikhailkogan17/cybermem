@@ -92,6 +92,7 @@ jobs:
         run: |
           # Detect if any runner with label matching 'arm' (case-insensitive) is online
           # Matches: arm, ARM, arm64, ARM64, arm_, arm64.*, etc.
+          # Falls back to ubuntu-latest with QEMU if arm64 runner is offline
           # uses || echo "" to prevent set -e failure
           RUNNERS=$(gh api repos/${{ github.repository }}/actions/runners --jq '.runners[] | select(any(.labels[]; .name | test("(?i)arm")) and .status == "online") | .name' 2>/dev/null || echo "")
 
@@ -100,8 +101,9 @@ jobs:
             echo "runner=\"arm64\"" >> $GITHUB_OUTPUT
             echo "### 🚀 CI Mode: Native ARM64" >> $GITHUB_STEP_SUMMARY
           else
-            echo "❌ No arm64 Runner detected or API failure"
-            exit 1
+            echo "No arm64 Runner detected or API failure. Falling back to QEMU."
+            echo "runner=\"ubuntu-latest\"" >> $GITHUB_OUTPUT
+            echo "### 🐢 CI Mode: QEMU Emulation (Fallback)" >> $GITHUB_STEP_SUMMARY
           fi
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
