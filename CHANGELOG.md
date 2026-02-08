@@ -1,5 +1,7 @@
 # Changelog
 
+## [Unreleased]
+
 All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
