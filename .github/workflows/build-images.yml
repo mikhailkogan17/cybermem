@@ -83,6 +83,8 @@ jobs:
 
   detect-runner:
     runs-on: ubuntu-latest
+    permissions:
+      actions: read
     outputs:
       arm64_runner: ${{ steps.set-runner.outputs.runner }}
     steps:
