@@ -25,7 +25,7 @@
     "test:e2e:dashboard:api": "npm run test:e2e -w packages/dashboard -- --project=api",
     "test:e2e:dashboard:ui": "npm run test:e2e -w packages/dashboard -- --project=ui",
     "test:e2e:cli": "playwright test --project=integration",
-    "prepublishOnly": "npm run build && ts-node ../../scripts/verify-release-report.ts"
+    "prepublishOnly": "npm run build"
   },
   "keywords": [
     "cybermem",

@@ -184,19 +184,19 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: e2e-reports-localhost-staging
-          path: release-reports/v${{ needs.publish-npm.outputs.version }}/localhost-staging
+          path: release-reports/${{ needs.publish-npm.outputs.version }}/release-report-${{ needs.publish-npm.outputs.version }}-assets/localhost-staging
 
       - name: Download E2E Reports (localhost-prod)
         uses: actions/download-artifact@v4
         with:
           name: e2e-reports-localhost-prod
-          path: release-reports/v${{ needs.publish-npm.outputs.version }}/localhost-prod
+          path: release-reports/${{ needs.publish-npm.outputs.version }}/release-report-${{ needs.publish-npm.outputs.version }}-assets/localhost-prod
 
       - name: Commit Version Bump & Reports
         run: |
           VERSION="${{ needs.publish-npm.outputs.version }}"
           git add packages/*/package.json
-          git add "release-reports/v${VERSION}" || true
+          git add "release-reports/${VERSION}" || true
           git commit -m "release: v${VERSION}" || echo "Nothing to commit"
           git tag -a "v${VERSION}" -m "Release v${VERSION}"
           git push origin main --tags
