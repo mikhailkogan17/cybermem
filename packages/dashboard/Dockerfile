@@ -15,10 +15,10 @@ RUN --mount=type=cache,target=/root/.pnpm-store pnpm install --no-frozen-lockfil
 # Copy source code
 COPY . .
 
-# Development stage - skips build, runs dev server
+# Development stage - skips build, runs Turbopack dev server (instant startup)
 FROM base AS dev
 ENV NODE_ENV=development
-CMD ["pnpm", "dev"]
+CMD ["pnpm", "dev", "--turbopack"]
 
 # Builder stage - runs build (slow)
 FROM base AS builder

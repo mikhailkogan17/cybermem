@@ -5,6 +5,12 @@
   vars:
     project_dir: /home/{{ ansible_user }}/cybermem
     env_file: .env.rpi
+    # Default ports based on environment
+    TRAEFIK_PORT_STAGING: "8625"
+    TRAEFIK_PORT_PROD: "8626"
+    TRAEFIK_PORT_DEFAULT: "{{ TRAEFIK_PORT_STAGING if cybermem_env | default('prod') == 'staging' else TRAEFIK_PORT_PROD }}"
+    # Port to use consistently across all tasks
+    EFFECTIVE_TRAEFIK_PORT: "{{ TRAEFIK_PORT | default(TRAEFIK_PORT_DEFAULT) }}"
 
   tasks:
     - name: Update apt cache
@@ -111,7 +117,7 @@
       replace:
         path: "{{ project_dir }}/monitoring/traefik/traefik.yml"
         regexp: 'address: ":8626"'
-        replace: 'address: ":{{ TRAEFIK_PORT | default("8626") }}"'
+        replace: 'address: ":{{ EFFECTIVE_TRAEFIK_PORT }}"'
 
     - name: Ensure .env is present (template if missing)
       copy:
@@ -119,13 +125,12 @@
           CYBERMEM_INSTANCE=rpi
           CYBERMEM_ENV={{ cybermem_env | default('prod') }}
           PROJECT_NAME={{ PROJECT_NAME | default('cybermem') }}
-          TRAEFIK_PORT={{ TRAEFIK_PORT | default('8626') }}
+          TRAEFIK_PORT={{ EFFECTIVE_TRAEFIK_PORT }}
           CYBERMEM_TAILSCALE={{ CYBERMEM_TAILSCALE | default('false') }}
           SECRETS_DIR={{ project_dir }}/secrets
           DATA_DIR={{ project_dir }}/data
           CYBERMEM_ENV_PATH={{ project_dir }}/.env
           CYBERMEM_HOME={{ project_dir }}
-          CYBERMEM_BASE_PATH={{ '/cybermem-staging' if cybermem_env == 'staging' else '/cybermem' }}
           # Add other envs as needed
         dest: "{{ project_dir }}/.env"
         force: true
@@ -143,6 +148,16 @@
         chdir: "{{ project_dir }}"
       register: pull_out
       changed_when: "'Downloaded newer image' in pull_out.stdout or 'Downloaded newer image' in pull_out.stderr"
+      when: not (skip_pull | default(false) | bool)
+
+    - name: Stop staging containers (prevent port conflicts, NEVER touch prod)
+      shell: |
+        docker-compose -p cybermem-staging down --remove-orphans 2>/dev/null || true
+      args:
+        chdir: "{{ project_dir }}"
+      changed_when: false
+      ignore_errors: true
+      when: cybermem_env | default('prod') == 'staging'
 
     - name: Start services
       command: docker-compose -p {{ PROJECT_NAME | default('cybermem') }} up -d --remove-orphans
@@ -174,7 +189,7 @@
 
     - name: Wait for Traefik to be ready
       uri:
-        url: "http://localhost:{{ TRAEFIK_PORT | default('8626') }}/health"
+        url: "http://localhost:{{ EFFECTIVE_TRAEFIK_PORT }}/health"
         status_code: 200
       register: traefik_ping
       until: traefik_ping.status == 200
@@ -183,7 +198,7 @@
 
     - name: Verify Overall System Health
       uri:
-        url: "http://localhost:{{ TRAEFIK_PORT | default('8626') }}/api/health"
+        url: "http://localhost:{{ EFFECTIVE_TRAEFIK_PORT }}/api/health"
         return_content: true
       register: health_status
       until: "health_status.content is defined and (health_status.content | from_json).overall == 'ok'"
@@ -197,13 +212,11 @@
         tailscale serve reset 2>/dev/null || true
         tailscale funnel reset 2>/dev/null || true
 
-        # Configure path based on current environment only
-        # Staging: /cybermem-staging
-        # Prod: /cybermem
+        # Configure port based on current environment only
         if [ "{{ cybermem_env | default('prod') }}" = "staging" ]; then
-          tailscale funnel --bg --set-path=/cybermem-staging http://127.0.0.1:{{ TRAEFIK_PORT | default('8626') }}
+          tailscale funnel --bg --https=10000 http://127.0.0.1:{{ EFFECTIVE_TRAEFIK_PORT }}
         else
-          tailscale funnel --bg --set-path=/cybermem http://127.0.0.1:{{ TRAEFIK_PORT | default('8626') }}
+          tailscale funnel --bg --https=443 http://127.0.0.1:{{ EFFECTIVE_TRAEFIK_PORT }}
         fi
 
         tailscale funnel status

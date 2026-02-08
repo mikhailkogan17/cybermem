@@ -148,6 +148,16 @@
         chdir: "{{ project_dir }}"
       register: pull_out
       changed_when: "'Downloaded newer image' in pull_out.stdout or 'Downloaded newer image' in pull_out.stderr"
+      when: not (skip_pull | default(false) | bool)
+
+    - name: Stop staging containers (prevent port conflicts, NEVER touch prod)
+      shell: |
+        docker-compose -p cybermem-staging down --remove-orphans 2>/dev/null || true
+      args:
+        chdir: "{{ project_dir }}"
+      changed_when: false
+      ignore_errors: true
+      when: cybermem_env | default('prod') == 'staging'
 
     - name: Start services
       command: docker-compose -p {{ PROJECT_NAME | default('cybermem') }} up -d --remove-orphans
@@ -204,7 +214,7 @@
 
         # Configure port based on current environment only
         if [ "{{ cybermem_env | default('prod') }}" = "staging" ]; then
-          tailscale funnel --bg --https=8443 http://127.0.0.1:{{ EFFECTIVE_TRAEFIK_PORT }}
+          tailscale funnel --bg --https=10000 http://127.0.0.1:{{ EFFECTIVE_TRAEFIK_PORT }}
         else
           tailscale funnel --bg --https=443 http://127.0.0.1:{{ EFFECTIVE_TRAEFIK_PORT }}
         fi

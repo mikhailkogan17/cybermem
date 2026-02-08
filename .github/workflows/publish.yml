@@ -90,9 +90,11 @@ jobs:
           echo "✅ Generated staging token via Node.js"
 
       - name: Setup Tailscale
-        uses: tailscale/github-action@v2
+        uses: tailscale/github-action@v4
         with:
-          authkey: ${{ secrets.TAILSCALE_AUTHKEY }}
+          oauth-client-id: ${{ secrets.TS_OAUTH_CLIENT_ID }}
+          oauth-secret: ${{ secrets.TS_OAUTH_SECRET }}
+          tags: tag:ci
           version: 1.76.6
 
       - name: Get RPi Funnel URL
@@ -124,12 +126,14 @@ jobs:
 
           FUNNEL_URL="https://${RPI_DNS}:8443"
           echo "url=${FUNNEL_URL}" >> $GITHUB_OUTPUT
-          echo "✅ RPi Funnel URL: ${FUNNEL_URL}"
+          echo "✅ RPi Staging Funnel URL: ${FUNNEL_URL}"
 
-      - name: Setup Ansible
+      - name: Setup Ansible + Tailscale SSH
         run: |
           sudo apt-get update
           sudo apt-get install -y ansible
+          sudo cp tools/ts-ssh /usr/local/bin/ts-ssh
+          sudo chmod +x /usr/local/bin/ts-ssh
 
       - name: Get RPi Tailscale IP
         id: get_rpi_ip
@@ -152,10 +156,15 @@ jobs:
           ansible-playbook \
             -i packages/cli/templates/ansible/inventory/hosts.ini \
             packages/cli/templates/ansible/playbooks/deploy-cybermem.yml \
-            --extra-vars "cybermem_env=staging ghcr_user=${{ github.actor }} ghcr_token=${{ secrets.GITHUB_TOKEN }} ghcr_tag=staging TRAEFIK_PORT=8625 CYBERMEM_TAILSCALE=true" \
-            --extra-vars "auth_token_hash=${{ steps.gen_token.outputs.token_hash }} auth_token_id=${{ steps.gen_token.outputs.token_id }} auth_token_name=staging-e2e auth_token_value=${{ steps.gen_token.outputs.token }}" \
-            --extra-vars "ansible_ssh_common_args='-o StrictHostKeyChecking=no'" \
-            --extra-vars "ansible_host=${{ steps.get_rpi_ip.outputs.ip }}"
+            --extra-vars "cybermem_env=staging ghcr_user=${{ github.actor }} ghcr_token=${{ secrets.GITHUB_TOKEN }} ghcr_tag=staging TRAEFIK_PORT=8625 CYBERMEM_TAILSCALE=false" \
+            --extra-vars "auth_token_hash=${{ steps.gen_token.outputs.token_hash }}" \
+            --extra-vars "auth_token_id=${{ steps.gen_token.outputs.token_id }}" \
+            --extra-vars "auth_token_name=staging-e2e" \
+            --extra-vars "auth_token_value=${{ steps.gen_token.outputs.token }}" \
+            --extra-vars "ansible_ssh_executable=/usr/local/bin/ts-ssh" \
+            --extra-vars "ansible_host=${{ steps.get_rpi_ip.outputs.ip }}" \
+            --extra-vars "ansible_ssh_pass=" \
+            --extra-vars "ansible_user=pi ansible_become_flags=-n ansible_timeout=60"
 
   # ==================================================================
   # 4. E2E VERIFICATION
@@ -175,9 +184,11 @@ jobs:
       - run: npx playwright install --with-deps chromium
 
       - name: Setup Tailscale
-        uses: tailscale/github-action@v2
+        uses: tailscale/github-action@v4
         with:
-          authkey: ${{ secrets.TAILSCALE_AUTHKEY }}
+          oauth-client-id: ${{ secrets.TS_OAUTH_CLIENT_ID }}
+          oauth-secret: ${{ secrets.TS_OAUTH_SECRET }}
+          tags: tag:ci
           version: 1.76.6
 
       - name: Build Local Packages
@@ -396,15 +407,19 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Setup Tailscale
-        uses: tailscale/github-action@v2
+        uses: tailscale/github-action@v4
         with:
-          authkey: ${{ secrets.TAILSCALE_AUTHKEY }}
+          oauth-client-id: ${{ secrets.TS_OAUTH_CLIENT_ID }}
+          oauth-secret: ${{ secrets.TS_OAUTH_SECRET }}
+          tags: tag:ci
           version: 1.76.6
 
-      - name: Setup Ansible
+      - name: Setup Ansible + Tailscale SSH
         run: |
           sudo apt-get update
           sudo apt-get install -y ansible
+          sudo cp tools/ts-ssh /usr/local/bin/ts-ssh
+          sudo chmod +x /usr/local/bin/ts-ssh
 
       - name: Get RPi Tailscale IP
         id: get_rpi_ip
@@ -445,9 +460,11 @@ jobs:
           ansible-playbook \
             -i packages/cli/templates/ansible/inventory/hosts.ini \
             packages/cli/templates/ansible/playbooks/deploy-cybermem.yml \
-            --extra-vars "cybermem_env=prod ghcr_user=${{ github.actor }} ghcr_token=${{ secrets.GITHUB_TOKEN }} CYBERMEM_TAILSCALE=true" \
-            --extra-vars "ansible_ssh_common_args='-o StrictHostKeyChecking=no'" \
-            --extra-vars "ansible_host=${{ steps.get_rpi_ip.outputs.ip }}"
+            --extra-vars "cybermem_env=prod ghcr_user=${{ github.actor }} ghcr_token=${{ secrets.GITHUB_TOKEN }} CYBERMEM_TAILSCALE=false" \
+            --extra-vars "ansible_ssh_executable=/usr/local/bin/ts-ssh" \
+            --extra-vars "ansible_host=${{ steps.get_rpi_ip.outputs.ip }}" \
+            --extra-vars "ansible_ssh_pass=" \
+            --extra-vars "ansible_user=pi ansible_become_flags=-n ansible_timeout=60"
 
       - name: Slack (Prod Deployed)
         if: success()

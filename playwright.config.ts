@@ -71,15 +71,19 @@ export default defineConfig({
     },
   ],
 
-  // Start the dashboard server for local tests
-  webServer: [
-    {
-      command: "cd packages/dashboard && npm run dev",
-      port: 3000,
-      reuseExistingServer: true,
-      stdout: "pipe",
-      stderr: "pipe",
-      timeout: 60000, // 60s to start
-    },
-  ],
+  // Start the dashboard dev server for local tests only.
+  // In CI, Docker serves the dashboard via Traefik (no turbopack needed).
+  webServer:
+    process.env.CI || process.env.SKIP_WEBSERVER === "true"
+      ? undefined
+      : [
+          {
+            command: "cd packages/dashboard && npm run dev:turbo",
+            port: 3000,
+            reuseExistingServer: true,
+            stdout: "pipe",
+            stderr: "pipe",
+            timeout: 60000, // 60s to start
+          },
+        ],
 });

@@ -62,9 +62,11 @@ export async function install(options: any) {
   const envType = isStaging ? "staging" : "prod";
   const useTailscale = !!options.remoteAccess;
 
+  const networkType = target === "local" ? "" : useTailscale ? "ts" : "lan";
+  const envLabel = [target === "local" ? "localhost" : target, networkType, envType].filter(Boolean).join("-");
   console.log(
     chalk.blue(
-      `Initializing CyberMem (${target}-${envType}${useTailscale ? "-ts" : "-local"})...`,
+      `Initializing CyberMem (${envLabel})...`,
     ),
   );
 
@@ -312,16 +314,27 @@ export async function install(options: any) {
     } else if (target === "rpi" || target === "vps") {
       const composeFile = path.join(templateDir, "docker-compose.yml");
 
-      const answers = await inquirer.prompt([
-        {
-          type: "input",
-          name: "host",
-          message: "Enter SSH Host (e.g. pi@raspberrypi.local):",
-          validate: (input) =>
-            input.includes("@") ? true : "Format must be user@host",
-        },
-      ]);
-      const sshHost = answers.host;
+      // Use --host flag or prompt interactively
+      let sshHost: string;
+      if (options.host) {
+        sshHost = options.host;
+        if (!sshHost.includes("@")) {
+          throw new Error(
+            "--host format must be user@host (e.g. pi@raspberrypi.local)",
+          );
+        }
+      } else {
+        const answers = await inquirer.prompt([
+          {
+            type: "input",
+            name: "host",
+            message: "Enter SSH Host (e.g. pi@raspberrypi.local):",
+            validate: (input) =>
+              input.includes("@") ? true : "Format must be user@host",
+          },
+        ]);
+        sshHost = answers.host;
+      }
 
       console.log(chalk.blue(`Remote deploying to ${sshHost} via Ansible...`));
 
@@ -340,7 +353,75 @@ export async function install(options: any) {
         throw new Error("Invalid SSH Host format. Use user@host");
       }
 
-      // 3. Resolve Ansible Paths
+      // 3. Build images locally from source
+      console.log(chalk.blue("Building Docker images locally..."));
+
+      let composeCmd = ["docker-compose"];
+      try {
+        await execa("docker", ["compose", "version"]);
+        composeCmd = ["docker", "compose"];
+      } catch (e) {
+        // Fallback to v1 if v2 not found
+      }
+
+      try {
+        await execa(
+          composeCmd[0],
+          [
+            ...composeCmd.slice(1),
+            "-f",
+            composeFile,
+            "build",
+          ],
+          {
+            stdio: "inherit",
+            env: {
+              ...process.env,
+              CYBERMEM_ENV: envType,
+              PROJECT_NAME: isStaging ? "cybermem-staging" : "cybermem",
+              TRAEFIK_PORT: isStaging ? "8625" : "8626",
+            },
+          },
+        );
+      } catch (e) {
+        handleExecError(e, "Local image build");
+      }
+
+      // 4. Transfer built images to remote host
+      console.log(chalk.blue(`Transferring images to ${host}...`));
+
+      // Get list of built images from compose file (filter cybermem-* only)
+      try {
+        const { stdout: allImages } = await execa(
+          composeCmd[0],
+          [...composeCmd.slice(1), "-f", composeFile, "config", "--images"],
+        );
+        const builtImages = allImages
+          .trim()
+          .split("\n")
+          .filter((img) => img.includes("cybermem-"));
+
+        if (builtImages.length === 0) {
+          throw new Error("No cybermem images found after build");
+        }
+
+        console.log(
+          chalk.gray(`   Transferring ${builtImages.length} images...`),
+        );
+        await execa(
+          "bash",
+          [
+            "-c",
+            `docker save ${builtImages.join(" ")} | ssh -o StrictHostKeyChecking=no ${sshHost} docker load`,
+          ],
+          { stdio: "inherit" },
+        );
+        console.log(chalk.green("   ✅ Images transferred"));
+      } catch (e) {
+        handleExecError(e, "Image transfer");
+      }
+
+      // 5. Resolve Ansible Paths
       const playbookPath = path.join(
         templateDir,
         "ansible/playbooks/deploy-cybermem.yml",
@@ -351,10 +432,9 @@ export async function install(options: any) {
         throw new Error(`Ansible playbook not found at ${playbookPath}`);
       }
 
-      // 4. Run Ansible Playbook with Token Injection
-      console.log(chalk.blue("Running CyberMem Deployment Playbook..."));
+      // 6. Run Ansible Playbook (skip pull — images already loaded)
+      console.log(chalk.blue("Deploying via Ansible..."));
 
-      // We use the comma-separated inventory trick for single host
       const inventory = `${host},`;
 
       try {
@@ -369,9 +449,9 @@ export async function install(options: any) {
             "--extra-vars",
             `ansible_ssh_extra_args='-o StrictHostKeyChecking=no'`,
             "--extra-vars",
-            `auth_token_hash=${tokenHash}`, // Pass the hash
+            `skip_pull=true`,
             "--extra-vars",
-            `auth_token_id=${tokenId}`,
+            `auth_token_hash=${tokenHash}`,
             "--extra-vars",
             `auth_token_id=${tokenId}`,
             "--extra-vars",
@@ -379,7 +459,7 @@ export async function install(options: any) {
             "--extra-vars",
             `auth_token_value=${accessToken}`,
             "--extra-vars",
-            `CYBERMEM_ENV=${envType}`, // Ensure ENV propogates
+            `cybermem_env=${envType}`,
             "--extra-vars",
             `TRAEFIK_PORT=${isStaging ? "8625" : "8626"}`,
             "--extra-vars",
@@ -389,13 +469,14 @@ export async function install(options: any) {
           ],
           {
             stdio: "inherit",
-            cwd: ansibleDir, // Run from ansible template dir so it finds roles/etc
+            cwd: ansibleDir,
           },
         );
       } catch (e) {
         handleExecError(e, "Remote deployment");
       }
 
+      const entryPort = isStaging ? "8625" : "8626";
       console.log(
         chalk.green("\n✅ Remote deployment successful via Ansible!"),
       );
@@ -404,7 +485,7 @@ export async function install(options: any) {
       console.log("");
       console.log(
         chalk.bold(
-          `Dashboard should be available at: http://${host}:${isStaging ? "3001" : "3000"} (once images are pulled)`,
+          `Dashboard: http://${host}:${entryPort}`,
         ),
       );
     }

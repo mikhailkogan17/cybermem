@@ -36,11 +36,11 @@ jobs:
         run: npx danger ci
 
   # ------------------------------------------------------------------
-  # 3. Local E2E (Dogfooding) - "e2e:pr"
+  # 2. E2E: localhost-staging (port 8625)
+  #    Identical flow: checkout → npm ci → CLI install → Playwright
   # ------------------------------------------------------------------
   pr-e2e-localhost-staging:
-    name: "E2E: Localhost Staging"
-    needs: pr-lint
+    name: "E2E: localhost-staging"
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -50,43 +50,35 @@ jobs:
         with:
           node-version: "20"
 
-      # Setup Environment
       - run: |
           mkdir -p ~/.cybermem
           echo "OPENAI_API_KEY=sk-test-key-for-ci" > ~/.cybermem/.env # gitleaks:allow
           echo "OM_API_KEY=sk-test-key-for-ci" >> ~/.cybermem/.env # gitleaks:allow
 
-      - uses: docker/login-action@v3
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
       - run: npm ci
 
-      # Verification: Install & Health Check
-      - name: Build CLI & Install (Staging Mode)
+      - name: Build CLI & Install
         env:
           DOCKER_DEFAULT_PLATFORM: linux/amd64
         run: |
-          npm run build -w @cybermem/cli
+          npm run build -w packages/cli
           node packages/cli/dist/index.js install --staging
           sleep 30
 
       - run: npx playwright install --with-deps chromium
 
-      - name: Run E2E Verification (Unified Playwright)
+      - name: Run E2E
         run: npx playwright test
         env:
           CI: true
           DASHBOARD_URL: http://localhost:8625
           MCP_URL: http://localhost:8625/mcp
 
-      - name: Upload Playwright Reports (Local)
+      - name: Upload Playwright Reports
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: e2e-reports-local-ci
+          name: e2e-reports-localhost-staging
           path: |
             playwright-report/
             test-results/
@@ -95,6 +87,54 @@ jobs:
           if-no-files-found: warn
           retention-days: 7
 
-  # NOTE: Remote E2E (RPi) is NOT run on PR.
-  # It is only run during Release pipeline (publish.yml) on rpi-ts-staging,
-  # after which prod is deployed WITHOUT additional tests.
+  # ------------------------------------------------------------------
+  # 3. E2E: localhost-prod (port 8626)
+  #    Identical flow: checkout → npm ci → CLI install → Playwright
+  # ------------------------------------------------------------------
+  pr-e2e-localhost-prod:
+    name: "E2E: localhost-prod"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - run: |
+          mkdir -p ~/.cybermem
+          echo "OPENAI_API_KEY=sk-test-key-for-ci" > ~/.cybermem/.env # gitleaks:allow
+          echo "OM_API_KEY=sk-test-key-for-ci" >> ~/.cybermem/.env # gitleaks:allow
+
+      - run: npm ci
+
+      - name: Build CLI & Install
+        env:
+          DOCKER_DEFAULT_PLATFORM: linux/amd64
+        run: |
+          npm run build -w packages/cli
+          node packages/cli/dist/index.js install
+          sleep 30
+
+      - run: npx playwright install --with-deps chromium
+
+      - name: Run E2E
+        run: npx playwright test
+        env:
+          CI: true
+          DASHBOARD_URL: http://localhost:8626
+          MCP_URL: http://localhost:8626/mcp
+
+      - name: Upload Playwright Reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-reports-localhost-prod
+          path: |
+            playwright-report/
+            test-results/
+            packages/*/playwright-report/
+            packages/*/test-results/
+          if-no-files-found: warn
+          retention-days: 7

@@ -125,8 +125,8 @@ async function globalSetup(_config: FullConfig) {
   // Step 1: Reset database
 
   // Step 1: Reset database
-  console.log("🧹 [1/2] Wiping database via npx @cybermem/cli reset -f");
-  const resetResult = runCLI("npx @cybermem/cli reset -f");
+  console.log("🧹 [1/2] Wiping database via node packages/cli/dist/index.js reset -f");
+  const resetResult = runCLI("node packages/cli/dist/index.js reset -f");
   if (resetResult.success) {
     console.log("   ✅ Database reset successfully");
   } else {
@@ -137,8 +137,8 @@ async function globalSetup(_config: FullConfig) {
   }
 
   // Step 2: Start/ensure CyberMem services
-  console.log("🚀 [2/2] Starting CyberMem via npx @cybermem/cli install");
-  const installResult = runCLI("npx @cybermem/cli install");
+  console.log("🚀 [2/2] Starting CyberMem via node packages/cli/dist/index.js install");
+  const installResult = runCLI("node packages/cli/dist/index.js install");
   if (installResult.success) {
     console.log("   ✅ CyberMem services started");
 

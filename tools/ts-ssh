@@ -1,0 +1,46 @@
+#!/bin/bash
+# Tailscale SSH wrapper for Ansible
+#
+# Ansible's SSH plugin invokes: ssh [options] hostname [command]
+# This wrapper strips SSH-specific options and translates to:
+#   tailscale ssh user@hostname [command]
+#
+# Prerequisite: target node must have `sudo tailscale set --ssh`
+# ACL: tag:ci → tag:rpi, users: root/pi, action: accept
+
+USER=""
+ARGS=()
+FOUND_HOST=false
+
+while [[ $# -gt 0 ]]; do
+  if $FOUND_HOST; then
+    # After host, everything is the remote command — pass through
+    ARGS+=("$1"); shift
+  else
+    case "$1" in
+      -l) USER="$2"; shift 2 ;;
+      -l*) USER="${1#-l}"; shift ;;
+      -o)
+        # Capture -o User=xxx, strip everything else
+        # Ansible quotes the value: User="pi" — strip quotes
+        case "$2" in
+          User=*) USER="${2#User=}"; USER="${USER//\"/}"; shift 2 ;;
+          *) shift 2 ;;
+        esac ;;
+      -o*) shift ;;  # -oOption=value (combined)
+      -F|-i|-p|-S|-W|-J|-c|-m) shift 2 ;;  # options with separate value
+      -F*|-i*|-p*) shift ;;  # combined form
+      -[a-zA-Z]*) shift ;;  # any other single-char flag
+      *)
+        # First non-option argument is the hostname
+        if [ -n "$USER" ] && [[ "$1" != *@* ]]; then
+          ARGS+=("${USER}@${1}")
+        else
+          ARGS+=("$1")
+        fi
+        FOUND_HOST=true; shift ;;
+    esac
+  fi
+done
+
+exec tailscale ssh "${ARGS[@]}"
