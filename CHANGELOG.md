@@ -2,6 +2,15 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased]
+
+### Fixed
+
+- **Ansible**: Increased health check retries (30) and delay (10s) to handle slow RPi startups to prevent 502 Bad Gateway errors.
+- **MCP**: Applied Isolated Native-Builder Pattern to `cybermem-mcp` Docker image for stable `sqlite3` and `keytar`-free ARM64 builds.
+- **CI**: Fully transitioned to native NPM workspaces, removing pnpm remnants for consistent dependency resolution.
+- **Publish**: Restored Node 24 and `registry-url` for reliable OIDC-based NPM publishing.
+
 ## [0.13.0] - 2026-02-03
 
 ### Added
