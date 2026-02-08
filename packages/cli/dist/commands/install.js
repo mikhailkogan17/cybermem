@@ -101,7 +101,9 @@ async function install(options) {
     const isStaging = !!options.staging;
     const envType = isStaging ? "staging" : "prod";
     const useTailscale = !!options.remoteAccess;
-    console.log(chalk_1.default.blue(`Initializing CyberMem (${target}-${envType}${useTailscale ? "-ts" : "-local"})...`));
+    const networkType = target === "local" ? "" : useTailscale ? "ts" : "lan";
+    const envLabel = [target === "local" ? "localhost" : target, networkType, envType].filter(Boolean).join("-");
+    console.log(chalk_1.default.blue(`Initializing CyberMem (${envLabel})...`));
     try {
         // Resolve Template Directory (Support both Dev and Prod)
         let templateDir = path_1.default.resolve(__dirname, "../../templates");

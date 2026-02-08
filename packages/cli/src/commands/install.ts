@@ -62,9 +62,11 @@ export async function install(options: any) {
   const envType = isStaging ? "staging" : "prod";
   const useTailscale = !!options.remoteAccess;
 
+  const networkType = target === "local" ? "" : useTailscale ? "ts" : "lan";
+  const envLabel = [target === "local" ? "localhost" : target, networkType, envType].filter(Boolean).join("-");
   console.log(
     chalk.blue(
-      `Initializing CyberMem (${target}-${envType}${useTailscale ? "-ts" : "-local"})...`,
+      `Initializing CyberMem (${envLabel})...`,
     ),
   );
 
