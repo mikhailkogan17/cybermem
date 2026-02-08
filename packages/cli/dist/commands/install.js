@@ -400,7 +400,7 @@ async function install(options) {
                     "--extra-vars",
                     `auth_token_value=${accessToken}`,
                     "--extra-vars",
-                    `CYBERMEM_ENV=${envType}`,
+                    `cybermem_env=${envType}`,
                     "--extra-vars",
                     `TRAEFIK_PORT=${isStaging ? "8625" : "8626"}`,
                     "--extra-vars",
