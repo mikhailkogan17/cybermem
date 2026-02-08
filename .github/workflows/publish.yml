@@ -123,6 +123,9 @@ jobs:
         with:
           node-version: "20"
 
+      - name: Upgrade NPM
+        run: npm install -g npm@latest
+
       - run: npm ci
 
       - name: Configure Git
@@ -143,9 +146,9 @@ jobs:
 
       - name: Publish to NPM (OIDC)
         run: |
-          for pkg in packages/cli packages/mcp packages/dashboard; do
-             (cd $pkg && npm publish --access public --provenance)
-          done
+          npm config set provenance true
+          npm config set access public
+          npm publish --workspaces
 
   # ==================================================================
   # 6. FINALIZE (Tag, Commit, GitHub Release, Slack)
