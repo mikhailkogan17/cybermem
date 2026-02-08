@@ -134,15 +134,9 @@ jobs:
       - name: Get Current Version
         id: version
         run: |
-          CURRENT_VERSION=$(node -p "require('./packages/cli/package.json').version")
-          echo "version=$CURRENT_VERSION" >> $GITHUB_OUTPUT
-          echo "📦 Current version: $CURRENT_VERSION"
-
-      - name: Finalize Release in Changelog (Current Version)
-        run: |
-          VERSION="${{ steps.version.outputs.version }}"
-          DATE=$(date +%Y-%m-%d)
-          sed -i "s/## \[Unreleased\]/## [$VERSION] - $DATE/" CHANGELOG.md
+          VERSION=$(node -p "require('./packages/cli/package.json').version")
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "📦 Base version: $VERSION"
 
       - name: Build Packages
         run: npm run build --workspaces
@@ -177,16 +171,28 @@ jobs:
       - name: Bump Version for Next Cycle
         id: next_version
         run: |
-          # Bump version in all packages
           npm version ${{ inputs.version_type }} --workspaces --include-workspace-root --no-git-tag-version
           NEW_VERSION=$(node -p "require('./packages/cli/package.json').version")
           echo "next_version=$NEW_VERSION" >> $GITHUB_OUTPUT
           echo "📦 Next version: $NEW_VERSION"
 
-      - name: Prepare New [Unreleased] Section
+      - name: Extract Release Notes & Finalize Changelog
+        id: notes
         run: |
-          # Add a fresh Unreleased section at the top
-          sed -i 's/# Changelog/# Changelog\n\n## [Unreleased]/' CHANGELOG.md
+          VERSION="${{ needs.publish-npm.outputs.version }}"
+          DATE=$(date +%Y-%m-%d)
+
+          # 1. Extract content from [Unreleased] section until next ## header
+          # Uses awk to get lines between [Unreleased] and the first following ##
+          awk '/## \[Unreleased\]/{flag=1;next}/## \[/{flag=0}flag' CHANGELOG.md > release_notes.md
+
+          # 2. Finalize version in CHANGELOG.md
+          sed -i "s/## \[Unreleased\]/## [$VERSION] - $DATE/" CHANGELOG.md
+
+          # 3. Add fresh [Unreleased] section at the top
+          sed -i 's/# Changelog/# Changelog\n\n## [Unreleased]\n/' CHANGELOG.md
+
+          echo "Notes extracted to release_notes.md"
 
       - name: Download E2E Reports
         uses: actions/download-artifact@v4
@@ -210,9 +216,10 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          gh release create "v${{ needs.publish-npm.outputs.version }}" \
-            --title "v${{ needs.publish-npm.outputs.version }}" \
-            --generate-notes
+          VERSION="${{ needs.publish-npm.outputs.version }}"
+          gh release create "v${VERSION}" \
+            --title "v${VERSION}" \
+            --notes-file release_notes.md
 
       - name: Slack (Publish Success)
         env:

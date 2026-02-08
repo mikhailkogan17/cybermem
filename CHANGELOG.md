@@ -1,77 +1,78 @@
 # Changelog
 
-## [Unreleased]
-
 All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Added
+
+- **Release Pipeline**: Automated Release Notes extraction from `CHANGELOG.md` directly into GitHub Releases.
+- **Release Pipeline**: Unified `finalize` job that handles versioning, changelog, and reporting in one atomic step.
+
 ### Fixed
 
-- **Ansible**: Increased health check retries (30) and delay (10s) to handle slow RPi startups to prevent 502 Bad Gateway errors.
-- **MCP**: Applied Isolated Native-Builder Pattern to `cybermem-mcp` Docker image for stable `sqlite3` and `keytar`-free ARM64 builds.
-- **CI**: Fully transitioned to native NPM workspaces, removing pnpm remnants for consistent dependency resolution.
-- **Publish**: Restored Node 24 and `registry-url` for reliable OIDC-based NPM publishing.
+- **CHANGELOG**: Cleaned up duplicated headers and inconsistent formatting.
+
+## [0.13.4] - 2026-02-09
+
+### Fixed
+
+- **Ansible**: Increased health check retries (30) and delay (10s) to handle slow RPi startups.
+- **MCP**: Applied Isolated Native-Builder Pattern for stable ARM64 `sqlite3` builds.
+- **CI**: Fully transitioned to native NPM workspaces.
+- **Publish**: Restored Node 24 and OIDC-based publishing stability.
 
 ## [0.13.0] - 2026-02-03
 
 ### Added
 
-- **Release Pipeline**: 8-step strict release workflow (`publish.yml`):
-  1. Changelog verification
-  2. Staging deployment (build from source)
-  3. E2E verification via Tailscale
-  4. GHCR push (only after verification)
-  5. NPM publish
-  6. Finalize (tag, commit reports, GitHub release)
-  7. Production deployment
-  8. Slack notifications
-- **Ansible**: `build_from_source` mode for staging deployments
-- **CI**: Branch protection requiring Quality Gates and E2E checks
+- **Release Pipeline**: 8-step strict release workflow (`publish.yml`).
+- **Ansible**: `build_from_source` mode for staging deployments.
+- **CI**: Branch protection requiring Quality Gates and E2E checks.
 
 ### Changed
 
-- **Ansible**: Docker-compose path patching for source builds
-- **E2E**: Fixed Playwright artifact upload paths
+- **Ansible**: Docker-compose path patching for source builds.
+- **E2E**: Fixed Playwright artifact upload paths.
 
 ## [0.7.5] - 2026-01-19
 
 ### Changed
 
-- **Architecture**: Removed Prometheus and simplified to SQLite-only metrics for lighter RPi usage.
+- **Architecture**: Removed Prometheus and simplified to SQLite-only metrics.
 - **Branding**: Replaced all mentions of "OpenMemory" with "CyberMem Core".
-- **Security**: Renamed "API Key" to "Security Token" and standardized on `--token` argument.
-- **MCP**: Added `cybermem://protocol` resource and centralized instructions.
-- **Landing**: Updated with new terminology and performance optimizations.
+- **Security**: Renamed "API Key" to "Security Token".
+- **MCP**: Added `cybermem://protocol` resource.
+- **Landing**: Updated with new terminology.
 
 ### Fixed
 
-- **MCP**: Fixed `SQLITE_BUSY` crashes by increasing timeout and adding wait logic.
-- **E2E**: Fixed MCP protocol handshake and session management in Playwright tests.
-- **Dashboard**: Fixed port conflict and service naming in health checks.
+- **MCP**: Fixed `SQLITE_BUSY` crashes.
+- **E2E**: Fixed MCP protocol handshake and session management.
+- **Dashboard**: Fixed port conflict and service naming.
 
 ## [0.6.15] - 2026-01-19
 
 ### Fixed
 
-- **Dashboard**: Fixed "Local Mode" detection on RPi (respects `OM_API_KEY`).
-- **Dashboard**: Improved hover styles for Settings buttons (Reset, Restart, Cancel).
-- **Tests**: Renamed E2E test clients to "Antigravity" / "Claude" for cleaner Audit Logs.
+- **Dashboard**: Fixed "Local Mode" detection on RPi.
+- **Dashboard**: Improved hover styles for Settings buttons.
+- **Tests**: Renamed E2E test clients to "Antigravity" / "Claude".
 - **Test**: Added DB Reset and Read Verification to `flow-test.ts`.
 
 ## [0.6.14] - 2026-01-18
 
 ### Added
 
-- **Release Report Gatekeeper**: Strict pre-publish verification with `scripts/verify-release-report.ts`.
-- Specialized `.env` templates for `local`, `rpi`, `rpi-tailscale`, and `vps`.
+- **Release Report Gatekeeper**: Strict pre-publish verification.
+- Specialized `.env` templates for different environments.
 
 ### Changed
 
-- Dashboard E2E tests forced to IPv4 (`127.0.0.1`) to resolve CI networking issues.
+- Dashboard E2E tests forced to IPv4 (`127.0.0.1`).
 - `cybermem-cli init` refactored to use standardized templates.
 
 ### Fixed
 
-- CI Dashboard E2E timeouts by adding health check wait for `db-exporter`.
-- CLI `OM_API_KEY` generation prefix changed to `cm-` to avoid Gitleaks false positives.
+- CI Dashboard E2E timeouts.
+- CLI `OM_API_KEY` generation prefix changed to `cm-`.
