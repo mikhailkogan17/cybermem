@@ -122,9 +122,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: "20"
-
-      - name: Upgrade NPM
-        run: npm install -g npm@latest
+          registry-url: "https://registry.npmjs.org"
 
       - run: npm ci
 
@@ -145,10 +143,7 @@ jobs:
         run: npm run build --workspaces
 
       - name: Publish to NPM (OIDC)
-        run: |
-          npm config set provenance true
-          npm config set access public
-          npm publish --workspaces
+        run: npm publish --workspaces --access public --provenance
 
   # ==================================================================
   # 6. FINALIZE (Tag, Commit, GitHub Release, Slack)

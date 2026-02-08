@@ -1,7 +1,6 @@
 {
   "name": "@cybermem/dashboard",
   "version": "0.13.2",
-  "private": true,
   "description": "CyberMem Monitoring Dashboard",
   "homepage": "https://cybermem.dev",
   "repository": {
