@@ -144,6 +144,9 @@ jobs:
       - name: Build Packages
         run: npm run build --workspaces
 
+      - name: Verify Release Report
+        run: npx ts-node scripts/verify-release-report.ts
+
       - name: Publish to NPM (OIDC)
         run: |
           for pkg in packages/cli packages/mcp packages/dashboard; do
