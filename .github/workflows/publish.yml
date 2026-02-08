@@ -122,7 +122,6 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: "20"
-          registry-url: "https://registry.npmjs.org"
 
       - run: npm ci
 
@@ -145,8 +144,6 @@ jobs:
         run: npm run build --workspaces
 
       - name: Publish to NPM (OIDC)
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: |
           for pkg in packages/cli packages/mcp packages/dashboard; do
              (cd $pkg && npm publish --access public --provenance)
