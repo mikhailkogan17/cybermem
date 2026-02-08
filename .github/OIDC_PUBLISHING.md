@@ -16,12 +16,14 @@ The `publish.yml` workflow is configured for OIDC publishing:
      packages: write
    ```
 
-2. **Node.js Setup** (NO registry-url):
+2. **Node.js Setup** (with registry-url):
    ```yaml
    - uses: actions/setup-node@v4
      with:
        node-version: "20"
-       # NO registry-url parameter! This would require NODE_AUTH_TOKEN
+       registry-url: "https://registry.npmjs.org"
+       # This creates .npmrc that npm uses for OIDC authentication
+       # NO NODE_AUTH_TOKEN needed - GitHub Actions injects OIDC token automatically
    ```
 
 3. **Publish Command** (with --provenance):
@@ -34,17 +36,23 @@ The `publish.yml` workflow is configured for OIDC publishing:
 ## How It Works
 
 1. GitHub Actions generates an OIDC token with `id-token: write` permission
-2. npm CLI (v9+) uses this token to authenticate via OIDC
-3. The `--provenance` flag triggers OIDC authentication and creates a signed provenance statement
-4. npm verifies the OIDC token with GitHub's identity provider
-5. Package is published with cryptographic proof of origin
+2. The `setup-node` action creates a `.npmrc` file with registry configuration
+3. npm CLI (v9+) uses the OIDC token (automatically injected by GitHub Actions) to authenticate
+4. The `--provenance` flag triggers OIDC authentication and creates a signed provenance statement
+5. npm verifies the OIDC token with GitHub's identity provider
+6. Package is published with cryptographic proof of origin
 
 ## Troubleshooting
 
-### Error: "Access token expired or revoked"
-**Cause**: The `registry-url` parameter was set in `actions/setup-node`, which creates a `.npmrc` expecting `NODE_AUTH_TOKEN`.
+### Error: "This command requires you to be logged in"
+**Cause**: The `registry-url` parameter was NOT set in `actions/setup-node`, so npm cannot use OIDC authentication.
 
-**Fix**: Remove `registry-url` from the setup-node configuration.
+**Fix**: Add `registry-url: "https://registry.npmjs.org"` to the setup-node configuration.
+
+### Error: "Access token expired or revoked"
+**Cause**: The `NODE_AUTH_TOKEN` environment variable was set manually, conflicting with OIDC.
+
+**Fix**: Remove any manual `NODE_AUTH_TOKEN` configuration. GitHub Actions injects the OIDC token automatically when `registry-url` is set.
 
 ### Error: "id-token permission required"
 **Cause**: Missing `id-token: write` permission in workflow.
