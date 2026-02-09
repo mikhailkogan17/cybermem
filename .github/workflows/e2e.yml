@@ -63,7 +63,13 @@ jobs:
           DOCKER_DEFAULT_PLATFORM: linux/amd64
         run: |
           npm run build -w packages/cli
-          node packages/cli/dist/index.js install --staging
+          # Retry loop to handle transient 502 errors from Docker registry during pull
+          for i in {1..3}; do
+            node packages/cli/dist/index.js install --staging && break || {
+              echo "Install attempt $i failed. Retrying in 15s..."
+              sleep 15
+            }
+          done
           sleep 30
 
       - run: npx playwright install --with-deps chromium
@@ -115,7 +121,13 @@ jobs:
           DOCKER_DEFAULT_PLATFORM: linux/amd64
         run: |
           npm run build -w packages/cli
-          node packages/cli/dist/index.js install
+          # Retry loop to handle transient 502 errors from Docker registry during pull
+          for i in {1..3}; do
+            node packages/cli/dist/index.js install && break || {
+              echo "Install attempt $i failed. Retrying in 15s..."
+              sleep 15
+            }
+          done
           sleep 30
 
       - run: npx playwright install --with-deps chromium

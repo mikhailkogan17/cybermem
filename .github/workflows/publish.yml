@@ -159,8 +159,7 @@ jobs:
                 "type": "header",
                 "text": {
                   "type": "plain_text",
-                  "text": "🚀 CyberMem v${VERSION} Published!",
-                  "emoji": true
+                  "text": "🚀 CyberMem v${VERSION} Published!"
                 }
               },
               {
