@@ -1,14 +1,6 @@
 name: Build Docker Images (Hybrid CI)
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - "packages/dashboard/**"
-      - "packages/cli/templates/monitoring/**"
-      - "packages/cli/templates/auth-sidecar/**"
-      - "packages/mcp/**"
-      - ".github/workflows/build-images.yml"
   workflow_dispatch:
     inputs:
       force_build:
