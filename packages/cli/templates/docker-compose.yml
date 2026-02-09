@@ -46,6 +46,7 @@ services:
       [
         "node",
         "--max-old-space-size=2048",
+        "--no-warnings",
         "dist/index.js",
         "--http",
         "--port",
