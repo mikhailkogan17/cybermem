@@ -152,14 +152,12 @@ jobs:
           DATE=$(date "+%Y-%m-%d %H:%M:%S")
           read -r -d '' JSON_PAYLOAD <<EOF
           {
-            "text": "CyberMem v$VERSION Published!",
             "blocks": [
               {
                 "type": "header",
                 "text": {
                   "type": "plain_text",
-                  "text": "CyberMem v${VERSION} Published!",
-                  "emoji": true
+                  "text": "🚀 CyberMem v${VERSION} Published!"
                 }
               },
               {
@@ -203,14 +201,12 @@ jobs:
         run: |
           read -r -d '' JSON_PAYLOAD <<EOF
           {
-            "text": "CyberMem Publication Failed",
             "blocks": [
               {
                 "type": "header",
                 "text": {
                   "type": "plain_text",
-                  "text": "CyberMem Publication Failed",
-                  "emoji": true
+                  "text": "❌ CyberMem Publication Failed"
                 }
               },
               {
@@ -362,14 +358,12 @@ jobs:
         run: |
           read -r -d '' JSON_PAYLOAD <<EOF
           {
-            "text": "CyberMem Deployed to RPi!",
             "blocks": [
               {
                 "type": "header",
                 "text": {
                   "type": "plain_text",
-                  "text": "CyberMem Deployed to RPi!",
-                  "emoji": true
+                  "text": "🍓 ${VERSION} Deployed to RPi!"
                 }
               },
               {
@@ -379,6 +373,10 @@ jobs:
                     "type": "mrkdwn",
                     "text": "*Version:*\n${VERSION}"
                   },
+                  {
+                    "type": "mrkdwn",
+                    "text": "*Environment:*\nrpi-ts-prod"
+                  }
                   {
                     "type": "mrkdwn",
                     "text": "*Job Run:*\n<${JOB_URL}|View Run>"
@@ -399,14 +397,12 @@ jobs:
         run: |
           read -r -d '' JSON_PAYLOAD <<EOF
           {
-            "text": "CyberMem Deployment Failed via Ansible",
             "blocks": [
               {
                 "type": "header",
                 "text": {
                   "type": "plain_text",
-                  "text": "CyberMem Deployment Failed",
-                  "emoji": true
+                  "text": "🥺 ${VERSION} RPi Deployment Failed"
                 }
               },
               {
