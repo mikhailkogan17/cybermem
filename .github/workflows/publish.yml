@@ -106,7 +106,7 @@ jobs:
           docker push ghcr.io/${{ github.repository_owner }}/${{ matrix.image }}:latest
 
   # ==================================================================
-  # 5. PUBLISH NPM
+  # 5. PUBLISH NPM (Uses CURRENT version from main)
   # ==================================================================
   publish-npm:
     name: "publish:npm"
@@ -186,11 +186,11 @@ jobs:
             --extra-vars "ansible_user=pi ansible_become_flags=-n ansible_timeout=60"
 
   # ==================================================================
-  # 7. FINALIZE (Atomic Version Bump, Changelog & Release Notes)
+  # 7. FINALIZE (Atomic commit: Changelog, Reports, Bump)
   # ==================================================================
   finalize:
     name: "finalize"
-    needs: [publish-npm, deploy-prod]
+    needs: [publish-npm, deploy-prod, e2e]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -207,36 +207,55 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
-      - name: Atomic Update
-        id: update
+      - name: Prepare Release Data
+        id: prep
         run: |
-          # 1. Bump version across all workspaces
-          npm version ${{ github.event.inputs.version_type }} --workspaces --no-git-tag-version
-          VERSION=$(node -p "require('./packages/cli/package.json').version")
-          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          CURRENT_VERSION="${{ needs.publish-npm.outputs.version }}"
+          echo "current_version=$CURRENT_VERSION" >> $GITHUB_OUTPUT
 
-          # 2. Extract Release Notes from Section [Unreleased]
+          # Extract Release Notes from Section [Unreleased]
           awk '/## \[Unreleased\]/{flag=1; next} /^## \[ /{flag=0} flag' CHANGELOG.md | sed '/^$/d' > release_notes.md
           if [ ! -s release_notes.md ]; then
             echo "No notes found. Defaulting to automated commit log." > release_notes.md
           fi
 
-          # 3. Rotate CHANGELOG.md
+          # Rotate CHANGELOG.md for CURRENT_VERSION
           DATE=$(date +%Y-%m-%d)
-          sed -i "s/## \[Unreleased\]/## [$VERSION] - $DATE/" CHANGELOG.md
+          sed -i "s/## \[Unreleased\]/## [$CURRENT_VERSION] - $DATE/" CHANGELOG.md
           sed -i '4i\## [Unreleased]\n\n### Added\n\n### Changed\n\n### Fixed\n\n### Removed\n\n' CHANGELOG.md
 
-          # 4. Atomic Commit
+      - name: Ingest E2E Reports
+        uses: actions/download-artifact@v4
+        with:
+          pattern: playwright-report-*
+          path: release-reports/${{ steps.prep.outputs.current_version }}
+          merge-multiple: true
+
+      - name: Atomic Update (Version Bump & Push)
+        id: atomic
+        run: |
+          CURRENT_VERSION="${{ steps.prep.outputs.current_version }}"
+
+          # Perform Version Bump across all workspaces
+          npm version ${{ github.event.inputs.version_type }} --workspaces --no-git-tag-version
+          NEXT_VERSION=$(node -p "require('./packages/cli/package.json').version")
+          echo "next_version=$NEXT_VERSION" >> $GITHUB_OUTPUT
+
+          # Atomic Commit everything
           git add .
-          git commit -m "chore: release v$VERSION"
+          git commit -m "chore: release v$CURRENT_VERSION and bump to v$NEXT_VERSION"
           git push origin main
-          echo "✅ Atomic update finished for v$VERSION"
+
+          # Create and push Tag for CURRENT_VERSION
+          git tag "v$CURRENT_VERSION"
+          git push origin "v$CURRENT_VERSION"
+          echo "✅ Atomic update finished for v$CURRENT_VERSION -> v$NEXT_VERSION"
 
       - name: Create GitHub Release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          VERSION="${{ steps.update.outputs.version }}"
+          VERSION="${{ steps.prep.outputs.current_version }}"
           gh release create "v$VERSION" \
             --title "v$VERSION" \
             --notes-file release_notes.md \
@@ -247,10 +266,10 @@ jobs:
         env:
           SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK_URL }}
         run: |
-          VERSION="${{ steps.update.outputs.version }}"
+          VERSION="${{ steps.prep.outputs.current_version }}"
           RESULT="${{ job.status }}"
           if [ "$RESULT" = "success" ]; then
-            MESSAGE="✅ *CyberMem v${VERSION} Live!* GitHub Release & NPM Updated. Deployed to RPi (GHCR)."
+            MESSAGE="✅ *CyberMem v${VERSION} Live!* Release & reports committed. NPM Updated. Deployed to RPi."
           else
             MESSAGE="⚠️ *CyberMem Release Issues!* v${VERSION:-unknown} - Check CI logs."
           fi
