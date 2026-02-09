@@ -8,6 +8,8 @@ All notable changes to this project will be documented in this file.
 
 - **Release Pipeline**: Automated Release Notes extraction from `CHANGELOG.md` directly into GitHub Releases.
 - **Release Pipeline**: Unified `finalize` job that handles versioning, changelog, and reporting in one atomic step.
+- **CLI**: Default to GHCR pulls for remote deployments (no local builds/transfers).
+- **CLI**: Added `--build` flag to force local builds if needed.
 
 ### Fixed
 

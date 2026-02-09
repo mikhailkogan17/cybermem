@@ -48,108 +48,119 @@ jobs:
   # ==================================================================
   # 2. E2E CHECKS
   # ==================================================================
-  # e2e:
-  #   name: "e2e"
-  #   needs: check-prereqs
-  #   uses: ./.github/workflows/e2e.yml
-  #   secrets: inherit
+  e2e:
+    name: "e2e"
+    needs: check-prereqs
+    uses: ./.github/workflows/e2e.yml
+    secrets: inherit
 
   # ==================================================================
   # 3. BUILD PRODUCTION IMAGES
   # ==================================================================
-  # build-prod:
-  #   name: "build:prod"
-  #   needs: e2e
-  #   permissions:
-  #     actions: read
-  #     contents: read
-  #     packages: write
-  #   uses: ./.github/workflows/build-images.yml
-  #   with:
-  #     tag: latest
-  #     force_build: true
-  #   secrets: inherit
+  build-prod:
+    name: "build:prod"
+    needs: e2e
+    permissions:
+      actions: read
+      contents: read
+      packages: write
+    uses: ./.github/workflows/build-images.yml
+    with:
+      tag: latest
+      force_build: true
+    secrets: inherit
 
   # ==================================================================
-  # 4. BUILD & PUSH TO GHCR
+  # 4. DEPLOY GHCR (Pull latest and push)
   # ==================================================================
-  # deploy-ghcr:
-  #   name: "deploy:ghcr"
-  #   # needs: build-prod
-  #   runs-on: ubuntu-latest
-  #   strategy:
-  #     fail-fast: false
-  #     matrix:
-  #       include:
-  #         - name: mcp
-  #           image: cybermem-mcp
-  #         - name: dashboard
-  #           image: cybermem-dashboard
-  #         - name: auth-sidecar
-  #           image: cybermem-auth-sidecar
-  #         - name: db-exporter
-  #           image: cybermem-db_exporter
-  #         - name: log-exporter
-  #           image: cybermem-log_exporter
-  #   steps:
-  #     - name: Log in to GHCR
-  #       uses: docker/login-action@v3
-  #       with:
-  #         registry: ghcr.io
-  #         username: ${{ github.actor }}
-  #         password: ${{ secrets.GITHUB_TOKEN }}
+  deploy-ghcr:
+    name: "deploy:ghcr"
+    needs: build-prod
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: mcp
+            image: cybermem-mcp
+          - name: dashboard
+            image: cybermem-dashboard
+          - name: auth-sidecar
+            image: cybermem-auth-sidecar
+          - name: db-exporter
+            image: cybermem-db_exporter
+          - name: log-exporter
+            image: cybermem-log_exporter
+    steps:
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
-  #     - name: Tag and Push :latest
-  #       run: |
-  #         docker pull ghcr.io/${{ github.repository_owner }}/${{ matrix.image }}:latest
-  #         docker push ghcr.io/${{ github.repository_owner }}/${{ matrix.image }}:latest
+      - name: Tag and Push :latest
+        run: |
+          docker pull ghcr.io/${{ github.repository_owner }}/${{ matrix.image }}:latest
+          docker tag ghcr.io/${{ github.repository_owner }}/${{ matrix.image }}:latest ghcr.io/${{ github.repository_owner }}/${{ matrix.image }}:latest
+          docker push ghcr.io/${{ github.repository_owner }}/${{ matrix.image }}:latest
 
   # ==================================================================
   # 5. PUBLISH NPM
   # ==================================================================
-  # publish-npm:
-  #   name: "publish:npm"
-  #   needs: deploy-ghcr
-  #   runs-on: ubuntu-latest
-  #   outputs:
-  #     version: ${{ steps.version.outputs.version }}
-  #   steps:
-  #     - uses: actions/checkout@v4
-  #       with:
-  #         fetch-depth: 0
-  #         token: ${{ secrets.GITHUB_TOKEN }}
+  publish-npm:
+    name: "publish:npm"
+    needs: deploy-ghcr
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
 
-  #     - uses: actions/setup-node@v4
-  #       with:
-  #         node-version: "24"
-  #         registry-url: "https://registry.npmjs.org"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          registry-url: "https://registry.npmjs.org"
 
-  #     - run: npm ci
+      - run: npm ci
 
-  #     - name: Configure Git
-  #       run: |
-  #         git config user.name "github-actions[bot]"
-  #         git config user.email "github-actions[bot]@users.noreply.github.com"
+      - name: Configure Git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
 
-  #     - name: Get Current Version
-  #       id: version
-  #       run: |
-  #         VERSION=$(node -p "require('./packages/cli/package.json').version")
-  #         echo "version=$VERSION" >> $GITHUB_OUTPUT
-  #         echo "📦 Base version: $VERSION"
+      - name: Version Bump
+        run: |
+          npm version ${{ github.event.inputs.version_type }} --workspaces --no-git-tag-version
+          VERSION=$(node -p "require('./packages/cli/package.json').version")
+          git add .
+          git commit -m "chore: bump version to v$VERSION"
+          git push origin main
 
-  #     - name: Build Packages
-  #       run: npm run build --workspaces
+      - name: Get Current Version
+        id: version
+        run: |
+          VERSION=$(node -p "require('./packages/cli/package.json').version")
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "📦 Base version: $VERSION"
 
-  #     - name: Publish to NPM (OIDC)
-  #       run: npm publish --workspaces --access public --provenance
+      - name: Build Packages
+        run: npm run build --workspaces
+
+      - name: Publish to NPM (OIDC)
+        run: npm publish --workspaces --access public --provenance
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
   # ==================================================================
-  # 7. DEPLOY PROD (Pull :latest from GHCR)
+  # 6. DEPLOY PROD (RPi)
   # ==================================================================
   deploy-prod:
     name: "deploy:rpi-ts-prod"
-    needs: check-prereqs
+    needs: publish-npm
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -172,34 +183,8 @@ jobs:
       - name: Get RPi Tailscale IP
         id: get_rpi_ip
         run: |
-          echo "Waiting for Tailscale..."
-          TAILSCALE_CONNECTED=0
-          for i in {1..12}; do
-            sleep 5
-            if tailscale status --json >/dev/null 2>&1; then
-              TAILSCALE_CONNECTED=1
-              break
-            fi
-          done
-
-          if [ "$TAILSCALE_CONNECTED" -ne 1 ]; then
-            echo "❌ Tailscale failed to connect"
-            exit 1
-          fi
-
-          for i in {1..5}; do
-            RPI_IP=$(tailscale status --json | jq -r '.Peer[] | select(.HostName | test("raspberrypi"; "i")) | .TailscaleIPs[0]' | head -1)
-            if [ -n "$RPI_IP" ]; then
-              echo "ip=$RPI_IP" >> $GITHUB_OUTPUT
-              echo "✅ RPi IP: $RPI_IP"
-              exit 0
-            fi
-            sleep 3
-          done
-          exit 1
-
-      - name: Wait for GHCR Propagation
-        run: sleep 30
+          RPI_IP=$(tailscale status --json | jq -r '.Peer[] | select(.HostName | test("raspberrypi"; "i")) | .TailscaleIPs[0]' | head -1)
+          echo "ip=$RPI_IP" >> $GITHUB_OUTPUT
 
       - name: Deploy Prod (Pull :latest)
         env:
@@ -211,25 +196,72 @@ jobs:
             --extra-vars "cybermem_env=prod ghcr_user=${{ github.actor }} ghcr_token=${{ secrets.GITHUB_TOKEN }} CYBERMEM_TAILSCALE=false" \
             --extra-vars "ansible_ssh_executable=/usr/local/bin/ts-ssh" \
             --extra-vars "ansible_host=${{ steps.get_rpi_ip.outputs.ip }}" \
-            --extra-vars "ansible_ssh_pass=" \
             --extra-vars "ansible_user=pi ansible_become_flags=-n ansible_timeout=60"
 
-      - name: Slack (Prod Deployed)
-        if: success()
-        env:
-          SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK_URL }}
-        run: |
-          VERSION="${{ needs.publish-npm.outputs.version || 'unknown' }}"
-          curl -X POST -H 'Content-type: application/json' \
-            --data "{\"text\":\"✅ *Production Deployed!* v${VERSION}\"}" \
-            $SLACK_WEBHOOK || true
+  # ==================================================================
+  # 7. FINALIZE (Release Notes & Changelog Cleanup)
+  # ==================================================================
+  finalize:
+    name: "finalize"
+    needs: [publish-npm, deploy-prod]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Slack (Prod Failed)
-        if: failure()
+      - name: Configure Git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Extract Release Notes from CHANGELOG
+        id: notes
+        run: |
+          # Extract everything between [Unreleased] and the next header
+          awk '/## \[Unreleased\]/{flag=1; next} /^## \[/{flag=0} flag' CHANGELOG.md | sed '/^$/d' > release_notes.md
+          if [ ! -s release_notes.md ]; then
+            echo "No notes found. Defaulting to automated commit log." > release_notes.md
+          fi
+          echo "Generated Release Notes:"
+          cat release_notes.md
+
+      - name: Finalize CHANGELOG.md
+        run: |
+          VERSION="${{ needs.publish-npm.outputs.version }}"
+          DATE=$(date +%Y-%m-%d)
+          # Rename [Unreleased] to the new version
+          sed -i "s/## \[Unreleased\]/## [$VERSION] - $DATE/" CHANGELOG.md
+          # Insert a new [Unreleased] section at the top (after the main header)
+          sed -i '4i\## [Unreleased]\n\n### Added\n\n### Changed\n\n### Fixed\n\n### Removed\n\n' CHANGELOG.md
+
+          git add CHANGELOG.md
+          git commit -m "chore: finalize CHANGELOG for v$VERSION"
+          git push origin main
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          VERSION="${{ needs.publish-npm.outputs.version }}"
+          gh release create "v$VERSION" \
+            --title "v$VERSION" \
+            --notes-file release_notes.md \
+            --target main
+
+      - name: Slack Notifications
+        if: always()
         env:
           SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK_URL }}
         run: |
-          VERSION="${{ needs.publish-npm.outputs.version || 'unknown' }}"
+          VERSION="${{ needs.publish-npm.outputs.version }}"
+          RESULT="${{ job.status }}"
+          if [ "$RESULT" = "success" ]; then
+            MESSAGE="✅ *CyberMem v${VERSION} Live!* GitHub Release & NPM Updated. Deployed to RPi."
+          else
+            MESSAGE="⚠️ *CyberMem v${VERSION} Release Issues!* Check CI logs."
+          fi
           curl -X POST -H 'Content-type: application/json' \
-            --data "{\"text\":\"⚠️ *Prod Deploy Failed* v${VERSION} - Manual intervention required\"}" \
+            --data "{\"text\":\"$MESSAGE\"}" \
             $SLACK_WEBHOOK || true
