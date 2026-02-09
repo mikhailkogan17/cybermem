@@ -1,4 +1,9 @@
 ### Added
+### Changed
+### Fixed
+### Removed
+## [0.13.9] - 2026-02-09
+### Added
 - **Release Pipeline**: Automated Release Notes extraction from `CHANGELOG.md` directly into GitHub Releases.
 - **Release Pipeline**: Unified `finalize` job that handles versioning, changelog, and reporting in one atomic step.
 - **CLI**: Default to GHCR pulls for remote deployments (no local builds/transfers).
