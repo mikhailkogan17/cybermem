@@ -127,19 +127,6 @@ jobs:
 
       - run: npm ci
 
-      - name: Configure Git
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-
-      - name: Version Bump
-        run: |
-          npm version ${{ github.event.inputs.version_type }} --workspaces --no-git-tag-version
-          VERSION=$(node -p "require('./packages/cli/package.json').version")
-          git add .
-          git commit -m "chore: bump version to v$VERSION"
-          git push origin main
-
       - name: Get Current Version
         id: version
         run: |
@@ -199,7 +186,7 @@ jobs:
             --extra-vars "ansible_user=pi ansible_become_flags=-n ansible_timeout=60"
 
   # ==================================================================
-  # 7. FINALIZE (Release Notes & Changelog Cleanup)
+  # 7. FINALIZE (Atomic Version Bump, Changelog & Release Notes)
   # ==================================================================
   finalize:
     name: "finalize"
@@ -211,40 +198,45 @@ jobs:
           fetch-depth: 0
           token: ${{ secrets.GITHUB_TOKEN }}
 
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+
       - name: Configure Git
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
-      - name: Extract Release Notes from CHANGELOG
-        id: notes
+      - name: Atomic Update
+        id: update
         run: |
-          # Extract everything between [Unreleased] and the next header
-          awk '/## \[Unreleased\]/{flag=1; next} /^## \[/{flag=0} flag' CHANGELOG.md | sed '/^$/d' > release_notes.md
+          # 1. Bump version across all workspaces
+          npm version ${{ github.event.inputs.version_type }} --workspaces --no-git-tag-version
+          VERSION=$(node -p "require('./packages/cli/package.json').version")
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+
+          # 2. Extract Release Notes from Section [Unreleased]
+          awk '/## \[Unreleased\]/{flag=1; next} /^## \[ /{flag=0} flag' CHANGELOG.md | sed '/^$/d' > release_notes.md
           if [ ! -s release_notes.md ]; then
             echo "No notes found. Defaulting to automated commit log." > release_notes.md
           fi
-          echo "Generated Release Notes:"
-          cat release_notes.md
 
-      - name: Finalize CHANGELOG.md
-        run: |
-          VERSION="${{ needs.publish-npm.outputs.version }}"
+          # 3. Rotate CHANGELOG.md
           DATE=$(date +%Y-%m-%d)
-          # Rename [Unreleased] to the new version
           sed -i "s/## \[Unreleased\]/## [$VERSION] - $DATE/" CHANGELOG.md
-          # Insert a new [Unreleased] section at the top (after the main header)
           sed -i '4i\## [Unreleased]\n\n### Added\n\n### Changed\n\n### Fixed\n\n### Removed\n\n' CHANGELOG.md
 
-          git add CHANGELOG.md
-          git commit -m "chore: finalize CHANGELOG for v$VERSION"
+          # 4. Atomic Commit
+          git add .
+          git commit -m "chore: release v$VERSION"
           git push origin main
+          echo "✅ Atomic update finished for v$VERSION"
 
       - name: Create GitHub Release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          VERSION="${{ needs.publish-npm.outputs.version }}"
+          VERSION="${{ steps.update.outputs.version }}"
           gh release create "v$VERSION" \
             --title "v$VERSION" \
             --notes-file release_notes.md \
@@ -255,12 +247,12 @@ jobs:
         env:
           SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK_URL }}
         run: |
-          VERSION="${{ needs.publish-npm.outputs.version }}"
+          VERSION="${{ steps.update.outputs.version }}"
           RESULT="${{ job.status }}"
           if [ "$RESULT" = "success" ]; then
-            MESSAGE="✅ *CyberMem v${VERSION} Live!* GitHub Release & NPM Updated. Deployed to RPi."
+            MESSAGE="✅ *CyberMem v${VERSION} Live!* GitHub Release & NPM Updated. Deployed to RPi (GHCR)."
           else
-            MESSAGE="⚠️ *CyberMem v${VERSION} Release Issues!* Check CI logs."
+            MESSAGE="⚠️ *CyberMem Release Issues!* v${VERSION:-unknown} - Check CI logs."
           fi
           curl -X POST -H 'Content-type: application/json' \
             --data "{\"text\":\"$MESSAGE\"}" \
