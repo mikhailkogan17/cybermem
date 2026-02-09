@@ -165,6 +165,30 @@ curl -H "X-Client-Name: my-custom-client" \
 
 ## Debugging
 
+### MCP Inspector (Recommended)
+
+The official MCP Inspector provides an interactive UI for testing and debugging:
+
+```bash
+# Start inspector for local development
+cd packages/mcp
+npm run inspect
+
+# Or inspect built server
+npm run inspect:built
+
+# Inspect remote instance
+npx @modelcontextprotocol/inspector npx @cybermem/mcp \
+  --url https://your-server.com:8626 \
+  --token sk-your-token
+```
+
+The inspector provides:
+- Interactive tool testing (add_memory, query_memory, etc.)
+- Request/response inspection
+- Protocol compliance verification
+- Resource exploration
+
 ### Test Connection
 
 ```bash

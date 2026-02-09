@@ -10,6 +10,8 @@
     "build": "tsc",
     "start": "node dist/index.js",
     "dev": "ts-node src/index.ts",
+    "inspect": "mcp-inspector npx ts-node src/index.ts",
+    "inspect:built": "mcp-inspector node dist/index.js",
     "lint": "tsc --noEmit",
     "test:e2e": "playwright test"
   },
@@ -48,6 +50,7 @@
     "zod": "^3.25.76"
   },
   "devDependencies": {
+    "@modelcontextprotocol/inspector": "^0.19.0",
     "@playwright/test": "^1.57.0",
     "@types/cors": "^2.8.19",
     "@types/express": "^5.0.6",

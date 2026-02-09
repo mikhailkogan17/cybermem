@@ -232,6 +232,25 @@ raspberrypi.local   : ok=15   changed=0    unreachable=0    failed=0    skipped=
 
 Contributions are welcome! See [CONTRIBUTING.md](CONTRIBUTING.md) for development setup and guidelines.
 
+### Development & Debugging
+
+**MCP Inspector** - Interactive debugging tool for MCP server development:
+
+```bash
+# Start inspector (auto-opens browser UI)
+cd packages/mcp
+npm run inspect
+
+# Or inspect a remote instance
+npx @modelcontextprotocol/inspector npx @cybermem/mcp \
+  --url https://your-server.com:8626 \
+  --token sk-your-token
+```
+
+The inspector provides an interactive UI for testing tools, inspecting requests/responses, and verifying protocol compliance.
+
+See [docs/mcp.md](docs/mcp.md) for full debugging guide.
+
 ## License
 
 MIT
