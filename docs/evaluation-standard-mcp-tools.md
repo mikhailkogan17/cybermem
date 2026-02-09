@@ -204,7 +204,7 @@ if (cliUrl) {
 3. Update docker-compose.yml to remove mcp-responder service
 
 **Expected Impact**:
-- ✅ 23 lines removed
+- ✅ 28 lines removed
 - ✅ One less Docker service to maintain
 - ✅ Simplified deployment
 
@@ -260,10 +260,10 @@ if (cliUrl) {
 ## 6. Metrics
 
 ### Current State
-- Total custom remote management code: ~1,098 lines
+- Total custom remote management code: ~1,103 lines
   - MCP server remote logic: ~50 lines
   - auth-sidecar: 236 lines
-  - mcp-responder: 23 lines
+  - mcp-responder: 28 lines (22 server.js + 6 Dockerfile)
   - db_exporter: 568 lines
   - log_exporter: 271 lines
 
@@ -272,11 +272,11 @@ if (cliUrl) {
 - Developer experience: +++
 
 ### After Phase 2 (mcp-responder removal)
-- Code reduction: 23 lines (2.1%)
+- Code reduction: 28 lines (2.5%)
 - Deployment complexity: -1 service
 
 ### After Phase 3 (log_exporter, if removed)
-- Code reduction: 294 lines (26.8%)
+- Code reduction: 299 lines (27.1%)
 - Deployment complexity: -2 services
 - Risk: Medium (observability gaps)
 
