@@ -144,6 +144,7 @@ jobs:
 
       - name: Notify Slack (Publish Success)
         if: success()
+        continue-on-error: true
         env:
           SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK_URL }}
           VERSION: ${{ steps.version.outputs.version }}
@@ -195,6 +196,7 @@ jobs:
 
       - name: Notify Slack (Publish Failure)
         if: failure()
+        continue-on-error: true
         env:
           SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK_URL }}
           VERSION: ${{ steps.version.outputs.version }}
@@ -353,6 +355,7 @@ jobs:
 
       - name: Notify Slack (Deploy Success)
         if: success()
+        continue-on-error: true
         env:
           SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK_URL }}
           VERSION: ${{ needs.finalize.outputs.current_version }}
@@ -393,6 +396,7 @@ jobs:
 
       - name: Notify Slack (Deploy Failure)
         if: failure()
+        continue-on-error: true
         env:
           SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK_URL }}
           VERSION: ${{ needs.finalize.outputs.current_version }}
