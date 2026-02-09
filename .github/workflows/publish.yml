@@ -13,6 +13,11 @@ on:
           - minor
           - major
 
+# Prevent concurrent publish workflows
+concurrency:
+  group: publish-workflow
+  cancel-in-progress: false
+
 permissions:
   id-token: write
   contents: write
@@ -168,6 +173,7 @@ jobs:
         with:
           fetch-depth: 0
           token: ${{ secrets.GITHUB_TOKEN }}
+          ref: main  # Ensure we get the latest commit with version bump
 
       - uses: actions/setup-node@v4
         with:

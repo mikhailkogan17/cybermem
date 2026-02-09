@@ -4,9 +4,9 @@
 "@cybermem/dashboard": patch
 ---
 
-Migrate version management to changesets
+Migrate version management to Changesets
 
 - Remove custom bash scripts (version-bump.sh, release.sh)
-- Add changesets for automated versioning and changelog generation
-- Update publish workflow to use changesets
+- Add Changesets for automated versioning and changelog generation
+- Update publish workflow to use Changesets
 - Add documentation for new release process
