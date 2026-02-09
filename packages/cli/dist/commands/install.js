@@ -102,7 +102,13 @@ async function install(options) {
     const envType = isStaging ? "staging" : "prod";
     const useTailscale = !!options.remoteAccess;
     const networkType = target === "local" ? "" : useTailscale ? "ts" : "lan";
-    const envLabel = [target === "local" ? "localhost" : target, networkType, envType].filter(Boolean).join("-");
+    const envLabel = [
+        target === "local" ? "localhost" : target,
+        networkType,
+        envType,
+    ]
+        .filter(Boolean)
+        .join("-");
     console.log(chalk_1.default.blue(`Initializing CyberMem (${envLabel})...`));
     try {
         // Resolve Template Directory (Support both Dev and Prod)
@@ -320,8 +326,6 @@ async function install(options) {
             if (!host) {
                 throw new Error("Invalid SSH Host format. Use user@host");
             }
-            // 3. Build images locally from source
-            console.log(chalk_1.default.blue("Building Docker images locally..."));
             let composeCmd = ["docker-compose"];
             try {
                 await (0, execa_1.default)("docker", ["compose", "version"]);
@@ -330,46 +334,56 @@ async function install(options) {
             catch (e) {
                 // Fallback to v1 if v2 not found
             }
-            try {
-                await (0, execa_1.default)(composeCmd[0], [
-                    ...composeCmd.slice(1),
-                    "-f",
-                    composeFile,
-                    "build",
-                ], {
-                    stdio: "inherit",
-                    env: {
-                        ...process.env,
-                        CYBERMEM_ENV: envType,
-                        PROJECT_NAME: isStaging ? "cybermem-staging" : "cybermem",
-                        TRAEFIK_PORT: isStaging ? "8625" : "8626",
-                    },
-                });
-            }
-            catch (e) {
-                handleExecError(e, "Local image build");
-            }
-            // 4. Transfer built images to remote host
-            console.log(chalk_1.default.blue(`Transferring images to ${host}...`));
-            // Get list of built images from compose file (filter cybermem-* only)
-            try {
-                const { stdout: allImages } = await (0, execa_1.default)(composeCmd[0], [...composeCmd.slice(1), "-f", composeFile, "config", "--images"]);
-                const builtImages = allImages
-                    .trim()
-                    .split("\n")
-                    .filter((img) => img.includes("cybermem-"));
-                if (builtImages.length === 0) {
-                    throw new Error("No cybermem images found after build");
+            // 3. Build images locally from source (Only if --build is specified)
+            if (options.build) {
+                console.log(chalk_1.default.blue("Building Docker images locally..."));
+                try {
+                    await (0, execa_1.default)(composeCmd[0], [...composeCmd.slice(1), "-f", composeFile, "build"], {
+                        stdio: "inherit",
+                        env: {
+                            ...process.env,
+                            CYBERMEM_ENV: envType,
+                            PROJECT_NAME: isStaging ? "cybermem-staging" : "cybermem",
+                            TRAEFIK_PORT: isStaging ? "8625" : "8626",
+                        },
+                    });
                 }
-                console.log(chalk_1.default.gray(`   Transferring ${builtImages.length} images...`));
-                await (0, execa_1.default)("bash", [
-                    "-c",
-                    `docker save ${builtImages.join(" ")} | ssh -o StrictHostKeyChecking=no ${sshHost} docker load`,
-                ], { stdio: "inherit" });
-                console.log(chalk_1.default.green("   ✅ Images transferred"));
+                catch (e) {
+                    handleExecError(e, "Local image build");
+                }
             }
-            catch (e) {
-                handleExecError(e, "Image transfer");
+            // 4. Transfer built images to remote host (Only if --build is specified)
+            if (options.build) {
+                console.log(chalk_1.default.blue(`Transferring images to ${host}...`));
+                // Get list of built images from compose file (filter cybermem-* only)
+                try {
+                    const { stdout: allImages } = await (0, execa_1.default)(composeCmd[0], [
+                        ...composeCmd.slice(1),
+                        "-f",
+                        composeFile,
+                        "config",
+                        "--images",
+                    ]);
+                    const builtImages = allImages
+                        .trim()
+                        .split("\n")
+                        .filter((img) => img.includes("cybermem-"));
+                    if (builtImages.length === 0) {
+                        throw new Error("No cybermem images found after build");
+                    }
+                    console.log(chalk_1.default.gray(`   Transferring ${builtImages.length} images...`));
+                    await (0, execa_1.default)("bash", [
+                        "-c",
+                        `docker save ${builtImages.join(" ")} | ssh -o StrictHostKeyChecking=no ${sshHost} docker load`,
+                    ], { stdio: "inherit" });
+                    console.log(chalk_1.default.green("   ✅ Images transferred"));
+                }
+                catch (e) {
+                    handleExecError(e, "Image transfer");
+                }
+            }
+            else {
+                console.log(chalk_1.default.gray("   Skipping local build/transfer (pulling from GHCR)"));
             }
             // 5. Resolve Ansible Paths
             const playbookPath = path_1.default.join(templateDir, "ansible/playbooks/deploy-cybermem.yml");
@@ -390,7 +404,7 @@ async function install(options) {
                     "--extra-vars",
                     `ansible_ssh_extra_args='-o StrictHostKeyChecking=no'`,
                     "--extra-vars",
-                    `skip_pull=true`,
+                    `skip_pull=${!!options.build}`,
                     "--extra-vars",
                     `auth_token_hash=${tokenHash}`,
                     "--extra-vars",

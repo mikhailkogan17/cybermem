@@ -63,12 +63,14 @@ export async function install(options: any) {
   const useTailscale = !!options.remoteAccess;
 
   const networkType = target === "local" ? "" : useTailscale ? "ts" : "lan";
-  const envLabel = [target === "local" ? "localhost" : target, networkType, envType].filter(Boolean).join("-");
-  console.log(
-    chalk.blue(
-      `Initializing CyberMem (${envLabel})...`,
-    ),
-  );
+  const envLabel = [
+    target === "local" ? "localhost" : target,
+    networkType,
+    envType,
+  ]
+    .filter(Boolean)
+    .join("-");
+  console.log(chalk.blue(`Initializing CyberMem (${envLabel})...`));
 
   try {
     // Resolve Template Directory (Support both Dev and Prod)
@@ -353,9 +355,6 @@ export async function install(options: any) {
         throw new Error("Invalid SSH Host format. Use user@host");
       }
 
-      // 3. Build images locally from source
-      console.log(chalk.blue("Building Docker images locally..."));
-
       let composeCmd = ["docker-compose"];
       try {
         await execa("docker", ["compose", "version"]);
@@ -364,61 +363,71 @@ export async function install(options: any) {
         // Fallback to v1 if v2 not found
       }
 
-      try {
-        await execa(
-          composeCmd[0],
-          [
+      // 3. Build images locally from source (Only if --build is specified)
+      if (options.build) {
+        console.log(chalk.blue("Building Docker images locally..."));
+
+
+        try {
+          await execa(
+            composeCmd[0],
+            [...composeCmd.slice(1), "-f", composeFile, "build"],
+            {
+              stdio: "inherit",
+              env: {
+                ...process.env,
+                CYBERMEM_ENV: envType,
+                PROJECT_NAME: isStaging ? "cybermem-staging" : "cybermem",
+                TRAEFIK_PORT: isStaging ? "8625" : "8626",
+              },
+            },
+          );
+        } catch (e) {
+          handleExecError(e, "Local image build");
+        }
+      }
+
+      // 4. Transfer built images to remote host (Only if --build is specified)
+      if (options.build) {
+        console.log(chalk.blue(`Transferring images to ${host}...`));
+
+        // Get list of built images from compose file (filter cybermem-* only)
+        try {
+          const { stdout: allImages } = await execa(composeCmd[0], [
             ...composeCmd.slice(1),
             "-f",
             composeFile,
-            "build",
-          ],
-          {
-            stdio: "inherit",
-            env: {
-              ...process.env,
-              CYBERMEM_ENV: envType,
-              PROJECT_NAME: isStaging ? "cybermem-staging" : "cybermem",
-              TRAEFIK_PORT: isStaging ? "8625" : "8626",
-            },
-          },
-        );
-      } catch (e) {
-        handleExecError(e, "Local image build");
-      }
+            "config",
+            "--images",
+          ]);
+          const builtImages = allImages
+            .trim()
+            .split("\n")
+            .filter((img) => img.includes("cybermem-"));
 
-      // 4. Transfer built images to remote host
-      console.log(chalk.blue(`Transferring images to ${host}...`));
+          if (builtImages.length === 0) {
+            throw new Error("No cybermem images found after build");
+          }
 
-      // Get list of built images from compose file (filter cybermem-* only)
-      try {
-        const { stdout: allImages } = await execa(
-          composeCmd[0],
-          [...composeCmd.slice(1), "-f", composeFile, "config", "--images"],
-        );
-        const builtImages = allImages
-          .trim()
-          .split("\n")
-          .filter((img) => img.includes("cybermem-"));
-
-        if (builtImages.length === 0) {
-          throw new Error("No cybermem images found after build");
+          console.log(
+            chalk.gray(`   Transferring ${builtImages.length} images...`),
+          );
+          await execa(
+            "bash",
+            [
+              "-c",
+              `docker save ${builtImages.join(" ")} | ssh -o StrictHostKeyChecking=no ${sshHost} docker load`,
+            ],
+            { stdio: "inherit" },
+          );
+          console.log(chalk.green("   ✅ Images transferred"));
+        } catch (e) {
+          handleExecError(e, "Image transfer");
         }
-
+      } else {
         console.log(
-          chalk.gray(`   Transferring ${builtImages.length} images...`),
+          chalk.gray("   Skipping local build/transfer (pulling from GHCR)"),
         );
-        await execa(
-          "bash",
-          [
-            "-c",
-            `docker save ${builtImages.join(" ")} | ssh -o StrictHostKeyChecking=no ${sshHost} docker load`,
-          ],
-          { stdio: "inherit" },
-        );
-        console.log(chalk.green("   ✅ Images transferred"));
-      } catch (e) {
-        handleExecError(e, "Image transfer");
       }
 
       // 5. Resolve Ansible Paths
@@ -449,7 +458,7 @@ export async function install(options: any) {
             "--extra-vars",
             `ansible_ssh_extra_args='-o StrictHostKeyChecking=no'`,
             "--extra-vars",
-            `skip_pull=true`,
+            `skip_pull=${!!options.build}`,
             "--extra-vars",
             `auth_token_hash=${tokenHash}`,
             "--extra-vars",
@@ -483,11 +492,7 @@ export async function install(options: any) {
       console.log(chalk.bold("⚡ Your Initial Access Token:"));
       console.log(chalk.cyan.bold(`   ${accessToken}`));
       console.log("");
-      console.log(
-        chalk.bold(
-          `Dashboard: http://${host}:${entryPort}`,
-        ),
-      );
+      console.log(chalk.bold(`Dashboard: http://${host}:${entryPort}`));
     }
   } catch (error) {
     console.error(chalk.red("Deployment failed:"), error);

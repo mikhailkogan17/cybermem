@@ -23,7 +23,11 @@ program
   .option("--vps", "Deploy to VPS/Cloud server")
   .option("--staging", "Deploy to staging environment (different ports/data)")
   .option("--remote-access", "Enable Tailscale Funnel for HTTPS remote access")
-  .option("--host <host>", "SSH host for remote deploy (e.g. pi@raspberrypi.local)")
+  .option(
+    "--host <host>",
+    "SSH host for remote deploy (e.g. pi@raspberrypi.local)",
+  )
+  .option("--build", "Force local image build and transfer (default: false)")
   .action(install);
 
 // Command: Uninstall
