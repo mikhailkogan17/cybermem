@@ -199,9 +199,8 @@
     - name: Verify Overall System Health
       uri:
         url: "http://localhost:{{ EFFECTIVE_TRAEFIK_PORT }}/api/health"
-        return_content: true
       register: health_status
-      until: "health_status.content is defined and (health_status.content | from_json).overall == 'ok'"
+      until: "health_status.json is defined and health_status.json.overall == 'ok'"
       retries: 5
       delay: 10
       ignore_errors: true

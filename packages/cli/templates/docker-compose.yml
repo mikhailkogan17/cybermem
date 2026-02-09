@@ -45,6 +45,7 @@ services:
     command:
       [
         "node",
+        "--max-old-space-size=2048",
         "dist/index.js",
         "--http",
         "--port",
