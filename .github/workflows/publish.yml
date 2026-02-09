@@ -81,10 +81,9 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          # NOTE: mcp and dashboard are EXCLUDED - they have dedicated merge jobs
-          # that properly create multi-arch manifests. This job would overwrite them.
-          - name: auth-sidecar
-            image: cybermem-auth-sidecar
+          # NOTE: mcp, dashboard, and auth-sidecar are EXCLUDED
+          # They have dedicated merge jobs that create proper multi-arch manifests.
+          # Exporters are also built with multi-arch in build-images.yml
           - name: db-exporter
             image: cybermem-db_exporter
           - name: log-exporter

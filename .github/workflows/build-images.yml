@@ -73,47 +73,16 @@ jobs:
           echo "| Auth | ${{ steps.filter.outputs.auth == 'true' || inputs.force_build || inputs.service == 'auth' || inputs.service == 'all' }} |" >> $GITHUB_STEP_SUMMARY
           echo "| Exporters | ${{ steps.filter.outputs.exporters == 'true' || inputs.force_build || inputs.service == 'exporters' || inputs.service == 'all' }} |" >> $GITHUB_STEP_SUMMARY
 
-  detect-runner:
-    runs-on: ubuntu-latest
-    permissions:
-      actions: read
-    outputs:
-      arm64_runner: ${{ steps.set-runner.outputs.runner }}
-    steps:
-      - name: Check arm64 Runner availability
-        id: set-runner
-        shell: bash
-        run: |
-          # Detect if any runner with label matching 'arm' (case-insensitive) is online
-          # Matches: arm, ARM, arm64, ARM64, arm_, arm64.*, etc.
-          # Falls back to ubuntu-latest with QEMU if arm64 runner is offline
-          # uses || echo "" to prevent set -e failure
-          RUNNERS=$(gh api repos/${{ github.repository }}/actions/runners --jq '.runners[] | select(any(.labels[]; .name | test("(?i)arm")) and .status == "online") | .name' 2>/dev/null || echo "")
-
-          if [ -n "$RUNNERS" ]; then
-            echo "arm64 Runner detected: $RUNNERS"
-            # Return JSON array for self-hosted macOS ARM64 runner
-            echo 'runner=["self-hosted", "macOS", "ARM64"]' >> $GITHUB_OUTPUT
-            echo "### 🚀 CI Mode: Native ARM64 (Self-Hosted)" >> $GITHUB_STEP_SUMMARY
-          else
-            echo "No arm64 Runner detected or API failure. Falling back to QEMU."
-            # Return string for GitHub-hosted ubuntu runner
-            echo 'runner="ubuntu-latest"' >> $GITHUB_OUTPUT
-            echo "### 🐢 CI Mode: QEMU Emulation (Fallback)" >> $GITHUB_STEP_SUMMARY
-          fi
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
   build-dashboard:
-    needs: [filter, detect-runner]
+    needs: filter
     if: needs.filter.outputs.dashboard == 'true' || inputs.force_build || inputs.service == 'dashboard' || inputs.service == 'all'
     strategy:
       matrix:
         include:
           - platform: amd64
-            runner: "ubuntu-latest"
+            runner: ubuntu-latest
           - platform: arm64
-            runner: ${{ fromJSON(needs.detect-runner.outputs.arm64_runner) }}
+            runner: ubuntu-24.04-arm
     runs-on: ${{ matrix.runner }}
     permissions:
       contents: read
@@ -269,7 +238,14 @@ jobs:
   build-auth-sidecar:
     needs: filter
     if: needs.filter.outputs.auth == 'true' || inputs.force_build || inputs.service == 'auth' || inputs.service == 'all'
-    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - platform: amd64
+            runner: ubuntu-latest
+          - platform: arm64
+            runner: ubuntu-24.04-arm
+    runs-on: ${{ matrix.runner }}
     permissions:
       contents: read
       packages: write
@@ -279,6 +255,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Set up QEMU
+        if: matrix.platform == 'arm64' && runner.arch == 'X64'
         uses: docker/setup-qemu-action@v3
 
       - name: Set up Docker Buildx
@@ -292,6 +269,43 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Extract metadata for auth-sidecar
+        id: meta-auth
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}-auth-sidecar
+          tags: |
+            type=sha,prefix=${{ matrix.platform }}-sha-
+
+      - name: Build and push auth-sidecar image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./packages/cli/templates/auth-sidecar
+          platforms: linux/${{ matrix.platform }}
+          push: true
+          tags: ${{ steps.meta-auth.outputs.tags }}
+          labels: ${{ steps.meta-auth.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Build Summary
+        run: |
+          echo "### 🛡️ Auth-Sidecar Build: ${{ matrix.platform }}" >> $GITHUB_STEP_SUMMARY
+          echo "Successfully pushed \`${{ matrix.platform }}\` image to GHCR." >> $GITHUB_STEP_SUMMARY
+
+  merge-auth-sidecar:
+    needs: build-auth-sidecar
+    runs-on: ubuntu-latest
+    permissions:
+      packages: write
+    steps:
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata
         id: meta
         uses: docker/metadata-action@v5
         with:
@@ -302,33 +316,35 @@ jobs:
             type=raw,value=latest,enable={{is_default_branch}}
             type=raw,value=${{ inputs.tag }},enable=${{ inputs.tag != '' }}
 
-      - name: Build and push auth-sidecar image
-        uses: docker/build-push-action@v5
-        with:
-          context: ./packages/cli/templates/auth-sidecar
-          platforms: linux/amd64,linux/arm64
-          push: true
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-
-      - name: Build Summary
+      - name: Create manifest list and push
         run: |
-          echo "### 🛡️ Auth-Sidecar Build" >> $GITHUB_STEP_SUMMARY
-          echo "Successfully pushed multi-arch image (amd64/arm64) to GHCR." >> $GITHUB_STEP_SUMMARY
+          TAGS=$(echo "${{ steps.meta.outputs.tags }}" | tr '\n' ' ')
+          SHA_PREFIX="sha-$(echo ${{ github.sha }} | cut -c1-7)"
+
+          AMD64_IMAGE="${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}-auth-sidecar:amd64-${SHA_PREFIX}"
+          ARM64_IMAGE="${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}-auth-sidecar:arm64-${SHA_PREFIX}"
+
+          for tag in $TAGS; do
+            echo "Creating manifest for tag: $tag"
+            docker buildx imagetools create -t $tag $AMD64_IMAGE $ARM64_IMAGE
+          done
+
+      - name: Final Summary
+        run: |
+          echo "### 🚀 Multi-Arch Manifest Created" >> $GITHUB_STEP_SUMMARY
+          echo "Auth-Sidecar is now available as a multi-architecture image (amd64/arm64)." >> $GITHUB_STEP_SUMMARY
           echo "- **Image**: \`${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}-auth-sidecar:latest\`" >> $GITHUB_STEP_SUMMARY
 
   build-mcp:
-    needs: [filter, detect-runner]
+    needs: filter
     if: needs.filter.outputs.mcp == 'true' || inputs.force_build || inputs.service == 'mcp' || inputs.service == 'all'
     strategy:
       matrix:
         include:
           - platform: amd64
-            runner: "ubuntu-latest"
+            runner: ubuntu-latest
           - platform: arm64
-            runner: ${{ fromJSON(needs.detect-runner.outputs.arm64_runner) }}
+            runner: ubuntu-24.04-arm
     runs-on: ${{ matrix.runner }}
     permissions:
       contents: read
