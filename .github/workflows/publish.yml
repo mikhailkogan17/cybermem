@@ -150,8 +150,9 @@ jobs:
           JOB_URL: "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
         run: |
           DATE=$(date "+%Y-%m-%d %H:%M:%S")
-          read -r -d '' JSON_PAYLOAD <<EOF
+          cat <<EOF > payload.json
           {
+            "text": "🚀 CyberMem v${VERSION} Published!",
             "blocks": [
               {
                 "type": "header",
@@ -190,7 +191,7 @@ jobs:
             ]
           }
           EOF
-          curl -X POST -H 'Content-type: application/json' --data "$JSON_PAYLOAD" $SLACK_WEBHOOK || true
+          curl -X POST -H 'Content-type: application/json' --data @payload.json $SLACK_WEBHOOK || true
 
       - name: Notify Slack (Publish Failure)
         if: failure()
@@ -199,8 +200,9 @@ jobs:
           VERSION: ${{ steps.version.outputs.version }}
           JOB_URL: "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
         run: |
-          read -r -d '' JSON_PAYLOAD <<EOF
+          cat <<EOF > payload.json
           {
+            "text": "❌ CyberMem Publication Failed",
             "blocks": [
               {
                 "type": "header",
@@ -225,7 +227,7 @@ jobs:
             ]
           }
           EOF
-          curl -X POST -H 'Content-type: application/json' --data "$JSON_PAYLOAD" $SLACK_WEBHOOK || true
+          curl -X POST -H 'Content-type: application/json' --data @payload.json $SLACK_WEBHOOK || true
 
   # ==================================================================
   # 6. FINALIZE (Atomic commit: Changelog, Reports, Bump)
@@ -356,14 +358,15 @@ jobs:
           VERSION: ${{ needs.finalize.outputs.current_version }}
           JOB_URL: "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
         run: |
-          read -r -d '' JSON_PAYLOAD <<EOF
+          cat <<EOF > payload.json
           {
+            "text": "🍓 CyberMem v${VERSION} Deployed to RPi!",
             "blocks": [
               {
                 "type": "header",
                 "text": {
                   "type": "plain_text",
-                  "text": "🍓 ${VERSION} Deployed to RPi!"
+                  "text": "🍓 CyberMem v${VERSION} Deployed to RPi!"
                 }
               },
               {
@@ -376,7 +379,7 @@ jobs:
                   {
                     "type": "mrkdwn",
                     "text": "*Environment:*\nrpi-ts-prod"
-                  }
+                  },
                   {
                     "type": "mrkdwn",
                     "text": "*Job Run:*\n<${JOB_URL}|View Run>"
@@ -386,7 +389,7 @@ jobs:
             ]
           }
           EOF
-          curl -X POST -H 'Content-type: application/json' --data "$JSON_PAYLOAD" $SLACK_WEBHOOK || true
+          curl -X POST -H 'Content-type: application/json' --data @payload.json $SLACK_WEBHOOK || true
 
       - name: Notify Slack (Deploy Failure)
         if: failure()
@@ -395,14 +398,15 @@ jobs:
           VERSION: ${{ needs.finalize.outputs.current_version }}
           JOB_URL: "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
         run: |
-          read -r -d '' JSON_PAYLOAD <<EOF
+          cat <<EOF > payload.json
           {
+            "text": "🥺 CyberMem v${VERSION} RPi Deployment Failed",
             "blocks": [
               {
                 "type": "header",
                 "text": {
                   "type": "plain_text",
-                  "text": "🥺 ${VERSION} RPi Deployment Failed"
+                  "text": "🥺 CyberMem v${VERSION} RPi Deployment Failed"
                 }
               },
               {
@@ -421,4 +425,4 @@ jobs:
             ]
           }
           EOF
-          curl -X POST -H 'Content-type: application/json' --data "$JSON_PAYLOAD" $SLACK_WEBHOOK || true
+          curl -X POST -H 'Content-type: application/json' --data @payload.json $SLACK_WEBHOOK || true
