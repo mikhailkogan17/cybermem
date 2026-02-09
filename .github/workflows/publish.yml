@@ -81,10 +81,8 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - name: mcp
-            image: cybermem-mcp
-          - name: dashboard
-            image: cybermem-dashboard
+          # NOTE: mcp and dashboard are EXCLUDED - they have dedicated merge jobs
+          # that properly create multi-arch manifests. This job would overwrite them.
           - name: auth-sidecar
             image: cybermem-auth-sidecar
           - name: db-exporter
