@@ -187,12 +187,21 @@
       when: auth_token_hash is defined
       ignore_errors: true
 
-    - name: Wait for Traefik to be ready
+    - name: Wait for Traefik (Proxy) to be ready
       uri:
-        url: "http://localhost:{{ EFFECTIVE_TRAEFIK_PORT }}/health"
+        url: "http://localhost:{{ EFFECTIVE_TRAEFIK_PORT }}/ping"
         status_code: 200
       register: traefik_ping
       until: traefik_ping.status == 200
+      retries: 10
+      delay: 5
+
+    - name: Wait for MCP (App) to be ready
+      uri:
+        url: "http://localhost:{{ EFFECTIVE_TRAEFIK_PORT }}/health"
+        status_code: 200
+      register: mcp_health
+      until: mcp_health.status == 200
       retries: 30
       delay: 10
 
@@ -234,6 +243,16 @@
         - name: Rollback message
           debug:
             msg: "Rollback logic triggered due to unhealthy state."
+
+        - name: Dump Container Logs (Debug)
+          shell: |
+            echo "========== TRAEFIK LOGS =========="
+            docker logs {{ PROJECT_NAME | default('cybermem') }}-traefik --tail 100 2>&1
+            echo "========== MCP SERVER LOGS =========="
+            docker logs {{ PROJECT_NAME | default('cybermem') }}-mcp-server --tail 100 2>&1
+            echo "========== AUTH SIDECAR LOGS =========="
+            docker logs {{ PROJECT_NAME | default('cybermem') }}-auth-sidecar --tail 50 2>&1
+          ignore_errors: true
 
         - name: Restart previous state containers
           command: docker-compose -p {{ PROJECT_NAME | default('cybermem') }} up -d --remove-orphans
