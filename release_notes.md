@@ -2,6 +2,11 @@
 ### Changed
 ### Fixed
 ### Removed
+## [0.13.12] - 2026-02-09
+### Added
+### Changed
+### Fixed
+### Removed
 ## [0.13.11] - 2026-02-09
 ### Added
 ### Changed
