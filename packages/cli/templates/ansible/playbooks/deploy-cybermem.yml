@@ -150,7 +150,7 @@
       changed_when: "'Downloaded newer image' in pull_out.stdout or 'Downloaded newer image' in pull_out.stderr"
       when: not (skip_pull | default(false) | bool)
 
-    - name: Stop staging containers (prevent port conflicts, NEVER touch prod)
+    - name: Stop staging containers (prevent port conflicts)
       shell: |
         docker-compose -p cybermem-staging down --remove-orphans 2>/dev/null || true
       args:
@@ -158,6 +158,12 @@
       changed_when: false
       ignore_errors: true
       when: cybermem_env | default('prod') == 'staging'
+
+    - name: Stop current services (Force Clean State)
+      command: docker-compose -p {{ PROJECT_NAME | default('cybermem') }} down --remove-orphans
+      args:
+        chdir: "{{ project_dir }}"
+      ignore_errors: true
 
     - name: Start services
       command: docker-compose -p {{ PROJECT_NAME | default('cybermem') }} up -d --remove-orphans
