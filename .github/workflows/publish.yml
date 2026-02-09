@@ -149,8 +149,50 @@ jobs:
           VERSION: ${{ steps.version.outputs.version }}
           JOB_URL: "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
         run: |
-          MESSAGE="CyberMem v$VERSION Published!\n\nPackages Updated:\n[@cybermem/cli](https://www.npmjs.com/package/@cybermem/cli): v$VERSION\n[@cybermem/mcp](https://www.npmjs.com/package/@cybermem/mcp): v$VERSION\n[@cybermem/dashboard](https://www.npmjs.com/package/@cybermem/dashboard): v$VERSION\n\nBranch:\nmain\n\nDate:\n$(date)\n\nWorkflow Run:\n$JOB_URL"
-          curl -X POST -H 'Content-type: application/json' --data "{\"text\":\"$MESSAGE\"}" $SLACK_WEBHOOK || true
+          DATE=$(date "+%Y-%m-%d %H:%M:%S")
+          read -r -d '' JSON_PAYLOAD <<EOF
+          {
+            "text": "CyberMem v$VERSION Published!",
+            "blocks": [
+              {
+                "type": "header",
+                "text": {
+                  "type": "plain_text",
+                  "text": "CyberMem v${VERSION} Published!",
+                  "emoji": true
+                }
+              },
+              {
+                "type": "section",
+                "text": {
+                  "type": "mrkdwn",
+                  "text": "*Packages Updated:*\n• <https://www.npmjs.com/package/@cybermem/cli|@cybermem/cli>: v${VERSION}\n• <https://www.npmjs.com/package/@cybermem/mcp|@cybermem/mcp>: v${VERSION}\n• <https://www.npmjs.com/package/@cybermem/dashboard|@cybermem/dashboard>: v${VERSION}"
+                }
+              },
+              {
+                "type": "section",
+                "fields": [
+                  {
+                    "type": "mrkdwn",
+                    "text": "*Branch:*\nmain"
+                  },
+                  {
+                    "type": "mrkdwn",
+                    "text": "*Date:*\n${DATE}"
+                  }
+                ]
+              },
+              {
+                "type": "section",
+                "text": {
+                  "type": "mrkdwn",
+                  "text": "*Workflow Run:*\n<${JOB_URL}|View Run>"
+                }
+              }
+            ]
+          }
+          EOF
+          curl -X POST -H 'Content-type: application/json' --data "$JSON_PAYLOAD" $SLACK_WEBHOOK || true
 
       - name: Notify Slack (Publish Failure)
         if: failure()
@@ -159,8 +201,35 @@ jobs:
           VERSION: ${{ steps.version.outputs.version }}
           JOB_URL: "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
         run: |
-          MESSAGE="CyberMem publication failed\n\nVersion: v$VERSION\nRun:\n$JOB_URL"
-          curl -X POST -H 'Content-type: application/json' --data "{\"text\":\"$MESSAGE\"}" $SLACK_WEBHOOK || true
+          read -r -d '' JSON_PAYLOAD <<EOF
+          {
+            "text": "CyberMem Publication Failed",
+            "blocks": [
+              {
+                "type": "header",
+                "text": {
+                  "type": "plain_text",
+                  "text": "CyberMem Publication Failed",
+                  "emoji": true
+                }
+              },
+              {
+                "type": "section",
+                "fields": [
+                  {
+                    "type": "mrkdwn",
+                    "text": "*Version:*\n${VERSION:-unknown}"
+                  },
+                  {
+                    "type": "mrkdwn",
+                    "text": "*Run:*\n<${JOB_URL}|View Run>"
+                  }
+                ]
+              }
+            ]
+          }
+          EOF
+          curl -X POST -H 'Content-type: application/json' --data "$JSON_PAYLOAD" $SLACK_WEBHOOK || true
 
   # ==================================================================
   # 6. FINALIZE (Atomic commit: Changelog, Reports, Bump)
@@ -291,8 +360,35 @@ jobs:
           VERSION: ${{ needs.finalize.outputs.current_version }}
           JOB_URL: "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
         run: |
-          MESSAGE="CyberMem deployed to RPi!\n\nVersion: v$VERSION\n\nJob Run:\n$JOB_URL"
-          curl -X POST -H 'Content-type: application/json' --data "{\"text\":\"$MESSAGE\"}" $SLACK_WEBHOOK || true
+          read -r -d '' JSON_PAYLOAD <<EOF
+          {
+            "text": "CyberMem Deployed to RPi!",
+            "blocks": [
+              {
+                "type": "header",
+                "text": {
+                  "type": "plain_text",
+                  "text": "CyberMem Deployed to RPi!",
+                  "emoji": true
+                }
+              },
+              {
+                "type": "section",
+                "fields": [
+                  {
+                    "type": "mrkdwn",
+                    "text": "*Version:*\n${VERSION}"
+                  },
+                  {
+                    "type": "mrkdwn",
+                    "text": "*Job Run:*\n<${JOB_URL}|View Run>"
+                  }
+                ]
+              }
+            ]
+          }
+          EOF
+          curl -X POST -H 'Content-type: application/json' --data "$JSON_PAYLOAD" $SLACK_WEBHOOK || true
 
       - name: Notify Slack (Deploy Failure)
         if: failure()
@@ -301,5 +397,32 @@ jobs:
           VERSION: ${{ needs.finalize.outputs.current_version }}
           JOB_URL: "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
         run: |
-          MESSAGE="CyberMem deployment failed\n\nVersion: v$VERSION\nRun:\n$JOB_URL"
-          curl -X POST -H 'Content-type: application/json' --data "{\"text\":\"$MESSAGE\"}" $SLACK_WEBHOOK || true
+          read -r -d '' JSON_PAYLOAD <<EOF
+          {
+            "text": "CyberMem Deployment Failed via Ansible",
+            "blocks": [
+              {
+                "type": "header",
+                "text": {
+                  "type": "plain_text",
+                  "text": "CyberMem Deployment Failed",
+                  "emoji": true
+                }
+              },
+              {
+                "type": "section",
+                "fields": [
+                  {
+                    "type": "mrkdwn",
+                    "text": "*Version:*\n${VERSION}"
+                  },
+                  {
+                    "type": "mrkdwn",
+                    "text": "*Run:*\n<${JOB_URL}|View Run>"
+                  }
+                ]
+              }
+            ]
+          }
+          EOF
+          curl -X POST -H 'Content-type: application/json' --data "$JSON_PAYLOAD" $SLACK_WEBHOOK || true
