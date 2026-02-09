@@ -10,11 +10,11 @@ Your memories live on **your** infrastructure. This guide covers backup and rest
 
 ## Data Location
 
-| Environment      | Data Path                 | Volume                     |
-| ---------------- | ------------------------- | -------------------------- |
-| **Local/Mac**    | `~/.cybermem/data/`       | `cybermem-openmemory-data` |
-| **Raspberry Pi** | `~/.cybermem/data/`       | `cybermem-openmemory-data` |
-| **VPS/Cloud**    | `/data/openmemory.sqlite` | Kubernetes PVC             |
+| Environment      | Data Path                | Volume                  |
+| ---------------- | ------------------------ | ----------------------- |
+| **Local/Mac**    | `~/.cybermem/data/`      | `cybermem-data`         |
+| **Raspberry Pi** | `~/.cybermem/data/`      | `cybermem-data`         |
+| **VPS/Cloud**    | `/data/cybermem.sqlite`  | Kubernetes PVC          |
 
 The SQLite file contains:
 - 🧠 **Memories** — facts and context stored by AI clients
@@ -93,21 +93,21 @@ npx @cybermem/cli restore ./cybermem-backup.tar.gz
 **Backup:**
 ```bash
 docker run --rm \
-  --volumes-from cybermem-openmemory \
+  --volumes-from cybermem-core \
   -v $(pwd):/backup \
   alpine tar czf /backup/backup.tar.gz /data
 ```
 
 **Restore:**
 ```bash
-docker stop cybermem-openmemory
+docker stop cybermem-core
 
 docker run --rm \
-  --volumes-from cybermem-openmemory \
+  --volumes-from cybermem-core \
   -v $(pwd):/backup \
   alpine sh -c "tar xzf /backup/backup.tar.gz -C / && chown -R 1001:1001 /data"
 
-docker start cybermem-openmemory
+docker start cybermem-core
 ```
 
 ---

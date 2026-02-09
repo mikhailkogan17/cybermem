@@ -186,12 +186,12 @@ We use `tools/test-k8s.sh` and the CyberMem Gatekeeper to guarantee that every r
 NAMESPACE: cybermem
 NAME                                         READY   STATUS    RESTARTS   AGE
 pod/cybermem-dashboard-6dd67f5586-djwwh      1/1     Running   0          2m
-pod/cybermem-openmemory-65fdf6d85c-g628g     1/1     Running   0          2m
+pod/cybermem-core-65fdf6d85c-g628g           1/1     Running   0          2m
 
 NAME                  TYPE           CLUSTER-IP     EXTERNAL-IP   PORT(S)    AGE
 cybermem-lb           LoadBalancer   10.43.0.1      127.0.0.1     8626/TCP   2m
 cybermem-dashboard    ClusterIP      10.43.79.62    <none>        3000/TCP   2m
-cybermem-openmemory   ClusterIP      10.43.95.212   <none>        8080/TCP   2m
+cybermem-core         ClusterIP      10.43.95.212   <none>        8080/TCP   2m
 ```
 
 #### 2. Ansible Idempotency (Operational Maturity)

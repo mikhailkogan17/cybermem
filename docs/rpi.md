@@ -71,7 +71,7 @@ RPi configuration in `~/.cybermem/.env`:
 CYBERMEM_TARGET=rpi
 
 # Database
-DATABASE_URL=sqlite:///data/openmemory.sqlite
+DATABASE_URL=sqlite:///data/cybermem.sqlite
 
 # Embeddings
 EMBEDDING_PROVIDER=ollama
@@ -107,7 +107,7 @@ For AI clients connecting to your RPi:
 
 ## Platform Compatibility
 
-> ⚠️ **64-bit OS Required**: Traefik and Prometheus require 64-bit Raspberry Pi OS. If using 32-bit userspace, use `traefik:v2.11` image.
+> ⚠️ **64-bit OS Required**: Traefik requires 64-bit Raspberry Pi OS. If using 32-bit userspace, use `traefik:v2.11` image.
 
 Check your platform:
 
@@ -165,7 +165,7 @@ Move data to USB drive:
 
 ```yaml
 volumes:
-  openmemory-data:
+  cybermem-data:
     driver_opts:
       device: /mnt/usb/cybermem
 ```
