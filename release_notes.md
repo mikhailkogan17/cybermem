@@ -2,6 +2,11 @@
 ### Changed
 ### Fixed
 ### Removed
+## [0.13.10] - 2026-02-09
+### Added
+### Changed
+### Fixed
+### Removed
 ## [0.13.9] - 2026-02-09
 ### Added
 - **Release Pipeline**: Automated Release Notes extraction from `CHANGELOG.md` directly into GitHub Releases.
