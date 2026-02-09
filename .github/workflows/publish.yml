@@ -219,7 +219,7 @@ jobs:
         env:
           SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK_URL }}
         run: |
-          VERSION="${{ needs.publish-npm.outputs.version }}"
+          VERSION="${{ needs.publish-npm.outputs.version || 'unknown' }}"
           curl -X POST -H 'Content-type: application/json' \
             --data "{\"text\":\"✅ *Production Deployed!* v${VERSION}\"}" \
             $SLACK_WEBHOOK || true
@@ -229,7 +229,7 @@ jobs:
         env:
           SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK_URL }}
         run: |
-          VERSION="${{ needs.publish-npm.outputs.version }}"
+          VERSION="${{ needs.publish-npm.outputs.version || 'unknown' }}"
           curl -X POST -H 'Content-type: application/json' \
             --data "{\"text\":\"⚠️ *Prod Deploy Failed* v${VERSION} - Manual intervention required\"}" \
             $SLACK_WEBHOOK || true
