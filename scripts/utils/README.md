@@ -9,7 +9,7 @@ One-off utility scripts for database seeding, data migration, and other administ
 Seeds staging authentication keys into the CyberMem database.
 
 ```bash
-node scripts/utils/seed_key.js --db /path/to/cybermem.sqlite
+node scripts/utils/seed_key.js --db /path/to/openmemory.sqlite
 ```
 
 **Usage:**
