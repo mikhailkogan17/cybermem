@@ -265,8 +265,9 @@
           args:
             chdir: "{{ project_dir }}"
           ignore_errors: true
-      when: health_status.failed or (health_status.content | from_json).overall != 'ok'
+      when: (health_status is failed) or (health_status.json is defined and health_status.json.overall != 'ok')
 
     - name: Deployment Summary
       debug:
-        msg: "CyberMem v{{ global_version }} successfully deployed. Health: {{ (health_status.content | from_json).overall | default('UNKNOWN') }}"
+        msg: "CyberMem v{{ global_version }} successfully deployed. Health: {{ health_status.json.overall | default('UNKNOWN') }}"
+      when: health_status.json is defined
