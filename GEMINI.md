@@ -182,7 +182,7 @@ To Ensure "Always Availability" and shorter token usage, follow this strict cycl
 > - `GEMINI.md`
 > - `.agent/workflows/*.md` (agent workflows)
 >
-> DO NOT create new `.md` files in other locations. Documentation on docs.cybermem.dev is generated from `/docs/` via submodule.
+> DO NOT create new `.md` files in other locations. Documentation on docs.cybermem.dev is generated from `/docs/` which is linked to the landing page repo as a git submodule (for publishing purposes only - not required for development).
 
 ---
 

@@ -93,21 +93,23 @@ npx @cybermem/cli restore ./cybermem-backup.tar.gz
 **Backup:**
 ```bash
 docker run --rm \
-  --volumes-from cybermem-openmemory \
+  -v cybermem-data:/data \
   -v $(pwd):/backup \
   alpine tar czf /backup/backup.tar.gz /data
 ```
 
 **Restore:**
 ```bash
-docker stop cybermem-openmemory
+# Stop services first
+cd ~/.cybermem && docker compose down
 
 docker run --rm \
-  --volumes-from cybermem-openmemory \
+  -v cybermem-data:/data \
   -v $(pwd):/backup \
   alpine sh -c "tar xzf /backup/backup.tar.gz -C / && chown -R 1001:1001 /data"
 
-docker start cybermem-openmemory
+# Restart services
+cd ~/.cybermem && docker compose up -d
 ```
 
 ---
