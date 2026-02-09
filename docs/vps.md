@@ -46,8 +46,8 @@ helm install cybermem cybermem/cybermem \
 
 ```yaml
 # values.yaml
-core:
-  replicas: 2
+openmemory:
+  replicaCount: 2
 
 database:
   type: postgresql
