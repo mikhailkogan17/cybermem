@@ -20,11 +20,11 @@ export default defineConfig({
   projects: [
     {
       name: "api",
-      testMatch: ["api.spec.ts", "routing.spec.ts"],
+      testMatch: ["api.spec.ts", "routing.spec.ts", "auth-bypass.spec.ts"],
     },
     {
       name: "ui",
-      testMatch: "ui.spec.ts",
+      testMatch: ["ui.spec.ts", "reset-db.spec.ts"],
       use: {
         ...devices["Desktop Chrome"],
         trace: "on",

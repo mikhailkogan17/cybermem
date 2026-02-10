@@ -30,7 +30,6 @@ export default function SettingsModal({ onClose }: { onClose: () => void }) {
   const [isRestoring, setIsRestoring] = useState(false);
   const [isRestarting, setIsRestarting] = useState(false);
   const [isResetting, setIsResetting] = useState(false);
-  const [resetConfirmText, setResetConfirmText] = useState("");
   const [showResetConfirm, setShowResetConfirm] = useState(false);
   const [operationStatus, setOperationStatus] = useState<{
     type: "success" | "error";
@@ -173,8 +172,6 @@ export default function SettingsModal({ onClose }: { onClose: () => void }) {
   };
 
   const handleReset = async () => {
-    if (resetConfirmText !== "RESET") return;
-
     try {
       setIsResetting(true);
       const res = await fetch("/api/reset", {
@@ -186,10 +183,12 @@ export default function SettingsModal({ onClose }: { onClose: () => void }) {
       if (!res.ok) throw new Error(data.error || "Reset failed");
 
       setShowResetConfirm(false);
-      setResetConfirmText("");
       setOperationStatus({
         type: "success",
         message: "Database wiped successfully.",
+      });
+      toast.success("Database Reset", {
+        description: data.message || "Database wiped successfully.",
       });
     } catch (err: any) {
       setOperationStatus({ type: "error", message: err.message });
@@ -281,10 +280,7 @@ export default function SettingsModal({ onClose }: { onClose: () => void }) {
       {/* Reset Database Confirmation Modal */}
       <ConfirmationModal
         isOpen={showResetConfirm}
-        onClose={() => {
-          setShowResetConfirm(false);
-          setResetConfirmText("");
-        }}
+        onClose={() => setShowResetConfirm(false)}
         onConfirm={handleReset}
         title="Reset Database"
         description="This will permanently delete ALL memories and cannot be undone. Make sure you have a backup!"
