@@ -71,7 +71,7 @@ RPi configuration in `~/.cybermem/.env`:
 CYBERMEM_TARGET=rpi
 
 # Database
-DATABASE_URL=sqlite:///data/openmemory.sqlite
+OM_DB_PATH=/data/openmemory.sqlite
 
 # Embeddings
 EMBEDDING_PROVIDER=ollama

@@ -47,7 +47,7 @@ helm install cybermem cybermem/cybermem \
 ```yaml
 # values.yaml
 openmemory:
-  replicas: 2
+  replicaCount: 2
 
 database:
   type: postgresql
@@ -154,7 +154,7 @@ NEW_KEY=$(openssl rand -hex 32)
 echo "OM_API_KEY=sk-$NEW_KEY" >> .env
 
 # Restart services
-docker compose restart openmemory
+docker compose restart mcp-server
 ```
 
 ### Network Policies (K8s)
@@ -167,7 +167,7 @@ metadata:
 spec:
   podSelector:
     matchLabels:
-      app: openmemory
+      app.kubernetes.io/name: openmemory
   ingress:
     - from:
         - podSelector:
@@ -183,12 +183,12 @@ spec:
 apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
 metadata:
-  name: openmemory
+  name: cybermem-openmemory
 spec:
   scaleTargetRef:
     apiVersion: apps/v1
     kind: Deployment
-    name: openmemory
+    name: cybermem-openmemory
   minReplicas: 2
   maxReplicas: 10
   metrics:

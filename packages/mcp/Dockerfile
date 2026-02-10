@@ -1,7 +1,7 @@
 # Base stage
-FROM node:20-alpine AS base
+FROM node:20-slim AS base
 WORKDIR /app
-RUN apk add --no-cache python3 make g++
+RUN apt-get update && apt-get install -y --no-install-recommends python3 make g++ && rm -rf /var/lib/apt/lists/*
 
 # Build stage
 FROM base AS builder
@@ -12,14 +12,14 @@ RUN npm run build
 RUN npm prune --production
 
 # Native stage for sqlite3 bindings
-FROM node:20-alpine AS native-builder
-RUN apk update && apk add --no-cache python3 python3-dev make g++
+FROM node:20-slim AS native-builder
+RUN apt-get update && apt-get install -y --no-install-recommends python3 make g++ && rm -rf /var/lib/apt/lists/*
 WORKDIR /native
 RUN npm init -y && npm install sqlite3@5.1.7 sqlite@5.1.1
 
 # Runtime stage
-FROM node:20-alpine AS runner
-RUN apk add --no-cache libc6-compat
+FROM node:20-slim AS runner
+RUN apt-get update && apt-get install -y --no-install-recommends curl libc6 && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 
 # Copy built artifacts and deps

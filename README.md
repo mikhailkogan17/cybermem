@@ -214,20 +214,6 @@ PLAY RECAP ********************************************************************
 raspberrypi.local   : ok=15   changed=0    unreachable=0    failed=0    skipped=0
 ```
 
-#### 3. CLI Spec Gatekeeping
-```bash
-./.hooks/pre-commit
-
-═══════════════════════════════════════════════════════════════
-  🔒 CyberMem GATEKEEPER — Spec Verified
-═══════════════════════════════════════════════════════════════
-✅ VERIFIED: K8s Deployment Verified (tools/test-k8s.sh)
-✅ VERIFIED: Ansible Idempotency Verified
-✅ VERIFIED: Identity & Postmortems Verified
-✅ SPEC PASSED: install/upgrade/uninstall cli spec
-═══════════════════════════════════════════════════════════════
-```
-
 ## Contributing
 
 Contributions are welcome! See [CONTRIBUTING.md](CONTRIBUTING.md) for development setup and guidelines.

@@ -81,12 +81,6 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - name: mcp
-            image: cybermem-mcp
-          - name: dashboard
-            image: cybermem-dashboard
-          - name: auth-sidecar
-            image: cybermem-auth-sidecar
           - name: db-exporter
             image: cybermem-db_exporter
           - name: log-exporter
@@ -142,56 +136,105 @@ jobs:
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
-  # ==================================================================
-  # 6. DEPLOY PROD (RPi)
-  # ==================================================================
-  deploy-prod:
-    name: "deploy:rpi-ts-prod"
-    needs: publish-npm
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Setup Tailscale
-        uses: tailscale/github-action@v4
-        with:
-          oauth-client-id: ${{ secrets.TS_OAUTH_CLIENT_ID }}
-          oauth-secret: ${{ secrets.TS_OAUTH_SECRET }}
-          tags: tag:ci
-          version: 1.76.6
-
-      - name: Setup Ansible + Tailscale SSH
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y ansible
-          sudo cp tools/ts-ssh /usr/local/bin/ts-ssh
-          sudo chmod +x /usr/local/bin/ts-ssh
-
-      - name: Get RPi Tailscale IP
-        id: get_rpi_ip
-        run: |
-          RPI_IP=$(tailscale status --json | jq -r '.Peer[] | select(.HostName | test("raspberrypi"; "i")) | .TailscaleIPs[0]' | head -1)
-          echo "ip=$RPI_IP" >> $GITHUB_OUTPUT
-
-      - name: Deploy Prod (Pull :latest)
+      - name: Notify Slack (Publish Success)
+        if: success()
+        continue-on-error: true
         env:
-          ANSIBLE_HOST_KEY_CHECKING: "False"
+          SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK_URL }}
+          VERSION: ${{ steps.version.outputs.version }}
+          JOB_URL: "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
         run: |
-          ansible-playbook \
-            -i packages/cli/templates/ansible/inventory/hosts.ini \
-            packages/cli/templates/ansible/playbooks/deploy-cybermem.yml \
-            --extra-vars "cybermem_env=prod ghcr_user=${{ github.actor }} ghcr_token=${{ secrets.GITHUB_TOKEN }} CYBERMEM_TAILSCALE=false" \
-            --extra-vars "ansible_ssh_executable=/usr/local/bin/ts-ssh" \
-            --extra-vars "ansible_host=${{ steps.get_rpi_ip.outputs.ip }}" \
-            --extra-vars "ansible_user=pi ansible_become_flags=-n ansible_timeout=60"
+          DATE=$(date "+%Y-%m-%d %H:%M:%S")
+          cat <<EOF > payload.json
+          {
+            "text": "🚀 CyberMem v${VERSION} Published!",
+            "blocks": [
+              {
+                "type": "header",
+                "text": {
+                  "type": "plain_text",
+                  "text": "🚀 CyberMem v${VERSION} Published!"
+                }
+              },
+              {
+                "type": "section",
+                "text": {
+                  "type": "mrkdwn",
+                  "text": "*Packages Updated:*\n• <https://www.npmjs.com/package/@cybermem/cli|@cybermem/cli>: v${VERSION}\n• <https://www.npmjs.com/package/@cybermem/mcp|@cybermem/mcp>: v${VERSION}\n• <https://www.npmjs.com/package/@cybermem/dashboard|@cybermem/dashboard>: v${VERSION}"
+                }
+              },
+              {
+                "type": "section",
+                "fields": [
+                  {
+                    "type": "mrkdwn",
+                    "text": "*Branch:*\nmain"
+                  },
+                  {
+                    "type": "mrkdwn",
+                    "text": "*Date:*\n${DATE}"
+                  }
+                ]
+              },
+              {
+                "type": "section",
+                "text": {
+                  "type": "mrkdwn",
+                  "text": "*Workflow Run:*\n<${JOB_URL}|View Run>"
+                }
+              }
+            ]
+          }
+          EOF
+          curl -X POST -H 'Content-type: application/json' --data @payload.json $SLACK_WEBHOOK || true
+
+      - name: Notify Slack (Publish Failure)
+        if: failure()
+        continue-on-error: true
+        env:
+          SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK_URL }}
+          VERSION: ${{ steps.version.outputs.version }}
+          JOB_URL: "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+        run: |
+          cat <<EOF > payload.json
+          {
+            "text": "❌ CyberMem Publication Failed",
+            "blocks": [
+              {
+                "type": "header",
+                "text": {
+                  "type": "plain_text",
+                  "text": "❌ CyberMem Publication Failed"
+                }
+              },
+              {
+                "type": "section",
+                "fields": [
+                  {
+                    "type": "mrkdwn",
+                    "text": "*Version:*\n${VERSION:-unknown}"
+                  },
+                  {
+                    "type": "mrkdwn",
+                    "text": "*Run:*\n<${JOB_URL}|View Run>"
+                  }
+                ]
+              }
+            ]
+          }
+          EOF
+          curl -X POST -H 'Content-type: application/json' --data @payload.json $SLACK_WEBHOOK || true
 
   # ==================================================================
-  # 7. FINALIZE (Atomic commit: Changelog, Reports, Bump)
+  # 6. FINALIZE (Atomic commit: Changelog, Reports, Bump)
   # ==================================================================
   finalize:
     name: "finalize"
-    needs: [publish-npm, deploy-prod, e2e]
+    needs: [publish-npm, e2e]
     runs-on: ubuntu-latest
+    outputs:
+      current_version: ${{ steps.prep.outputs.current_version }}
+      next_version: ${{ steps.atomic.outputs.next_version }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -261,18 +304,123 @@ jobs:
             --notes-file release_notes.md \
             --target main
 
-      - name: Slack Notifications
-        if: always()
+  # ==================================================================
+  # 7. DEPLOY PROD (RPi)
+  # ==================================================================
+  deploy-prod:
+    name: "deploy:rpi-ts-prod"
+    needs: finalize
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Tailscale
+        uses: tailscale/github-action@v4
+        with:
+          oauth-client-id: ${{ secrets.TS_OAUTH_CLIENT_ID }}
+          oauth-secret: ${{ secrets.TS_OAUTH_SECRET }}
+          tags: tag:ci
+          version: 1.76.6
+
+      - name: Setup Ansible + Tailscale SSH
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ansible
+          sudo cp tools/ts-ssh /usr/local/bin/ts-ssh
+          sudo chmod +x /usr/local/bin/ts-ssh
+
+      - name: Get RPi Tailscale IP
+        id: get_rpi_ip
+        run: |
+          RPI_IP=$(tailscale status --json | jq -r '.Peer[] | select(.HostName | test("raspberrypi"; "i")) | .TailscaleIPs[0]' | head -1)
+          echo "ip=$RPI_IP" >> $GITHUB_OUTPUT
+
+      - name: Deploy Prod (Pull :latest)
+        env:
+          ANSIBLE_HOST_KEY_CHECKING: "False"
+        run: |
+          ansible-playbook \
+            -i packages/cli/templates/ansible/inventory/hosts.ini \
+            packages/cli/templates/ansible/playbooks/deploy-cybermem.yml \
+            --extra-vars "cybermem_env=prod ghcr_user=${{ github.actor }} ghcr_token=${{ secrets.GITHUB_TOKEN }} CYBERMEM_TAILSCALE=false" \
+            --extra-vars "ansible_ssh_executable=/usr/local/bin/ts-ssh" \
+            --extra-vars "ansible_host=${{ steps.get_rpi_ip.outputs.ip }}" \
+            --extra-vars "ansible_user=pi ansible_become_flags=-n ansible_timeout=60"
+
+      - name: Notify Slack (Deploy Success)
+        if: success()
+        continue-on-error: true
         env:
           SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK_URL }}
+          VERSION: ${{ needs.finalize.outputs.current_version }}
+          JOB_URL: "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
         run: |
-          VERSION="${{ steps.prep.outputs.current_version }}"
-          RESULT="${{ job.status }}"
-          if [ "$RESULT" = "success" ]; then
-            MESSAGE="✅ *CyberMem v${VERSION} Live!* Release & reports committed. NPM Updated. Deployed to RPi."
-          else
-            MESSAGE="⚠️ *CyberMem Release Issues!* v${VERSION:-unknown} - Check CI logs."
-          fi
-          curl -X POST -H 'Content-type: application/json' \
-            --data "{\"text\":\"$MESSAGE\"}" \
-            $SLACK_WEBHOOK || true
+          cat <<EOF > payload.json
+          {
+            "text": "🍓 CyberMem v${VERSION} Deployed to RPi!",
+            "blocks": [
+              {
+                "type": "header",
+                "text": {
+                  "type": "plain_text",
+                  "text": "🍓 CyberMem v${VERSION} Deployed to RPi!"
+                }
+              },
+              {
+                "type": "section",
+                "fields": [
+                  {
+                    "type": "mrkdwn",
+                    "text": "*Version:*\n${VERSION}"
+                  },
+                  {
+                    "type": "mrkdwn",
+                    "text": "*Environment:*\nrpi-ts-prod"
+                  },
+                  {
+                    "type": "mrkdwn",
+                    "text": "*Job Run:*\n<${JOB_URL}|View Run>"
+                  }
+                ]
+              }
+            ]
+          }
+          EOF
+          curl -X POST -H 'Content-type: application/json' --data @payload.json $SLACK_WEBHOOK || true
+
+      - name: Notify Slack (Deploy Failure)
+        if: failure()
+        continue-on-error: true
+        env:
+          SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK_URL }}
+          VERSION: ${{ needs.finalize.outputs.current_version }}
+          JOB_URL: "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+        run: |
+          cat <<EOF > payload.json
+          {
+            "text": "🥺 CyberMem v${VERSION} RPi Deployment Failed",
+            "blocks": [
+              {
+                "type": "header",
+                "text": {
+                  "type": "plain_text",
+                  "text": "🥺 CyberMem v${VERSION} RPi Deployment Failed"
+                }
+              },
+              {
+                "type": "section",
+                "fields": [
+                  {
+                    "type": "mrkdwn",
+                    "text": "*Version:*\n${VERSION}"
+                  },
+                  {
+                    "type": "mrkdwn",
+                    "text": "*Run:*\n<${JOB_URL}|View Run>"
+                  }
+                ]
+              }
+            ]
+          }
+          EOF
+          curl -X POST -H 'Content-type: application/json' --data @payload.json $SLACK_WEBHOOK || true

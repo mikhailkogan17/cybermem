@@ -150,7 +150,7 @@
       changed_when: "'Downloaded newer image' in pull_out.stdout or 'Downloaded newer image' in pull_out.stderr"
       when: not (skip_pull | default(false) | bool)
 
-    - name: Stop staging containers (prevent port conflicts, NEVER touch prod)
+    - name: Stop staging containers (prevent port conflicts)
       shell: |
         docker-compose -p cybermem-staging down --remove-orphans 2>/dev/null || true
       args:
@@ -158,6 +158,12 @@
       changed_when: false
       ignore_errors: true
       when: cybermem_env | default('prod') == 'staging'
+
+    - name: Stop current services (Force Clean State)
+      command: docker-compose -p {{ PROJECT_NAME | default('cybermem') }} down --remove-orphans
+      args:
+        chdir: "{{ project_dir }}"
+      ignore_errors: true
 
     - name: Start services
       command: docker-compose -p {{ PROJECT_NAME | default('cybermem') }} up -d --remove-orphans
@@ -187,12 +193,21 @@
       when: auth_token_hash is defined
       ignore_errors: true
 
-    - name: Wait for Traefik to be ready
+    - name: Wait for Traefik (Proxy) to be ready
       uri:
-        url: "http://localhost:{{ EFFECTIVE_TRAEFIK_PORT }}/health"
+        url: "http://localhost:{{ EFFECTIVE_TRAEFIK_PORT }}/ping"
         status_code: 200
       register: traefik_ping
       until: traefik_ping.status == 200
+      retries: 10
+      delay: 5
+
+    - name: Wait for MCP (App) to be ready
+      uri:
+        url: "http://localhost:{{ EFFECTIVE_TRAEFIK_PORT }}/health"
+        status_code: 200
+      register: mcp_health
+      until: mcp_health.status == 200
       retries: 30
       delay: 10
 
@@ -235,13 +250,24 @@
           debug:
             msg: "Rollback logic triggered due to unhealthy state."
 
+        - name: Dump Container Logs (Debug)
+          shell: |
+            echo "========== TRAEFIK LOGS =========="
+            docker logs {{ PROJECT_NAME | default('cybermem') }}-traefik --tail 100 2>&1
+            echo "========== MCP SERVER LOGS =========="
+            docker logs {{ PROJECT_NAME | default('cybermem') }}-mcp-server --tail 100 2>&1
+            echo "========== AUTH SIDECAR LOGS =========="
+            docker logs {{ PROJECT_NAME | default('cybermem') }}-auth-sidecar --tail 50 2>&1
+          ignore_errors: true
+
         - name: Restart previous state containers
           command: docker-compose -p {{ PROJECT_NAME | default('cybermem') }} up -d --remove-orphans
           args:
             chdir: "{{ project_dir }}"
           ignore_errors: true
-      when: health_status.failed or (health_status.content | from_json).overall != 'ok'
+      when: (health_status is failed) or (health_status.json is defined and health_status.json.overall != 'ok')
 
     - name: Deployment Summary
       debug:
-        msg: "CyberMem v{{ global_version }} successfully deployed. Health: {{ (health_status.content | from_json).overall | default('UNKNOWN') }}"
+        msg: "CyberMem v{{ global_version }} successfully deployed. Health: {{ health_status.json.overall | default('UNKNOWN') }}"
+      when: health_status.json is defined
