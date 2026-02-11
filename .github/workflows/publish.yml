@@ -332,7 +332,12 @@ jobs:
           MAX_ATTEMPTS=18
           POLL_INTERVAL=10
           for i in $(seq 1 $MAX_ATTEMPTS); do
-            PR_STATE=$(gh pr view "$PR_URL" --json state --jq '.state' 2>/dev/null || echo "UNKNOWN")
+            PR_STATE=$(gh pr view "$PR_URL" --json state --jq '.state' 2>&1)
+            if [ $? -ne 0 ]; then
+              echo "⚠️ Failed to query PR state: $PR_STATE"
+              PR_STATE="UNKNOWN"
+            fi
+
             if [ "$PR_STATE" = "MERGED" ]; then
               echo "✅ PR merged successfully!"
               break
@@ -352,8 +357,6 @@ jobs:
           fi
 
           # Create and push tag after merge
-          git fetch origin main
-          git checkout main
           git pull origin main
           git tag "v$VERSION"
           git push origin "v$VERSION"
