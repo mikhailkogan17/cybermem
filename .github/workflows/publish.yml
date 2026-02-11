@@ -233,10 +233,6 @@ jobs:
     needs: [publish-npm, e2e]
     runs-on: ubuntu-latest
     continue-on-error: true
-    outputs:
-      current_version: ${{ steps.prep.outputs.current_version }}
-      next_version: ${{ steps.atomic.outputs.next_version }}
-      pr_url: ${{ steps.atomic.outputs.pr_url }}
     steps:
       - uses: actions/checkout@v4
         with:
