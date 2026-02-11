@@ -1,10 +1,10 @@
 <div align="center">
   <p>
     <a href="https://docs.cybermem.dev"><img src="https://img.shields.io/badge/docs-read_now-10b981" alt="docs"></a>
+    <a href="https://www.npmjs.com/package/@cybermem/mcp"><img src="https://img.shields.io/npm/v/@cybermem/mcp?color=10b981&label=npm&logo=npm" alt="npm"></a>
+    <img src="https://img.shields.io/badge/license-MIT-10b981?logo=svg%2bxml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgdmlld0JveD0iMCAwIDI0IDI0Ij48cGF0aCBmaWxsPSJub25lIiBzdHJva2U9ImN1cnJlbnRDb2xvciIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIiBzdHJva2Utd2lkdGg9IjEuNSIgZD0iTTIwLjUgMTR2LTRjMC0zLjc3MSAwLTUuNjU3LTEuMTcyLTYuODI4UzE2LjI3MSAyIDEyLjUgMmgtMUM3LjcyOSAyIDUuODQzIDIgNC42NzIgMy4xNzJTMy41IDYuMjI5IDMuNSAxMHY0YzAgMy43NzEgMCA1LjY1NyAxLjE3MiA2LjgyOFM3LjcyOSAyMiAxMS41IDIyaDFjMy43NzEgMCA1LjY1NyAwIDYuODI4LTEuMTcyUzIwLjUgMTcuNzcxIDIwLjUgMTRNOCA3aDhtLTggNWg4bS04IDVoNCIvPjwvc3ZnPg==" alt="license">
     <a href="https://github.com/mikhailkogan17/cybermem/actions/workflows/publish.yml"><img src="https://img.shields.io/github/actions/workflow/status/mikhailkogan17/cybermem/publish.yml?label=CI" alt="CI"></a>
-    <img src="https://img.shields.io/badge/MCP-Server-10b981?logo=data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTYiIGhlaWdodD0iMTYiIHZpZXdCb3g9IjAgMCAxNiAxNiIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KICA8cGF0aCBkPSJNOCAwTDAgNEw4IDhMMTYgNEw4IDBaIiBmaWxsPSJ3aGl0ZSIvPgogIDxwYXRoIGQ9Ik0wIDhMOCAxMkwxNiA4TDggNEwwIDhaIiBmaWxsPSJ3aGl0ZSIgZmlsbC1vcGFjaXR5PSIwLjciLz4KICA8cGF0aCBkPSJNMCAxMkw4IDE2TDE2IDEyTDggOEwwIDEyWiIgZmlsbD0id2hpdGUiIGZpbGwtb3BhY2l0eT0iMC40Ii8+Cjwvc3ZnPgo=" alt="MCP Server">
-    <a href="https://www.npmjs.com/package/@cybermem/mcp"><img src="https://img.shields.io/npm/v/@cybermem/mcp?color=10b981&label=npm&" alt="npm"></a>
-    <img src="https://img.shields.io/badge/license-MIT-10b981" alt="license">
+    <img src="https://img.shields.io/badge/MCP-Server-10b981?logo=modelcontextprotocol" alt="MCP Server">
   </p>
   
   <picture>
