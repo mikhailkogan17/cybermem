@@ -330,22 +330,24 @@ jobs:
           echo "Waiting for PR to be merged..."
           echo "PR URL: $PR_URL"
           MAX_ATTEMPTS=18
+          POLL_INTERVAL=10
           for i in $(seq 1 $MAX_ATTEMPTS); do
             PR_STATE=$(gh pr view "$PR_URL" --json state --jq '.state' 2>/dev/null || echo "UNKNOWN")
             if [ "$PR_STATE" = "MERGED" ]; then
               echo "✅ PR merged successfully!"
               break
             elif [ "$PR_STATE" = "CLOSED" ]; then
-              echo "❌ PR was closed without merging. Skipping release creation."
+              echo "❌ PR was closed without merging. Failing release creation."
               exit 1
             else
               echo "PR state: $PR_STATE, waiting... (attempt $i/$MAX_ATTEMPTS)"
-              sleep 10
+              sleep $POLL_INTERVAL
             fi
           done
 
           if [ "$PR_STATE" != "MERGED" ]; then
-            echo "⚠️ PR merge timeout after 3 minutes. Current state: $PR_STATE"
+            TOTAL_WAIT=$((MAX_ATTEMPTS * POLL_INTERVAL))
+            echo "⚠️ PR merge timeout after ${TOTAL_WAIT}s ($MAX_ATTEMPTS attempts). Current state: $PR_STATE"
             exit 1
           fi
 
