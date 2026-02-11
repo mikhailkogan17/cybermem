@@ -15,12 +15,7 @@
 
   <h3>Your AI Memory — Deploy Anywhere</h3>
   <p><em>Production-grade MCP Server for DevOps & AI Teams</em></p>
-
----
-
-  <p><strong>Docker Compose</strong> • <strong>Helm Charts</strong> • <strong>Ansible Playbooks</strong> • <strong>SQLite</strong> • <strong>Traefik</strong></p>
-  
-  <p><strong><a href="https://cybermem.dev">cybermem.dev</a></strong></p>
+  <p><strong><a href="https://cybermem.dev">cybermem.dev</a></strong></p>  
 </div>
 
 ## Features
