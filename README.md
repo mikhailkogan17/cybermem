@@ -1,8 +1,7 @@
 <div align="center">
   <p>
-    <a href="https://cybermem.dev"><img src="https://img.shields.io/badge/website-cybermem.dev-10b981?&logoColor=white" alt="website"></a>
     <a href="https://docs.cybermem.dev"><img src="https://img.shields.io/badge/docs-read_now-10b981" alt="docs"></a>
-    <a href="https://github.com/mikhailkogan17/cybermem/actions/workflows/build-images.yml"><img src="https://img.shields.io/github/actions/workflow/status/mikhailkogan17/cybermem/build-images.yml?label=CI" alt="CI"></a>
+    <a href="https://github.com/mikhailkogan17/cybermem/actions/workflows/publish.yml"><img src="https://img.shields.io/github/actions/workflow/status/mikhailkogan17/cybermem/publish.yml?label=CI" alt="CI"></a>
     <a href="https://www.npmjs.com/package/@cybermem/mcp"><img src="https://img.shields.io/npm/v/@cybermem/mcp?color=10b981&label=npm&" alt="npm"></a>
     <img src="https://img.shields.io/badge/license-MIT-10b981" alt="license">
   </p>
@@ -14,13 +13,12 @@
   </picture>
 
   <h3>Your AI Memory — Deploy Anywhere</h3>
-  <p><em>Platform Engineering MCP Server for DevOps & AI Teams</em></p>
-  <p><strong><a href="https://cybermem.dev">cybermem.dev</a></strong></p>
+  <p><em>Production-grade MCP Server for Platform Engineering, DevOps & AI Teams</em></p>
 
 ---
 
-  <p><strong>Production-grade MCP Server</strong><br>
-  <strong>Docker Compose</strong> • <strong>Helm Charts</strong> • <strong>Ansible Playbooks</strong> • <strong>SQLite</strong> • <strong>Traefik</strong></p>
+  <p><strong>Docker Compose</strong> • <strong>Helm Charts</strong> • <strong>Ansible Playbooks</strong> • <strong>SQLite</strong> • <strong>Traefik</strong></p>
+  <p><strong><a href="https://cybermem.dev">cybermem.dev</a></strong></p>
 </div>
 
 ## Features
