@@ -1,8 +1,8 @@
 <div align="center">
   <p>
-    <a href="https://cybermem.dev"><img src="https://img.shields.io/badge/website-cybermem.dev-10b981?&logoColor=white" alt="website"></a>
     <a href="https://docs.cybermem.dev"><img src="https://img.shields.io/badge/docs-read_now-10b981" alt="docs"></a>
-    <a href="https://github.com/mikhailkogan17/cybermem/actions/workflows/build-images.yml"><img src="https://img.shields.io/github/actions/workflow/status/mikhailkogan17/cybermem/build-images.yml?label=CI" alt="CI"></a>
+    <a href="https://github.com/mikhailkogan17/cybermem/actions/workflows/publish.yml"><img src="https://img.shields.io/github/actions/workflow/status/mikhailkogan17/cybermem/publish.yml?label=CI" alt="CI"></a>
+    <img src="https://img.shields.io/badge/MCP-Server-10b981?logo=data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTYiIGhlaWdodD0iMTYiIHZpZXdCb3g9IjAgMCAxNiAxNiIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KICA8cGF0aCBkPSJNOCAwTDAgNEw4IDhMMTYgNEw4IDBaIiBmaWxsPSJ3aGl0ZSIvPgogIDxwYXRoIGQ9Ik0wIDhMOCAxMkwxNiA4TDggNEwwIDhaIiBmaWxsPSJ3aGl0ZSIgZmlsbC1vcGFjaXR5PSIwLjciLz4KICA8cGF0aCBkPSJNMCAxMkw4IDE2TDE2IDEyTDggOEwwIDEyWiIgZmlsbD0id2hpdGUiIGZpbGwtb3BhY2l0eT0iMC40Ii8+Cjwvc3ZnPgo=" alt="MCP Server">
     <a href="https://www.npmjs.com/package/@cybermem/mcp"><img src="https://img.shields.io/npm/v/@cybermem/mcp?color=10b981&label=npm&" alt="npm"></a>
     <img src="https://img.shields.io/badge/license-MIT-10b981" alt="license">
   </p>
@@ -14,13 +14,13 @@
   </picture>
 
   <h3>Your AI Memory — Deploy Anywhere</h3>
-  <p><em>Platform Engineering MCP Server for DevOps & AI Teams</em></p>
-  <p><strong><a href="https://cybermem.dev">cybermem.dev</a></strong></p>
+  <p><em>Production-grade MCP Server for DevOps & AI Teams</em></p>
 
 ---
 
-  <p><strong>Production-grade MCP Server</strong><br>
-  <strong>Docker Compose</strong> • <strong>Helm Charts</strong> • <strong>Ansible Playbooks</strong> • <strong>SQLite</strong> • <strong>Traefik</strong></p>
+  <p><strong>Docker Compose</strong> • <strong>Helm Charts</strong> • <strong>Ansible Playbooks</strong> • <strong>SQLite</strong> • <strong>Traefik</strong></p>
+  
+  <p><strong><a href="https://cybermem.dev">cybermem.dev</a></strong></p>
 </div>
 
 ## Features
