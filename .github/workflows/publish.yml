@@ -245,6 +245,7 @@ jobs:
         with:
           fetch-depth: 0
           token: ${{ secrets.GITHUB_TOKEN }}
+          ref: main  # Ensure we get the latest commit with version bump
 
       - uses: actions/setup-node@v4
         with:
@@ -264,10 +265,10 @@ jobs:
           echo "current_version=$VERSION" >> $GITHUB_OUTPUT
           echo "📦 Release version: $VERSION"
           
-          # Extract release notes from CHANGELOG.md for the version
-          # Changesets will have already updated the CHANGELOG
-          if grep -q "## $VERSION" CHANGELOG.md; then
-            awk "/## $VERSION/,/^## / {if (/^## $VERSION/) next; if (/^## /) exit; print}" CHANGELOG.md | sed '/^$/d' > release_notes.md
+          # Extract release notes from CLI package CHANGELOG.md (changesets creates package-level CHANGELOGs)
+          CHANGELOG_FILE="packages/cli/CHANGELOG.md"
+          if [ -f "$CHANGELOG_FILE" ] && grep -q "## $VERSION" "$CHANGELOG_FILE"; then
+            awk "/## $VERSION/,/^## / {if (/^## $VERSION/) next; if (/^## /) exit; print}" "$CHANGELOG_FILE" | sed '/^$/d' > release_notes.md
           else
             echo "Release $VERSION" > release_notes.md
           fi
