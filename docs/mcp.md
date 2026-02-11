@@ -167,7 +167,9 @@ curl -H "X-Client-Name: my-custom-client" \
 
 ### MCP Inspector (Recommended)
 
-The official MCP Inspector provides an interactive UI for testing and debugging:
+The official MCP Inspector provides an interactive UI for testing and debugging.
+
+> **Note**: Requires Node.js 22.7.5 or later. If you're on Node 20, inspector will be skipped during install.
 
 ```bash
 # Start inspector for local development
@@ -178,7 +180,7 @@ npm run inspect
 npm run inspect:built
 
 # Inspect remote instance
-npx @modelcontextprotocol/inspector npx @cybermem/mcp \
+npx -y @modelcontextprotocol/inspector npx @cybermem/mcp \
   --url https://your-server.com:8626 \
   --token sk-your-token
 ```

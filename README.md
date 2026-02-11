@@ -222,13 +222,15 @@ Contributions are welcome! See [CONTRIBUTING.md](CONTRIBUTING.md) for developmen
 
 **MCP Inspector** - Interactive debugging tool for MCP server development:
 
+> **Note**: Requires Node.js 22.7.5+. On Node 20, inspector is optional and will be skipped during install.
+
 ```bash
 # Start inspector (auto-opens browser UI)
 cd packages/mcp
 npm run inspect
 
 # Or inspect a remote instance
-npx @modelcontextprotocol/inspector npx @cybermem/mcp \
+npx -y @modelcontextprotocol/inspector npx -y @cybermem/mcp \
   --url https://your-server.com:8626 \
   --token sk-your-token
 ```
