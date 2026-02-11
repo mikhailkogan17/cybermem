@@ -320,17 +320,21 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           VERSION="${{ steps.prep.outputs.current_version }}"
-          BRANCH_NAME="release/v$CURRENT_VERSION-auto"
+          BRANCH_NAME="release/v${VERSION}-auto"
 
           # Wait for PR to be merged (poll for up to 5 minutes)
           echo "Waiting for PR to be merged..."
-          for i in {1..30}; do
-            if git ls-remote --exit-code --heads origin "$BRANCH_NAME" > /dev/null 2>&1; then
-              echo "PR not merged yet, waiting... (attempt $i/30)"
-              sleep 10
-            else
+          for i in $(seq 1 30); do
+            PR_STATE=$(gh pr view "$BRANCH_NAME" --json state --jq '.state' 2>/dev/null || echo "UNKNOWN")
+            if [ "$PR_STATE" = "MERGED" ]; then
               echo "PR merged successfully!"
               break
+            elif [ "$PR_STATE" = "CLOSED" ]; then
+              echo "PR was closed without merging. Continuing anyway..."
+              break
+            else
+              echo "PR state: $PR_STATE, waiting... (attempt $i/30)"
+              sleep 10
             fi
           done
 
