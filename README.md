@@ -15,7 +15,7 @@
   </picture>
 
   <h3>Your AI Memory — Deploy Anywhere</h3>
-  <p><em>Production-grade MCP Server for DevOps & AI Teams</em></p>
+  <p>Production-grade MCP Server for DevOps & AI Teams</p>
   <p><strong><a href="https://cybermem.dev">cybermem.dev</a></strong></p>  
 </div>
 
