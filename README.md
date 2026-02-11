@@ -1,11 +1,11 @@
 <div align="center">
   <p>
-    <a href="https://docs.cybermem.dev"><img src="https://img.shields.io/badge/docs-read_now-10b981" alt="docs"></a>
-    <img src="https://img.shields.io/badge/license-MIT-10b981" alt="license">
-    <img src="https://img.shields.io/badge/MCP-Server-10b981?logo=modelcontextprotocol" alt="MCP Server">
-    <br>
     <a href="https://github.com/mikhailkogan17/cybermem/actions/workflows/publish.yml"><img src="https://img.shields.io/github/actions/workflow/status/mikhailkogan17/cybermem/publish.yml?label=CI" alt="CI"></a>
     <a href="https://www.npmjs.com/package/@cybermem/mcp"><img src="https://img.shields.io/npm/v/@cybermem/mcp?color=10b981&label=npm&logo=npm" alt="npm"></a>
+    <br>
+    <img src="https://img.shields.io/badge/MCP-Server-10b981?logo=modelcontextprotocol" alt="MCP Server">
+    <img src="https://img.shields.io/badge/license-MIT-10b981" alt="license">
+    <a href="https://docs.cybermem.dev"><img src="https://img.shields.io/badge/docs-read_now-10b981" alt="docs"></a>
   </p>
   
   <picture>
