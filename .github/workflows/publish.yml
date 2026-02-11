@@ -322,10 +322,10 @@ jobs:
           VERSION="${{ steps.prep.outputs.current_version }}"
           PR_URL="${{ steps.atomic.outputs.pr_url }}"
 
-          # Wait for PR to be merged (poll for up to 3 minutes)
+          # Wait for PR to be merged (poll for up to 10 minutes to accommodate E2E tests)
           echo "Waiting for PR to be merged..."
           echo "PR URL: $PR_URL"
-          MAX_ATTEMPTS=18
+          MAX_ATTEMPTS=60
           POLL_INTERVAL=10
           for i in $(seq 1 $MAX_ATTEMPTS); do
             PR_STATE=$(gh pr view "$PR_URL" --json state --jq '.state' 2>&1)
@@ -352,9 +352,9 @@ jobs:
             exit 1
           fi
 
-          # Create and push tag after merge
-          git pull origin main
-          git tag "v$VERSION"
+          # Create and push tag after merge, anchored to origin/main
+          git fetch origin main
+          git tag "v$VERSION" "origin/main"
           git push origin "v$VERSION"
 
           # Create GitHub Release
