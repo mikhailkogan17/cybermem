@@ -81,12 +81,12 @@ If you're building MCP infrastructure at companies like Descope, Anthropic, or s
 ## Architecture Overview
 
 ```mermaid
-***
+---
 config:
   theme: base
   wrappingWidth: 290
   fontSize: 11
-***
+---
 graph TD
     subgraph CI["🚀 Hybrid CI/CD Pipeline"]
         GHA["**GitHub Actions**<br/>(Control Plane)"]
