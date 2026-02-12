@@ -1,11 +1,18 @@
-import { readdirSync, statSync, unlinkSync } from "fs";
+import { existsSync, readdirSync, statSync, unlinkSync } from "fs";
 import { NextRequest, NextResponse } from "next/server";
 import { homedir } from "os";
 import { join, resolve } from "path";
 
 export const dynamic = "force-dynamic";
 
-const DATA_DIR = process.env.DATA_DIR || resolve(homedir(), ".cybermem/data");
+// Docker containers mount the volume at /data; local dev uses ~/.cybermem/data
+function resolveDataDir(): string {
+  if (process.env.DATA_DIR) return process.env.DATA_DIR;
+  if (existsSync("/data")) return "/data";
+  return resolve(homedir(), ".cybermem/data");
+}
+
+const DATA_DIR = resolveDataDir();
 
 /**
  * POST /api/reset

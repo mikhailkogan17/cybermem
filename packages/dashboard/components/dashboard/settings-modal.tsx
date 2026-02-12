@@ -191,7 +191,11 @@ export default function SettingsModal({ onClose }: { onClose: () => void }) {
         description: data.message || "Database wiped successfully.",
       });
     } catch (err: any) {
+      setShowResetConfirm(false);
       setOperationStatus({ type: "error", message: err.message });
+      toast.error("Reset Failed", {
+        description: err.message,
+      });
     } finally {
       setIsResetting(false);
     }
