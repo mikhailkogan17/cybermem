@@ -8,7 +8,9 @@
 
 This document evaluates whether standard MCP ecosystem tools (`mcp-remote`, `@modelcontextprotocol/inspector`) can replace CyberMem's custom remote management solutions to reduce codebase complexity and improve maintainability.
 
-**Recommendation**: **Adopt `@modelcontextprotocol/inspector` for development debugging**, but **keep custom remote implementation** for production. Remove `mcp-responder` as redundant.
+**Recommendation**: **Adopt `@modelcontextprotocol/inspector` for development debugging**, and **keep custom remote proxy implementation**. Remove `mcp-responder` as redundant.
+
+**Key Finding**: CyberMem's `--url` flag implements the **same stdio-to-HTTP proxy pattern** as `mcp-remote`, validating the architecture. The pattern is a standard MCP best practice.
 
 **Impact**: 
 - Code reduction: ~28 lines (mcp-responder removal)
@@ -141,22 +143,39 @@ if (cliUrl) {
 **Description**: Third-party stdio proxy for remote MCP connections via OAuth
 
 **Capabilities**:
-- Wraps remote HTTP MCP servers in stdio interface
+- Wraps remote HTTP/SSE MCP servers in stdio interface
 - OAuth authentication flow
 - Transparent proxy pattern
+- Generic solution that works with any MCP server
 
-**Assessment**: ❌ **NOT SUITABLE** for CyberMem
+**Assessment**: ✅ **SAME PATTERN AS CYBERMEM** 
 
-**Reasons**:
-1. CyberMem already has superior remote implementation (--url flag)
-2. OAuth is not CyberMem's auth model (uses API keys)
-3. Adds unnecessary layer (stdio → HTTP → stdio is less efficient than direct HTTP)
-4. Third-party package (not official MCP, less maintained)
-5. Would INCREASE code complexity, not reduce it
+**Analysis**:
+CyberMem's `--url` flag implements the **exact same pattern** as `mcp-remote`:
+1. Accepts stdio MCP requests from local clients (Claude, Cursor)
+2. Forwards them as HTTP requests to remote MCP server
+3. Returns responses back via stdio
 
-**Alternative**: CyberMem's current approach is the recommended pattern:
-- Direct HTTP mode when --url provided
-- stdio mode for local/default
+**Key Differences**:
+1. **Scope**: mcp-remote is generic (any MCP server), CyberMem is specific (only CyberMem servers)
+2. **Auth**: mcp-remote uses OAuth, CyberMem uses API keys
+3. **Implementation**: mcp-remote is standalone, CyberMem integrated into server binary
+
+**Why CyberMem's Approach Works**:
+- **Unified Binary**: Single `@cybermem/mcp` serves both local and proxy modes
+- **Simpler Config**: No need for separate proxy tool
+- **Custom Auth**: Uses CyberMem's existing API key infrastructure
+- **Type Safety**: Proxy logic shares types with server implementation
+
+**Why NOT Use mcp-remote**:
+1. **Already Implemented**: CyberMem already has this functionality built-in
+2. **Auth Mismatch**: OAuth not compatible with CyberMem's API key model
+3. **Extra Dependency**: Would add mcp-remote when we already have equivalent
+4. **Less Integrated**: Separate tool vs unified binary
+
+**Conclusion**: mcp-remote validates that CyberMem's stdio-to-HTTP proxy pattern is a standard MCP best practice. CyberMem implements this pattern correctly but with CyberMem-specific auth and tighter integration.
+
+**Reference**: https://github.com/geelen/mcp-remote
 
 ---
 
@@ -203,34 +222,41 @@ import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/
 
 ### 3.2 Remote/Proxy Tools
 
-#### mcp-remote ❌ NOT SUITABLE
+#### mcp-remote ✅ SAME PATTERN AS CYBERMEM
 **Status**: Third-party stdio-to-HTTP proxy with OAuth  
-**Assessment**: REJECTED - CyberMem's approach is superior
+**Assessment**: Validates CyberMem's architecture - implementing the same proven pattern
 
 **What it does**:
-- Wraps remote HTTP MCP servers in stdio interface
+- Allows stdio-only MCP clients (Claude, Cursor) to connect to remote HTTP/SSE servers
 - Provides OAuth authentication flow
-- Acts as transparent proxy for local-only MCP clients
+- Acts as transparent stdio ↔ HTTP bridge
 
-**Why Rejected**:
-1. **Unnecessary Layer**: CyberMem's dual-mode architecture is more efficient
-   - Current: Direct `--url` flag switches between local SDK and remote HTTP
-   - mcp-remote: Adds stdio → HTTP → stdio wrapping (inefficient)
-2. **Auth Mismatch**: Uses OAuth; CyberMem uses API key authentication
-3. **Third-party**: Not official MCP tool, less maintained
-4. **Complexity**: Would INCREASE codebase, not reduce it
-5. **Performance**: Extra network hops degrade performance
+**Why NOT Adopted (but pattern is validated)**:
+1. **Already Implemented**: CyberMem's `--url` flag does the same thing
+   - Accepts stdio from MCP clients
+   - Forwards as HTTP to remote CyberMem
+   - Returns responses via stdio
+2. **Auth Difference**: mcp-remote uses OAuth; CyberMem uses API keys (better fit)
+3. **Integration**: CyberMem's approach is more elegant (unified binary vs separate tool)
+4. **Type Safety**: Sharing types between proxy and server logic
 
-**CyberMem's Superior Pattern**:
+**Key Insight**: mcp-remote proves that the stdio-to-HTTP proxy pattern is a **standard MCP best practice**. CyberMem implements this exact pattern but with tighter integration and CyberMem-specific authentication.
+
+**CyberMem's Implementation**:
 ```typescript
-// Elegant dual-mode: --url flag determines mode
+// When --url provided, acts as stdio-to-HTTP proxy (like mcp-remote)
 if (cliUrl) {
-  // Direct HTTP client for remote
   apiClient = axios.create({ baseURL: cliUrl, headers: { "X-API-Key": cliToken } });
-} else {
-  // Local SDK for development
-  memory = new Memory();
 }
+// Tools forward requests to remote server
+server.registerTool("add_memory", async (args) => {
+  if (cliUrl) {
+    const res = await apiClient.post("/add", args); // HTTP to remote
+    return { content: [{ type: "text", text: JSON.stringify(res.data) }] };
+  } else {
+    // Local mode
+  }
+});
 ```
 
 **Reference**: https://github.com/geelen/mcp-remote
@@ -496,19 +522,23 @@ if (cliUrl) {
 
 ## 8. Conclusion
 
-**Standard MCP tools are NOT a replacement for CyberMem's custom remote management**, but they ARE valuable additions:
+**Standard MCP tools validate and complement CyberMem's architecture**:
 
-1. **@modelcontextprotocol/inspector**: Excellent for development/debugging → **ADOPT**
-2. **mcp-remote**: Not applicable → **REJECT**
-3. **mcp-responder**: Redundant → **REMOVE**
+1. **@modelcontextprotocol/inspector**: Excellent for development/debugging → **ADOPTED**
+2. **mcp-remote**: Implements same pattern as CyberMem's `--url` flag → **Pattern validated, tool not needed**
+3. **mcp-responder**: Redundant → **REMOVED**
 4. **log_exporter**: Potentially redundant → **EVALUATE**
 
-**Key Insight**: CyberMem's custom solutions demonstrate MCP best practices. The dual-mode architecture (local SDK vs remote API) is superior to third-party proxies like mcp-remote.
+**Key Insight**: CyberMem's stdio-to-HTTP proxy pattern (via `--url` flag) matches the industry-standard `mcp-remote` approach, validating the architecture. The implementation is more elegant (unified binary) and better suited to CyberMem's auth model (API keys vs OAuth).
 
 **Final Recommendation**: 
 - Adopt inspector for improved DX
 - Remove mcp-responder for code reduction
-- Keep core custom solutions (auth-sidecar, db_exporter, MCP remote mode)
+- Keep MCP remote proxy (stdio-to-HTTP pattern validated by mcp-remote)
+- Keep core infrastructure (auth-sidecar, db_exporter)
 - Evaluate log_exporter redundancy
 
-This approach achieves the goal of "showing knowledge of MCP best practices" by adopting official tooling while maintaining CyberMem's well-architected custom solutions.
+This approach achieves the goal of "showing knowledge of MCP best practices" by:
+1. Adopting official tooling (inspector)
+2. Implementing the same proven patterns as standard tools (stdio-to-HTTP proxy like mcp-remote)
+3. Maintaining CyberMem-specific optimizations (unified binary, API key auth)
