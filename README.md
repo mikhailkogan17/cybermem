@@ -58,15 +58,35 @@ and follow the instructions in terminal.
 - **Hybrid CI:** Leverages a private Raspberry Pi runner to bypass QEMU overhead, achieving native ARM64 build speeds.
 - **Zero-Trust Access:** Integrates Tailscale Funnel for secure, public access without port forwarding.
 
+---
+
+### For MCP Engineers & Hiring Managers
+
+CyberMem is a **reference implementation** of production MCP patterns:
+
+🔐 **Multi-tenant auth**: Traefik ForwardAuth extracts MCP client identity into audit logs  
+📊 **Zero-overhead observability**: Vector pipeline converts logs → Prometheus metrics  
+🚀 **Multi-platform IaC**: CLI auto-generates Docker Compose / Ansible / Helm per target  
+☸️ **Production deployment**: Kubernetes with rolling updates, health checks, PVC  
+🔧 **Hybrid CI/CD**: Self-hosted ARM64 runner bypasses QEMU 10x slowdown  
+
+**551+ commits • 25 releases • Full E2E testing**
+
+If you're building MCP infrastructure at companies like Descope, Anthropic, or similar — use this as a production pattern library.
+
+📧 **Open to MCP/Agentic Infrastructure roles**: [mikhailkogan17@gmail.com](mailto:mikhailkogan17@gmail.com)
+
+---
+
 ## Architecture Overview
 
 ```mermaid
----
+***
 config:
   theme: base
   wrappingWidth: 290
   fontSize: 11
----
+***
 graph TD
     subgraph CI["🚀 Hybrid CI/CD Pipeline"]
         GHA["**GitHub Actions**<br/>(Control Plane)"]
@@ -195,18 +215,18 @@ cybermem-openmemory   ClusterIP      10.43.95.212   <none>        8080/TCP   2m
 # Proof of zero-drift state management on Raspberry Pi
 ansible-playbook -i inventory/hosts.ini playbooks/deploy-cybermem.yml
 
-PLAY [Deploy CyberMem to Raspberry Pi] ****************************************
+PLAY [Deploy CyberMem to Raspberry Pi] **
 
-TASK [Gathering Facts] ********************************************************
+TASK [Gathering Facts] **
 ok: [raspberrypi.local]
 
-TASK [cybermem : Pull latest images from GHCR] ********************************
+TASK [cybermem : Pull latest images from GHCR] **
 ok: [raspberrypi.local] => (changed=false)
 
-TASK [cybermem : Start services] **********************************************
+TASK [cybermem : Start services] **
 ok: [raspberrypi.local] => (changed=false)
 
-PLAY RECAP ********************************************************************
+PLAY RECAP **
 raspberrypi.local   : ok=15   changed=0    unreachable=0    failed=0    skipped=0
 ```
 
@@ -218,4 +238,8 @@ Contributions are welcome! See [CONTRIBUTING.md](CONTRIBUTING.md) for developmen
 
 MIT
 
-Created by [Mikhail Kogan](https://github.com/mikhailkogan17) | [LinkedIn](https://linkedin.com/in/mikhail-kogan-platform)
+---
+
+Created by [Mikhail Kogan](https://github.com/mikhailkogan17)  
+📧 **Open to MCP/Agentic Infrastructure roles**: [mikhailkogan17@gmail.com](mailto:mikhailkogan17@gmail.com)  
+🔗 [LinkedIn](https://linkedin.com/in/mikhail-kogan-platform) • [CV (PDF)](https://github.com/mikhailkogan17/mikhailkogan17/raw/main/cv/CV_Mikhail_Kogan_Agentic_Feb26.pdf)
