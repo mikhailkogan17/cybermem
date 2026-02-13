@@ -147,7 +147,17 @@ export async function GET(request: NextRequest) {
         if (secret.startsWith("sk-")) {
           apiKey = secret;
         } else {
-          console.warn(`[Settings API] Token at ${secretPath} doesn't match expected format (sk-*)`);
+          // Fallback: support env-file format like "OM_API_KEY=sk-..."
+          const envMatch = secret.match(
+            /OM_API_KEY=["']?(sk-[a-zA-Z0-9]+)["']?/,
+          );
+          if (envMatch) {
+            apiKey = envMatch[1];
+          } else {
+            console.warn(
+              `[Settings API] Token at ${secretPath} doesn't match expected format (sk-* or OM_API_KEY=sk-*)`,
+            );
+          }
         }
       }
     }
@@ -164,7 +174,9 @@ export async function GET(request: NextRequest) {
         if (token.startsWith("sk-")) {
           apiKey = token;
         } else {
-          console.warn(`[Settings API] Token at ${fallbackPath} doesn't match expected format (sk-*)`);
+          console.warn(
+            `[Settings API] Token at ${fallbackPath} doesn't match expected format (sk-*)`,
+          );
         }
       }
     }
