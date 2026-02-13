@@ -143,7 +143,20 @@ export async function GET(request: NextRequest) {
     const secretPath = "/run/secrets/om_api_key";
     if (fs.existsSync(secretPath)) {
       const secret = fs.readFileSync(secretPath, "utf-8").trim();
-      if (secret) apiKey = secret;
+      if (secret && secret.startsWith("sk-")) apiKey = secret;
+    }
+  } catch (e) {
+    // ignore
+  }
+
+  // Fallback: Auto-generated token location
+  try {
+    const fallbackPath = "/data/.cybermem_token";
+    if (apiKey === "not-set" && fs.existsSync(fallbackPath)) {
+      const token = fs.readFileSync(fallbackPath, "utf-8").trim();
+      if (token && token.startsWith("sk-")) {
+        apiKey = token;
+      }
     }
   } catch (e) {
     // ignore

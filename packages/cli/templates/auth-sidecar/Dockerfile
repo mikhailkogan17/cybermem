@@ -1,6 +1,7 @@
 FROM node:20-alpine
 WORKDIR /app
-RUN apk add --no-cache libc6-compat
+# Install build dependencies for native modules (sqlite3)
+RUN apk add --no-cache libc6-compat python3 make g++
 COPY package.json ./
 RUN npm install
 COPY server.js .
