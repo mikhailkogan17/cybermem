@@ -128,7 +128,11 @@ For full protocol: https://docs.cybermem.dev/agent-protocol`;
     db.close();
   } catch (e) {
     console.error("Failed to initialize OpenMemory SDK:", e);
-    (server as any)._memoryReady = false;
+    console.error(
+      "[FATAL] CyberMem cannot start without a working database. " +
+        "Check OM_DB_PATH and ensure sqlite3 native bindings are installed.",
+    );
+    process.exit(1);
   }
 
   // PERSISTENT LOGGING DB

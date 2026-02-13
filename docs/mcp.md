@@ -173,15 +173,12 @@ Interactive debugging tool for MCP server development:
 > **Note**: Requires Node.js 22.7.5 or later. On Node 20, inspector is skipped during install.
 
 ```bash
-# Start inspector for local development
+# Start inspector with local dev server (requires Docker stack running)
 cd packages/mcp
 npm run inspect
 
-# Or inspect built server
+# Or inspect the built server
 npm run inspect:built
-
-# Inspect remote instance
-npx -y @modelcontextprotocol/inspector npx -y @cybermem/mcp
 ```
 
 The inspector provides an interactive UI for testing tools, inspecting requests/responses, and verifying protocol compliance.

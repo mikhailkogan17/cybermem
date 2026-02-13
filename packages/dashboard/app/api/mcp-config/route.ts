@@ -67,12 +67,17 @@ export async function GET(request: Request) {
     let config: any;
     let configType = client?.configType || "json";
 
+    // Local envs (isManaged): use @cybermem/mcp directly
+    // Remote envs: use mcp-remote (standard stdio-to-HTTP bridge)
     if (configType === "toml") {
       if (isManaged) {
-        config = `[mcpServers.cybermem]\ncommand = "npx"\nargs = ["@cybermem/mcp"]`;
+        const localArgs = isStaging
+          ? `["@cybermem/mcp", "--staging"]`
+          : `["@cybermem/mcp"]`;
+        config = `[mcpServers.cybermem]\ncommand = "npx"\nargs = ${localArgs}`;
       } else {
         const keyVal = maskKey ? displayKey : actualKey;
-        config = `[mcpServers.cybermem]\ncommand = "npx"\nargs = ["@cybermem/mcp", "--url", "${baseUrl}", "--token", "${keyVal}"]`;
+        config = `[mcpServers.cybermem]\ncommand = "npx"\nargs = ["mcp-remote", "${baseUrl}", "--header", "X-API-Key:${keyVal}"]`;
       }
     } else if (configType === "command" || configType === "cmd") {
       let cmd = isManaged ? client?.localCommand : client?.remoteCommand;
@@ -85,19 +90,23 @@ export async function GET(request: Request) {
       config = cmd;
     } else {
       // JSON (default)
-      const args = isManaged
-        ? ["-y", "@cybermem/mcp"]
-        : [
-            "-y",
-            "@cybermem/mcp",
-            "--url",
-            baseUrl,
-            "--token",
-            maskKey ? displayKey : actualKey,
-          ];
+      let args: string[];
 
-      if (isStaging && !isManaged) {
-        args.push("--staging");
+      if (isManaged) {
+        // Local: use @cybermem/mcp directly (SDK mode)
+        args = ["-y", "@cybermem/mcp"];
+        if (isStaging) {
+          args.push("--staging");
+        }
+      } else {
+        // Remote: use mcp-remote (standard stdio-to-HTTP bridge)
+        args = [
+          "-y",
+          "mcp-remote",
+          baseUrl,
+          "--header",
+          `X-API-Key:${maskKey ? displayKey : actualKey}`,
+        ];
       }
 
       config = {

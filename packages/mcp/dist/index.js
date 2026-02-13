@@ -10,7 +10,6 @@ const stdio_js_1 = require("@modelcontextprotocol/sdk/server/stdio.js");
 const streamableHttp_js_1 = require("@modelcontextprotocol/sdk/server/streamableHttp.js");
 const types_js_1 = require("@modelcontextprotocol/sdk/types.js");
 const async_hooks_1 = require("async_hooks");
-const axios_1 = __importDefault(require("axios"));
 const cors_1 = __importDefault(require("cors"));
 const express_1 = __importDefault(require("express"));
 const zod_1 = require("zod");
@@ -25,8 +24,6 @@ async function startServer() {
         const idx = args.indexOf(name);
         return idx !== -1 && args[idx + 1] ? args[idx + 1] : undefined;
     };
-    const cliUrl = getArg("--url");
-    const cliToken = getArg("--token") || getArg("--api-key");
     const cliEnv = getArg("--env");
     if (cliEnv === "staging") {
         console.error("[MCP] Running in Staging environment");
@@ -73,65 +70,46 @@ For full protocol: https://docs.cybermem.dev/agent-protocol`;
     });
     // --- IMPLEMENTATION LOGIC ---
     let memory = null;
-    let apiClient = null;
     let sdk_update_memory = null;
     let sdk_reinforce_memory = null;
-    if (cliUrl) {
-        // REMOTE CLIENT MODE
-        console.error(`Connecting to remote CyberMem at ${cliUrl}`);
-        apiClient = axios_1.default.create({
-            baseURL: cliUrl,
-            headers: {
-                "X-API-Key": cliToken,
-                Accept: "application/json, text/event-stream",
-                "Content-Type": "application/json",
-            },
-        });
-        apiClient.interceptors.request.use((config) => {
-            const ctx = requestContext.getStore();
-            config.headers["X-Client-Name"] =
-                ctx?.clientName || stdioClientName || "antigravity-client";
-            return config;
-        });
+    // LOCAL SDK MODE
+    const dbPath = process.env.OM_DB_PATH;
+    const fs = await import("fs");
+    const path = await import("path");
+    try {
+        const dir = path.dirname(dbPath);
+        if (dir)
+            fs.mkdirSync(dir, { recursive: true });
     }
-    else {
-        // LOCAL SDK MODE
-        const dbPath = process.env.OM_DB_PATH;
-        const fs = await import("fs");
-        const path = await import("path");
-        try {
-            const dir = path.dirname(dbPath);
-            if (dir)
-                fs.mkdirSync(dir, { recursive: true });
-        }
-        catch { }
-        try {
-            const { Memory } = await import("openmemory-js/dist/core/memory.js");
-            const hsg = await import("openmemory-js/dist/memory/hsg.js");
-            sdk_update_memory = hsg.update_memory;
-            sdk_reinforce_memory = hsg.reinforce_memory;
-            memory = new Memory();
-            server._memoryReady = true;
-            // Initialize Tables
-            const sqlite3 = await import("sqlite3");
-            const db = new sqlite3.default.Database(dbPath);
-            db.configure("busyTimeout", 5000);
-            db.serialize(() => {
-                db.run("CREATE TABLE IF NOT EXISTS cybermem_stats (id INTEGER PRIMARY KEY AUTOINCREMENT, client_name TEXT NOT NULL, operation TEXT NOT NULL, count INTEGER DEFAULT 0, errors INTEGER DEFAULT 0, last_updated INTEGER NOT NULL, UNIQUE(client_name, operation));");
-                db.run("CREATE TABLE IF NOT EXISTS cybermem_access_log (id INTEGER PRIMARY KEY AUTOINCREMENT, timestamp INTEGER NOT NULL, client_name TEXT NOT NULL, client_version TEXT, method TEXT NOT NULL, endpoint TEXT NOT NULL, operation TEXT NOT NULL, status TEXT NOT NULL, is_error INTEGER DEFAULT 0);");
-                db.run("CREATE TABLE IF NOT EXISTS access_keys (id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))), key_hash TEXT NOT NULL, name TEXT DEFAULT 'default', user_id TEXT DEFAULT 'default', created_at TEXT DEFAULT (datetime('now')), last_used_at TEXT, is_active INTEGER DEFAULT 1);");
-            });
-            db.close();
-        }
-        catch (e) {
-            console.error("Failed to initialize OpenMemory SDK:", e);
-            server._memoryReady = false;
-        }
+    catch { }
+    try {
+        const { Memory } = await import("openmemory-js/dist/core/memory.js");
+        const hsg = await import("openmemory-js/dist/memory/hsg.js");
+        sdk_update_memory = hsg.update_memory;
+        sdk_reinforce_memory = hsg.reinforce_memory;
+        memory = new Memory();
+        server._memoryReady = true;
+        // Initialize Tables
+        const sqlite3 = await import("sqlite3");
+        const db = new sqlite3.default.Database(dbPath);
+        db.configure("busyTimeout", 5000);
+        db.serialize(() => {
+            db.run("CREATE TABLE IF NOT EXISTS cybermem_stats (id INTEGER PRIMARY KEY AUTOINCREMENT, client_name TEXT NOT NULL, operation TEXT NOT NULL, count INTEGER DEFAULT 0, errors INTEGER DEFAULT 0, last_updated INTEGER NOT NULL, UNIQUE(client_name, operation));");
+            db.run("CREATE TABLE IF NOT EXISTS cybermem_access_log (id INTEGER PRIMARY KEY AUTOINCREMENT, timestamp INTEGER NOT NULL, client_name TEXT NOT NULL, client_version TEXT, method TEXT NOT NULL, endpoint TEXT NOT NULL, operation TEXT NOT NULL, status TEXT NOT NULL, is_error INTEGER DEFAULT 0);");
+            db.run("CREATE TABLE IF NOT EXISTS access_keys (id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))), key_hash TEXT NOT NULL, name TEXT DEFAULT 'default', user_id TEXT DEFAULT 'default', created_at TEXT DEFAULT (datetime('now')), last_used_at TEXT, is_active INTEGER DEFAULT 1);");
+        });
+        db.close();
+    }
+    catch (e) {
+        console.error("Failed to initialize OpenMemory SDK:", e);
+        console.error("[FATAL] CyberMem cannot start without a working database. " +
+            "Check OM_DB_PATH and ensure sqlite3 native bindings are installed.");
+        process.exit(1);
     }
     // PERSISTENT LOGGING DB
     let loggingDb = null;
     const initLoggingDb = async () => {
-        if (loggingDb || cliUrl)
+        if (loggingDb)
             return loggingDb;
         const dbPath = process.env.OM_DB_PATH;
         const sqlite3 = await import("sqlite3");
@@ -145,7 +123,7 @@ For full protocol: https://docs.cybermem.dev/agent-protocol`;
         });
     };
     const logActivity = async (operation, opts = {}) => {
-        if (cliUrl || !memory)
+        if (!memory)
             return;
         const { client: providedClient, method = "POST", endpoint = "/mcp", status = 200, } = opts;
         const ctx = requestContext.getStore();
@@ -182,37 +160,25 @@ For full protocol: https://docs.cybermem.dev/agent-protocol`;
             tags: zod_1.z.array(zod_1.z.string()).optional(),
         }),
     }, async (args) => {
-        if (cliUrl) {
-            const res = await apiClient.post("/add", args);
-            return { content: [{ type: "text", text: JSON.stringify(res.data) }] };
-        }
-        else {
-            const res = await memory.add(args.content, { tags: args.tags });
-            await logActivity("create", {
-                method: "POST",
-                endpoint: "/memory/add",
-                status: 200,
-            });
-            return { content: [{ type: "text", text: JSON.stringify(res) }] };
-        }
+        const res = await memory.add(args.content, { tags: args.tags });
+        await logActivity("create", {
+            method: "POST",
+            endpoint: "/memory/add",
+            status: 200,
+        });
+        return { content: [{ type: "text", text: JSON.stringify(res) }] };
     });
     server.registerTool("query_memory", {
         description: "Search memories.",
         inputSchema: zod_1.z.object({ query: zod_1.z.string(), k: zod_1.z.number().default(5) }),
     }, async (args) => {
-        if (cliUrl) {
-            const res = await apiClient.post("/query", args);
-            return { content: [{ type: "text", text: JSON.stringify(res.data) }] };
-        }
-        else {
-            const res = await memory.search(args.query, { limit: args.k });
-            await logActivity("read", {
-                method: "POST",
-                endpoint: "/memory/query",
-                status: 200,
-            });
-            return { content: [{ type: "text", text: JSON.stringify(res) }] };
-        }
+        const res = await memory.search(args.query, { limit: args.k });
+        await logActivity("read", {
+            method: "POST",
+            endpoint: "/memory/query",
+            status: 200,
+        });
+        return { content: [{ type: "text", text: JSON.stringify(res) }] };
     });
     server.registerTool("update_memory", {
         description: "Mutate existing memory (content/tags). HIGH COST: re-embeds and re-links. Use for corrections.",
@@ -222,74 +188,57 @@ For full protocol: https://docs.cybermem.dev/agent-protocol`;
             tags: zod_1.z.array(zod_1.z.string()).optional(),
         }),
     }, async (args) => {
-        if (cliUrl) {
-            const res = await apiClient.patch(`/memory/${args.id}`, args);
-            return { content: [{ type: "text", text: JSON.stringify(res.data) }] };
-        }
-        else {
-            if (!sdk_update_memory)
-                throw new Error("Update not available in SDK");
-            const res = await sdk_update_memory(args.id, args.content, args.tags);
-            await logActivity("update", {
-                method: "PATCH",
-                endpoint: `/memory/${args.id}`,
-                status: 200,
-            });
-            return { content: [{ type: "text", text: JSON.stringify(res) }] };
-        }
+        if (!sdk_update_memory)
+            throw new Error("Update not available in SDK");
+        const res = await sdk_update_memory(args.id, args.content, args.tags);
+        await logActivity("update", {
+            method: "PATCH",
+            endpoint: `/memory/${args.id}`,
+            status: 200,
+        });
+        return { content: [{ type: "text", text: JSON.stringify(res) }] };
     });
     server.registerTool("reinforce_memory", {
         description: "Metabolic boost (salience). LOW COST: prevents decay without mutation. Use for active topics.",
         inputSchema: zod_1.z.object({ id: zod_1.z.string(), boost: zod_1.z.number().default(0.1) }),
     }, async (args) => {
-        if (cliUrl) {
-            const res = await apiClient.post(`/memory/${args.id}/reinforce`, args);
-            return { content: [{ type: "text", text: JSON.stringify(res.data) }] };
-        }
-        else {
-            if (!sdk_reinforce_memory)
-                throw new Error("Reinforce not available in SDK");
-            await sdk_reinforce_memory(args.id, args.boost);
-            await logActivity("update", {
-                method: "POST",
-                endpoint: `/memory/${args.id}/reinforce`,
-                status: 200,
-            });
-            return { content: [{ type: "text", text: "Reinforced" }] };
-        }
+        if (!sdk_reinforce_memory)
+            throw new Error("Reinforce not available in SDK");
+        await sdk_reinforce_memory(args.id, args.boost);
+        await logActivity("update", {
+            method: "POST",
+            endpoint: `/memory/${args.id}/reinforce`,
+            status: 200,
+        });
+        return { content: [{ type: "text", text: "Reinforced" }] };
     });
     server.registerTool("delete_memory", {
         description: "Delete memory",
         inputSchema: zod_1.z.object({ id: zod_1.z.string() }),
     }, async (args) => {
-        if (cliUrl) {
-            const res = await apiClient.delete(`/memory/${args.id}`);
-            return { content: [{ type: "text", text: JSON.stringify(res.data) }] };
-        }
-        else {
-            const dbPath = process.env.OM_DB_PATH;
-            const sqlite3 = await import("sqlite3");
-            const db = new sqlite3.default.Database(dbPath);
-            return new Promise((resolve, reject) => {
-                db.serialize(() => {
-                    db.run("DELETE FROM memories WHERE id = ?", [args.id]);
-                    db.run("DELETE FROM vectors WHERE id = ?", [args.id], async (err) => {
-                        db.close();
-                        await logActivity("delete", {
-                            method: "DELETE",
-                            endpoint: `/memory/${args.id}`,
-                            status: err ? 500 : 200,
-                        });
-                        if (err)
-                            reject(err);
-                        else
-                            resolve({ content: [{ type: "text", text: "Deleted" }] });
+        const dbPath = process.env.OM_DB_PATH;
+        const sqlite3 = await import("sqlite3");
+        const db = new sqlite3.default.Database(dbPath);
+        return new Promise((resolve, reject) => {
+            db.serialize(() => {
+                db.run("DELETE FROM memories WHERE id = ?", [args.id]);
+                db.run("DELETE FROM vectors WHERE id = ?", [args.id], async (err) => {
+                    db.close();
+                    await logActivity("delete", {
+                        method: "DELETE",
+                        endpoint: `/memory/${args.id}`,
+                        status: err ? 500 : 200,
                     });
+                    if (err)
+                        reject(err);
+                    else
+                        resolve({ content: [{ type: "text", text: "Deleted" }] });
                 });
             });
-        }
+        });
     });
     // EXPRESS SERVER
+    // HTTP server mode for Docker/Traefik deployment
     const useHttp = args.includes("--http") || args.includes("--port");
     if (useHttp) {
         const port = parseInt(getArg("--port") || "3100", 10);
@@ -302,7 +251,7 @@ For full protocol: https://docs.cybermem.dev/agent-protocol`;
             requestContext.run({ clientName }, next);
             // next(); // DELETED! Correctly handled by requestContext.run
         });
-        if (!cliUrl && memory) {
+        if (memory) {
             app.post("/add", async (req, res) => {
                 try {
                     const result = await memory.add(req.body.content, {
