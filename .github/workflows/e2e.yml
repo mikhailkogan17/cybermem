@@ -68,7 +68,33 @@ jobs:
               sleep 15
             }
           done
-          sleep 30
+          sleep 10
+
+      - name: Wait for Docker stack health
+        run: |
+          echo "=== Docker container status ==="
+          docker ps -a --format 'table {{.Names}}\t{{.Status}}\t{{.Ports}}'
+          echo ""
+          echo "=== Waiting for MCP health (max 120s) ==="
+          for i in $(seq 1 24); do
+            if curl -sf http://localhost:8625/health > /dev/null 2>&1; then
+              echo "✅ MCP health OK after $((i*5))s"
+              break
+            fi
+            echo "  ⏳ Attempt $i/24 — not ready yet..."
+            if [ $i -eq 12 ]; then
+              echo "=== Mid-wait diagnostics ==="
+              docker ps -a --format 'table {{.Names}}\t{{.Status}}'
+              echo "--- MCP server logs ---"
+              docker logs $(docker ps -aq --filter name=mcp-server) 2>&1 | tail -20 || true
+              echo "--- Traefik logs ---"
+              docker logs $(docker ps -aq --filter name=traefik) 2>&1 | tail -10 || true
+            fi
+            sleep 5
+          done
+          echo ""
+          echo "=== Final container status ==="
+          docker ps -a --format 'table {{.Names}}\t{{.Status}}\t{{.Ports}}'
 
       - run: npx playwright install --with-deps chromium
 
@@ -126,7 +152,33 @@ jobs:
               sleep 15
             }
           done
-          sleep 30
+          sleep 10
+
+      - name: Wait for Docker stack health
+        run: |
+          echo "=== Docker container status ==="
+          docker ps -a --format 'table {{.Names}}\t{{.Status}}\t{{.Ports}}'
+          echo ""
+          echo "=== Waiting for MCP health (max 120s) ==="
+          for i in $(seq 1 24); do
+            if curl -sf http://localhost:8626/health > /dev/null 2>&1; then
+              echo "✅ MCP health OK after $((i*5))s"
+              break
+            fi
+            echo "  ⏳ Attempt $i/24 — not ready yet..."
+            if [ $i -eq 12 ]; then
+              echo "=== Mid-wait diagnostics ==="
+              docker ps -a --format 'table {{.Names}}\t{{.Status}}'
+              echo "--- MCP server logs ---"
+              docker logs $(docker ps -aq --filter name=mcp-server) 2>&1 | tail -20 || true
+              echo "--- Traefik logs ---"
+              docker logs $(docker ps -aq --filter name=traefik) 2>&1 | tail -10 || true
+            fi
+            sleep 5
+          done
+          echo ""
+          echo "=== Final container status ==="
+          docker ps -a --format 'table {{.Names}}\t{{.Status}}\t{{.Ports}}'
 
       - run: npx playwright install --with-deps chromium
 
