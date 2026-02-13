@@ -75,10 +75,11 @@
 
     - name: Generate token hash for auto-generated token
       shell: |
-        python3 -c "import hashlib, binascii; salt = hashlib.sha256(b'cybermem-salt-v1').hexdigest()[:16]; h = hashlib.pbkdf2_hmac('sha512', '{{ auto_generated_token }}'.encode(), salt.encode(), 100000, 64); print(binascii.hexlify(h).decode())"
+        echo '{{ auto_generated_token }}' | python3 -c "import sys, hashlib, binascii; token = sys.stdin.read().strip(); salt = hashlib.sha256(b'cybermem-salt-v1').hexdigest()[:16]; h = hashlib.pbkdf2_hmac('sha512', token.encode(), salt.encode(), 100000, 64); print(binascii.hexlify(h).decode())"
       register: auto_generated_hash_result
       when: auto_generated_token is defined
       changed_when: false
+      no_log: true
 
     - name: Set auto-generated token hash
       set_fact:
@@ -93,14 +94,14 @@
         final_token_name: "{{ auth_token_name | default(auto_generated_name) }}"
       when: auth_token_value is defined or auto_generated_token is defined
 
-    - name: Write API Key Secret File
+    - name: Write API Key Secret File (only if no token exists or explicitly provided)
       copy:
         content: "{{ final_token_value }}"
         dest: "{{ project_dir }}/secrets/om_api_key"
         owner: "{{ ansible_user }}"
         group: "{{ ansible_user }}"
         mode: "0600"
-      when: final_token_value is defined and not api_key_file.stat.exists
+      when: final_token_value is defined and (not api_key_file.stat.exists or auth_token_value is defined)
 
     - name: Display auto-generated token (SAVE THIS!)
       debug:

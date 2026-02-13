@@ -143,7 +143,13 @@ export async function GET(request: NextRequest) {
     const secretPath = "/run/secrets/om_api_key";
     if (fs.existsSync(secretPath)) {
       const secret = fs.readFileSync(secretPath, "utf-8").trim();
-      if (secret && secret.startsWith("sk-")) apiKey = secret;
+      if (secret) {
+        if (secret.startsWith("sk-")) {
+          apiKey = secret;
+        } else {
+          console.warn(`[Settings API] Token at ${secretPath} doesn't match expected format (sk-*)`);
+        }
+      }
     }
   } catch (e) {
     // ignore
@@ -154,8 +160,12 @@ export async function GET(request: NextRequest) {
     const fallbackPath = "/data/.cybermem_token";
     if (apiKey === "not-set" && fs.existsSync(fallbackPath)) {
       const token = fs.readFileSync(fallbackPath, "utf-8").trim();
-      if (token && token.startsWith("sk-")) {
-        apiKey = token;
+      if (token) {
+        if (token.startsWith("sk-")) {
+          apiKey = token;
+        } else {
+          console.warn(`[Settings API] Token at ${fallbackPath} doesn't match expected format (sk-*)`);
+        }
       }
     }
   } catch (e) {
