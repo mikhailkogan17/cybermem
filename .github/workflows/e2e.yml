@@ -76,9 +76,11 @@ jobs:
           docker ps -a --format 'table {{.Names}}\t{{.Status}}\t{{.Ports}}'
           echo ""
           echo "=== Waiting for MCP health (max 120s) ==="
+          HEALTHY=false
           for i in $(seq 1 24); do
             if curl -sf http://localhost:8625/health > /dev/null 2>&1; then
               echo "✅ MCP health OK after $((i*5))s"
+              HEALTHY=true
               break
             fi
             echo "  ⏳ Attempt $i/24 — not ready yet..."
@@ -95,6 +97,11 @@ jobs:
           echo ""
           echo "=== Final container status ==="
           docker ps -a --format 'table {{.Names}}\t{{.Status}}\t{{.Ports}}'
+          if [ "$HEALTHY" != "true" ]; then
+            echo "❌ MCP health never reached — failing CI"
+            docker logs $(docker ps -aq --filter name=mcp-server) 2>&1 | tail -40 || true
+            exit 1
+          fi
 
       - run: npx playwright install --with-deps chromium
 
@@ -160,9 +167,11 @@ jobs:
           docker ps -a --format 'table {{.Names}}\t{{.Status}}\t{{.Ports}}'
           echo ""
           echo "=== Waiting for MCP health (max 120s) ==="
+          HEALTHY=false
           for i in $(seq 1 24); do
             if curl -sf http://localhost:8626/health > /dev/null 2>&1; then
               echo "✅ MCP health OK after $((i*5))s"
+              HEALTHY=true
               break
             fi
             echo "  ⏳ Attempt $i/24 — not ready yet..."
@@ -179,6 +188,11 @@ jobs:
           echo ""
           echo "=== Final container status ==="
           docker ps -a --format 'table {{.Names}}\t{{.Status}}\t{{.Ports}}'
+          if [ "$HEALTHY" != "true" ]; then
+            echo "❌ MCP health never reached — failing CI"
+            docker logs $(docker ps -aq --filter name=mcp-server) 2>&1 | tail -40 || true
+            exit 1
+          fi
 
       - run: npx playwright install --with-deps chromium
 

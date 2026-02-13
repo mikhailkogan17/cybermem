@@ -10,7 +10,8 @@ import { resolve } from "path";
  * 3. `~/.cybermem/data` (local dev / Next.js standalone)
  */
 export function resolveDataDir(): string {
-  if (process.env.DATA_DIR) return process.env.DATA_DIR;
+  const envDataDir = process.env.DATA_DIR?.trim();
+  if (envDataDir) return envDataDir;
   if (existsSync("/data")) return "/data";
   return resolve(homedir(), ".cybermem/data");
 }

@@ -281,7 +281,7 @@ test.describe("Reset DB - Settings Modal", () => {
     request,
   }) => {
     // Call the reset API directly and verify we never get ENOENT
-    const res = await request.post(`${BASE_URL}/api/reset`, {
+    const res = await request.post("/api/reset", {
       data: { confirm: "RESET" },
       headers: { "Content-Type": "application/json" },
     });
