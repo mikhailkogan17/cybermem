@@ -4,15 +4,13 @@ import path from "path";
 
 dotenv.config();
 
-// CLI Enforcement: Ensure CyberMem is deployed via @cybermem/cli
+// Auto-set CYBERMEM_INSTANCE for stdio mode (npx @cybermem/mcp)
+// When started via @cybermem/cli, CYBERMEM_INSTANCE is already set.
 if (!process.env.CYBERMEM_INSTANCE) {
+  process.env.CYBERMEM_INSTANCE = `local-${os.hostname()}`;
   console.error(
-    "\n❌ FATAL: CyberMem must be started via @cybermem/cli ('mcp install' or 'mcp up').",
+    `[MCP] No CYBERMEM_INSTANCE set, defaulting to "${process.env.CYBERMEM_INSTANCE}"`,
   );
-  console.error(
-    "Manual 'npm start' or 'docker-compose up' without CLI tagging is forbidden.\n",
-  );
-  process.exit(1);
 }
 
 // Normalize OM_DB_PATH early so all components (SDK, exporters) use the same file

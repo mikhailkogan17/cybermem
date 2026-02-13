@@ -11,7 +11,9 @@
     "start": "node dist/index.js",
     "dev": "ts-node src/index.ts",
     "lint": "tsc --noEmit",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "inspect": "mcp-inspector npx ts-node src/index.ts",
+    "inspect:built": "mcp-inspector node dist/index.js"
   },
   "repository": {
     "type": "git",
@@ -37,7 +39,6 @@
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.0.0",
-    "axios": "^1.13.2",
     "cors": "^2.8.5",
     "dotenv": "^16.0.0",
     "express": "^5.2.1",
@@ -52,6 +53,7 @@
     "@types/cors": "^2.8.19",
     "@types/express": "^5.0.6",
     "@types/node": "^18.0.0",
+    "@modelcontextprotocol/inspector": "^0.19.0",
     "ts-node": "^10.9.1",
     "typescript": "^5.0.0"
   }

@@ -94,7 +94,7 @@
     ],
     "configType": "command",
     "localCommand": "claude mcp add cybermem npx @cybermem/mcp",
-    "remoteCommand": "claude mcp add cybermem -- npx @cybermem/mcp --url {{ENDPOINT}} --token {{TOKEN}}"
+    "remoteCommand": "claude mcp add cybermem -- npx -y mcp-remote {{ENDPOINT}} --header X-API-Key:{{TOKEN}}"
   },
   {
     "id": "chatgpt",
@@ -158,7 +158,7 @@
     ],
     "configType": "cmd",
     "localCommand": "gemini mcp add cybermem npx @cybermem/mcp",
-    "remoteCommand": "gemini mcp add cybermem -- npx @cybermem/mcp --url {{ENDPOINT}} --token {{TOKEN}}"
+    "remoteCommand": "gemini mcp add cybermem -- npx -y mcp-remote {{ENDPOINT}} --header X-API-Key:{{TOKEN}}"
   },
   {
     "id": "other",

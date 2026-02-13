@@ -13,7 +13,7 @@ CyberMem provides an MCP server that allows AI clients (Claude, Cursor, etc.) to
 | Claude Desktop | stdio     | MCP config file    |
 | Cursor         | stdio     | MCP config file    |
 | VS Code        | stdio     | Extension settings |
-| Custom         | SSE       | HTTP endpoint      |
+| Custom         | HTTP      | Streamable HTTP    |
 
 ## Local Configuration
 
@@ -51,11 +51,9 @@ Install the CyberMem extension or configure manually:
 
 ## Remote Configuration
 
-For remote CyberMem (RPi, VPS):
+For remote CyberMem (RPi, VPS), use **mcp-remote** — the standard stdio-to-HTTP bridge:
 
-### Stdio with URL (Recommended)
-
-Universal configuration that works with all MCP clients:
+### Using mcp-remote (Recommended)
 
 ```json
 {
@@ -64,26 +62,30 @@ Universal configuration that works with all MCP clients:
       "command": "npx",
       "args": [
         "-y",
-        "@cybermem/mcp",
-        "--url",
-        "https://your-server.com:8626",
-        "--token",
-        "sk-your-token",
-        "--client-name",
-        "cursor"
+        "mcp-remote",
+        "https://your-server.com:8626/mcp",
+        "--header",
+        "X-API-Key:${CYBERMEM_TOKEN}"
       ]
     }
   }
 }
 ```
 
-### CLI Arguments
+### Why mcp-remote?
 
-| Argument        | Description                                    |
-| --------------- | ---------------------------------------------- |
-| `--url`         | Remote CyberMem endpoint (required for remote) |
-| `--token`       | Security token for authentication              |
-| `--client-name` | Client identifier for dashboard tracking       |
+- **Standard tool** — maintained by the MCP community (geelen/mcp-remote)
+- **OAuth support** — built-in authentication flow
+- **Transport bridging** — stdio↔HTTP/SSE↔Streamable HTTP
+- **Zero CyberMem-specific code** — works with any MCP server
+
+### mcp-remote Arguments
+
+| Argument                      | Description                        |
+| ----------------------------- | ---------------------------------- |
+| `<url>`                       | Remote MCP endpoint URL            |
+| `--header "Key:Value"`        | Add custom headers (e.g., API key) |
+| `--transport sse\|streamable` | Force specific transport           |
 
 ## Available Tools
 
@@ -96,7 +98,6 @@ Store a new memory:
 ```typescript
 {
   content: string,    // Required: The memory content
-  user_id?: string,   // Optional: User identifier
   tags?: string[]     // Optional: Categorization tags
 }
 ```
@@ -112,13 +113,26 @@ Semantic search for relevant memories:
 }
 ```
 
-### `list_memories`
+### `update_memory`
 
-List recent memories:
+Update an existing memory (HIGH COST — re-embeds):
 
 ```typescript
 {
-  limit?: number  // Optional: Max results (default: 10)
+  id: string,           // Required: Memory ID
+  content?: string,     // Optional: New content
+  tags?: string[]       // Optional: New tags
+}
+```
+
+### `reinforce_memory`
+
+Metabolic boost (LOW COST — prevents decay):
+
+```typescript
+{
+  id: string,       // Required: Memory ID
+  boost?: number    // Optional: Boost amount (default: 0.1)
 }
 ```
 
@@ -128,20 +142,7 @@ Remove a memory by ID:
 
 ```typescript
 {
-  id: string; // Required: Memory ID
-}
-```
-
-### `update_memory`
-
-Update an existing memory:
-
-```typescript
-{
-  id: string,           // Required: Memory ID
-  content?: string,     // Optional: New content
-  tags?: string[],      // Optional: New tags
-  metadata?: object     // Optional: Additional metadata
+  id: string  // Required: Memory ID
 }
 ```
 
@@ -151,19 +152,36 @@ CyberMem tracks which client made each request via the `X-Client-Name` header.
 
 ### Automatic (stdio)
 
-The MCP server automatically identifies the client from the process.
+The MCP server automatically identifies the client from the handshake.
 
-### Manual (SSE)
+### Manual (HTTP)
 
 Include the header in your requests:
 
 ```bash
 curl -H "X-Client-Name: my-custom-client" \
-     -H "Authorization: Bearer sk-..." \
+     -H "X-API-Key: sk-..." \
      https://your-server.com:8626/mcp
 ```
 
-## Debugging
+## Debugging & Development Tools
+
+### MCP Inspector
+
+Interactive debugging tool for MCP server development:
+
+> **Note**: Requires Node.js 22.7.5 or later. On Node 20, inspector is skipped during install.
+
+```bash
+# Start inspector with local dev server (requires Docker stack running)
+cd packages/mcp
+npm run inspect
+
+# Or inspect the built server
+npm run inspect:built
+```
+
+The inspector provides an interactive UI for testing tools, inspecting requests/responses, and verifying protocol compliance.
 
 ### Test Connection
 
@@ -172,7 +190,7 @@ curl -H "X-Client-Name: my-custom-client" \
 curl http://localhost:8626/health
 
 # Remote
-curl -H "Authorization: Bearer sk-..." https://your-server.com:8626/health
+curl -H "X-API-Key: sk-..." https://your-server.com:8626/health
 ```
 
 ### View Logs
@@ -201,6 +219,15 @@ open http://localhost:3000
 
 - Increase client timeout settings
 - Check network latency to server
+
+## Ecosystem & Recommended Tools
+
+| Tool                                                                                   | Purpose                                     | Install                                  |
+| -------------------------------------------------------------------------------------- | ------------------------------------------- | ---------------------------------------- |
+| [`mcp-remote`](https://github.com/geelen/mcp-remote)                                   | Connect stdio clients to remote MCP servers | `npx -y mcp-remote <url>`                |
+| [`@modelcontextprotocol/inspector`](https://github.com/modelcontextprotocol/inspector) | Interactive MCP protocol debugger           | `npx -y @modelcontextprotocol/inspector` |
+| [`fastmcp`](https://github.com/punkpeye/fastmcp)                                       | Higher-level MCP server framework (TS)      | `npm i fastmcp`                          |
+| [`mcp-proxy`](https://github.com/sparfenyuk/mcp-proxy)                                 | Bidirectional stdio↔HTTP proxy              | `npx -y mcp-proxy`                       |
 
 ## Next Steps
 
