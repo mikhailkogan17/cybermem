@@ -1,11 +1,11 @@
+import { resolveDataDir } from "@/lib/resolve-data-dir";
 import { readdirSync, statSync, unlinkSync } from "fs";
 import { NextRequest, NextResponse } from "next/server";
-import { homedir } from "os";
-import { join, resolve } from "path";
+import { join } from "path";
 
 export const dynamic = "force-dynamic";
 
-const DATA_DIR = process.env.DATA_DIR || resolve(homedir(), ".cybermem/data");
+const DATA_DIR = resolveDataDir();
 
 /**
  * POST /api/reset

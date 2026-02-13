@@ -276,4 +276,73 @@ test.describe("Reset DB - Settings Modal", () => {
 
     console.log("✅ Cancel closes confirmation, Settings modal persists");
   });
+
+  test("6. Reset API never returns ENOENT (DATA_DIR resolved)", async ({
+    request,
+  }) => {
+    // Call the reset API directly and verify we never get ENOENT
+    const res = await request.post("/api/reset", {
+      data: { confirm: "RESET" },
+      headers: { "Content-Type": "application/json" },
+    });
+
+    const body = await res.json();
+
+    // Must NOT contain ENOENT — this was the RPi bug
+    if (body.error) {
+      expect(body.error).not.toContain("ENOENT");
+      expect(body.error).not.toContain("no such file or directory");
+    }
+
+    // Should succeed (200) — file deletion works
+    expect(res.status()).toBe(200);
+    expect(body.success).toBe(true);
+    console.log(
+      `✅ Reset API succeeded without ENOENT (deleted ${body.deletedCount} files)`,
+    );
+  });
+
+  test("7. On API error, confirmation modal closes and error toast shown", async ({
+    page,
+  }) => {
+    await openSettings(page);
+
+    const resetBtn = page.getByRole("button", { name: /Reset DB/i });
+    await resetBtn.click();
+
+    await expect(
+      page.getByRole("heading", { name: "Reset Database" }),
+    ).toBeVisible();
+
+    // Intercept the reset API to simulate a server error
+    await page.route("**/api/reset", async (route) => {
+      await route.fulfill({
+        status: 500,
+        contentType: "application/json",
+        body: JSON.stringify({ error: "Simulated server error for E2E test" }),
+      });
+    });
+
+    const confirmBtn = page.getByRole("button", { name: /Reset Database/i });
+    const input = page.getByPlaceholder(/Type "RESET" to confirm/i);
+
+    await input.click();
+    await input.fill("RESET");
+    await expect(confirmBtn).toBeEnabled();
+    await confirmBtn.click();
+
+    // Confirmation modal MUST close even on error
+    await expect(page.getByPlaceholder(/Type "RESET" to confirm/i)).toBeHidden({
+      timeout: 10000,
+    });
+
+    // Error toast must appear
+    await expect(
+      page.locator('[data-sonner-toaster] [data-type="error"]'),
+    ).toBeVisible({ timeout: 5000 });
+
+    console.log(
+      "✅ On API error: modal closed, error toast shown (not hidden behind modal)",
+    );
+  });
 });
