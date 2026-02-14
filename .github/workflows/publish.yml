@@ -146,7 +146,7 @@ jobs:
           fi
 
       - name: Configure Git
-        if: steps.version_bump.outputs.has_changesets == 'true' || github.event.inputs.version_type != 'none'
+        if: steps.check.outputs.has_changesets == 'true' || github.event.inputs.version_type != 'none'
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
