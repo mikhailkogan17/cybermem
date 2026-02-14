@@ -84,7 +84,7 @@
         auto_generated_id: "{{ lookup('ansible.builtin.password', '/dev/null length=16 chars=hexdigits') }}"
         auto_generated_name: "ansible-auto-generated"
       no_log: true
-      when: (auth_token_value is not defined or auth_token_value == '') and token_needs_generation
+      when: (auth_token_value is not defined or auth_token_value == '' or auth_token_value == 'sk-not-generated-yet') and token_needs_generation
 
     - name: Generate token hash for auto-generated token
       shell: |
@@ -103,7 +103,7 @@
 
     - name: Use auto-generated token if available
       set_fact:
-        final_token_value: "{{ auth_token_value | default(auto_generated_token, true) }}"
+        final_token_value: "{{ (auth_token_value | default(auto_generated_token, true)) if (auth_token_value | default('', true) != 'sk-not-generated-yet') else auto_generated_token }}"
         final_token_hash: "{{ auth_token_hash | default(auto_generated_hash, true) }}"
         final_token_id: "{{ auth_token_id | default(auto_generated_id, true) }}"
         final_token_name: "{{ auth_token_name | default(auto_generated_name, true) }}"
@@ -129,7 +129,20 @@
           Full token saved to: {{ project_dir }}/secrets/om_api_key
           Retrieve with: cat {{ project_dir }}/secrets/om_api_key
           Also visible in Dashboard Settings after deployment.
-      when: auto_generated_token is defined
+      when:
+        - auto_generated_token is defined
+        - show_token_output | default(false)
+
+    - name: Display token retrieval instructions
+      debug:
+        msg: |
+          🔐 SECURITY TOKEN generated.
+          Full token saved to: {{ project_dir }}/secrets/om_api_key
+          Retrieve with: cat {{ project_dir }}/secrets/om_api_key
+          Masked token visible in Dashboard Settings after deployment.
+      when:
+        - auto_generated_token is defined
+        - not (show_token_output | default(false))
 
     - name: Ensure data directory exists
       file:
