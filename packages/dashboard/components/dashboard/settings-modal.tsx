@@ -12,6 +12,7 @@ import SystemInfoSection from "./settings/system-info-section";
 
 export default function SettingsModal({ onClose }: { onClose: () => void }) {
   const [apiKey, setApiKey] = useState("");
+  const [apiKeyMasked, setApiKeyMasked] = useState("");
   const [endpoint, setEndpoint] = useState("");
   const [isManaged, setIsManaged] = useState(false);
   const [instanceType, setInstanceType] = useState<"local" | "rpi" | "vps">(
@@ -58,8 +59,16 @@ export default function SettingsModal({ onClose }: { onClose: () => void }) {
 
         if (localKey && !data.isManaged) {
           setApiKey(localKey);
+          // Mask the local key for display
+          const maskedLocal = localKey.length > 10 
+            ? `${localKey.slice(0, 7)}...${localKey.slice(-4)}`
+            : "****";
+          setApiKeyMasked(maskedLocal);
         } else {
           setApiKey(data.apiKey !== "not-set" ? data.apiKey : "");
+          setApiKeyMasked(
+            data.apiKeyMasked !== "not-set" ? data.apiKeyMasked : "",
+          );
         }
 
         let srvEndpoint = data.endpoint;
@@ -227,6 +236,7 @@ export default function SettingsModal({ onClose }: { onClose: () => void }) {
         <div className="flex-1 overflow-y-auto p-8 space-y-8 bg-[#05100F]">
           <AccessTokenSection
             apiKey={apiKey}
+            apiKeyMasked={apiKeyMasked}
             showApiKey={showApiKey}
             setShowApiKey={setShowApiKey}
             copiedId={copiedId}

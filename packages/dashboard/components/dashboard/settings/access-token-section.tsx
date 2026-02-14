@@ -7,6 +7,7 @@ import { Check, Copy, Eye, EyeOff, RotateCcw, Shield } from "lucide-react";
 
 interface AccessTokenSectionProps {
   apiKey: string;
+  apiKeyMasked: string;
   showApiKey: boolean;
   setShowApiKey: (show: boolean) => void;
   copiedId: string | null;
@@ -18,6 +19,7 @@ interface AccessTokenSectionProps {
 
 export default function AccessTokenSection({
   apiKey,
+  apiKeyMasked,
   showApiKey,
   setShowApiKey,
   copiedId,
@@ -40,7 +42,10 @@ export default function AccessTokenSection({
             <div className="relative flex-1">
               <Input
                 id="access-token"
-                value={apiKey || "Token not generated yet"}
+                value={
+                  (showApiKey ? apiKey : apiKeyMasked) ||
+                  "Token not generated yet"
+                }
                 readOnly
                 className="bg-black/40 border-[0.5px] border-white/10 text-white font-mono text-sm pr-10"
                 type={showApiKey ? "text" : "password"}

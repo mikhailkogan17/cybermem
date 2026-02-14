@@ -199,6 +199,7 @@ test.describe("Dashboard:E2E:UI (High-Fidelity Mocks)", () => {
           contentType: "application/json",
           body: JSON.stringify({
             apiKey: MOCK_API_KEY,
+            apiKeyMasked: "sk-e2e-...2345",
             instanceId: "local-dev-mock",
             instanceType: "local",
             isManaged: true,
@@ -327,9 +328,9 @@ test.describe("Dashboard:E2E:UI (High-Fidelity Mocks)", () => {
       await expect(page.getByText(/ACCESS TOKEN/i).first()).toBeVisible();
     });
 
-    await test.step(`Verify Token Matches Mock — ${MOCK_API_KEY}`, async () => {
+    await test.step(`Verify Token Matches Masked Mock by Default`, async () => {
       const input = page.locator("input#access-token");
-      await expect(input).toHaveValue(MOCK_API_KEY);
+      await expect(input).toHaveValue("sk-e2e-...2345");
     });
 
     await test.step("Toggle Token Visibility — password → text", async () => {
@@ -337,6 +338,7 @@ test.describe("Dashboard:E2E:UI (High-Fidelity Mocks)", () => {
       await expect(input).toHaveAttribute("type", "password");
       await page.getByTestId("toggle-visibility").click();
       await expect(input).toHaveAttribute("type", "text");
+      await expect(input).toHaveValue(MOCK_API_KEY);
     });
 
     await flushNetwork();
