@@ -2,16 +2,11 @@ name: Publish
 
 on:
   workflow_dispatch:
-    inputs:
-      version_type:
-        description: "Version bump type"
-        required: true
-        default: "patch"
-        type: choice
-        options:
-          - patch
-          - minor
-          - major
+
+# Prevent concurrent publish workflows
+concurrency:
+  group: publish-workflow
+  cancel-in-progress: false
 
 permissions:
   id-token: write
@@ -21,7 +16,7 @@ permissions:
 
 jobs:
   # ==================================================================
-  # 1. PRE-FLIGHT
+  # 1. PRE-FLIGHT - Check for pending changesets
   # ==================================================================
   check-prereqs:
     name: "check-prereqs"
@@ -31,19 +26,13 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Verify [Unreleased] in Changelog
+      - name: Verify Changesets Exist
         run: |
-          if grep -q "## \[Unreleased\]" CHANGELOG.md; then
-            if grep -A 10 "## \[Unreleased\]" CHANGELOG.md | grep -qE "^### (Added|Changed|Fixed|Removed|Security)"; then
-              echo "✅ [Unreleased] section found and contains entries."
-            else
-              echo "❌ ERROR: [Unreleased] section is empty!"
-              exit 1
-            fi
-          else
-            echo "❌ ERROR: ## [Unreleased] header not found in CHANGELOG.md!"
+          if [ -z "$(ls -A .changeset/*.md 2>/dev/null | grep -v README.md)" ]; then
+            echo "❌ ERROR: No changesets found! Please create one with 'npm run changeset'"
             exit 1
           fi
+          echo "✅ Changesets found and ready to publish."
 
   # ==================================================================
   # 2. E2E CHECKS
@@ -81,6 +70,12 @@ jobs:
       fail-fast: false
       matrix:
         include:
+          - name: mcp
+            image: cybermem-mcp
+          - name: dashboard
+            image: cybermem-dashboard
+          - name: auth-sidecar
+            image: cybermem-auth-sidecar
           - name: db-exporter
             image: cybermem-db_exporter
           - name: log-exporter
@@ -100,19 +95,90 @@ jobs:
           docker push ghcr.io/${{ github.repository_owner }}/${{ matrix.image }}:latest
 
   # ==================================================================
-  # 5. PUBLISH NPM (Uses CURRENT version from main)
+  # 5. VERSION BUMP (Apply changesets before publishing)
   # ==================================================================
-  publish-npm:
-    name: "publish:npm"
+  version-bump:
+    name: "version:bump"
     needs: deploy-ghcr
     runs-on: ubuntu-latest
     outputs:
-      version: ${{ steps.version.outputs.version }}
+      version: ${{ steps.version_bump.outputs.new_version }}
+      has_changesets: ${{ steps.check.outputs.has_changesets }}
+      commit_sha: ${{ steps.push.outputs.commit_sha }}
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
           token: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+
+      - run: npm ci
+
+      - name: Check for changesets
+        id: check
+        run: |
+          if [ -z "$(ls -A .changeset/*.md 2>/dev/null | grep -v README.md)" ]; then
+            echo "has_changesets=false" >> $GITHUB_OUTPUT
+            echo "⚠️ No changesets to apply"
+          else
+            echo "has_changesets=true" >> $GITHUB_OUTPUT
+            echo "✅ Changesets found"
+          fi
+
+      - name: Configure Git
+        if: steps.check.outputs.has_changesets == 'true'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Apply Changesets Version Bump
+        id: version_bump
+        if: steps.check.outputs.has_changesets == 'true'
+        run: |
+          # Apply changesets to bump versions and update CHANGELOG.md
+          npm run version
+          
+          # Regenerate package-lock.json to reflect updated package.json files
+          npm install --package-lock-only
+          
+          # Get the new version
+          NEW_VERSION=$(node -p "require('./packages/cli/package.json').version")
+          echo "new_version=$NEW_VERSION" >> $GITHUB_OUTPUT
+          echo "📦 New version after changesets: $NEW_VERSION"
+      
+      - name: Commit and Push Version Bump
+        id: push
+        if: steps.check.outputs.has_changesets == 'true'
+        run: |
+          NEW_VERSION="${{ steps.version_bump.outputs.new_version }}"
+          
+          # Commit the version bump
+          git add .
+          git commit -m "chore: version bump to v$NEW_VERSION [skip ci]"
+          git push origin main
+          
+          # Output the commit SHA for exact checkout in downstream jobs
+          COMMIT_SHA=$(git rev-parse HEAD)
+          echo "commit_sha=$COMMIT_SHA" >> $GITHUB_OUTPUT
+          echo "📌 Version bump commit: $COMMIT_SHA"
+
+  # ==================================================================
+  # 6. PUBLISH NPM
+  # ==================================================================
+  publish-npm:
+    name: "publish:npm"
+    needs: version-bump
+    if: needs.version-bump.outputs.has_changesets == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+          ref: ${{ needs.version-bump.outputs.commit_sha }}  # Use exact commit SHA to avoid race conditions
 
       - uses: actions/setup-node@v4
         with:
@@ -121,254 +187,20 @@ jobs:
 
       - run: npm ci
 
-      - name: Get Current Version
-        id: version
-        run: |
-          VERSION=$(node -p "require('./packages/cli/package.json').version")
-          echo "version=$VERSION" >> $GITHUB_OUTPUT
-          echo "📦 Base version: $VERSION"
-
       - name: Build Packages
         run: npm run build --workspaces
 
-      - name: Publish to NPM (OIDC)
+      - name: Publish to NPM
         run: npm publish --workspaces --access public --provenance
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
-      - name: Notify Slack (Publish Success)
-        if: success()
-        continue-on-error: true
-        env:
-          SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK_URL }}
-          VERSION: ${{ steps.version.outputs.version }}
-          JOB_URL: "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
-        run: |
-          DATE=$(date "+%Y-%m-%d %H:%M:%S")
-          cat <<EOF > payload.json
-          {
-            "text": "🚀 CyberMem v${VERSION} Published!",
-            "blocks": [
-              {
-                "type": "header",
-                "text": {
-                  "type": "plain_text",
-                  "text": "🚀 CyberMem v${VERSION} Published!"
-                }
-              },
-              {
-                "type": "section",
-                "text": {
-                  "type": "mrkdwn",
-                  "text": "*Packages Updated:*\n• <https://www.npmjs.com/package/@cybermem/cli|@cybermem/cli>: v${VERSION}\n• <https://www.npmjs.com/package/@cybermem/mcp|@cybermem/mcp>: v${VERSION}\n• <https://www.npmjs.com/package/@cybermem/dashboard|@cybermem/dashboard>: v${VERSION}"
-                }
-              },
-              {
-                "type": "section",
-                "fields": [
-                  {
-                    "type": "mrkdwn",
-                    "text": "*Branch:*\nmain"
-                  },
-                  {
-                    "type": "mrkdwn",
-                    "text": "*Date:*\n${DATE}"
-                  }
-                ]
-              },
-              {
-                "type": "section",
-                "text": {
-                  "type": "mrkdwn",
-                  "text": "*Workflow Run:*\n<${JOB_URL}|View Run>"
-                }
-              }
-            ]
-          }
-          EOF
-          curl -X POST -H 'Content-type: application/json' --data @payload.json $SLACK_WEBHOOK || true
-
-      - name: Notify Slack (Publish Failure)
-        if: failure()
-        continue-on-error: true
-        env:
-          SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK_URL }}
-          VERSION: ${{ steps.version.outputs.version }}
-          JOB_URL: "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
-        run: |
-          cat <<EOF > payload.json
-          {
-            "text": "❌ CyberMem Publication Failed",
-            "blocks": [
-              {
-                "type": "header",
-                "text": {
-                  "type": "plain_text",
-                  "text": "❌ CyberMem Publication Failed"
-                }
-              },
-              {
-                "type": "section",
-                "fields": [
-                  {
-                    "type": "mrkdwn",
-                    "text": "*Version:*\n${VERSION:-unknown}"
-                  },
-                  {
-                    "type": "mrkdwn",
-                    "text": "*Run:*\n<${JOB_URL}|View Run>"
-                  }
-                ]
-              }
-            ]
-          }
-          EOF
-          curl -X POST -H 'Content-type: application/json' --data @payload.json $SLACK_WEBHOOK || true
-
   # ==================================================================
-  # 6. FINALIZE (Atomic commit: Changelog, Reports, Bump via PR)
-  # ==================================================================
-  finalize:
-    name: "finalize"
-    needs: [publish-npm, e2e]
-    runs-on: ubuntu-latest
-    continue-on-error: true
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-          token: ${{ secrets.GITHUB_TOKEN }}
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: "24"
-
-      - name: Configure Git
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-
-      - name: Prepare Release Data
-        id: prep
-        run: |
-          CURRENT_VERSION="${{ needs.publish-npm.outputs.version }}"
-          echo "current_version=$CURRENT_VERSION" >> $GITHUB_OUTPUT
-
-          # Extract Release Notes from Section [Unreleased]
-          awk '/## \[Unreleased\]/{flag=1; next} /^## \[ /{flag=0} flag' CHANGELOG.md | sed '/^$/d' > release_notes.md
-          if [ ! -s release_notes.md ]; then
-            echo "No notes found. Defaulting to automated commit log." > release_notes.md
-          fi
-
-          # Rotate CHANGELOG.md for CURRENT_VERSION
-          DATE=$(date +%Y-%m-%d)
-          sed -i "s/## \[Unreleased\]/## [$CURRENT_VERSION] - $DATE/" CHANGELOG.md
-          sed -i '4i\## [Unreleased]\n\n### Added\n\n### Changed\n\n### Fixed\n\n### Removed\n\n' CHANGELOG.md
-
-      - name: Ingest E2E Reports
-        uses: actions/download-artifact@v4
-        with:
-          pattern: playwright-report-*
-          path: release-reports/${{ steps.prep.outputs.current_version }}
-          merge-multiple: true
-
-      - name: Atomic Update (Version Bump & Create PR)
-        id: atomic
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          CURRENT_VERSION="${{ steps.prep.outputs.current_version }}"
-
-          # Perform Version Bump across all workspaces
-          npm version ${{ github.event.inputs.version_type }} --workspaces --no-git-tag-version
-          NEXT_VERSION=$(node -p "require('./packages/cli/package.json').version")
-          echo "next_version=$NEXT_VERSION" >> $GITHUB_OUTPUT
-
-          # Create a release branch
-          BRANCH_NAME="release/v$CURRENT_VERSION-auto"
-          git checkout -b "$BRANCH_NAME"
-
-          # Commit changes
-          git add .
-          git commit -m "chore: release v$CURRENT_VERSION and bump to v$NEXT_VERSION"
-          git push origin "$BRANCH_NAME"
-
-          # Create PR and capture PR URL
-          PR_URL=$(gh pr create \
-            --title "chore: release v$CURRENT_VERSION" \
-            --body "Automated release PR for v$CURRENT_VERSION
-
-          This PR includes:
-          - Version bump to v$NEXT_VERSION
-          - CHANGELOG rotation
-          - E2E test reports
-
-          Auto-generated by publish workflow." \
-            --base main \
-            --head "$BRANCH_NAME")
-
-          echo "pr_url=$PR_URL" >> $GITHUB_OUTPUT
-
-          # Enable auto-merge
-          gh pr merge "$PR_URL" --auto --squash
-
-          echo "✅ Release PR created and auto-merge enabled for v$CURRENT_VERSION -> v$NEXT_VERSION"
-          echo "PR URL: $PR_URL"
-
-      - name: Create GitHub Release
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          VERSION="${{ steps.prep.outputs.current_version }}"
-          PR_URL="${{ steps.atomic.outputs.pr_url }}"
-
-          # Wait for PR to be merged (poll for up to 10 minutes to accommodate E2E tests)
-          echo "Waiting for PR to be merged..."
-          echo "PR URL: $PR_URL"
-          MAX_ATTEMPTS=60
-          POLL_INTERVAL=10
-          for i in $(seq 1 $MAX_ATTEMPTS); do
-            PR_STATE=$(gh pr view "$PR_URL" --json state --jq '.state' 2>&1)
-            if [ $? -ne 0 ]; then
-              echo "⚠️ Failed to query PR state: $PR_STATE"
-              PR_STATE="UNKNOWN"
-            fi
-
-            if [ "$PR_STATE" = "MERGED" ]; then
-              echo "✅ PR merged successfully!"
-              break
-            elif [ "$PR_STATE" = "CLOSED" ]; then
-              echo "❌ PR was closed without merging. Failing release creation."
-              exit 1
-            else
-              echo "PR state: $PR_STATE, waiting... (attempt $i/$MAX_ATTEMPTS)"
-              sleep $POLL_INTERVAL
-            fi
-          done
-
-          if [ "$PR_STATE" != "MERGED" ]; then
-            TOTAL_WAIT=$((MAX_ATTEMPTS * POLL_INTERVAL))
-            echo "⚠️ PR merge timeout after ${TOTAL_WAIT}s ($MAX_ATTEMPTS attempts). Current state: $PR_STATE"
-            exit 1
-          fi
-
-          # Create and push tag after merge, anchored to origin/main
-          git fetch origin main
-          git tag "v$VERSION" "origin/main"
-          git push origin "v$VERSION"
-
-          # Create GitHub Release
-          gh release create "v$VERSION" \
-            --title "v$VERSION" \
-            --notes-file release_notes.md \
-            --target main
-
-  # ==================================================================
-  # 7. DEPLOY PROD (RPi) - Runs in parallel with finalize
+  # 7. DEPLOY PROD (RPi)
   # ==================================================================
   deploy-prod:
     name: "deploy:rpi-ts-prod"
-    needs: publish-npm
+    needs: [version-bump, publish-npm]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -406,80 +238,109 @@ jobs:
             --extra-vars "ansible_host=${{ steps.get_rpi_ip.outputs.ip }}" \
             --extra-vars "ansible_user=pi ansible_become_flags=-n ansible_timeout=60"
 
-      - name: Notify Slack (Deploy Success)
-        if: success()
-        continue-on-error: true
-        env:
-          SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK_URL }}
-          VERSION: ${{ needs.publish-npm.outputs.version }}
-          JOB_URL: "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
-        run: |
-          cat <<EOF > payload.json
-          {
-            "text": "🍓 CyberMem v${VERSION} Deployed to RPi!",
-            "blocks": [
-              {
-                "type": "header",
-                "text": {
-                  "type": "plain_text",
-                  "text": "🍓 CyberMem v${VERSION} Deployed to RPi!"
-                }
-              },
-              {
-                "type": "section",
-                "fields": [
-                  {
-                    "type": "mrkdwn",
-                    "text": "*Version:*\n${VERSION}"
-                  },
-                  {
-                    "type": "mrkdwn",
-                    "text": "*Environment:*\nrpi-ts-prod"
-                  },
-                  {
-                    "type": "mrkdwn",
-                    "text": "*Job Run:*\n<${JOB_URL}|View Run>"
-                  }
-                ]
-              }
-            ]
-          }
-          EOF
-          curl -X POST -H 'Content-type: application/json' --data @payload.json $SLACK_WEBHOOK || true
+  # ==================================================================
+  # 8. FINALIZE (Tag, GitHub Release, Reports)
+  # ==================================================================
+  finalize:
+    name: "finalize"
+    needs: [version-bump, publish-npm, deploy-prod, e2e]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+          ref: ${{ needs.version-bump.outputs.commit_sha }}  # Use exact commit SHA to avoid race conditions
 
-      - name: Notify Slack (Deploy Failure)
-        if: failure()
-        continue-on-error: true
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+
+      - run: npm ci
+
+      - name: Configure Git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Get Version and Extract Release Notes
+        id: prep
+        run: |
+          VERSION="${{ needs.version-bump.outputs.version }}"
+          echo "current_version=$VERSION" >> $GITHUB_OUTPUT
+          echo "📦 Release version: $VERSION"
+          
+          # Extract release notes from CLI package CHANGELOG.md (changesets creates package-level CHANGELOGs)
+          # Only extract the current version section, not all previous releases
+          CHANGELOG_FILE="packages/cli/CHANGELOG.md"
+          if [ -f "$CHANGELOG_FILE" ] && grep -q "## $VERSION" "$CHANGELOG_FILE"; then
+            # Extract only the section for this version (between ## VERSION and the next ## heading)
+            awk "/## $VERSION/,/^## / {if (/^## $VERSION/) next; if (/^## /) exit; print}" "$CHANGELOG_FILE" > release_notes_raw.md
+            
+            # Remove leading and trailing empty lines for clean release notes
+            # First awk: Skip lines until first non-empty (removes leading blanks)
+            # Second awk: Store all lines, then print up to last non-empty (removes trailing blanks)
+            awk 'NF {p=1} p' release_notes_raw.md | awk '{a[NR]=$0} END {while(NR && !a[NR]) NR--; for(i=1;i<=NR;i++) print a[i]}' > release_notes.md
+            rm -f release_notes_raw.md
+          else
+            echo "Release $VERSION" > release_notes.md
+          fi
+          
+          # Ensure we have some content
+          if [ ! -s release_notes.md ]; then
+            echo "Automated release for version $VERSION" > release_notes.md
+          fi
+          
+          # Log the extracted content (line count is approximate for logging only)
+          echo "📝 Release notes extracted (~$(wc -l < release_notes.md) lines)"
+
+      - name: Ingest E2E Reports
+        uses: actions/download-artifact@v4
+        with:
+          pattern: playwright-report-*
+          path: release-reports/${{ steps.prep.outputs.current_version }}
+          merge-multiple: true
+
+      - name: Commit E2E Reports
+        run: |
+          VERSION="${{ steps.prep.outputs.current_version }}"
+          
+          # Commit reports if there are any
+          git add release-reports/ || true
+          git commit -m "chore: add release reports for v$VERSION [skip ci]" || echo "No reports to commit"
+          git push origin main || echo "No changes to push"
+
+      - name: Create Git Tag
+        run: |
+          VERSION="${{ steps.prep.outputs.current_version }}"
+          
+          # Create and push Tag for VERSION
+          git tag "v$VERSION" || echo "Tag already exists"
+          git push origin "v$VERSION" || echo "Tag already pushed"
+          echo "✅ Tag v$VERSION created"
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          VERSION="${{ steps.prep.outputs.current_version }}"
+          gh release create "v$VERSION" \
+            --title "v$VERSION" \
+            --notes-file release_notes.md \
+            --target main
+
+      - name: Slack Notifications
+        if: always()
         env:
           SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK_URL }}
-          VERSION: ${{ needs.publish-npm.outputs.version }}
-          JOB_URL: "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
         run: |
-          cat <<EOF > payload.json
-          {
-            "text": "🥺 CyberMem v${VERSION} RPi Deployment Failed",
-            "blocks": [
-              {
-                "type": "header",
-                "text": {
-                  "type": "plain_text",
-                  "text": "🥺 CyberMem v${VERSION} RPi Deployment Failed"
-                }
-              },
-              {
-                "type": "section",
-                "fields": [
-                  {
-                    "type": "mrkdwn",
-                    "text": "*Version:*\n${VERSION}"
-                  },
-                  {
-                    "type": "mrkdwn",
-                    "text": "*Run:*\n<${JOB_URL}|View Run>"
-                  }
-                ]
-              }
-            ]
-          }
-          EOF
-          curl -X POST -H 'Content-type: application/json' --data @payload.json $SLACK_WEBHOOK || true
+          VERSION="${{ steps.prep.outputs.current_version }}"
+          RESULT="${{ job.status }}"
+          if [ "$RESULT" = "success" ]; then
+            MESSAGE="✅ *CyberMem v${VERSION} Live!* Release & reports committed. NPM Updated. Deployed to RPi."
+          else
+            MESSAGE="⚠️ *CyberMem Release Issues!* v${VERSION:-unknown} - Check CI logs."
+          fi
+          curl -X POST -H 'Content-type: application/json' \
+            --data "{\"text\":\"$MESSAGE\"}" \
+            $SLACK_WEBHOOK || true

@@ -62,6 +62,53 @@ npm link
 2. **Commit Messages**: Follow [Conventional Commits](https://www.conventionalcommits.org/) (e.g., `feat:`, `fix:`, `docs:`).
 3. **Linting**: Ensure `npm run lint` passes before pushing.
 
+## 📦 Release Process
+
+CyberMem uses [Changesets](https://github.com/changesets/changesets) for version management and publishing.
+
+### Creating a Changeset
+
+When you make changes that should be included in a release:
+
+```bash
+npm run changeset
+```
+
+This will prompt you to:
+1. Select which packages have changed
+2. Choose the version bump type (patch, minor, major)
+3. Write a summary of your changes
+
+The changeset will be saved in the `.changeset/` directory and committed with your PR.
+
+### Publishing a Release
+
+Releases are handled automatically by the CI/CD pipeline via GitHub Actions:
+
+1. **Trigger Release Workflow**: Go to Actions → Publish → Run workflow
+2. **Versioning**: The workflow uses the committed Changesets in `.changeset/` to determine which packages to release and what version bumps to apply.
+3. **Automated Steps**:
+   - Runs E2E tests
+   - Builds production images
+   - Applies all pending changesets (bumps versions and updates CHANGELOG.md)
+   - Publishes packages to NPM
+   - Deploys to production
+   - Creates GitHub release
+
+### Manual Publishing (Local)
+
+For testing or emergency releases:
+
+```bash
+# Apply all pending changesets
+npm run version
+
+# Build and publish (requires NPM auth)
+npm run release
+```
+
+**Note**: All packages in the monorepo are versioned together as linked packages. When any package is bumped, all packages receive the same version number.
+
 ## 🔒 Security
 
 If you discover a security vulnerability, please do **NOT** open an issue. Email the maintainer directly or reach out via private channels.

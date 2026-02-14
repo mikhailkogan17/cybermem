@@ -17,9 +17,13 @@
     "cli": "npm run start -w packages/cli",
     "dashboard:dev": "npm run dev -w packages/dashboard",
     "mcp:dev": "npm run dev -w packages/mcp",
-    "release": "./tools/release.sh"
+    "changeset": "changeset",
+    "version": "changeset version",
+    "release": "npm run build && changeset publish"
   },
   "devDependencies": {
+    "@changesets/changelog-github": "^0.5.2",
+    "@changesets/cli": "^2.29.8",
     "axios": "^1.13.4",
     "commander": "^14.0.2",
     "ts-node": "^10.9.2",

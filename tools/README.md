@@ -4,16 +4,6 @@ This directory contains tools for testing, validation, and quality assurance.
 
 ## Available Tools
 
-### Release & Publishing
-
-- **release.sh** - Build and publish all npm packages
-  ```bash
-  npm run release
-  ```
-  - Builds all packages sequentially
-  - Publishes to npm with public access
-  - Used in release workflow
-
 ### Kubernetes Testing
 
 - **test-k8s.sh** - Automated k3d verification
@@ -25,6 +15,12 @@ This directory contains tools for testing, validation, and quality assurance.
   - Validates deployment
   - Auto-cleanup on exit
 
+### SSH Utilities
+
+- **ts-ssh** - Tailscale SSH wrapper for Ansible deployments
+  - Used in CI/CD for RPi deployments
+  - Enables SSH over Tailscale network
+
 ## Deprecated Tools (Removed)
 
 The following tools have been removed as they're superseded by modern alternatives:
@@ -33,22 +29,32 @@ The following tools have been removed as they're superseded by modern alternativ
 - **test-crud.sh** → Use Playwright E2E tests in `e2e/`
 - **test_mcp_modes.sh** → Integrated into E2E suite
 - **verify-env.ts** → Use Playwright environment tests
-- **sync-versions.sh** → Use `scripts/version-bump.sh`
+- **sync-versions.sh** → Use changesets (see [CONTRIBUTING.md](../CONTRIBUTING.md#-release-process))
+- **release.sh** → Use `npm run release` (changesets-based)
 
 ## Migration Notes
 
-If you have scripts referencing old tools:
+### Version Management
+
+```bash
+# Old (bash scripts)
+./scripts/version-bump.sh patch
+./tools/release.sh
+
+# New (changesets)
+npm run changeset      # Create a changeset
+npm run version        # Apply changesets (bump versions)
+npm run release        # Build and publish
+```
+
+### E2E Testing
 
 ```bash
 # Old
 ./tools/e2e.sh
-
-# New
-npm run test:e2e
-
-# Old
 ./tools/test-crud.sh
 
 # New
+npm run test:e2e
 npm run test:e2e -- --grep "CRUD"
 ```
