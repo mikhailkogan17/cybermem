@@ -223,7 +223,7 @@ jobs:
           PR_URL=$(gh pr view "$PR_NUMBER" --json url --jq '.url')
 
           # Enable auto-merge on the PR
-          gh pr merge "$PR_NUMBER" --auto --squash
+          gh pr merge "$PR_NUMBER" --auto --squash --delete-branch
 
           # Output the commit SHA for exact checkout in downstream jobs
           COMMIT_SHA=$(git rev-parse HEAD)
