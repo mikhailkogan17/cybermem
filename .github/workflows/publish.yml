@@ -120,7 +120,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       version: ${{ steps.version_bump.outputs.new_version }}
-      has_changesets: ${{ steps.check.outputs.has_changesets }}
+      has_changesets: ${{ steps.version_bump.outputs.has_changesets }}
       commit_sha: ${{ steps.push.outputs.commit_sha }}
     steps:
       - uses: actions/checkout@v4
@@ -146,10 +146,10 @@ jobs:
           fi
 
       - name: Configure Git
-        if: steps.check.outputs.has_changesets == 'true'
+        if: steps.version_bump.outputs.has_changesets == 'true' || github.event.inputs.version_type != 'none'
         run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
 
       - name: Apply Changesets Version Bump
         id: version_bump
