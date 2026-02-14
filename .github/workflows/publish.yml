@@ -244,11 +244,6 @@ jobs:
     outputs:
       merge_commit_sha: ${{ steps.get-sha.outputs.merge_commit_sha }}
     steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-          token: ${{ secrets.GITHUB_TOKEN }}
-
       - name: Wait for status checks
         uses: poseidon/wait-for-status-checks@v0.5.0
         with:
