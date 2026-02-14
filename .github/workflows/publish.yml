@@ -2,7 +2,6 @@ name: Publish
 
 on:
   workflow_dispatch:
-    inputs: {}
 
 # Prevent concurrent publish workflows
 concurrency:
@@ -275,12 +274,13 @@ jobs:
           # Only extract the current version section, not all previous releases
           CHANGELOG_FILE="packages/cli/CHANGELOG.md"
           if [ -f "$CHANGELOG_FILE" ] && grep -q "## $VERSION" "$CHANGELOG_FILE"; then
-            # Extract only the section for this version (between ## VERSION and the next ##)
-            awk "/## $VERSION/,/^## [0-9]/ {if (/^## $VERSION/) next; if (/^## [0-9]/) exit; print}" "$CHANGELOG_FILE" > release_notes.md
+            # Extract only the section for this version (between ## VERSION and the next ## heading)
+            awk "/## $VERSION/,/^## / {if (/^## $VERSION/) next; if (/^## /) exit; print}" "$CHANGELOG_FILE" > release_notes.md
             
-            # Remove leading/trailing empty lines
+            # Remove leading empty lines
             sed -i '/./,$!d' release_notes.md
-            sed -i -e :a -e '/^\n*$/{$d;N;ba' -e '}' release_notes.md
+            # Remove trailing empty lines
+            sed -i -e :a -e '/^\s*$/{ $d; N; ba' -e '}' release_notes.md
           else
             echo "Release $VERSION" > release_notes.md
           fi
