@@ -205,7 +205,7 @@ jobs:
 
           # Commit the version bump
           git add .
-          git commit -m "chore: version bump to v$NEW_VERSION [skip ci]"
+          git commit -m "chore: version bump to v$NEW_VERSION"
 
           # Push the branch
           git push origin "$BRANCH_NAME"
