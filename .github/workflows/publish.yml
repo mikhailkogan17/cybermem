@@ -238,23 +238,31 @@ jobs:
     if: needs.version-bump.outputs.has_changesets == 'true'
     runs-on: ubuntu-latest
     outputs:
-      merge_commit_sha: ${{ steps.wait.outputs.merge_commit_sha }}
+      merge_commit_sha: ${{ steps.get-sha.outputs.merge_commit_sha }}
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
           token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Wait for PR to be merged
-        id: wait
+      - name: Wait for status checks
+        uses: poseidon/wait-for-status-checks@v0.5.0
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          ref: ${{ needs.version-bump.outputs.branch_name }}
+          interval: 10
+          timeout: 600
+
+      - name: Wait for PR merge and get commit SHA
+        id: get-sha
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           PR_NUMBER="${{ needs.version-bump.outputs.pr_number }}"
           echo "⏳ Waiting for PR #$PR_NUMBER to be merged..."
 
-          # Wait for PR to be merged (max 10 minutes)
-          for i in {1..60}; do
+          # Wait for PR to be merged (status checks passed, auto-merge will trigger)
+          for i in {1..30}; do
             PR_STATE=$(gh pr view "$PR_NUMBER" --json state --jq '.state')
             if [ "$PR_STATE" = "MERGED" ]; then
               echo "✅ PR #$PR_NUMBER has been merged!"
@@ -266,7 +274,7 @@ jobs:
               echo "❌ PR #$PR_NUMBER was closed without merging!"
               exit 1
             fi
-            echo "PR state: $PR_STATE (attempt $i/60)"
+            echo "PR state: $PR_STATE (attempt $i/30)"
             sleep 10
           done
 
