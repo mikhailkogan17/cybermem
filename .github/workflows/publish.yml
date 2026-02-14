@@ -122,6 +122,8 @@ jobs:
       version: ${{ steps.version_bump.outputs.new_version }}
       has_changesets: ${{ steps.version_bump.outputs.has_changesets }}
       commit_sha: ${{ steps.push.outputs.commit_sha }}
+      pr_number: ${{ steps.push.outputs.pr_number }}
+      branch_name: ${{ steps.push.outputs.branch_name }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -189,28 +191,119 @@ jobs:
           echo "new_version=$NEW_VERSION" >> $GITHUB_OUTPUT
           echo "📦 New version after changesets: $NEW_VERSION"
 
-      - name: Commit and Push Version Bump
+      - name: Download E2E Reports
+        if: steps.version_bump.outputs.has_changesets == 'true'
+        uses: actions/download-artifact@v4
+        with:
+          pattern: playwright-report-*
+          path: release-reports/${{ steps.version_bump.outputs.new_version }}
+          merge-multiple: true
+
+      - name: Create Version Bump PR with Reports
         id: push
         if: steps.version_bump.outputs.has_changesets == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           NEW_VERSION="${{ steps.version_bump.outputs.new_version }}"
+          BRANCH_NAME="release/v$NEW_VERSION-${{ github.run_id }}"
 
-          # Commit the version bump
+          # Create and switch to a new branch
+          git checkout -b "$BRANCH_NAME"
+
+          # Stage all changes: version bump + release reports
           git add .
-          git commit -m "chore: version bump to v$NEW_VERSION [skip ci]"
-          git push origin main
+
+          # Commit everything together
+          git commit -m "chore: release v$NEW_VERSION
+
+          - Version bump to v$NEW_VERSION
+          - Add E2E test reports for v$NEW_VERSION"
+
+          # Push the branch
+          git push origin "$BRANCH_NAME"
+
+          # Create a Pull Request and capture its number
+          PR_NUMBER=$(gh pr create \
+            --title "chore: release v$NEW_VERSION" \
+            --body "Automated release for v$NEW_VERSION by publish workflow.
+
+          **Includes:**
+          - Version bump (changesets applied)
+          - E2E test reports
+          - Updated CHANGELOG.md" \
+            --base main \
+            --head "$BRANCH_NAME" \
+            --json number \
+            --jq '.number')
+
+          # Fetch the PR URL for logging
+          PR_URL=$(gh pr view "$PR_NUMBER" --json url --jq '.url')
+
+          # Enable auto-merge on the PR
+          gh pr merge "$PR_NUMBER" --auto --squash --delete-branch
 
           # Output the commit SHA for exact checkout in downstream jobs
           COMMIT_SHA=$(git rev-parse HEAD)
           echo "commit_sha=$COMMIT_SHA" >> $GITHUB_OUTPUT
+          echo "pr_number=$PR_NUMBER" >> $GITHUB_OUTPUT
+          echo "branch_name=$BRANCH_NAME" >> $GITHUB_OUTPUT
+          echo "📌 Version bump PR created: $PR_URL"
           echo "📌 Version bump commit: $COMMIT_SHA"
 
   # ==================================================================
-  # 6. PUBLISH NPM
+  # 6. WAIT FOR PR MERGE
+  # ==================================================================
+  wait-for-merge:
+    name: "wait:pr-merge"
+    needs: version-bump
+    if: needs.version-bump.outputs.has_changesets == 'true'
+    runs-on: ubuntu-latest
+    outputs:
+      merge_commit_sha: ${{ steps.get-sha.outputs.merge_commit_sha }}
+    steps:
+      - name: Wait for status checks
+        uses: poseidon/wait-for-status-checks@v0.5.0
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          ref: ${{ needs.version-bump.outputs.branch_name }}
+          interval: 10
+          timeout: 600
+
+      - name: Wait for PR merge and get commit SHA
+        id: get-sha
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          PR_NUMBER="${{ needs.version-bump.outputs.pr_number }}"
+          echo "⏳ Waiting for PR #$PR_NUMBER to be merged..."
+
+          # Wait for PR to be merged (status checks passed, auto-merge will trigger)
+          for i in {1..30}; do
+            PR_STATE=$(gh pr view "$PR_NUMBER" --json state --jq '.state')
+            if [ "$PR_STATE" = "MERGED" ]; then
+              echo "✅ PR #$PR_NUMBER has been merged!"
+              MERGE_SHA=$(gh pr view "$PR_NUMBER" --json mergeCommit --jq '.mergeCommit.oid')
+              echo "merge_commit_sha=$MERGE_SHA" >> $GITHUB_OUTPUT
+              echo "📌 Merge commit SHA: $MERGE_SHA"
+              exit 0
+            elif [ "$PR_STATE" = "CLOSED" ]; then
+              echo "❌ PR #$PR_NUMBER was closed without merging!"
+              exit 1
+            fi
+            echo "PR state: $PR_STATE (attempt $i/30)"
+            sleep 10
+          done
+
+          echo "❌ Timeout waiting for PR to merge"
+          exit 1
+
+  # ==================================================================
+  # 7. PUBLISH NPM
   # ==================================================================
   publish-npm:
     name: "publish:npm"
-    needs: version-bump
+    needs: [version-bump, wait-for-merge]
     if: needs.version-bump.outputs.has_changesets == 'true'
     runs-on: ubuntu-latest
     steps:
@@ -218,7 +311,7 @@ jobs:
         with:
           fetch-depth: 0
           token: ${{ secrets.GITHUB_TOKEN }}
-          ref: ${{ needs.version-bump.outputs.commit_sha }} # Use exact commit SHA to avoid race conditions
+          ref: ${{ needs.wait-for-merge.outputs.merge_commit_sha }} # Use merge commit SHA after PR is merged
 
       - uses: actions/setup-node@v4
         with:
@@ -236,11 +329,11 @@ jobs:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
   # ==================================================================
-  # 7. DEPLOY PROD (RPi)
+  # 8. DEPLOY PROD (RPi)
   # ==================================================================
   deploy-prod:
     name: "deploy:rpi-ts-prod"
-    needs: [version-bump, publish-npm]
+    needs: [version-bump, wait-for-merge, publish-npm]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -279,18 +372,18 @@ jobs:
             --extra-vars "ansible_user=pi ansible_become_flags=-n ansible_timeout=60"
 
   # ==================================================================
-  # 8. FINALIZE (Tag, GitHub Release, Reports)
+  # 9. FINALIZE (Tag, GitHub Release)
   # ==================================================================
   finalize:
     name: "finalize"
-    needs: [version-bump, publish-npm, deploy-prod, e2e]
+    needs: [version-bump, wait-for-merge, publish-npm, deploy-prod]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
           token: ${{ secrets.GITHUB_TOKEN }}
-          ref: ${{ needs.version-bump.outputs.commit_sha }} # Use exact commit SHA to avoid race conditions
+          ref: ${{ needs.wait-for-merge.outputs.merge_commit_sha }} # Use merge commit SHA after PR is merged
 
       - uses: actions/setup-node@v4
         with:
@@ -333,22 +426,6 @@ jobs:
 
           # Log the extracted content (line count is approximate for logging only)
           echo "📝 Release notes extracted (~$(wc -l < release_notes.md) lines)"
-
-      - name: Ingest E2E Reports
-        uses: actions/download-artifact@v4
-        with:
-          pattern: playwright-report-*
-          path: release-reports/${{ steps.prep.outputs.current_version }}
-          merge-multiple: true
-
-      - name: Commit E2E Reports
-        run: |
-          VERSION="${{ steps.prep.outputs.current_version }}"
-
-          # Commit reports if there are any
-          git add release-reports/ || true
-          git commit -m "chore: add release reports for v$VERSION [skip ci]" || echo "No reports to commit"
-          git push origin main || echo "No changes to push"
 
       - name: Create Git Tag
         run: |
