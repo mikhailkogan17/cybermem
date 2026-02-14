@@ -278,6 +278,8 @@ jobs:
             awk "/## $VERSION/,/^## / {if (/^## $VERSION/) next; if (/^## /) exit; print}" "$CHANGELOG_FILE" > release_notes_raw.md
             
             # Remove leading and trailing empty lines for clean release notes
+            # First awk: Skip lines until first non-empty (removes leading blanks)
+            # Second awk: Store all lines, then print up to last non-empty (removes trailing blanks)
             awk 'NF {p=1} p' release_notes_raw.md | awk '{a[NR]=$0} END {while(NR && !a[NR]) NR--; for(i=1;i<=NR;i++) print a[i]}' > release_notes.md
             rm -f release_notes_raw.md
           else
@@ -289,7 +291,10 @@ jobs:
             echo "Automated release for version $VERSION" > release_notes.md
           fi
           
-          echo "📝 Release notes extracted ($(wc -l < release_notes.md) lines)"
+          # Count lines (add 1 if file doesn't end with newline for accurate count)
+          LINE_COUNT=$(wc -l < release_notes.md)
+          [ -n "$(tail -c1 release_notes.md)" ] && LINE_COUNT=$((LINE_COUNT + 1))
+          echo "📝 Release notes extracted ($LINE_COUNT lines)"
 
       - name: Ingest E2E Reports
         uses: actions/download-artifact@v4
