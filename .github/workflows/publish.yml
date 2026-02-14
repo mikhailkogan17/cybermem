@@ -291,7 +291,8 @@ jobs:
             echo "Automated release for version $VERSION" > release_notes.md
           fi
           
-          # Count lines (add 1 if file doesn't end with newline for accurate count)
+          # Count lines accurately (wc -l counts newlines, not lines)
+          # If file doesn't end with newline, add 1 to get true line count
           LINE_COUNT=$(wc -l < release_notes.md)
           [ -n "$(tail -c1 release_notes.md)" ] && LINE_COUNT=$((LINE_COUNT + 1))
           echo "📝 Release notes extracted ($LINE_COUNT lines)"
