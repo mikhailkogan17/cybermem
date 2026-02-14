@@ -86,7 +86,7 @@ The changeset will be saved in the `.changeset/` directory and committed with yo
 Releases are handled automatically by the CI/CD pipeline via GitHub Actions:
 
 1. **Trigger Release Workflow**: Go to Actions → Publish → Run workflow
-2. **Choose Version Type**: Select patch, minor, or major
+2. **Versioning**: The workflow uses the committed Changesets in `.changeset/` to determine which packages to release and what version bumps to apply.
 3. **Automated Steps**:
    - Runs E2E tests
    - Builds production images
