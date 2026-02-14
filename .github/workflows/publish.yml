@@ -2,6 +2,16 @@ name: Publish
 
 on:
   workflow_dispatch:
+    inputs:
+      version_type:
+        description: "Bump type (patch, minor, major, none)"
+        type: choice
+        options:
+          - patch
+          - minor
+          - major
+          - none
+        default: patch
 
 # Prevent concurrent publish workflows
 concurrency:
@@ -28,8 +38,14 @@ jobs:
 
       - name: Verify Changesets Exist
         run: |
+          # If version_type is 'none' or we are running via workflow_dispatch with a type, we might not need existing changesets
+          if [ "${{ github.event.inputs.version_type }}" = "none" ] || [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "✅ Running via workflow_dispatch, will create automated changeset if needed."
+            exit 0
+          fi
+
           if [ -z "$(ls -A .changeset/*.md 2>/dev/null | grep -v README.md)" ]; then
-            echo "❌ ERROR: No changesets found! Please create one with 'npm run changeset'"
+            echo "❌ ERROR: No changesets found! Please create one with 'npm run changeset' or use workflow_dispatch with a version_type."
             exit 1
           fi
           echo "✅ Changesets found and ready to publish."
@@ -136,30 +152,51 @@ jobs:
 
       - name: Apply Changesets Version Bump
         id: version_bump
-        if: steps.check.outputs.has_changesets == 'true'
         run: |
+          # If version_type is provided and no changesets exist, create an automated one
+          if [ "${{ github.event.inputs.version_type }}" != "none" ] && [ "${{ github.event.inputs.version_type }}" != "" ]; then
+            if [ -z "$(ls -A .changeset/*.md 2>/dev/null | grep -v README.md)" ]; then
+              echo "📝 Creating automated changeset for ${{ github.event.inputs.version_type }} bump"
+              echo "---" > .changeset/automated-bump.md
+              echo "\"@cybermem/cli\": ${{ github.event.inputs.version_type }}" >> .changeset/automated-bump.md
+              echo "\"@cybermem/mcp\": ${{ github.event.inputs.version_type }}" >> .changeset/automated-bump.md
+              echo "\"@cybermem/dashboard\": ${{ github.event.inputs.version_type }}" >> .changeset/automated-bump.md
+              echo "---" >> .changeset/automated-bump.md
+              echo "Automated release for ${{ github.event.inputs.version_type }} version bump." >> .changeset/automated-bump.md
+            fi
+          fi
+
+          # Re-check for changesets after potential auto-creation
+          if [ -z "$(ls -A .changeset/*.md 2>/dev/null | grep -v README.md)" ]; then
+            echo "has_changesets=false" >> $GITHUB_OUTPUT
+            echo "⚠️ No changesets to apply"
+            exit 0
+          fi
+
+          echo "has_changesets=true" >> $GITHUB_OUTPUT
+
           # Apply changesets to bump versions and update CHANGELOG.md
           npm run version
-          
+
           # Regenerate package-lock.json to reflect updated package.json files
           npm install --package-lock-only
-          
+
           # Get the new version
           NEW_VERSION=$(node -p "require('./packages/cli/package.json').version")
           echo "new_version=$NEW_VERSION" >> $GITHUB_OUTPUT
           echo "📦 New version after changesets: $NEW_VERSION"
-      
+
       - name: Commit and Push Version Bump
         id: push
         if: steps.check.outputs.has_changesets == 'true'
         run: |
           NEW_VERSION="${{ steps.version_bump.outputs.new_version }}"
-          
+
           # Commit the version bump
           git add .
           git commit -m "chore: version bump to v$NEW_VERSION [skip ci]"
           git push origin main
-          
+
           # Output the commit SHA for exact checkout in downstream jobs
           COMMIT_SHA=$(git rev-parse HEAD)
           echo "commit_sha=$COMMIT_SHA" >> $GITHUB_OUTPUT
@@ -178,7 +215,7 @@ jobs:
         with:
           fetch-depth: 0
           token: ${{ secrets.GITHUB_TOKEN }}
-          ref: ${{ needs.version-bump.outputs.commit_sha }}  # Use exact commit SHA to avoid race conditions
+          ref: ${{ needs.version-bump.outputs.commit_sha }} # Use exact commit SHA to avoid race conditions
 
       - uses: actions/setup-node@v4
         with:
@@ -250,7 +287,7 @@ jobs:
         with:
           fetch-depth: 0
           token: ${{ secrets.GITHUB_TOKEN }}
-          ref: ${{ needs.version-bump.outputs.commit_sha }}  # Use exact commit SHA to avoid race conditions
+          ref: ${{ needs.version-bump.outputs.commit_sha }} # Use exact commit SHA to avoid race conditions
 
       - uses: actions/setup-node@v4
         with:
@@ -269,14 +306,14 @@ jobs:
           VERSION="${{ needs.version-bump.outputs.version }}"
           echo "current_version=$VERSION" >> $GITHUB_OUTPUT
           echo "📦 Release version: $VERSION"
-          
+
           # Extract release notes from CLI package CHANGELOG.md (changesets creates package-level CHANGELOGs)
           # Only extract the current version section, not all previous releases
           CHANGELOG_FILE="packages/cli/CHANGELOG.md"
           if [ -f "$CHANGELOG_FILE" ] && grep -q "## $VERSION" "$CHANGELOG_FILE"; then
             # Extract only the section for this version (between ## VERSION and the next ## heading)
             awk "/## $VERSION/,/^## / {if (/^## $VERSION/) next; if (/^## /) exit; print}" "$CHANGELOG_FILE" > release_notes_raw.md
-            
+
             # Remove leading and trailing empty lines for clean release notes
             # First awk: Skip lines until first non-empty (removes leading blanks)
             # Second awk: Store all lines, then print up to last non-empty (removes trailing blanks)
@@ -285,12 +322,12 @@ jobs:
           else
             echo "Release $VERSION" > release_notes.md
           fi
-          
+
           # Ensure we have some content
           if [ ! -s release_notes.md ]; then
             echo "Automated release for version $VERSION" > release_notes.md
           fi
-          
+
           # Log the extracted content (line count is approximate for logging only)
           echo "📝 Release notes extracted (~$(wc -l < release_notes.md) lines)"
 
@@ -304,7 +341,7 @@ jobs:
       - name: Commit E2E Reports
         run: |
           VERSION="${{ steps.prep.outputs.current_version }}"
-          
+
           # Commit reports if there are any
           git add release-reports/ || true
           git commit -m "chore: add release reports for v$VERSION [skip ci]" || echo "No reports to commit"
@@ -313,7 +350,7 @@ jobs:
       - name: Create Git Tag
         run: |
           VERSION="${{ steps.prep.outputs.current_version }}"
-          
+
           # Create and push Tag for VERSION
           git tag "v$VERSION" || echo "Tag already exists"
           git push origin "v$VERSION" || echo "Tag already pushed"

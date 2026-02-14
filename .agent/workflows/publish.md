@@ -16,7 +16,7 @@ npx ts-node e2e/e2e.ts --only-testing localhost-prod
 
 3. Trigger Release Workflow
 ```bash
-# Usage: /publish [patch|minor|major]
+# Usage: /publish [patch|minor|major|none]
 VERSION_TYPE=${1:-patch}
 gh workflow run publish.yml --field version_type=$VERSION_TYPE
 ```
