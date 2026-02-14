@@ -68,14 +68,17 @@
 
     - name: Generate new API token if not provided and not exists
       set_fact:
-        auto_generated_token: "sk-{{ lookup('pipe', 'openssl rand -hex 16') }}"
-        auto_generated_id: "{{ lookup('pipe', 'openssl rand -hex 8') }}"
+        auto_generated_token: "sk-{{ lookup('ansible.builtin.password', '/dev/null length=32 chars=hexdigits') }}"
+        auto_generated_id: "{{ lookup('ansible.builtin.password', '/dev/null length=16 chars=hexdigits') }}"
         auto_generated_name: "ansible-auto-generated"
+      no_log: true
       when: (auth_token_value is not defined or auth_token_value == '') and not api_key_file.stat.exists
 
     - name: Generate token hash for auto-generated token
       shell: |
-        echo '{{ auto_generated_token }}' | python3 -c "import sys, hashlib, binascii; token = sys.stdin.read().strip(); salt = hashlib.sha256(b'cybermem-salt-v1').hexdigest()[:16]; h = hashlib.pbkdf2_hmac('sha512', token.encode(), salt.encode(), 100000, 64); print(binascii.hexlify(h).decode())"
+        python3 -c "import sys, hashlib, binascii; token = sys.stdin.read().strip(); salt = hashlib.sha256(b'cybermem-salt-v1').hexdigest()[:16]; h = hashlib.pbkdf2_hmac('sha512', token.encode(), salt.encode(), 100000, 64); print(binascii.hexlify(h).decode())"
+      args:
+        stdin: "{{ auto_generated_token }}"
       register: auto_generated_hash_result
       when: auto_generated_token is defined
       changed_when: false
@@ -88,20 +91,22 @@
 
     - name: Use auto-generated token if available
       set_fact:
-        final_token_value: "{{ auth_token_value | default(auto_generated_token) }}"
-        final_token_hash: "{{ auth_token_hash | default(auto_generated_hash) }}"
-        final_token_id: "{{ auth_token_id | default(auto_generated_id) }}"
-        final_token_name: "{{ auth_token_name | default(auto_generated_name) }}"
-      when: auth_token_value is defined or auto_generated_token is defined
+        final_token_value: "{{ auth_token_value | default(auto_generated_token, true) }}"
+        final_token_hash: "{{ auth_token_hash | default(auto_generated_hash, true) }}"
+        final_token_id: "{{ auth_token_id | default(auto_generated_id, true) }}"
+        final_token_name: "{{ auth_token_name | default(auto_generated_name, true) }}"
+      no_log: true
+      when: (auth_token_value is defined and auth_token_value != '') or auto_generated_token is defined
 
-    - name: Write API Key Secret File (only if no token exists or explicitly provided)
+    - name: Write API Key Secret File (only if no token exists or explicitly provided/rotated)
       copy:
         content: "{{ final_token_value }}"
         dest: "{{ project_dir }}/secrets/om_api_key"
         owner: "{{ ansible_user }}"
         group: "{{ ansible_user }}"
         mode: "0600"
-      when: final_token_value is defined and (not api_key_file.stat.exists or auth_token_value is defined)
+      no_log: true
+      when: final_token_value is defined and (not api_key_file.stat.exists or (auth_token_value is defined and auth_token_value != '') or (force_rotate_token | default(false)))
 
     - name: Display auto-generated token info
       debug:

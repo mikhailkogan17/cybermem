@@ -2,7 +2,7 @@
 
 ## Overview
 
-As of v0.14.0, CyberMem automatically generates secure API tokens when they are not provided during deployment. This eliminates the security risk of placeholder tokens like `sk-not-generated-yet` being used in production.
+CyberMem automatically generates secure API tokens when they are not provided during deployment. This eliminates the security risk of placeholder tokens like `sk-not-generated-yet` being used in production.
 
 ## How It Works
 

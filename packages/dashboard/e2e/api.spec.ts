@@ -215,5 +215,24 @@ test.describe("Dashboard:E2E:API (Deep Verification)", () => {
         contentType: "text/plain",
       });
     });
+
+    await test.step("⚙️ Settings Fallback — Verify tokenSource and Masking", async () => {
+      console.log("⚙️  GET /api/settings (Fallback/Auto-gen Verification)");
+
+      const settingsResp = await request.get(`${DASHBOARD_URL}/api/settings`, {
+        headers: getHeaders("antigravity-client"),
+      });
+
+      const settings = await settingsResp.json();
+      console.log(`   Token Source: ${settings.tokenSource}`);
+
+      expect(settingsResp.status()).toBe(200);
+      expect(settings).toHaveProperty("tokenSource");
+      // If it's sk-prefix, it should be masked or starting with sk-
+      if (settings.apiKey && settings.apiKey !== "not-set") {
+        expect(settings.apiKey.length).toBeLessThanOrEqual(14); // 7 + 3 + 4 = 14
+        expect(settings.apiKey).toMatch(/sk-.*\.\.\..*/);
+      }
+    });
   });
 });
