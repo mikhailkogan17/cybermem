@@ -37,12 +37,12 @@ If the Ansible deployment somehow fails to generate a token, the auth-sidecar co
 
 ### 3. Dashboard Display
 
-The dashboard Settings modal will show a **masked** version of the auto-generated token (e.g., `sk-abc...efgh`) for security. To retrieve the full token, read it directly from:
-
-1. Docker secret file (`~/cybermem/secrets/om_api_key`)
-2. Fallback location (`/data/.cybermem_token`)
-
-The full token is never transmitted over HTTP to prevent accidental exposure via browser DevTools, logs, or screenshots.
+The dashboard Settings modal provides a secure way to view and manage tokens:
+- **Masked Display**: By default, the UI displays a masked version of the token (e.g., `sk-abcd...efgh`) in input fields. This prevents accidental exposure during screen sharing or screenshots.
+- **Secure Retrieval**: The raw token is available for the "Copy" button in authenticated sessions (Local Mode or via secure cookie).
+- **Filesystem SSoT**: Users are encouraged to retrieve the full token directly from the server's filesystem for initial client configuration:
+  - Docker secret: `~/cybermem/secrets/om_api_key`
+  - Fallback: `/data/.cybermem_token` (inside volume)
 
 ## Security Considerations
 
@@ -74,8 +74,12 @@ If you have an existing deployment with a placeholder token:
 # Check auth-sidecar logs
 docker logs cybermem-auth-sidecar 2>&1 | grep -i "auto-generated"
 
-# Check token-info endpoint (localhost only)
+# Check token-info endpoint (Metadata diagnostics)
+# Allowed from localhost loopback OR Docker bridge gateway (172.16.x.x - 172.31.x.x)
 curl http://localhost:3001/token-info
+
+# If the 403 Forbidden persists, run diagnostics from inside the container:
+docker exec -it cybermem-auth-sidecar curl http://localhost:3001/token-info
 ```
 
 ### Verify token is working

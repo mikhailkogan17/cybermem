@@ -52,46 +52,130 @@ async function storeTokenInDatabase(token) {
   }
 
   const db = new sqlite3.Database(DB_PATH);
+
+  // Configure busy timeout to reduce SQLITE_BUSY errors on concurrent access
+  if (typeof db.configure === "function") {
+    db.configure("busyTimeout", 5000);
+  }
+
   const tokenHash = await hashToken(token);
   const tokenId = crypto.randomBytes(8).toString("hex");
 
   return new Promise((resolve, reject) => {
     db.serialize(() => {
-      // Create table if not exists
-      db.run(
-        `CREATE TABLE IF NOT EXISTS access_keys (
-          id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
-          key_hash TEXT NOT NULL,
-          name TEXT DEFAULT 'default',
-          user_id TEXT DEFAULT 'default',
-          created_at TEXT DEFAULT (datetime('now')),
-          last_used_at TEXT,
-          is_active INTEGER DEFAULT 1
-        )`,
-      );
+      const expectedColumns = [
+        "id",
+        "key_hash",
+        "name",
+        "user_id",
+        "created_at",
+        "last_used_at",
+        "is_active",
+      ];
 
-      // Delete any existing auto-generated tokens
-      db.run("DELETE FROM access_keys WHERE name='auto-generated'", (err) => {
-        if (err) console.warn("Warning cleaning old tokens:", err.message);
-      });
+      const proceedWithSchema = () => {
+        // Create table if not exists (after optional drop)
+        db.run(
+          `CREATE TABLE IF NOT EXISTS access_keys (
+            id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
+            key_hash TEXT NOT NULL,
+            name TEXT DEFAULT 'default',
+            user_id TEXT DEFAULT 'default',
+            created_at TEXT DEFAULT (datetime('now')),
+            last_used_at TEXT,
+            is_active INTEGER DEFAULT 1
+          )`,
+          (createErr) => {
+            if (createErr) {
+              console.error(
+                "Failed to ensure access_keys table exists:",
+                createErr.message,
+              );
+              db.close();
+              // Resolve false instead of rejecting to distinguish from fatal file persistence error
+              resolve(false);
+              return;
+            }
 
-      // Insert new token
-      db.run(
-        "INSERT INTO access_keys (id, key_hash, name, user_id) VALUES (?, ?, 'auto-generated', 'admin')",
-        [tokenId, tokenHash],
-        (err) => {
-          if (err) {
-            console.error("Failed to store token in database:", err.message);
-            db.close();
-            // Resolve false instead of rejecting to distinguish from fatal file persistence error
-            resolve(false);
-          } else {
-            console.log("✅ Auto-generated token stored in database");
-            db.close();
-            resolve(true);
+            // Delete any existing auto-generated tokens
+            db.run(
+              "DELETE FROM access_keys WHERE name='auto-generated'",
+              (deleteErr) => {
+                if (deleteErr) {
+                  console.warn(
+                    "Warning cleaning old tokens:",
+                    deleteErr.message,
+                  );
+                }
+
+                // Insert new token
+                db.run(
+                  "INSERT INTO access_keys (id, key_hash, name, user_id) VALUES (?, ?, 'auto-generated', 'admin')",
+                  [tokenId, tokenHash],
+                  (insertErr) => {
+                    if (insertErr) {
+                      console.error(
+                        "Failed to store token in database:",
+                        insertErr.message,
+                      );
+                      db.close();
+                      // Resolve false instead of rejecting to distinguish from fatal file persistence error
+                      resolve(false);
+                    } else {
+                      console.log("✅ Auto-generated token stored in database");
+                      db.close();
+                      resolve(true);
+                    }
+                  },
+                );
+              },
+            );
+          },
+        );
+      };
+
+      // Validate existing access_keys schema and drop if malformed
+      db.all("PRAGMA table_info(access_keys)", (pragmaErr, columns) => {
+        if (pragmaErr) {
+          console.warn(
+            "Unable to inspect access_keys schema, proceeding with creation:",
+            pragmaErr.message,
+          );
+          proceedWithSchema();
+          return;
+        }
+
+        let needsDrop = false;
+        if (Array.isArray(columns) && columns.length > 0) {
+          const existingColumns = columns.map((c) => c.name);
+          const hasAllExpected = expectedColumns.every((col) =>
+            existingColumns.includes(col),
+          );
+          const sameLength = existingColumns.length === expectedColumns.length;
+          if (!hasAllExpected || !sameLength) {
+            needsDrop = true;
           }
-        },
-      );
+        }
+
+        if (!needsDrop) {
+          proceedWithSchema();
+          return;
+        }
+
+        console.log("⚠️  Malformed access_keys schema detected, recreating...");
+        db.run("DROP TABLE IF EXISTS access_keys", (dropErr) => {
+          if (dropErr) {
+            console.error(
+              "Failed to drop malformed access_keys table:",
+              dropErr.message,
+            );
+            db.close();
+            resolve(false);
+            return;
+          }
+          proceedWithSchema();
+        });
+      });
     });
   });
 }
@@ -173,7 +257,6 @@ async function loadSecret() {
       const masked =
         cachedToken.substring(0, 7) + "..." + cachedToken.slice(-4);
 
-
       console.log("\n" + "=".repeat(70));
       console.log("🔐 AUTO-GENERATED SECURITY TOKEN:");
       console.log(`   ${masked}`);
@@ -245,12 +328,27 @@ function isLocalRequest(req) {
 // Strictly localhost for sensitive metadata endpoints
 function isStrictlyLocalRequest(req) {
   const ip = req.socket.remoteAddress;
-  return (
+
+  // 1. Direct loopback check
+  const isLoopback =
     ip === "127.0.0.1" ||
     ip === "::1" ||
     ip === "::ffff:127.0.0.1" ||
-    ip === "localhost"
-  );
+    ip === "localhost";
+
+  if (isLoopback) return true;
+
+  // 2. Docker bridge check (e.g. 172.17.0.1 or 172.18.x.x)
+  // This allows host-to-container calls for diagnostics
+  if (typeof ip === "string" && ip.startsWith("172.")) {
+    const parts = ip.split(".");
+    const second = parseInt(parts[1], 10);
+    if (second >= 16 && second <= 31) {
+      return true;
+    }
+  }
+
+  return false;
 }
 
 // ForwardAuth handler

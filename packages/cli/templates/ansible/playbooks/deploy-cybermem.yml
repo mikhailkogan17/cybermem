@@ -110,6 +110,24 @@
       no_log: true
       when: (auth_token_value is defined and auth_token_value != '') or auto_generated_token is defined
 
+    - name: Generate token hash when only token value is provided
+      shell: |
+        python3 -c "import sys, hashlib, binascii; token = sys.stdin.read().strip(); salt = hashlib.sha256(b'cybermem-salt-v1').hexdigest()[:16]; h = hashlib.pbkdf2_hmac('sha512', token.encode(), salt.encode(), 100000, 64); print(binascii.hexlify(h).decode())"
+      args:
+        stdin: "{{ final_token_value }}"
+      register: computed_token_hash_result
+      when:
+        - final_token_value is defined and final_token_value != ""
+        - final_token_hash is not defined or final_token_hash == ""
+      changed_when: false
+      no_log: true
+
+    - name: Set computed token hash
+      set_fact:
+        final_token_hash: "{{ computed_token_hash_result.stdout }}"
+      when: computed_token_hash_result is not skipped
+      no_log: true
+
     - name: Write API Key Secret File (only if no token exists or explicitly provided/rotated)
       copy:
         content: "{{ final_token_value }}"

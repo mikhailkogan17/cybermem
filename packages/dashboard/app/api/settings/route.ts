@@ -205,8 +205,8 @@ export async function GET(request: NextRequest) {
   const maskToken = (token: string) => {
     if (!token || token === "not-set") return token;
     if (token.length <= 10) return "****";
-    // sk-abc...efgh
-    return `${token.slice(0, 6)}...${token.slice(-4)}`;
+    // sk-abcd...efgh
+    return `${token.slice(0, 7)}...${token.slice(-4)}`;
   };
 
   const maskedApiKey = maskToken(apiKey);
@@ -229,7 +229,8 @@ export async function GET(request: NextRequest) {
 
   return NextResponse.json(
     {
-      apiKey: maskedApiKey,
+      apiKey: apiKey,
+      apiKeyMasked: maskedApiKey,
       tokenSource: apiKey === "not-set" ? "not-set" : tokenSource,
       endpoint,
       isManaged,
