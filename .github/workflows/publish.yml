@@ -291,11 +291,8 @@ jobs:
             echo "Automated release for version $VERSION" > release_notes.md
           fi
           
-          # Count lines accurately (wc -l counts newlines, not lines)
-          # If file doesn't end with newline, add 1 to get true line count
-          LINE_COUNT=$(wc -l < release_notes.md)
-          [ -n "$(tail -c1 release_notes.md)" ] && LINE_COUNT=$((LINE_COUNT + 1))
-          echo "📝 Release notes extracted ($LINE_COUNT lines)"
+          # Log the extracted content (line count is approximate for logging only)
+          echo "📝 Release notes extracted (~$(wc -l < release_notes.md) lines)"
 
       - name: Ingest E2E Reports
         uses: actions/download-artifact@v4
