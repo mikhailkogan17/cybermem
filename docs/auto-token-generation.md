@@ -33,7 +33,7 @@ If the Ansible deployment somehow fails to generate a token, the auth-sidecar co
    - File: `/data/.cybermem_token` (writable volume)
    - Database: `openmemory.sqlite` → `access_keys` table
 4. The token is logged to container logs with a warning
-5. The token can be retrieved via the `/token-info` endpoint (localhost only)
+5. Metadata about the token source can be retrieved via the `/token-info` endpoint (strictly localhost loopback only). Full tokens are never exposed over HTTP.
 
 ### 3. Dashboard Display
 
@@ -80,8 +80,8 @@ curl http://localhost:3001/token-info
 ### Verify token is working
 
 ```bash
-# Get token from dashboard
-TOKEN=$(curl -s http://localhost:8626/api/settings | jq -r '.token')
+# Get token from the secret file (SSoT)
+TOKEN=$(cat ~/cybermem/secrets/om_api_key)
 
 # Test with MCP endpoint
 curl -H "Authorization: Bearer $TOKEN" http://localhost:8626/health

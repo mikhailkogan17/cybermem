@@ -187,10 +187,8 @@ async function loadSecret() {
   }
 }
 
-// Initial load
-(async () => {
-  await loadSecret();
-})();
+// Initialization promise to avoid race conditions
+const initPromise = loadSecret();
 
 // Verify token against SSoT (file-based)
 async function verifyToken(token) {
@@ -215,11 +213,6 @@ function isLocalRequest(req) {
     forwarded?.split(",")[0]?.trim() || realIp || req.socket.remoteAddress;
 
   // 1. First reject Tailscale/Remote requests (.ts.net, 100.x.x.x)
-  // CRITICAL: Tailscale requests (via Funnel) must NEVER be treated as local.
-  // If host contains .ts.net, it's external.
-  // NOTE: Legacy CYBERMEM_TAILSCALE env-flag logic was removed on purpose.
-  //       We now auto-detect Tailscale by host/IP (".ts.net" / "100.x.x.x"),
-  //       so .local bypass works regardless of CYBERMEM_TAILSCALE being set.
   if (
     host.includes(".ts.net") ||
     (typeof ip === "string" && ip.startsWith("100."))
@@ -232,9 +225,6 @@ function isLocalRequest(req) {
   if (hostname.endsWith(".local")) {
     return true;
   }
-
-  // Host-based check REMOVED for security (CVE-2026-001)
-  // We only trust loopback IP if not on Tailscale.
 
   // Allow localhost bypass ONLY for local Dev environment (Docker Desktop)
   const isDev = process.env.CYBERMEM_INSTANCE === "local";
@@ -251,8 +241,21 @@ function isLocalRequest(req) {
   return isLocalIp;
 }
 
+// Strictly localhost for sensitive metadata endpoints
+function isStrictlyLocalRequest(req) {
+  const ip = req.socket.remoteAddress;
+  return (
+    ip === "127.0.0.1" ||
+    ip === "::1" ||
+    ip === "::ffff:127.0.0.1" ||
+    ip === "localhost"
+  );
+}
+
 // ForwardAuth handler
 const server = http.createServer(async (req, res) => {
+  // Wait for secret to be loaded before processing any requests
+  await initPromise;
   // Health check
   if (req.url === "/health") {
     res.writeHead(200, { "Content-Type": "application/json" });
@@ -268,7 +271,7 @@ const server = http.createServer(async (req, res) => {
 
   // Token info endpoint (metadata only — never expose raw token over HTTP)
   if (req.url === "/token-info") {
-    if (!isLocalRequest(req)) {
+    if (!isStrictlyLocalRequest(req)) {
       res.writeHead(403, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ error: "Forbidden - localhost only" }));
       return;

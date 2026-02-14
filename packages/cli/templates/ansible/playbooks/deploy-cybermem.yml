@@ -66,13 +66,25 @@
         path: "{{ project_dir }}/secrets/om_api_key"
       register: api_key_file
 
-    - name: Generate new API token if not provided and not exists
+    - name: Read existing API key if it exists
+      command: cat "{{ project_dir }}/secrets/om_api_key"
+      register: existing_key_content
+      when: api_key_file.stat.exists
+      changed_when: false
+      no_log: true
+      ignore_errors: true
+
+    - name: Determine if token is missing or placeholder
+      set_fact:
+        token_needs_generation: "{{ not api_key_file.stat.exists or (existing_key_content.stdout | default('') == 'sk-not-generated-yet') }}"
+
+    - name: Generate new API token if not provided and not exists (or is placeholder)
       set_fact:
         auto_generated_token: "sk-{{ lookup('ansible.builtin.password', '/dev/null length=32 chars=hexdigits') }}"
         auto_generated_id: "{{ lookup('ansible.builtin.password', '/dev/null length=16 chars=hexdigits') }}"
         auto_generated_name: "ansible-auto-generated"
       no_log: true
-      when: (auth_token_value is not defined or auth_token_value == '') and not api_key_file.stat.exists
+      when: (auth_token_value is not defined or auth_token_value == '') and token_needs_generation
 
     - name: Generate token hash for auto-generated token
       shell: |
@@ -106,7 +118,7 @@
         group: "{{ ansible_user }}"
         mode: "0600"
       no_log: true
-      when: final_token_value is defined and (not api_key_file.stat.exists or (auth_token_value is defined and auth_token_value != '') or (force_rotate_token | default(false)))
+      when: final_token_value is defined and (token_needs_generation or (auth_token_value is defined and auth_token_value != '') or (force_rotate_token | default(false)))
 
     - name: Display auto-generated token info
       debug:

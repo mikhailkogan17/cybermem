@@ -231,7 +231,7 @@ test.describe("Dashboard:E2E:API (Deep Verification)", () => {
       // If it's sk-prefix, it should be masked or starting with sk-
       if (settings.apiKey && settings.apiKey !== "not-set") {
         expect(settings.apiKey.length).toBeLessThanOrEqual(14); // 7 + 3 + 4 = 14
-        expect(settings.apiKey).toMatch(/sk-.*\.\.\..*/);
+        expect(settings.apiKey).toMatch(/^sk-.*\.\.\..*$/);
       }
     });
   });

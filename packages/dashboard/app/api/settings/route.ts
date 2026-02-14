@@ -120,11 +120,13 @@ export async function GET(request: NextRequest) {
   }
 
   let apiKey = process.env.OM_API_KEY || "not-set";
+  let tokenSource = "env";
 
   // Try to read from HttpOnly cookie first
   const cookieKey = request.cookies.get("cybermem_api_key")?.value;
   if (cookieKey) {
     apiKey = cookieKey;
+    tokenSource = "cookie";
   }
 
   // Fallback to config file
@@ -132,7 +134,10 @@ export async function GET(request: NextRequest) {
     if (fs.existsSync(CONFIG_PATH)) {
       const raw = fs.readFileSync(CONFIG_PATH, "utf-8");
       const conf = JSON.parse(raw);
-      if (conf.api_key && apiKey === "not-set") apiKey = conf.api_key;
+      if (conf.api_key && apiKey === "not-set") {
+        apiKey = conf.api_key;
+        tokenSource = "config";
+      }
     }
   } catch (e) {
     // ignore
@@ -146,6 +151,7 @@ export async function GET(request: NextRequest) {
       if (secret) {
         if (secret.startsWith("sk-")) {
           apiKey = secret;
+          tokenSource = "docker-secret";
         } else {
           // Fallback: support env-file format like "OM_API_KEY=sk-..."
           const envMatch = secret.match(
@@ -153,6 +159,7 @@ export async function GET(request: NextRequest) {
           );
           if (envMatch) {
             apiKey = envMatch[1];
+            tokenSource = "docker-secret-env";
           } else {
             console.warn(
               `[Settings API] Token at ${secretPath} doesn't match expected format (sk-* or OM_API_KEY=sk-*)`,
@@ -173,6 +180,7 @@ export async function GET(request: NextRequest) {
       if (token) {
         if (token.startsWith("sk-")) {
           apiKey = token;
+          tokenSource = "fallback";
         } else {
           console.warn(
             `[Settings API] Token at ${fallbackPath} doesn't match expected format (sk-*)`,
@@ -193,6 +201,16 @@ export async function GET(request: NextRequest) {
   // isManaged = Local Mode (localhost auto-login)
   const isManaged = isLocal;
 
+  // Mask the token for public display
+  const maskToken = (token: string) => {
+    if (!token || token === "not-set") return token;
+    if (token.length <= 10) return "****";
+    // sk-abc...efgh
+    return `${token.slice(0, 6)}...${token.slice(-4)}`;
+  };
+
+  const maskedApiKey = maskToken(apiKey);
+
   // Read version from package.json
   let version = "v0.11.4"; // Default fallback
   try {
@@ -211,8 +229,8 @@ export async function GET(request: NextRequest) {
 
   return NextResponse.json(
     {
-      token: apiKey,
-      apiKey: apiKey,
+      apiKey: maskedApiKey,
+      tokenSource: apiKey === "not-set" ? "not-set" : tokenSource,
       endpoint,
       isManaged,
       isLocal,
