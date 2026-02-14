@@ -228,10 +228,14 @@ test.describe("Dashboard:E2E:API (Deep Verification)", () => {
 
       expect(settingsResp.status()).toBe(200);
       expect(settings).toHaveProperty("tokenSource");
-      // If it's sk-prefix, it should be masked or starting with sk-
+      // Verify apiKeyMasked is masked (not the raw apiKey field)
+      if (settings.apiKeyMasked && settings.apiKeyMasked !== "not-set") {
+        expect(settings.apiKeyMasked.length).toBeLessThanOrEqual(14); // 7 + 3 + 4 = 14
+        expect(settings.apiKeyMasked).toMatch(/^sk-.*\.\.\..*$/);
+      }
+      // Verify apiKey contains the raw token (for UI copy functionality)
       if (settings.apiKey && settings.apiKey !== "not-set") {
-        expect(settings.apiKey.length).toBeLessThanOrEqual(14); // 7 + 3 + 4 = 14
-        expect(settings.apiKey).toMatch(/^sk-.*\.\.\..*$/);
+        expect(settings.apiKey).toMatch(/^sk-[a-f0-9]{32}$/);
       }
     });
   });

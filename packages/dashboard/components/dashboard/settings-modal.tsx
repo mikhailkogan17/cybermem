@@ -59,7 +59,11 @@ export default function SettingsModal({ onClose }: { onClose: () => void }) {
 
         if (localKey && !data.isManaged) {
           setApiKey(localKey);
-          setApiKeyMasked(localKey);
+          // Mask the local key for display
+          const maskedLocal = localKey.length > 10 
+            ? `${localKey.slice(0, 7)}...${localKey.slice(-4)}`
+            : "****";
+          setApiKeyMasked(maskedLocal);
         } else {
           setApiKey(data.apiKey !== "not-set" ? data.apiKey : "");
           setApiKeyMasked(

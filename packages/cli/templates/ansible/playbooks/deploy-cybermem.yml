@@ -284,6 +284,7 @@
           DELETE FROM access_keys WHERE name='{{ final_token_name }}';
           INSERT INTO access_keys (id, key_hash, name, user_id) VALUES ('{{ final_token_id }}', '{{ final_token_hash }}', '{{ final_token_name }}', 'admin');
       when: final_token_hash is defined
+      no_log: true
       ignore_errors: true
 
     - name: Wait for Traefik (Proxy) to be ready

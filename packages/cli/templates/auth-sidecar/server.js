@@ -197,12 +197,27 @@ async function loadSecret() {
       // Check if it's a shell-formatted env file (OM_API_KEY=sk-...)
       const envMatch = content.match(/OM_API_KEY=["']?(sk-[a-zA-Z0-9]+)["']?/);
       if (envMatch) {
-        cachedToken = envMatch[1];
-        console.log(`SSoT Token extracted from env file: ${SECRET_PATH}`);
+        const extractedToken = envMatch[1];
+        // Reject known insecure placeholder
+        if (extractedToken === "sk-not-generated-yet") {
+          console.warn(
+            `⚠️  INSECURE PLACEHOLDER DETECTED in ${SECRET_PATH}. Treating as missing.`,
+          );
+        } else {
+          cachedToken = extractedToken;
+          console.log(`SSoT Token extracted from env file: ${SECRET_PATH}`);
+        }
       } else if (content && content.startsWith("sk-")) {
-        // Assume raw token file
-        cachedToken = content;
-        console.log(`SSoT Token loaded from raw file: ${SECRET_PATH}`);
+        // Reject known insecure placeholder
+        if (content === "sk-not-generated-yet") {
+          console.warn(
+            `⚠️  INSECURE PLACEHOLDER DETECTED in ${SECRET_PATH}. Treating as missing.`,
+          );
+        } else {
+          // Assume raw token file
+          cachedToken = content;
+          console.log(`SSoT Token loaded from raw file: ${SECRET_PATH}`);
+        }
       } else if (content) {
         console.warn(
           `SECRET WARNING: ${SECRET_PATH} exists but doesn't contain a valid token format`,
