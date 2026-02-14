@@ -156,7 +156,7 @@ jobs:
         id: apply_version
         if: steps.check.outputs.has_changesets == 'true' || github.event.inputs.version_type != 'none'
         env:
-          GITHUB_TOKEN: ${{ secrets.CHANGESETS_GITHUB_ACCESS_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.PUBLISH_GITHUB_TOKEN }}
         run: |
           # If version_type is provided and no changesets exist, create an automated one
           if [ "${{ github.event.inputs.version_type }}" != "none" ] && [ "${{ github.event.inputs.version_type }}" != "" ]; then
