@@ -170,15 +170,16 @@ async function loadSecret() {
           "⚠️  Token is in-memory only and will be lost on restart!",
         );
       }
-
       const masked =
         cachedToken.substring(0, 7) + "..." + cachedToken.slice(-4);
+
+
       console.log("\n" + "=".repeat(70));
       console.log("🔐 AUTO-GENERATED SECURITY TOKEN:");
       console.log(`   ${masked}`);
       console.log("");
       console.log("Token saved to: " + FALLBACK_TOKEN_PATH);
-      console.log("Retrieve the full token from Dashboard Settings or:");
+      console.log("Retrieve the full token from:");
       console.log(`   cat ${FALLBACK_TOKEN_PATH}`);
       console.log("=".repeat(70) + "\n");
     }

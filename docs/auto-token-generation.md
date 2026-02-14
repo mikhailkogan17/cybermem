@@ -37,11 +37,12 @@ If the Ansible deployment somehow fails to generate a token, the auth-sidecar co
 
 ### 3. Dashboard Display
 
-The dashboard Settings modal will show the auto-generated token by reading from:
+The dashboard Settings modal will show a **masked** version of the auto-generated token (e.g., `sk-abc...efgh`) for security. To retrieve the full token, read it directly from:
 
-1. Docker secret file (`/run/secrets/om_api_key`)
-2. Config file (`/data/config.json`)
-3. Fallback location (`/data/.cybermem_token`)
+1. Docker secret file (`~/cybermem/secrets/om_api_key`)
+2. Fallback location (`/data/.cybermem_token`)
+
+The full token is never transmitted over HTTP to prevent accidental exposure via browser DevTools, logs, or screenshots.
 
 ## Security Considerations
 
