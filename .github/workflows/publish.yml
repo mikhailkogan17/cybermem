@@ -210,15 +210,19 @@ jobs:
           # Push the branch
           git push origin "$BRANCH_NAME"
 
-          # Create a Pull Request
-          PR_URL=$(gh pr create \
+          # Create a Pull Request and capture its number
+          PR_NUMBER=$(gh pr create \
             --title "chore: version bump to v$NEW_VERSION" \
             --body "Automated version bump to v$NEW_VERSION by publish workflow." \
             --base main \
-            --head "$BRANCH_NAME")
+            --head "$BRANCH_NAME" \
+            --json number \
+            --jq '.number')
+
+          # Fetch the PR URL for logging
+          PR_URL=$(gh pr view "$PR_NUMBER" --json url --jq '.url')
 
           # Enable auto-merge on the PR
-          PR_NUMBER=$(echo "$PR_URL" | grep -o '[0-9]*$')
           gh pr merge "$PR_NUMBER" --auto --squash
 
           # Output the commit SHA for exact checkout in downstream jobs
