@@ -61,15 +61,106 @@
         group: "{{ ansible_user }}"
         mode: "0755"
 
-    - name: Write API Key Secret File
+    - name: Check if API key secret file exists
+      stat:
+        path: "{{ project_dir }}/secrets/om_api_key"
+      register: api_key_file
+
+    - name: Read existing API key if it exists
+      command: cat "{{ project_dir }}/secrets/om_api_key"
+      register: existing_key_content
+      when: api_key_file.stat.exists
+      changed_when: false
+      no_log: true
+      ignore_errors: true
+
+    - name: Determine if token is missing or placeholder
+      set_fact:
+        token_needs_generation: "{{ not api_key_file.stat.exists or (existing_key_content.stdout | default('') == 'sk-not-generated-yet') }}"
+
+    - name: Generate new API token if not provided and not exists (or is placeholder)
+      set_fact:
+        auto_generated_token: "sk-{{ lookup('ansible.builtin.password', '/dev/null length=32 chars=hexdigits') }}"
+        auto_generated_id: "{{ lookup('ansible.builtin.password', '/dev/null length=16 chars=hexdigits') }}"
+        auto_generated_name: "ansible-auto-generated"
+      no_log: true
+      when: (auth_token_value is not defined or auth_token_value == '' or auth_token_value == 'sk-not-generated-yet') and token_needs_generation
+
+    - name: Generate token hash for auto-generated token
+      shell: |
+        python3 -c "import sys, hashlib, binascii; token = sys.stdin.read().strip(); salt = hashlib.sha256(b'cybermem-salt-v1').hexdigest()[:16]; h = hashlib.pbkdf2_hmac('sha512', token.encode(), salt.encode(), 100000, 64); print(binascii.hexlify(h).decode())"
+      args:
+        stdin: "{{ auto_generated_token }}"
+      register: auto_generated_hash_result
+      when: auto_generated_token is defined
+      changed_when: false
+      no_log: true
+
+    - name: Set auto-generated token hash
+      set_fact:
+        auto_generated_hash: "{{ auto_generated_hash_result.stdout }}"
+      when: auto_generated_hash_result is not skipped
+
+    - name: Use auto-generated token if available
+      set_fact:
+        final_token_value: "{{ (auth_token_value | default(auto_generated_token, true)) if (auth_token_value | default('', true) != 'sk-not-generated-yet') else auto_generated_token }}"
+        final_token_hash: "{{ auth_token_hash | default(auto_generated_hash, true) }}"
+        final_token_id: "{{ auth_token_id | default(auto_generated_id, true) }}"
+        final_token_name: "{{ auth_token_name | default(auto_generated_name, true) }}"
+      no_log: true
+      when: (auth_token_value is defined and auth_token_value != '') or auto_generated_token is defined
+
+    - name: Generate token hash when only token value is provided
+      shell: |
+        python3 -c "import sys, hashlib, binascii; token = sys.stdin.read().strip(); salt = hashlib.sha256(b'cybermem-salt-v1').hexdigest()[:16]; h = hashlib.pbkdf2_hmac('sha512', token.encode(), salt.encode(), 100000, 64); print(binascii.hexlify(h).decode())"
+      args:
+        stdin: "{{ final_token_value }}"
+      register: computed_token_hash_result
+      when:
+        - final_token_value is defined and final_token_value != ""
+        - final_token_hash is not defined or final_token_hash == ""
+      changed_when: false
+      no_log: true
+
+    - name: Set computed token hash
+      set_fact:
+        final_token_hash: "{{ computed_token_hash_result.stdout }}"
+      when: computed_token_hash_result is not skipped
+      no_log: true
+
+    - name: Write API Key Secret File (only if no token exists or explicitly provided/rotated)
       copy:
-        content: "{{ auth_token_value }}"
+        content: "{{ final_token_value }}"
         dest: "{{ project_dir }}/secrets/om_api_key"
         owner: "{{ ansible_user }}"
         group: "{{ ansible_user }}"
         mode: "0600"
-      when: auth_token_value is defined
-      ignore_errors: true
+      no_log: true
+      when: final_token_value is defined and (token_needs_generation or (auth_token_value is defined and auth_token_value != '') or (force_rotate_token | default(false)))
+
+    - name: Display auto-generated token info
+      debug:
+        msg: |
+          🔐 AUTO-GENERATED SECURITY TOKEN:
+          Token: {{ auto_generated_token[:7] }}...{{ auto_generated_token[-4:] }}
+
+          Full token saved to: {{ project_dir }}/secrets/om_api_key
+          Retrieve with: cat {{ project_dir }}/secrets/om_api_key
+          Also visible in Dashboard Settings after deployment.
+      when:
+        - auto_generated_token is defined
+        - show_token_output | default(false)
+
+    - name: Display token retrieval instructions
+      debug:
+        msg: |
+          🔐 SECURITY TOKEN generated.
+          Full token saved to: {{ project_dir }}/secrets/om_api_key
+          Retrieve with: cat {{ project_dir }}/secrets/om_api_key
+          Masked token visible in Dashboard Settings after deployment.
+      when:
+        - auto_generated_token is defined
+        - not (show_token_output | default(false))
 
     - name: Ensure data directory exists
       file:
@@ -150,7 +241,7 @@
       changed_when: "'Downloaded newer image' in pull_out.stdout or 'Downloaded newer image' in pull_out.stderr"
       when: not (skip_pull | default(false) | bool)
 
-    - name: Stop staging containers (prevent port conflicts, NEVER touch prod)
+    - name: Stop staging containers (prevent port conflicts)
       shell: |
         docker-compose -p cybermem-staging down --remove-orphans 2>/dev/null || true
       args:
@@ -158,6 +249,12 @@
       changed_when: false
       ignore_errors: true
       when: cybermem_env | default('prod') == 'staging'
+
+    - name: Stop current services (Force Clean State)
+      command: docker-compose -p {{ PROJECT_NAME | default('cybermem') }} down --remove-orphans
+      args:
+        chdir: "{{ project_dir }}"
+      ignore_errors: true
 
     - name: Start services
       command: docker-compose -p {{ PROJECT_NAME | default('cybermem') }} up -d --remove-orphans
@@ -172,27 +269,38 @@
         state: present
 
     - name: Inject Authentication Token
-      shell: |
-        sqlite3 {{ project_dir }}/data/openmemory.sqlite "CREATE TABLE IF NOT EXISTS access_keys (
-          id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
-          key_hash TEXT NOT NULL,
-          name TEXT DEFAULT 'default',
-          user_id TEXT DEFAULT 'default',
-          created_at TEXT DEFAULT (datetime('now')),
-          last_used_at TEXT,
-          is_active INTEGER DEFAULT 1
-        );"
-        sqlite3 {{ project_dir }}/data/openmemory.sqlite "DELETE FROM access_keys WHERE name='{{ auth_token_name | default('ansible-generated') }}';"
-        sqlite3 {{ project_dir }}/data/openmemory.sqlite "INSERT INTO access_keys (id, key_hash, name, user_id) VALUES ('{{ auth_token_id }}', '{{ auth_token_hash }}', '{{ auth_token_name | default('ansible-generated') }}', 'admin');"
-      when: auth_token_hash is defined
+      shell: "sqlite3 {{ project_dir }}/data/openmemory.sqlite"
+      args:
+        stdin: |
+          CREATE TABLE IF NOT EXISTS access_keys (
+            id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
+            key_hash TEXT NOT NULL,
+            name TEXT DEFAULT 'default',
+            user_id TEXT DEFAULT 'default',
+            created_at TEXT DEFAULT (datetime('now')),
+            last_used_at TEXT,
+            is_active INTEGER DEFAULT 1
+          );
+          DELETE FROM access_keys WHERE name='{{ final_token_name }}';
+          INSERT INTO access_keys (id, key_hash, name, user_id) VALUES ('{{ final_token_id }}', '{{ final_token_hash }}', '{{ final_token_name }}', 'admin');
+      when: final_token_hash is defined
       ignore_errors: true
 
-    - name: Wait for Traefik to be ready
+    - name: Wait for Traefik (Proxy) to be ready
       uri:
-        url: "http://localhost:{{ EFFECTIVE_TRAEFIK_PORT }}/health"
+        url: "http://localhost:{{ EFFECTIVE_TRAEFIK_PORT }}/ping"
         status_code: 200
       register: traefik_ping
       until: traefik_ping.status == 200
+      retries: 10
+      delay: 5
+
+    - name: Wait for MCP (App) to be ready
+      uri:
+        url: "http://localhost:{{ EFFECTIVE_TRAEFIK_PORT }}/health"
+        status_code: 200
+      register: mcp_health
+      until: mcp_health.status == 200
       retries: 30
       delay: 10
 
@@ -235,13 +343,24 @@
           debug:
             msg: "Rollback logic triggered due to unhealthy state."
 
+        - name: Dump Container Logs (Debug)
+          shell: |
+            echo "========== TRAEFIK LOGS =========="
+            docker logs {{ PROJECT_NAME | default('cybermem') }}-traefik --tail 100 2>&1
+            echo "========== MCP SERVER LOGS =========="
+            docker logs {{ PROJECT_NAME | default('cybermem') }}-mcp-server --tail 100 2>&1
+            echo "========== AUTH SIDECAR LOGS =========="
+            docker logs {{ PROJECT_NAME | default('cybermem') }}-auth-sidecar --tail 50 2>&1
+          ignore_errors: true
+
         - name: Restart previous state containers
           command: docker-compose -p {{ PROJECT_NAME | default('cybermem') }} up -d --remove-orphans
           args:
             chdir: "{{ project_dir }}"
           ignore_errors: true
-      when: health_status.failed or (health_status.content | from_json).overall != 'ok'
+      when: (health_status is failed) or (health_status.json is defined and health_status.json.overall != 'ok')
 
     - name: Deployment Summary
       debug:
-        msg: "CyberMem v{{ global_version }} successfully deployed. Health: {{ (health_status.content | from_json).overall | default('UNKNOWN') }}"
+        msg: "CyberMem v{{ global_version }} successfully deployed. Health: {{ health_status.json.overall | default('UNKNOWN') }}"
+      when: health_status.json is defined
