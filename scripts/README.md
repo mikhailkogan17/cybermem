@@ -28,4 +28,4 @@ See `scripts/utils/` for one-off utility scripts (e.g., database seeding).
 
 ## Version Management
 
-CyberMem now uses [Changesets](https://github.com/changesets/changesets) for version management. See [CONTRIBUTING.md](../CONTRIBUTING.md#-release-process) for details on creating changesets and releasing new versions.
+CyberMem uses [Changesets](https://github.com/changesets/changesets) for version management. See [CONTRIBUTING.md](../CONTRIBUTING.md#-release-process) for details on creating changesets and releasing new versions.
