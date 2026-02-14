@@ -12,6 +12,7 @@ import SystemInfoSection from "./settings/system-info-section";
 
 export default function SettingsModal({ onClose }: { onClose: () => void }) {
   const [apiKey, setApiKey] = useState("");
+  const [apiKeyMasked, setApiKeyMasked] = useState("");
   const [endpoint, setEndpoint] = useState("");
   const [isManaged, setIsManaged] = useState(false);
   const [instanceType, setInstanceType] = useState<"local" | "rpi" | "vps">(
@@ -30,7 +31,6 @@ export default function SettingsModal({ onClose }: { onClose: () => void }) {
   const [isRestoring, setIsRestoring] = useState(false);
   const [isRestarting, setIsRestarting] = useState(false);
   const [isResetting, setIsResetting] = useState(false);
-  const [resetConfirmText, setResetConfirmText] = useState("");
   const [showResetConfirm, setShowResetConfirm] = useState(false);
   const [operationStatus, setOperationStatus] = useState<{
     type: "success" | "error";
@@ -59,8 +59,16 @@ export default function SettingsModal({ onClose }: { onClose: () => void }) {
 
         if (localKey && !data.isManaged) {
           setApiKey(localKey);
+          // Mask the local key for display
+          const maskedLocal = localKey.length > 10 
+            ? `${localKey.slice(0, 7)}...${localKey.slice(-4)}`
+            : "****";
+          setApiKeyMasked(maskedLocal);
         } else {
           setApiKey(data.apiKey !== "not-set" ? data.apiKey : "");
+          setApiKeyMasked(
+            data.apiKeyMasked !== "not-set" ? data.apiKeyMasked : "",
+          );
         }
 
         let srvEndpoint = data.endpoint;
@@ -173,8 +181,6 @@ export default function SettingsModal({ onClose }: { onClose: () => void }) {
   };
 
   const handleReset = async () => {
-    if (resetConfirmText !== "RESET") return;
-
     try {
       setIsResetting(true);
       const res = await fetch("/api/reset", {
@@ -186,13 +192,19 @@ export default function SettingsModal({ onClose }: { onClose: () => void }) {
       if (!res.ok) throw new Error(data.error || "Reset failed");
 
       setShowResetConfirm(false);
-      setResetConfirmText("");
       setOperationStatus({
         type: "success",
         message: "Database wiped successfully.",
       });
+      toast.success("Database Reset", {
+        description: data.message || "Database wiped successfully.",
+      });
     } catch (err: any) {
+      setShowResetConfirm(false);
       setOperationStatus({ type: "error", message: err.message });
+      toast.error("Reset Failed", {
+        description: err.message,
+      });
     } finally {
       setIsResetting(false);
     }
@@ -224,6 +236,7 @@ export default function SettingsModal({ onClose }: { onClose: () => void }) {
         <div className="flex-1 overflow-y-auto p-8 space-y-8 bg-[#05100F]">
           <AccessTokenSection
             apiKey={apiKey}
+            apiKeyMasked={apiKeyMasked}
             showApiKey={showApiKey}
             setShowApiKey={setShowApiKey}
             copiedId={copiedId}
@@ -281,10 +294,7 @@ export default function SettingsModal({ onClose }: { onClose: () => void }) {
       {/* Reset Database Confirmation Modal */}
       <ConfirmationModal
         isOpen={showResetConfirm}
-        onClose={() => {
-          setShowResetConfirm(false);
-          setResetConfirmText("");
-        }}
+        onClose={() => setShowResetConfirm(false)}
         onConfirm={handleReset}
         title="Reset Database"
         description="This will permanently delete ALL memories and cannot be undone. Make sure you have a backup!"

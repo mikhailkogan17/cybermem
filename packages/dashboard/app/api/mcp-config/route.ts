@@ -67,37 +67,49 @@ export async function GET(request: Request) {
     let config: any;
     let configType = client?.configType || "json";
 
+    // Local envs (isManaged): use @cybermem/mcp directly
+    // Remote envs: use mcp-remote (standard stdio-to-HTTP bridge)
     if (configType === "toml") {
       if (isManaged) {
-        config = `[mcpServers.cybermem]\ncommand = "npx"\nargs = ["@cybermem/mcp"]`;
+        const localArgs = isStaging
+          ? `["-y", "@cybermem/mcp", "--env", "staging"]`
+          : `["-y", "@cybermem/mcp"]`;
+        config = `[mcpServers.cybermem]\ncommand = "npx"\nargs = ${localArgs}`;
       } else {
         const keyVal = maskKey ? displayKey : actualKey;
-        config = `[mcpServers.cybermem]\ncommand = "npx"\nargs = ["@cybermem/mcp", "--url", "${baseUrl}", "--token", "${keyVal}"]`;
+        config = `[mcpServers.cybermem]\ncommand = "npx"\nargs = ["-y", "mcp-remote", "${baseUrl}", "--header", "X-API-Key:${keyVal}"]`;
       }
     } else if (configType === "command" || configType === "cmd") {
-      let cmd = isManaged ? client?.localCommand : client?.remoteCommand;
-      if (!cmd) {
-        cmd = client?.command?.replace("http://localhost:8080", baseUrl) || "";
+      // Generate command directly (don't rely on clients.json templates)
+      if (isManaged) {
+        const clientName = client?.id || "cybermem";
+        const cliPrefix = client?.id === "gemini-cli" ? "gemini" : "claude";
+        config = `${cliPrefix} mcp add ${clientName} npx -y @cybermem/mcp`;
+      } else {
+        const keyVal = maskKey ? displayKey : actualKey;
+        const clientName = client?.id || "cybermem";
+        const cliPrefix = client?.id === "gemini-cli" ? "gemini" : "claude";
+        config = `${cliPrefix} mcp add ${clientName} -- npx -y mcp-remote ${baseUrl} --header X-API-Key:${keyVal}`;
       }
-      cmd = cmd.replace("{{ENDPOINT}}", baseUrl);
-      cmd = cmd.replace("{{API_KEY}}", maskKey ? displayKey : actualKey);
-      cmd = cmd.replace("{{TOKEN}}", maskKey ? displayKey : actualKey);
-      config = cmd;
     } else {
       // JSON (default)
-      const args = isManaged
-        ? ["-y", "@cybermem/mcp"]
-        : [
-            "-y",
-            "@cybermem/mcp",
-            "--url",
-            baseUrl,
-            "--token",
-            maskKey ? displayKey : actualKey,
-          ];
+      let args: string[];
 
-      if (isStaging && !isManaged) {
-        args.push("--staging");
+      if (isManaged) {
+        // Local: use @cybermem/mcp directly (SDK mode)
+        args = ["-y", "@cybermem/mcp"];
+        if (isStaging) {
+          args.push("--env", "staging");
+        }
+      } else {
+        // Remote: use mcp-remote (standard stdio-to-HTTP bridge)
+        args = [
+          "-y",
+          "mcp-remote",
+          baseUrl,
+          "--header",
+          `X-API-Key:${maskKey ? displayKey : actualKey}`,
+        ];
       }
 
       config = {

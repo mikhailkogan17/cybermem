@@ -199,8 +199,10 @@ test.describe("Dashboard:E2E:UI (High-Fidelity Mocks)", () => {
           contentType: "application/json",
           body: JSON.stringify({
             apiKey: MOCK_API_KEY,
+            apiKeyMasked: "sk-e2e-...2345",
             instanceId: "local-dev-mock",
             instanceType: "local",
+            isManaged: true,
             endpoint: "http://localhost:8626/mcp",
           }),
         });
@@ -210,7 +212,7 @@ test.describe("Dashboard:E2E:UI (High-Fidelity Mocks)", () => {
         description: `API Key: ${MOCK_API_KEY.substring(0, 10)}...`,
       });
 
-      // 5. Mock MCP Config
+      // 5. Mock MCP Config (local env = @cybermem/mcp direct, no --url)
       await page.route("**/api/mcp-config*", async (route) => {
         await route.fulfill({
           status: 200,
@@ -219,19 +221,19 @@ test.describe("Dashboard:E2E:UI (High-Fidelity Mocks)", () => {
             configType: "json",
             config: {
               mcpServers: {
-                "cybermem-mcp": {
+                cybermem: {
                   command: "npx",
-                  args: ["@cybermem/mcp", "--url", "http://localhost:8626"],
-                  env: { X_CLIENT_NAME: MOCK_IDENTITY_WRITER },
+                  args: ["-y", "@cybermem/mcp"],
                 },
               },
             },
+            isManaged: true,
           }),
         });
       });
       appliedMocks.push({
         endpoint: "GET /api/mcp-config",
-        description: "MCP config with npx @cybermem/mcp",
+        description: "MCP config with npx @cybermem/mcp (local)",
       });
     });
 
@@ -326,9 +328,9 @@ test.describe("Dashboard:E2E:UI (High-Fidelity Mocks)", () => {
       await expect(page.getByText(/ACCESS TOKEN/i).first()).toBeVisible();
     });
 
-    await test.step(`Verify Token Matches Mock — ${MOCK_API_KEY}`, async () => {
+    await test.step(`Verify Token Matches Masked Mock by Default`, async () => {
       const input = page.locator("input#access-token");
-      await expect(input).toHaveValue(MOCK_API_KEY);
+      await expect(input).toHaveValue("sk-e2e-...2345");
     });
 
     await test.step("Toggle Token Visibility — password → text", async () => {
@@ -336,6 +338,7 @@ test.describe("Dashboard:E2E:UI (High-Fidelity Mocks)", () => {
       await expect(input).toHaveAttribute("type", "password");
       await page.getByTestId("toggle-visibility").click();
       await expect(input).toHaveAttribute("type", "text");
+      await expect(input).toHaveValue(MOCK_API_KEY);
     });
 
     await flushNetwork();
@@ -357,14 +360,14 @@ test.describe("Dashboard:E2E:UI (High-Fidelity Mocks)", () => {
       await page.getByRole("button", { name: MOCK_IDENTITY_WRITER }).click();
     });
 
-    await test.step("Verify CLI Install Command — npx @cybermem/mcp", async () => {
+    await test.step("Verify CLI Install Command — npx @cybermem/mcp (local, no --url)", async () => {
       const codeBlock = page.locator("pre code");
       await expect(codeBlock).toContainText("npx");
       await expect(codeBlock).toContainText("@cybermem/mcp");
     });
 
     await testInfo.attach("🚀 CLI Installation Command", {
-      body: `npx @cybermem/cli init\nnpx @cybermem/cli up\n\nMCP Server Config:\n"cybermem-mcp": {\n  "command": "npx",\n  "args": ["@cybermem/mcp", "--url", "http://localhost:8626"]\n}`,
+      body: `npx @cybermem/cli init\nnpx @cybermem/cli up\n\nMCP Server Config (local):\n"cybermem": {\n  "command": "npx",\n  "args": ["-y", "@cybermem/mcp"]\n}`,
       contentType: "text/plain",
     });
 

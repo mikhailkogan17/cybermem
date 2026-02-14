@@ -1,10 +1,11 @@
 <div align="center">
   <p>
-    <a href="https://cybermem.dev"><img src="https://img.shields.io/badge/website-cybermem.dev-10b981?&logoColor=white" alt="website"></a>
-    <a href="https://docs.cybermem.dev"><img src="https://img.shields.io/badge/docs-read_now-10b981" alt="docs"></a>
-    <a href="https://github.com/mikhailkogan17/cybermem/actions/workflows/build-images.yml"><img src="https://img.shields.io/github/actions/workflow/status/mikhailkogan17/cybermem/build-images.yml?label=CI" alt="CI"></a>
-    <a href="https://www.npmjs.com/package/@cybermem/mcp"><img src="https://img.shields.io/npm/v/@cybermem/mcp?color=10b981&label=npm&" alt="npm"></a>
-    <img src="https://img.shields.io/badge/license-MIT-10b981" alt="license">
+    <a href="https://github.com/mikhailkogan17/cybermem/actions/workflows/publish.yml"><img src="https://img.shields.io/github/actions/workflow/status/mikhailkogan17/cybermem/publish.yml?label=CI" alt="CI"></a>
+    <a href="https://www.npmjs.com/package/@cybermem/mcp"><img src="https://img.shields.io/npm/v/@cybermem/mcp?color=emerald&label=npm&logo=npm" alt="npm"></a>
+    <br>
+    <img src="https://img.shields.io/badge/MCP-Server-emerald?logo=modelcontextprotocol" alt="MCP Server">
+    <img src="https://img.shields.io/badge/license-MIT-emerald" alt="license">
+    <a href="https://docs.cybermem.dev"><img src="https://img.shields.io/badge/docs-read_now-emerald" alt="docs"></a>
   </p>
   
   <picture>
@@ -14,13 +15,8 @@
   </picture>
 
   <h3>Your AI Memory — Deploy Anywhere</h3>
-  <p><em>Platform Engineering MCP Server for DevOps & AI Teams</em></p>
-  <p><strong><a href="https://cybermem.dev">cybermem.dev</a></strong></p>
-
----
-
-  <p><strong>Production-grade MCP Server</strong><br>
-  <strong>Docker Compose</strong> • <strong>Helm Charts</strong> • <strong>Ansible Playbooks</strong> • <strong>SQLite</strong> • <strong>Traefik</strong></p>
+  <p>Production-grade MCP Server for DevOps & AI Teams</p>
+  <p><strong><a href="https://cybermem.dev">cybermem.dev</a></strong></p>  
 </div>
 
 ## Features
@@ -61,6 +57,26 @@ and follow the instructions in terminal.
 - **IaC Automation:** CLI generates Docker Compose, Ansible, or Helm depending on the target.
 - **Hybrid CI:** Leverages a private Raspberry Pi runner to bypass QEMU overhead, achieving native ARM64 build speeds.
 - **Zero-Trust Access:** Integrates Tailscale Funnel for secure, public access without port forwarding.
+
+---
+
+### For MCP Engineers & Hiring Managers
+
+CyberMem is a **reference implementation** of production MCP patterns:
+
+🔐 **Multi-tenant auth**: Traefik ForwardAuth extracts MCP client identity into audit logs  
+📊 **Zero-overhead observability**: Vector pipeline converts logs → Prometheus metrics  
+🚀 **Multi-platform IaC**: CLI auto-generates Docker Compose / Ansible / Helm per target  
+☸️ **Production deployment**: Kubernetes with rolling updates, health checks, PVC  
+🔧 **Hybrid CI/CD**: Self-hosted ARM64 runner bypasses QEMU 10x slowdown  
+
+**551+ commits • 25 releases • Full E2E testing**
+
+If you're building MCP infrastructure at companies like Descope, Anthropic, or similar — use this as a production pattern library.
+
+📧 **Open to MCP/Agentic Infrastructure roles**: [mikhailkogan17@gmail.com](mailto:mikhailkogan17@gmail.com)
+
+---
 
 ## Architecture Overview
 
@@ -199,33 +215,19 @@ cybermem-openmemory   ClusterIP      10.43.95.212   <none>        8080/TCP   2m
 # Proof of zero-drift state management on Raspberry Pi
 ansible-playbook -i inventory/hosts.ini playbooks/deploy-cybermem.yml
 
-PLAY [Deploy CyberMem to Raspberry Pi] ****************************************
+PLAY [Deploy CyberMem to Raspberry Pi] **
 
-TASK [Gathering Facts] ********************************************************
+TASK [Gathering Facts] **
 ok: [raspberrypi.local]
 
-TASK [cybermem : Pull latest images from GHCR] ********************************
+TASK [cybermem : Pull latest images from GHCR] **
 ok: [raspberrypi.local] => (changed=false)
 
-TASK [cybermem : Start services] **********************************************
+TASK [cybermem : Start services] **
 ok: [raspberrypi.local] => (changed=false)
 
-PLAY RECAP ********************************************************************
+PLAY RECAP **
 raspberrypi.local   : ok=15   changed=0    unreachable=0    failed=0    skipped=0
-```
-
-#### 3. CLI Spec Gatekeeping
-```bash
-./.hooks/pre-commit
-
-═══════════════════════════════════════════════════════════════
-  🔒 CyberMem GATEKEEPER — Spec Verified
-═══════════════════════════════════════════════════════════════
-✅ VERIFIED: K8s Deployment Verified (tools/test-k8s.sh)
-✅ VERIFIED: Ansible Idempotency Verified
-✅ VERIFIED: Identity & Postmortems Verified
-✅ SPEC PASSED: install/upgrade/uninstall cli spec
-═══════════════════════════════════════════════════════════════
 ```
 
 ## Contributing
@@ -236,4 +238,8 @@ Contributions are welcome! See [CONTRIBUTING.md](CONTRIBUTING.md) for developmen
 
 MIT
 
-Created by [Mikhail Kogan](https://github.com/mikhailkogan17) | [LinkedIn](https://linkedin.com/in/mikhail-kogan-platform)
+---
+
+Created by [Mikhail Kogan](https://github.com/mikhailkogan17)  
+📧 **Open to MCP/Agentic Infrastructure roles**: [mikhailkogan17@gmail.com](mailto:mikhailkogan17@gmail.com)  
+🔗 [LinkedIn](https://linkedin.com/in/mikhail-kogan-platform) • [CV (PDF)](https://github.com/mikhailkogan17/mikhailkogan17/raw/main/cv/CV_Mikhail_Kogan_Agentic_Feb26.pdf)

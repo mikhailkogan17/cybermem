@@ -1,8 +1,6 @@
 name: PR Checks
 
 on:
-  push:
-    branches: [main]
   pull_request:
     types: [opened, synchronize, reopened]
   workflow_dispatch:
@@ -63,8 +61,47 @@ jobs:
           DOCKER_DEFAULT_PLATFORM: linux/amd64
         run: |
           npm run build -w packages/cli
-          node packages/cli/dist/index.js install --staging
-          sleep 30
+          # Retry loop to handle transient 502 errors from Docker registry during pull
+          for i in {1..3}; do
+            node packages/cli/dist/index.js install --staging && break || {
+              echo "Install attempt $i failed. Retrying in 15s..."
+              sleep 15
+            }
+          done
+          sleep 10
+
+      - name: Wait for Docker stack health
+        run: |
+          echo "=== Docker container status ==="
+          docker ps -a --format 'table {{.Names}}\t{{.Status}}\t{{.Ports}}'
+          echo ""
+          echo "=== Waiting for MCP health (max 120s) ==="
+          HEALTHY=false
+          for i in $(seq 1 24); do
+            if curl -sf http://localhost:8625/health > /dev/null 2>&1; then
+              echo "✅ MCP health OK after $((i*5))s"
+              HEALTHY=true
+              break
+            fi
+            echo "  ⏳ Attempt $i/24 — not ready yet..."
+            if [ $i -eq 12 ]; then
+              echo "=== Mid-wait diagnostics ==="
+              docker ps -a --format 'table {{.Names}}\t{{.Status}}'
+              echo "--- MCP server logs ---"
+              docker logs $(docker ps -aq --filter name=mcp-server) 2>&1 | tail -20 || true
+              echo "--- Traefik logs ---"
+              docker logs $(docker ps -aq --filter name=traefik) 2>&1 | tail -10 || true
+            fi
+            sleep 5
+          done
+          echo ""
+          echo "=== Final container status ==="
+          docker ps -a --format 'table {{.Names}}\t{{.Status}}\t{{.Ports}}'
+          if [ "$HEALTHY" != "true" ]; then
+            echo "❌ MCP health never reached — failing CI"
+            docker logs $(docker ps -aq --filter name=mcp-server) 2>&1 | tail -40 || true
+            exit 1
+          fi
 
       - run: npx playwright install --with-deps chromium
 
@@ -115,8 +152,47 @@ jobs:
           DOCKER_DEFAULT_PLATFORM: linux/amd64
         run: |
           npm run build -w packages/cli
-          node packages/cli/dist/index.js install
-          sleep 30
+          # Retry loop to handle transient 502 errors from Docker registry during pull
+          for i in {1..3}; do
+            node packages/cli/dist/index.js install && break || {
+              echo "Install attempt $i failed. Retrying in 15s..."
+              sleep 15
+            }
+          done
+          sleep 10
+
+      - name: Wait for Docker stack health
+        run: |
+          echo "=== Docker container status ==="
+          docker ps -a --format 'table {{.Names}}\t{{.Status}}\t{{.Ports}}'
+          echo ""
+          echo "=== Waiting for MCP health (max 120s) ==="
+          HEALTHY=false
+          for i in $(seq 1 24); do
+            if curl -sf http://localhost:8626/health > /dev/null 2>&1; then
+              echo "✅ MCP health OK after $((i*5))s"
+              HEALTHY=true
+              break
+            fi
+            echo "  ⏳ Attempt $i/24 — not ready yet..."
+            if [ $i -eq 12 ]; then
+              echo "=== Mid-wait diagnostics ==="
+              docker ps -a --format 'table {{.Names}}\t{{.Status}}'
+              echo "--- MCP server logs ---"
+              docker logs $(docker ps -aq --filter name=mcp-server) 2>&1 | tail -20 || true
+              echo "--- Traefik logs ---"
+              docker logs $(docker ps -aq --filter name=traefik) 2>&1 | tail -10 || true
+            fi
+            sleep 5
+          done
+          echo ""
+          echo "=== Final container status ==="
+          docker ps -a --format 'table {{.Names}}\t{{.Status}}\t{{.Ports}}'
+          if [ "$HEALTHY" != "true" ]; then
+            echo "❌ MCP health never reached — failing CI"
+            docker logs $(docker ps -aq --filter name=mcp-server) 2>&1 | tail -40 || true
+            exit 1
+          fi
 
       - run: npx playwright install --with-deps chromium
 

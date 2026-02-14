@@ -1,8 +1,85 @@
 # Changelog
 
 All notable changes to this project will be documented in this file.
-
 ## [Unreleased]
+
+### Added
+
+### Changed
+
+### Fixed
+
+### Removed
+
+
+## [0.13.16] - 2026-02-11
+
+### Added
+
+### Changed
+
+### Fixed
+
+### Removed
+
+
+## [0.13.14] - 2026-02-10
+
+### Added
+
+### Changed
+
+### Fixed
+
+### Removed
+
+
+## [0.13.13] - 2026-02-09
+
+### Added
+
+### Changed
+
+### Fixed
+
+### Removed
+
+
+## [0.13.12] - 2026-02-09
+
+### Added
+
+### Changed
+
+### Fixed
+
+### Removed
+
+
+## [0.13.11] - 2026-02-09
+
+### Added
+
+### Changed
+
+### Fixed
+
+### Removed
+
+
+## [0.13.10] - 2026-02-09
+
+### Added
+
+### Changed
+
+### Fixed
+
+### Removed
+
+
+
+## [0.13.9] - 2026-02-09
 
 ### Added
 

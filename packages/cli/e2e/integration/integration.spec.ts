@@ -1,6 +1,9 @@
 import { expect, Page, test } from "@playwright/test";
 import { execSync } from "child_process";
+import * as path from "path";
 
+// Absolute path to CLI entry point to avoid CWD issues
+const CLI_ENTRY = path.resolve(__dirname, "../../dist/index.js");
 // This suite runs the "Real User" flow on a potentially Remote Environment.
 // Trace viewer provides automatic screenshots and interaction recordings.
 
@@ -102,7 +105,8 @@ test.describe("CLI:E2E (Integration)", () => {
       // Check for LoginModal (new behavior) or /auth/signin (legacy/external)
       const loginModal = page.locator('h2:has-text("CyberMem Dashboard")');
       const isLoginRequired =
-        (await loginModal.isVisible({ timeout: VISIBILITY_TIMEOUT })) || page.url().includes("auth/signin");
+        (await loginModal.isVisible({ timeout: VISIBILITY_TIMEOUT })) ||
+        page.url().includes("auth/signin");
 
       if (isLoginRequired) {
         await testInfo.attach("🔐 Auth Required", {
@@ -118,7 +122,9 @@ test.describe("CLI:E2E (Integration)", () => {
 
         // Wait for auth UI to disappear
         if (await loginModal.isVisible({ timeout: VISIBILITY_TIMEOUT })) {
-          await expect(loginModal).not.toBeVisible({ timeout: VISIBILITY_TIMEOUT });
+          await expect(loginModal).not.toBeVisible({
+            timeout: VISIBILITY_TIMEOUT,
+          });
         } else {
           await page.waitForURL("**/");
         }
@@ -275,8 +281,11 @@ test.describe("CLI:E2E (Integration)", () => {
 
     await test.step("🔐 Verify Access Token Format — sk-<sha32>", async () => {
       // Run install to capture stdout with access token
-      console.log("🔐 Running: node packages/cli/dist/index.js install (capturing token)");
-      const result = runCLI("node packages/cli/dist/index.js install");
+      console.log(
+        "🔐 Running: node packages/cli/dist/index.js install (capturing token)",
+      );
+      // Ensure we are running from project root if possible, or use absolute path
+      const result = runCLI(`node ${CLI_ENTRY} install`);
 
       // Access token should be in format: sk-<32 hex chars>
       const tokenMatch = result.stdout.match(/sk-[a-f0-9]{32,64}/i);
@@ -299,7 +308,7 @@ test.describe("CLI:E2E (Integration)", () => {
   test("CLI Sanity: Version and Health", async ({}, testInfo) => {
     await test.step("📦 CLI Version Check", async () => {
       console.log("📦 Running: node packages/cli/dist/index.js --version");
-      const result = runCLI("node packages/cli/dist/index.js --version");
+      const result = runCLI(`node ${CLI_ENTRY} --version`);
 
       const versionMatch = result.stdout.match(/\d+\.\d+\.\d+/);
       const hasVersion = versionMatch !== null;
@@ -315,7 +324,9 @@ test.describe("CLI:E2E (Integration)", () => {
     });
 
     await test.step("🏥 Docker Health Check via CLI", async () => {
-      console.log("🏥 Running: node packages/cli/dist/index.js dashboard (status check)");
+      console.log(
+        "🏥 Running: node packages/cli/dist/index.js dashboard (status check)",
+      );
       const result = runCLI(
         "node packages/cli/dist/index.js dashboard --status-only 2>/dev/null || echo 'status not available'",
       );

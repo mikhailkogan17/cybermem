@@ -71,7 +71,7 @@ RPi configuration in `~/.cybermem/.env`:
 CYBERMEM_TARGET=rpi
 
 # Database
-DATABASE_URL=sqlite:///data/openmemory.sqlite
+OM_DB_PATH=/data/openmemory.sqlite
 
 # Embeddings
 EMBEDDING_PROVIDER=ollama
@@ -83,7 +83,7 @@ OM_TOKEN=sk-...
 
 ## Remote MCP Configuration
 
-For AI clients connecting to your RPi:
+For AI clients connecting to your RPi, use **mcp-remote** (standard stdio-to-HTTP bridge):
 
 ```json
 {
@@ -92,13 +92,10 @@ For AI clients connecting to your RPi:
       "command": "npx",
       "args": [
         "-y",
-        "@cybermem/mcp",
-        "--url",
-        "https://your-rpi.ts.net:8626",
-        "--token",
-        "sk-your-token",
-        "--client-name",
-        "cursor"
+        "mcp-remote",
+        "https://your-rpi.ts.net:8626/mcp",
+        "--header",
+        "X-API-Key:sk-your-token"
       ]
     }
   }

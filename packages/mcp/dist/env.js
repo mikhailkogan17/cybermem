@@ -7,11 +7,11 @@ const dotenv_1 = __importDefault(require("dotenv"));
 const os_1 = __importDefault(require("os"));
 const path_1 = __importDefault(require("path"));
 dotenv_1.default.config();
-// CLI Enforcement: Ensure CyberMem is deployed via @cybermem/cli
+// Auto-set CYBERMEM_INSTANCE for stdio mode (npx @cybermem/mcp)
+// When started via @cybermem/cli, CYBERMEM_INSTANCE is already set.
 if (!process.env.CYBERMEM_INSTANCE) {
-    console.error("\n❌ FATAL: CyberMem must be started via @cybermem/cli ('mcp install' or 'mcp up').");
-    console.error("Manual 'npm start' or 'docker-compose up' without CLI tagging is forbidden.\n");
-    process.exit(1);
+    process.env.CYBERMEM_INSTANCE = `local-${os_1.default.hostname()}`;
+    console.error(`[MCP] No CYBERMEM_INSTANCE set, defaulting to "${process.env.CYBERMEM_INSTANCE}"`);
 }
 // Normalize OM_DB_PATH early so all components (SDK, exporters) use the same file
 const homedir = os_1.default.homedir();
