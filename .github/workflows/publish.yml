@@ -275,12 +275,11 @@ jobs:
           CHANGELOG_FILE="packages/cli/CHANGELOG.md"
           if [ -f "$CHANGELOG_FILE" ] && grep -q "## $VERSION" "$CHANGELOG_FILE"; then
             # Extract only the section for this version (between ## VERSION and the next ## heading)
-            awk "/## $VERSION/,/^## / {if (/^## $VERSION/) next; if (/^## /) exit; print}" "$CHANGELOG_FILE" > release_notes.md
+            awk "/## $VERSION/,/^## / {if (/^## $VERSION/) next; if (/^## /) exit; print}" "$CHANGELOG_FILE" > release_notes_raw.md
             
-            # Remove leading empty lines
-            sed -i '/./,$!d' release_notes.md
-            # Remove trailing empty lines
-            sed -i -e :a -e '/^\s*$/{ $d; N; ba' -e '}' release_notes.md
+            # Remove leading and trailing empty lines for clean release notes
+            awk 'NF {p=1} p' release_notes_raw.md | awk '{a[NR]=$0} END {while(NR && !a[NR]) NR--; for(i=1;i<=NR;i++) print a[i]}' > release_notes.md
+            rm -f release_notes_raw.md
           else
             echo "Release $VERSION" > release_notes.md
           fi
