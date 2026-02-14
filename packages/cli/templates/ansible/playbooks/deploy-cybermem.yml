@@ -251,18 +251,20 @@
         state: present
 
     - name: Inject Authentication Token
-      shell: |
-        sqlite3 {{ project_dir }}/data/openmemory.sqlite "CREATE TABLE IF NOT EXISTS access_keys (
-          id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
-          key_hash TEXT NOT NULL,
-          name TEXT DEFAULT 'default',
-          user_id TEXT DEFAULT 'default',
-          created_at TEXT DEFAULT (datetime('now')),
-          last_used_at TEXT,
-          is_active INTEGER DEFAULT 1
-        );"
-        sqlite3 {{ project_dir }}/data/openmemory.sqlite "DELETE FROM access_keys WHERE name='{{ final_token_name }}';"
-        sqlite3 {{ project_dir }}/data/openmemory.sqlite "INSERT INTO access_keys (id, key_hash, name, user_id) VALUES ('{{ final_token_id }}', '{{ final_token_hash }}', '{{ final_token_name }}', 'admin');"
+      shell: "sqlite3 {{ project_dir }}/data/openmemory.sqlite"
+      args:
+        stdin: |
+          CREATE TABLE IF NOT EXISTS access_keys (
+            id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
+            key_hash TEXT NOT NULL,
+            name TEXT DEFAULT 'default',
+            user_id TEXT DEFAULT 'default',
+            created_at TEXT DEFAULT (datetime('now')),
+            last_used_at TEXT,
+            is_active INTEGER DEFAULT 1
+          );
+          DELETE FROM access_keys WHERE name='{{ final_token_name }}';
+          INSERT INTO access_keys (id, key_hash, name, user_id) VALUES ('{{ final_token_id }}', '{{ final_token_hash }}', '{{ final_token_name }}', 'admin');
       when: final_token_hash is defined
       ignore_errors: true
 
