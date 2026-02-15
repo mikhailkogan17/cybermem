@@ -31,25 +31,31 @@ jobs:
   check-prereqs:
     name: "check-prereqs"
     runs-on: ubuntu-latest
+    outputs:
+      proceed: ${{ steps.verify.outputs.proceed }}
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
       - name: Verify Changesets Exist
+        id: verify
         run: |
           # If version_type is NOT 'none', we will auto-generate a changeset if needed.
           # If version_type IS 'none', we require existing changesets if we want to publish.
           if [ "${{ github.event.inputs.version_type }}" != "none" ] && [ "${{ github.event.inputs.version_type }}" != "" ]; then
             echo "✅ version_type is '${{ github.event.inputs.version_type }}'; proceeding with auto-changeset capability."
+            echo "proceed=true" >> $GITHUB_OUTPUT
             exit 0
           fi
 
           if [ -z "$(ls -A .changeset/*.md 2>/dev/null | grep -v README.md)" ]; then
-            echo "❌ ERROR: No changesets found! Please create one with 'npm run changeset' or use workflow_dispatch with a version_type."
-            exit 1
+            echo "⚠️ No changesets found and bump type is none. Nothing to publish."
+            echo "proceed=false" >> $GITHUB_OUTPUT
+          else
+            echo "✅ Changesets found and ready to publish."
+            echo "proceed=true" >> $GITHUB_OUTPUT
           fi
-          echo "✅ Changesets found and ready to publish."
 
   # ==================================================================
   # 2. E2E CHECKS
@@ -57,6 +63,7 @@ jobs:
   e2e:
     name: "e2e"
     needs: check-prereqs
+    if: needs.check-prereqs.outputs.proceed == 'true'
     uses: ./.github/workflows/e2e.yml
     secrets: inherit
 
@@ -65,7 +72,8 @@ jobs:
   # ==================================================================
   build-prod:
     name: "build:prod"
-    needs: e2e
+    needs: [check-prereqs, e2e]
+    if: needs.check-prereqs.outputs.proceed == 'true'
     permissions:
       actions: read
       contents: read
@@ -81,7 +89,8 @@ jobs:
   # ==================================================================
   deploy-ghcr:
     name: "deploy:ghcr"
-    needs: build-prod
+    needs: [check-prereqs, build-prod]
+    if: needs.check-prereqs.outputs.proceed == 'true'
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -120,7 +129,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       version: ${{ steps.get_version.outputs.version }}
-      has_changesets: ${{ steps.check.outputs.has_changesets }}
+      should_release: ${{ steps.cpr.outputs.pull-request-number != '' }}
       pr_number: ${{ steps.cpr.outputs.pull-request-number }}
       pr_head_sha: ${{ steps.cpr.outputs.pull-request-head-sha }}
     steps:
@@ -204,7 +213,7 @@ jobs:
   merge-pr:
     name: "merge:pr"
     needs: version-bump
-    if: needs.version-bump.outputs.has_changesets == 'true'
+    if: needs.version-bump.outputs.should_release == 'true'
     runs-on: ubuntu-latest
     outputs:
       merge_commit_sha: ${{ steps.automerge.outputs.mergeCommitSha }}
@@ -235,13 +244,13 @@ jobs:
   publish-npm:
     name: "publish:npm"
     needs: [version-bump, merge-pr]
-    if: needs.version-bump.outputs.has_changesets == 'true'
+    if: needs.version-bump.outputs.should_release == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-          token: ${{ secrets.GITHUB_TOKEN }}
+          token: ${{ secrets.PUBLISH_GITHUB_TOKEN }}
           ref: ${{ needs.merge-pr.outputs.merge_commit_sha }} # Use merge commit SHA after PR is merged
 
       - uses: actions/setup-node@v4
