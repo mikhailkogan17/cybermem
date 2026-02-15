@@ -302,7 +302,7 @@
         status_code: 200
       register: mcp_health
       until: mcp_health.status == 200
-      retries: 30
+      retries: 60
       delay: 10
 
     - name: Verify Overall System Health
