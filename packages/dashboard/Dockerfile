@@ -1,5 +1,5 @@
 # Base stage for both dev and prod
-FROM node:20-alpine AS base
+FROM node:24-alpine AS base
 WORKDIR /app
 
 # Use corepack to get the pnpm version from the lockfile and speed up installs via cache
@@ -27,13 +27,13 @@ RUN --mount=type=cache,target=/root/.pnpm-store \
     pnpm build
 
 # Native stage for sqlite3 bindings and wrapper
-FROM node:20-alpine AS native-builder
+FROM node:24-alpine AS native-builder
 RUN apk update && apk add --no-cache python3 python3-dev make g++
 WORKDIR /native
 RUN npm init -y && npm install sqlite3@5.1.7 sqlite@5.1.1
 
 # Production stage
-FROM node:20-alpine AS production
+FROM node:24-alpine AS production
 RUN apk add --no-cache libc6-compat
 WORKDIR /app
 
