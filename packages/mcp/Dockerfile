@@ -1,5 +1,5 @@
 # Base stage
-FROM node:20-slim AS base
+FROM node:24-slim AS base
 WORKDIR /app
 RUN apt-get update && apt-get install -y --no-install-recommends python3 make g++ && rm -rf /var/lib/apt/lists/*
 
@@ -12,13 +12,13 @@ RUN npm run build
 RUN npm prune --production
 
 # Native stage for sqlite3 bindings
-FROM node:20-slim AS native-builder
+FROM node:24-slim AS native-builder
 RUN apt-get update && apt-get install -y --no-install-recommends python3 make g++ && rm -rf /var/lib/apt/lists/*
 WORKDIR /native
 RUN npm init -y && npm install sqlite3@5.1.7 sqlite@5.1.1
 
 # Runtime stage
-FROM node:20-slim AS runner
+FROM node:24-slim AS runner
 RUN apt-get update && apt-get install -y --no-install-recommends curl libc6 && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 
