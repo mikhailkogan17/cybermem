@@ -154,7 +154,7 @@ jobs:
       - name: Apply Changesets Version Bump
         id: version_bump
         env:
-          GITHUB_TOKEN: ${{ secrets.CHANGESETS_GITHUB_ACCESS_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           # If version_type is provided and no changesets exist, create an automated one
           if [ "${{ github.event.inputs.version_type }}" != "none" ] && [ "${{ github.event.inputs.version_type }}" != "" ]; then
