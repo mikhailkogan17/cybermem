@@ -1,5 +1,12 @@
 # @cybermem/mcp
 
+## 0.14.11
+
+### Patch Changes
+
+- [#120](https://github.com/mikhailkogan17/cybermem/pull/120) [`2319994`](https://github.com/mikhailkogan17/cybermem/commit/2319994f096e4063e2ca4bc4ca02eb8b33f192ce) Thanks [@mikhailkogan17-antigravity](https://github.com/mikhailkogan17-antigravity)! - fix(mcp): remove redundant transport.start() call causing SSE crash loop; switch to SSEServerTransport for multi-client support
+  fix(dashboard): update mcp-config API to support SSE and --allow-http
+
 ## 0.14.8
 
 ### Patch Changes
