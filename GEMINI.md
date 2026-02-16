@@ -137,8 +137,22 @@ To Ensure "Always Availability" and shorter token usage, follow this strict cycl
 
 1.  **Work**: Agent commits to `feat/*` or `chore/*` branches with `Antigravity Agent` git config.
 2.  **Template Verification**: BEFORE calling GitHub MCP, Agent MUST verify that the PR body contains all headers from the required template.
-3.  **PR Creation**: Agent uses `mcp_github-mcp-server_create_pull_request` to open the PR.
+3.  **PR Creation**: Agent uses `mcp_github_create_pull_request` to open the PR.
+    > [!CAUTION]
+    > **STRICT PROHIBITION: NO `gh pr create`**
+    > It is **STRICTLY FORBIDDEN** to use `gh pr create` via `run_command`.
+    > ALL Pull Requests MUST be created using the `github-mcp` tool (`mcp_github_create_pull_request`).
+    > This ensures proper template verification and consistent behavior.
 4.  **Review**: User (Tech Lead) reviews the PR and merges.
+
+## 1.5.2 REVIEW PROTOCOL (Strict)
+
+> [!CAUTION]
+> **NO EMPTY ACKNOWLEDGEMENTS**
+
+1.  **COMMIT FIRST**: Never reply to a review comment until the fix is **committed and pushed**.
+2.  **HASH REQUIRED**: Every reply MUST include the commit hash of the fix. Example: `Fixed in a4f4d8a (added try-catch)`.
+3.  **NO FLUFF**: Phrases like "Good catch" or "Valid point" are FORBIDDEN unless accompanied by a fix and hash. "Will fix" is forbidden; fix it first.
 
 
 

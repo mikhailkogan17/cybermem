@@ -6,8 +6,8 @@ Object.defineProperty(exports, "__esModule", { value: true });
 require("./console-fix.js");
 require("./env.js");
 const mcp_js_1 = require("@modelcontextprotocol/sdk/server/mcp.js");
+const sse_js_1 = require("@modelcontextprotocol/sdk/server/sse.js");
 const stdio_js_1 = require("@modelcontextprotocol/sdk/server/stdio.js");
-const streamableHttp_js_1 = require("@modelcontextprotocol/sdk/server/streamableHttp.js");
 const types_js_1 = require("@modelcontextprotocol/sdk/types.js");
 const async_hooks_1 = require("async_hooks");
 const cors_1 = __importDefault(require("cors"));
@@ -29,45 +29,6 @@ async function startServer() {
         console.error("[MCP] Running in Staging environment");
         process.env.CYBERMEM_ENV = "staging";
     }
-    let stdioClientName = undefined;
-    // Protocol Instructions
-    const CYBERMEM_INSTRUCTIONS = `CyberMem is a persistent context daemon for AI agents.
-PROTOCOL:
-1. On session start: call query_memory("user context profile")
-2. Store new insights immediately with add_memory (STABLE data)
-3. For corrections: use update_memory (STRUCTURAL mutation, high cost)
-4. To prevent decay: use reinforce_memory (METABOLIC boost, low cost)
-5. Always include tags: [topic, year, source:your-client-name]
-For full protocol: https://docs.cybermem.dev/agent-protocol`;
-    const server = new mcp_js_1.McpServer({ name: "cybermem", version: "0.12.4" }, {
-        instructions: CYBERMEM_INSTRUCTIONS,
-    });
-    server.registerResource("CyberMem Agent Protocol", "cybermem://protocol", { description: "Instructions for AI agents", mimeType: "text/plain" }, async () => ({
-        contents: [
-            {
-                uri: "cybermem://protocol",
-                mimeType: "text/plain",
-                text: CYBERMEM_INSTRUCTIONS,
-            },
-        ],
-    }));
-    // Capture client info from handshake
-    // @ts-ignore - access underlying server
-    server.server.setRequestHandler(types_js_1.InitializeRequestSchema, async (request) => {
-        stdioClientName = request.params.clientInfo.name;
-        console.error(`[MCP] Client identified via handshake: ${stdioClientName}`);
-        return {
-            protocolVersion: "2024-11-05",
-            capabilities: {
-                tools: { listChanged: true },
-                resources: { subscribe: true },
-            },
-            serverInfo: {
-                name: "cybermem",
-                version: "0.12.4",
-            },
-        };
-    });
     // --- IMPLEMENTATION LOGIC ---
     let memory = null;
     let sdk_update_memory = null;
@@ -88,7 +49,6 @@ For full protocol: https://docs.cybermem.dev/agent-protocol`;
         sdk_update_memory = hsg.update_memory;
         sdk_reinforce_memory = hsg.reinforce_memory;
         memory = new Memory();
-        server._memoryReady = true;
         // Initialize Tables
         const sqlite3 = await import("sqlite3");
         const db = new sqlite3.default.Database(dbPath);
@@ -122,17 +82,32 @@ For full protocol: https://docs.cybermem.dev/agent-protocol`;
             });
         });
     };
+    let stdioClientName = undefined;
+    // Protocol Instructions
+    const CYBERMEM_INSTRUCTIONS = `CyberMem is a persistent context daemon for AI agents.
+PROTOCOL:
+1. On session start: call query_memory("user context profile")
+2. Store new insights immediately with add_memory (STABLE data)
+3. For corrections: use update_memory (STRUCTURAL mutation, high cost)
+4. To prevent decay: use reinforce_memory (METABOLIC boost, low cost)
+5. Always include tags: [topic, year, source:your-client-name]
+For full protocol: https://docs.cybermem.dev/agent-protocol`;
     const logActivity = async (operation, opts = {}) => {
-        if (!memory)
-            return;
-        const { client: providedClient, method = "POST", endpoint = "/mcp", status = 200, } = opts;
+        // Determine client name (priority: specific > store > default)
+        let client;
         const ctx = requestContext.getStore();
-        const client = providedClient ||
-            ctx?.clientName ||
-            stdioClientName ||
-            "antigravity-client";
+        if (opts.sessionId) {
+            client = "sse-client"; // TODO: Extract real client name from session state
+        }
+        else if (ctx) {
+            client = ctx.clientName || stdioClientName || "unknown";
+        }
+        else {
+            client = stdioClientName || "unknown";
+        }
+        const { method = "POST", endpoint = "/mcp", status = 200 } = opts;
         try {
-            const db = (await initLoggingDb());
+            const db = await initLoggingDb();
             const ts = Date.now();
             const is_error = status >= 400 ? 1 : 0;
             db.serialize(() => {
@@ -151,92 +126,136 @@ For full protocol: https://docs.cybermem.dev/agent-protocol`;
         }
         catch { }
     };
-    // TOOLS
-    server.registerTool("add_memory", {
-        description: "Store a new memory. Use for high-quality, stable data. " +
-            CYBERMEM_INSTRUCTIONS,
-        inputSchema: zod_1.z.object({
-            content: zod_1.z.string(),
-            tags: zod_1.z.array(zod_1.z.string()).optional(),
-        }),
-    }, async (args) => {
-        const res = await memory.add(args.content, { tags: args.tags });
-        await logActivity("create", {
-            method: "POST",
-            endpoint: "/memory/add",
-            status: 200,
+    // Factory to create configured McpServer instance
+    const createConfiguredServer = () => {
+        const server = new mcp_js_1.McpServer({ name: "cybermem", version: "0.12.4" }, {
+            instructions: CYBERMEM_INSTRUCTIONS,
         });
-        return { content: [{ type: "text", text: JSON.stringify(res) }] };
-    });
-    server.registerTool("query_memory", {
-        description: "Search memories.",
-        inputSchema: zod_1.z.object({ query: zod_1.z.string(), k: zod_1.z.number().default(5) }),
-    }, async (args) => {
-        const res = await memory.search(args.query, { limit: args.k });
-        await logActivity("read", {
-            method: "POST",
-            endpoint: "/memory/query",
-            status: 200,
+        // access underlying server
+        server._memoryReady =
+            true;
+        server.registerResource("CyberMem Agent Protocol", "cybermem://protocol", { description: "Instructions for AI agents", mimeType: "text/plain" }, async () => ({
+            contents: [
+                {
+                    uri: "cybermem://protocol",
+                    mimeType: "text/plain",
+                    text: CYBERMEM_INSTRUCTIONS,
+                },
+            ],
+        }));
+        // access underlying server
+        server.server.setRequestHandler(types_js_1.InitializeRequestSchema, async (request) => {
+            // For SSE multiple clients, stdioClientName global is less useful,
+            // but we can set it for context if running in single-user mode.
+            // For multi-user, rely on requestContext.
+            stdioClientName = request.params.clientInfo.name;
+            console.error(`[MCP] Client identified via handshake: ${request.params.clientInfo.name}`);
+            return {
+                protocolVersion: "2024-11-05",
+                capabilities: {
+                    tools: { listChanged: true },
+                    resources: { subscribe: true },
+                },
+                serverInfo: {
+                    name: "cybermem",
+                    version: "0.12.4",
+                },
+            };
         });
-        return { content: [{ type: "text", text: JSON.stringify(res) }] };
-    });
-    server.registerTool("update_memory", {
-        description: "Mutate existing memory (content/tags). HIGH COST: re-embeds and re-links. Use for corrections.",
-        inputSchema: zod_1.z.object({
-            id: zod_1.z.string(),
-            content: zod_1.z.string().optional(),
-            tags: zod_1.z.array(zod_1.z.string()).optional(),
-        }),
-    }, async (args) => {
-        if (!sdk_update_memory)
-            throw new Error("Update not available in SDK");
-        const res = await sdk_update_memory(args.id, args.content, args.tags);
-        await logActivity("update", {
-            method: "PATCH",
-            endpoint: `/memory/${args.id}`,
-            status: 200,
+        // TOOLS
+        server.registerTool("add_memory", {
+            description: "Store a new memory. Use for high-quality, stable data. " +
+                CYBERMEM_INSTRUCTIONS,
+            inputSchema: zod_1.z.object({
+                content: zod_1.z.string(),
+                tags: zod_1.z.array(zod_1.z.string()).optional(),
+            }),
+        }, async (args) => {
+            const res = await memory.add(args.content, { tags: args.tags });
+            await logActivity("create", {
+                method: "POST",
+                endpoint: "/memory/add",
+                status: 200,
+            });
+            return { content: [{ type: "text", text: JSON.stringify(res) }] };
         });
-        return { content: [{ type: "text", text: JSON.stringify(res) }] };
-    });
-    server.registerTool("reinforce_memory", {
-        description: "Metabolic boost (salience). LOW COST: prevents decay without mutation. Use for active topics.",
-        inputSchema: zod_1.z.object({ id: zod_1.z.string(), boost: zod_1.z.number().default(0.1) }),
-    }, async (args) => {
-        if (!sdk_reinforce_memory)
-            throw new Error("Reinforce not available in SDK");
-        await sdk_reinforce_memory(args.id, args.boost);
-        await logActivity("update", {
-            method: "POST",
-            endpoint: `/memory/${args.id}/reinforce`,
-            status: 200,
+        server.registerTool("query_memory", {
+            description: "Search memories.",
+            inputSchema: zod_1.z.object({ query: zod_1.z.string(), k: zod_1.z.number().default(50) }),
+        }, async (args) => {
+            const res = await memory.search(args.query, { limit: args.k });
+            await logActivity("read", {
+                method: "POST",
+                endpoint: "/memory/query",
+                status: 200,
+            });
+            return { content: [{ type: "text", text: JSON.stringify(res) }] };
         });
-        return { content: [{ type: "text", text: "Reinforced" }] };
-    });
-    server.registerTool("delete_memory", {
-        description: "Delete memory",
-        inputSchema: zod_1.z.object({ id: zod_1.z.string() }),
-    }, async (args) => {
-        const dbPath = process.env.OM_DB_PATH;
-        const sqlite3 = await import("sqlite3");
-        const db = new sqlite3.default.Database(dbPath);
-        return new Promise((resolve, reject) => {
-            db.serialize(() => {
-                db.run("DELETE FROM memories WHERE id = ?", [args.id]);
-                db.run("DELETE FROM vectors WHERE id = ?", [args.id], async (err) => {
-                    db.close();
-                    await logActivity("delete", {
-                        method: "DELETE",
-                        endpoint: `/memory/${args.id}`,
-                        status: err ? 500 : 200,
+        server.registerTool("update_memory", {
+            description: "Mutate existing memory (content/tags). HIGH COST: re-embeds and re-links. Use for corrections.",
+            inputSchema: zod_1.z.object({
+                id: zod_1.z.string(),
+                content: zod_1.z.string().optional(),
+                tags: zod_1.z.array(zod_1.z.string()).optional(),
+            }),
+        }, async (args) => {
+            if (!sdk_update_memory)
+                throw new Error("Update not available in SDK");
+            if (args.content === undefined && args.tags === undefined) {
+                throw new Error("At least one of 'content' or 'tags' must be provided to update_memory");
+            }
+            const res = await sdk_update_memory(args.id, args.content, args.tags);
+            await logActivity("update", {
+                method: "PATCH",
+                endpoint: `/memory/${args.id}`,
+                status: 200,
+            });
+            return { content: [{ type: "text", text: JSON.stringify(res) }] };
+        });
+        server.registerTool("reinforce_memory", {
+            description: "Metabolic boost (salience). LOW COST: prevents decay without mutation. Use for active topics.",
+            inputSchema: zod_1.z.object({
+                id: zod_1.z.string(),
+                boost: zod_1.z.number().default(0.1),
+            }),
+        }, async (args) => {
+            if (!sdk_reinforce_memory)
+                throw new Error("Reinforce not available in SDK");
+            const res = await sdk_reinforce_memory(args.id, args.boost);
+            await logActivity("update", {
+                method: "POST",
+                endpoint: `/memory/${args.id}/reinforce`,
+                status: 200,
+            });
+            return { content: [{ type: "text", text: JSON.stringify(res) }] };
+        });
+        server.registerTool("delete_memory", {
+            description: "Delete memory",
+            inputSchema: zod_1.z.object({ id: zod_1.z.string() }),
+        }, async (args) => {
+            const dbPath = process.env.OM_DB_PATH;
+            const sqlite3 = await import("sqlite3");
+            const db = new sqlite3.default.Database(dbPath);
+            return new Promise((resolve, reject) => {
+                db.serialize(() => {
+                    db.run("DELETE FROM memories WHERE id = ?", [args.id]);
+                    db.run("DELETE FROM vectors WHERE id = ?", [args.id], async (err) => {
+                        db.close();
+                        await logActivity("delete", {
+                            method: "DELETE",
+                            endpoint: `/memory/${args.id}`,
+                            status: err ? 500 : 200,
+                        });
+                        if (err)
+                            reject(err);
+                        else
+                            resolve({ content: [{ type: "text", text: "Deleted" }] });
                     });
-                    if (err)
-                        reject(err);
-                    else
-                        resolve({ content: [{ type: "text", text: "Deleted" }] });
                 });
             });
         });
-    });
+        return server;
+    };
     // EXPRESS SERVER
     // HTTP server mode for Docker/Traefik deployment
     const useHttp = args.includes("--http") || args.includes("--port");
@@ -249,7 +268,6 @@ For full protocol: https://docs.cybermem.dev/agent-protocol`;
         app.use((req, res, next) => {
             const clientName = req.headers["x-client-name"] || "antigravity-client";
             requestContext.run({ clientName }, next);
-            // next(); // DELETED! Correctly handled by requestContext.run
         });
         if (memory) {
             app.post("/add", async (req, res) => {
@@ -342,17 +360,63 @@ For full protocol: https://docs.cybermem.dev/agent-protocol`;
                 });
             });
         }
-        const transport = new streamableHttp_js_1.StreamableHTTPServerTransport({
-            sessionIdGenerator: () => crypto.randomUUID(),
+        // MULTI-SESSION SSE SUPPORT
+        const sessions = new Map();
+        // Legacy MCP endpoint - 410 Gone
+        app.all("/mcp", (req, res) => {
+            res
+                .status(410)
+                .send("Endpoint /mcp is deprecated. Please update your client configuration to use /sse for Server-Sent Events.");
         });
-        app.all("/mcp", async (req, res) => await transport.handleRequest(req, res, req.body));
-        app.all("/sse", async (req, res) => await transport.handleRequest(req, res, req.body));
-        server.connect(transport).then(() => {
-            app.listen(port, () => console.error(`CyberMem MCP running on http://localhost:${port}`));
+        app.get("/sse", async (req, res) => {
+            console.error("[MCP] Attempting SSE Connection...");
+            const transport = new sse_js_1.SSEServerTransport("/message", res);
+            const newServer = createConfiguredServer();
+            try {
+                await newServer.connect(transport);
+                sessions.set(transport.sessionId, { server: newServer, transport });
+                transport.onclose = () => {
+                    console.error(`[MCP] SSE Connection Closed: ${transport.sessionId}`);
+                    sessions.delete(transport.sessionId);
+                };
+                transport.onerror = (err) => {
+                    console.error(`[MCP] SSE Connection Error: ${transport.sessionId}`, err);
+                    sessions.delete(transport.sessionId);
+                };
+                await transport.start();
+            }
+            catch (err) {
+                console.error("[MCP] Failed to start SSE transport:", err);
+                sessions.delete(transport.sessionId);
+                // If headers haven't been sent, send 500
+                if (!res.headersSent) {
+                    res.status(500).send("Internal Server Error during SSE handshake");
+                }
+            }
         });
+        app.post("/message", async (req, res) => {
+            const sessionId = req.query.sessionId;
+            const session = sessions.get(sessionId);
+            if (!session) {
+                res.status(404).send("Session not found");
+                return;
+            }
+            try {
+                await session.transport.handlePostMessage(req, res);
+            }
+            catch (err) {
+                console.error(`[MCP] Error handling message for session ${sessionId}:`, err);
+                if (!res.headersSent) {
+                    res.status(500).send("Internal Server Error processing message");
+                }
+            }
+        });
+        app.listen(port, () => console.error(`CyberMem MCP running on http://localhost:${port}`));
     }
     else {
+        // STDIO
         const transport = new stdio_js_1.StdioServerTransport();
+        const server = createConfiguredServer();
         server
             .connect(transport)
             .then(() => console.error("CyberMem MCP connected via STDIO"));
