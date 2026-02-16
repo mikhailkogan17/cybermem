@@ -1,5 +1,18 @@
 # @cybermem/mcp
 
+## 0.14.8
+
+### Patch Changes
+
+- Automated patch version bump.
+
+## 0.14.7
+
+### Patch Changes
+
+- [#114](https://github.com/mikhailkogan17/cybermem/pull/114) [`7871ba9`](https://github.com/mikhailkogan17/cybermem/commit/7871ba96c9008a8188a84bc379e9687e716ed9e9) Thanks [@mikhailkogan17-antigravity](https://github.com/mikhailkogan17-antigravity)! - fix(mcp): switch to SSEServerTransport for multi-client support
+  fix(dashboard): update mcp-config API to support SSE and --allow-http
+
 ## 0.14.6
 
 ### Patch Changes

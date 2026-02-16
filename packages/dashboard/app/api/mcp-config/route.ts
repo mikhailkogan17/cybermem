@@ -48,9 +48,14 @@ export async function GET(request: Request) {
     }
 
     const apiKey = settings.apiKey !== "not-set" ? settings.apiKey : "";
+    const rawEndpoint =
+      typeof settings.endpoint === "string" ? settings.endpoint : "";
+    const normalizedEndpoint = rawEndpoint.endsWith("/mcp")
+      ? rawEndpoint.replace(/\/mcp$/, "/sse")
+      : rawEndpoint;
     const baseUrl =
       searchParams.get("baseUrl") ||
-      settings.endpoint ||
+      normalizedEndpoint ||
       "http://localhost:8626/sse";
     const isManaged = settings.isManaged || false;
     const env = settings.env || "prod";
@@ -85,11 +90,14 @@ export async function GET(request: Request) {
         config = `[mcpServers.cybermem]\ncommand = "npx"\nargs = ${localArgs}`;
       } else {
         const keyVal = maskKey ? displayKey : actualKey;
-        let argsStr = `["-y", "mcp-remote", "${baseUrl}"`;
-        if (isHttp && !isLocalhost) argsStr += `, "--allow-http"`;
-        if (!isRpiLan && !isLocalhost && apiKey)
-          argsStr += `, "--header", "X-API-Key:${keyVal}"`;
-        argsStr += `]`;
+        const args: string[] = ["-y", "mcp-remote", baseUrl];
+        if (isHttp && !isLocalhost) {
+          args.push("--allow-http");
+        }
+        if (!isRpiLan && !isLocalhost && apiKey) {
+          args.push("--header", `X-API-Key:${keyVal}`);
+        }
+        const argsStr = JSON.stringify(args);
         config = `[mcpServers.cybermem]\ncommand = "npx"\nargs = ${argsStr}`;
       }
     } else if (configType === "command" || configType === "cmd") {

@@ -77,115 +77,19 @@ jobs:
     secrets: inherit
 
   # ==================================================================
-  # 5. VERSION BUMP (Apply changesets before publishing)
-  # ==================================================================
-  version-bump:
-    name: "version:bump"
-    needs: build-prod
-    runs-on: ubuntu-latest
-    outputs:
-      version: ${{ steps.version_bump.outputs.new_version }}
-      has_changesets: ${{ steps.version_bump.outputs.has_changesets }}
-      commit_sha: ${{ steps.push.outputs.commit_sha }}
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-          token: ${{ secrets.GITHUB_TOKEN }}
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: "24"
-
-      - run: npm ci
-
-      - name: Check for changesets
-        id: check
-        run: |
-          if [ -z "$(ls -A .changeset/*.md 2>/dev/null | grep -v README.md)" ]; then
-            echo "has_changesets=false" >> $GITHUB_OUTPUT
-            echo "⚠️ No changesets to apply"
-          else
-            echo "has_changesets=true" >> $GITHUB_OUTPUT
-            echo "✅ Changesets found"
-          fi
-
-      - name: Configure Git
-        if: steps.check.outputs.has_changesets == 'true' || github.event.inputs.version_type != 'none'
-        run: |
-          git config --global user.name "github-actions[bot]"
-          git config --global user.email "github-actions[bot]@users.noreply.github.com"
-
-      - name: Apply Changesets Version Bump
-        id: version_bump
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          # If version_type is provided and no changesets exist, create an automated one
-          if [ "${{ github.event.inputs.version_type }}" != "none" ] && [ "${{ github.event.inputs.version_type }}" != "" ]; then
-            if [ -z "$(ls -A .changeset/*.md 2>/dev/null | grep -v README.md)" ]; then
-              echo "📝 Creating automated changeset for ${{ github.event.inputs.version_type }} bump"
-              echo "---" > .changeset/automated-bump.md
-              echo "\"@cybermem/cli\": ${{ github.event.inputs.version_type }}" >> .changeset/automated-bump.md
-              echo "\"@cybermem/mcp\": ${{ github.event.inputs.version_type }}" >> .changeset/automated-bump.md
-              echo "\"@cybermem/dashboard\": ${{ github.event.inputs.version_type }}" >> .changeset/automated-bump.md
-              echo "---" >> .changeset/automated-bump.md
-              echo "Automated release for ${{ github.event.inputs.version_type }} version bump." >> .changeset/automated-bump.md
-            fi
-          fi
-
-          # Re-check for changesets after potential auto-creation
-          if [ -z "$(ls -A .changeset/*.md 2>/dev/null | grep -v README.md)" ]; then
-            echo "has_changesets=false" >> $GITHUB_OUTPUT
-            echo "⚠️ No changesets to apply"
-            exit 0
-          fi
-
-          echo "has_changesets=true" >> $GITHUB_OUTPUT
-
-          # Apply changesets to bump versions and update CHANGELOG.md
-          npm run version
-
-          # Regenerate package-lock.json to reflect updated package.json files
-          npm install --package-lock-only
-
-          # Get the new version
-          NEW_VERSION=$(node -p "require('./packages/cli/package.json').version")
-          echo "new_version=$NEW_VERSION" >> $GITHUB_OUTPUT
-          echo "📦 New version after changesets: $NEW_VERSION"
-
-      - name: Commit and Push Version Bump
-        id: push
-        if: steps.version_bump.outputs.has_changesets == 'true'
-        run: |
-          NEW_VERSION="${{ steps.version_bump.outputs.new_version }}"
-
-          # Commit the version bump
-          git add .
-          git commit -m "chore: version bump to v$NEW_VERSION [skip ci]"
-          git push origin main
-
-          # Output the commit SHA for exact checkout in downstream jobs
-          COMMIT_SHA=$(git rev-parse HEAD)
-          echo "commit_sha=$COMMIT_SHA" >> $GITHUB_OUTPUT
-          echo "📌 Version bump commit: $COMMIT_SHA"
-
-  # ==================================================================
-  # 6. PUBLISH NPM
+  # 4. PUBLISH NPM (Apply changesets, build, publish)
   # ==================================================================
   publish-npm:
     name: "publish:npm"
-    needs: version-bump
-    if: needs.version-bump.outputs.has_changesets == 'true'
+    needs: build-prod
     runs-on: ubuntu-latest
     outputs:
-      version: ${{ steps.version.outputs.version }}
+      version: ${{ steps.resolve.outputs.version }}
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
           token: ${{ secrets.GITHUB_TOKEN }}
-          ref: ${{ needs.version-bump.outputs.commit_sha }} # Use exact commit SHA to avoid race conditions
 
       - uses: actions/setup-node@v4
         with:
@@ -194,10 +98,59 @@ jobs:
 
       - run: npm ci
 
-      - name: Get Current Version
-        id: version
+      - name: Apply changesets and resolve publishable version
+        id: resolve
         run: |
-          VERSION=$(node -p "require('./packages/cli/package.json').version")
+          # Auto-generate changeset if version_type is provided and no changesets exist
+          if [ "${{ github.event.inputs.version_type }}" != "none" ] && [ "${{ github.event.inputs.version_type }}" != "" ]; then
+            if [ -z "$(ls -A .changeset/*.md 2>/dev/null | grep -v README.md)" ]; then
+              echo "📝 Creating automated changeset for ${{ github.event.inputs.version_type }} bump"
+              cat > .changeset/automated-bump.md << 'CHANGESET'
+          ---
+          "@cybermem/cli": ${{ github.event.inputs.version_type }}
+          "@cybermem/mcp": ${{ github.event.inputs.version_type }}
+          "@cybermem/dashboard": ${{ github.event.inputs.version_type }}
+          ---
+
+          Automated ${{ github.event.inputs.version_type }} version bump.
+          CHANGESET
+            fi
+          fi
+
+          # Check for changesets
+          if [ -z "$(ls -A .changeset/*.md 2>/dev/null | grep -v README.md)" ]; then
+            echo "⚠️ No changesets to apply"
+            echo "has_changesets=false" >> $GITHUB_OUTPUT
+            # Use current version as-is
+            VERSION=$(node -p "require('./packages/cli/package.json').version")
+          else
+            echo "has_changesets=true" >> $GITHUB_OUTPUT
+
+            # Apply changesets to bump versions and update per-package CHANGELOGs
+            npm run version
+
+            # Regenerate package-lock.json to reflect updated package.json files
+            npm install --package-lock-only
+
+            VERSION=$(node -p "require('./packages/cli/package.json').version")
+            echo "📦 Version after changesets: $VERSION"
+          fi
+
+          # Check if this version is already published on npm
+          NPM_CHECK_OUTPUT=$(npm view "@cybermem/cli@$VERSION" version 2>&1) || true
+          if [ -n "$NPM_CHECK_OUTPUT" ] && echo "$NPM_CHECK_OUTPUT" | grep -qE "^[0-9]+\.[0-9]+\.[0-9]+"; then
+            echo "⚠️ Version $VERSION already published on npm — auto-bumping patch"
+
+            # Bump patch across all workspaces (no git tag)
+            npm version patch --workspaces --no-git-tag-version
+            npm install --package-lock-only
+
+            VERSION=$(node -p "require('./packages/cli/package.json').version")
+            echo "📦 Auto-bumped to: $VERSION"
+          else
+            echo "✅ Version $VERSION is not yet published"
+          fi
+
           echo "version=$VERSION" >> $GITHUB_OUTPUT
           echo "📦 Publishing version: $VERSION"
 
@@ -214,7 +167,7 @@ jobs:
         continue-on-error: true
         env:
           SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK_URL }}
-          VERSION: ${{ steps.version.outputs.version }}
+          VERSION: ${{ steps.resolve.outputs.version }}
           JOB_URL: "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
         run: |
           DATE=$(date "+%Y-%m-%d %H:%M:%S")
@@ -266,7 +219,7 @@ jobs:
         continue-on-error: true
         env:
           SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK_URL }}
-          VERSION: ${{ steps.version.outputs.version }}
+          VERSION: ${{ steps.resolve.outputs.version }}
           JOB_URL: "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
         run: |
           cat <<EOF > payload.json
@@ -299,7 +252,7 @@ jobs:
           curl -X POST -H 'Content-type: application/json' --data @payload.json $SLACK_WEBHOOK || true
 
   # ==================================================================
-  # 7. DEPLOY PROD (RPi) - Runs in parallel with finalize
+  # 5. DEPLOY PROD (RPi) - Runs in parallel with finalize
   # ==================================================================
   deploy-prod:
     name: "deploy:rpi-ts-prod"
@@ -420,11 +373,11 @@ jobs:
           curl -X POST -H 'Content-type: application/json' --data @payload.json $SLACK_WEBHOOK || true
 
   # ==================================================================
-  # 8. FINALIZE (Tag, GitHub Release, Reports)
+  # 6. FINALIZE (Atomic commit: Changeset versions, Reports via PR)
   # ==================================================================
   finalize:
     name: "finalize"
-    needs: [version-bump, publish-npm, e2e]
+    needs: [publish-npm, e2e]
     runs-on: ubuntu-latest
     continue-on-error: true
     steps:
@@ -432,7 +385,6 @@ jobs:
         with:
           fetch-depth: 0
           token: ${{ secrets.GITHUB_TOKEN }}
-          ref: ${{ needs.version-bump.outputs.commit_sha }} # Use exact commit SHA to avoid race conditions
 
       - uses: actions/setup-node@v4
         with:
@@ -445,67 +397,162 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
-      - name: Get Version and Extract Release Notes
+      - name: Apply changesets and prepare release data
         id: prep
         run: |
-          VERSION="${{ needs.version-bump.outputs.version }}"
-          echo "current_version=$VERSION" >> $GITHUB_OUTPUT
-          echo "📦 Release version: $VERSION"
+          CURRENT_VERSION="${{ needs.publish-npm.outputs.version }}"
+          echo "current_version=$CURRENT_VERSION" >> $GITHUB_OUTPUT
+
+          # Auto-generate changeset if version_type is provided and no changesets exist
+          if [ "${{ github.event.inputs.version_type }}" != "none" ] && [ "${{ github.event.inputs.version_type }}" != "" ]; then
+            if [ -z "$(ls -A .changeset/*.md 2>/dev/null | grep -v README.md)" ]; then
+              echo "📝 Creating automated changeset for ${{ github.event.inputs.version_type }} bump"
+              cat > .changeset/automated-bump.md << 'CHANGESET'
+          ---
+          "@cybermem/cli": ${{ github.event.inputs.version_type }}
+          "@cybermem/mcp": ${{ github.event.inputs.version_type }}
+          "@cybermem/dashboard": ${{ github.event.inputs.version_type }}
+          ---
+
+          Automated ${{ github.event.inputs.version_type }} version bump.
+          CHANGESET
+            fi
+          fi
+
+          # Apply changesets — this bumps versions in package.json files and generates per-package CHANGELOGs
+          if [ -n "$(ls -A .changeset/*.md 2>/dev/null | grep -v README.md)" ]; then
+            npm run version
+            npm install --package-lock-only
+            echo "✅ Changesets applied"
+          else
+            echo "⚠️ No changesets to apply"
+          fi
+
+          # Align package.json versions to match what was actually published.
+          # This handles the auto-bump case where publish-npm bumped beyond what changesets produced.
+          CHANGESET_VERSION=$(node -p "require('./packages/cli/package.json').version")
+          if [ "$CHANGESET_VERSION" != "$CURRENT_VERSION" ]; then
+            echo "📦 Aligning package versions: changesets=$CHANGESET_VERSION -> published=$CURRENT_VERSION"
+            npm version "$CURRENT_VERSION" --workspaces --no-git-tag-version
+            npm install --package-lock-only
+          fi
 
           # Extract release notes from CLI package CHANGELOG.md (changesets creates package-level CHANGELOGs)
-          # Only extract the current version section, not all previous releases
+          # 1. awk: extract content between "## VERSION" and the next "## " header
+          # 2. awk: strip leading blank lines (skip until first non-empty)
+          # 3. awk: strip trailing blank lines (buffer all, print up to last non-empty)
           CHANGELOG_FILE="packages/cli/CHANGELOG.md"
-          if [ -f "$CHANGELOG_FILE" ] && grep -q "## $VERSION" "$CHANGELOG_FILE"; then
-            # Extract only the section for this version (between ## VERSION and the next ## heading)
-            awk "/## $VERSION/,/^## / {if (/^## $VERSION/) next; if (/^## /) exit; print}" "$CHANGELOG_FILE" > release_notes_raw.md
-
-            # Remove leading and trailing empty lines for clean release notes
-            # First awk: Skip lines until first non-empty (removes leading blanks)
-            # Second awk: Store all lines, then print up to last non-empty (removes trailing blanks)
+          if [ -f "$CHANGELOG_FILE" ] && grep -q "## $CURRENT_VERSION" "$CHANGELOG_FILE"; then
+            awk "/## $CURRENT_VERSION/,/^## / {if (/^## $CURRENT_VERSION/) next; if (/^## /) exit; print}" "$CHANGELOG_FILE" > release_notes_raw.md
             awk 'NF {p=1} p' release_notes_raw.md | awk '{a[NR]=$0} END {while(NR && !a[NR]) NR--; for(i=1;i<=NR;i++) print a[i]}' > release_notes.md
             rm -f release_notes_raw.md
           else
-            echo "Release $VERSION" > release_notes.md
+            echo "Automated release v$CURRENT_VERSION" > release_notes.md
           fi
 
-          # Ensure we have some content
           if [ ! -s release_notes.md ]; then
-            echo "Automated release for version $VERSION" > release_notes.md
+            echo "Automated release for version $CURRENT_VERSION" > release_notes.md
           fi
 
-          # Log the extracted content (line count is approximate for logging only)
           echo "📝 Release notes extracted (~$(wc -l < release_notes.md) lines)"
 
       - name: Ingest E2E Reports
         uses: actions/download-artifact@v4
         with:
-          pattern: playwright-report-*
+          pattern: e2e-reports-*
           path: release-reports/${{ steps.prep.outputs.current_version }}
           merge-multiple: true
 
-      - name: Commit E2E Reports
+      - name: Create release PR with auto-merge
+        id: atomic
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          VERSION="${{ steps.prep.outputs.current_version }}"
+          CURRENT_VERSION="${{ steps.prep.outputs.current_version }}"
 
-          # Commit reports if there are any
-          git add release-reports/ || true
-          git commit -m "chore: add release reports for v$VERSION [skip ci]" || echo "No reports to commit"
-          git push origin main || echo "No changes to push"
+          # Create a release branch
+          BRANCH_NAME="release/v$CURRENT_VERSION-auto"
+          git checkout -b "$BRANCH_NAME"
 
-      - name: Create Git Tag
-        run: |
-          VERSION="${{ steps.prep.outputs.current_version }}"
+          # Commit all changes (changeset-applied versions, CHANGELOGs, reports)
+          git add .
+          git commit -m "chore: release v$CURRENT_VERSION [skip ci]"
+          git push origin "$BRANCH_NAME"
 
-          # Create and push Tag for VERSION
-          git tag "v$VERSION" || echo "Tag already exists"
-          git push origin "v$VERSION" || echo "Tag already pushed"
-          echo "✅ Tag v$VERSION created"
+          # Create PR with properly formatted body
+          PR_BODY="Automated release PR for v${CURRENT_VERSION}
+          
+          This PR includes:
+          - Changeset-applied version bumps and per-package CHANGELOGs
+          - E2E test reports
+          
+          Auto-generated by publish workflow."
+
+          PR_URL=$(gh pr create \
+            --title "chore: release v$CURRENT_VERSION" \
+            --body "$PR_BODY" \
+            --base main \
+            --head "$BRANCH_NAME")
+
+          echo "pr_url=$PR_URL" >> $GITHUB_OUTPUT
+
+          # Enable auto-merge
+          gh pr merge "$PR_URL" --auto --squash
+
+          echo "✅ Release PR created and auto-merge enabled for v$CURRENT_VERSION"
+          echo "PR URL: $PR_URL"
 
       - name: Create GitHub Release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           VERSION="${{ steps.prep.outputs.current_version }}"
+          PR_URL="${{ steps.atomic.outputs.pr_url }}"
+
+          # Wait for PR to be merged (poll for up to 10 minutes)
+          echo "Waiting for PR to be merged..."
+          echo "PR URL: $PR_URL"
+          MAX_ATTEMPTS=60
+          POLL_INTERVAL=10
+          PR_STATE="UNKNOWN"
+          for i in $(seq 1 $MAX_ATTEMPTS); do
+            if ! PR_STATE=$(gh pr view "$PR_URL" --json state --jq '.state' 2>&1); then
+              echo "⚠️ Failed to query PR state: $PR_STATE"
+              PR_STATE="UNKNOWN"
+            fi
+
+            if [ "$PR_STATE" = "MERGED" ]; then
+              echo "✅ PR merged successfully!"
+              break
+            elif [ "$PR_STATE" = "CLOSED" ]; then
+              echo "❌ PR was closed without merging. Failing release creation."
+              exit 1
+            else
+              echo "PR state: $PR_STATE, waiting... (attempt $i/$MAX_ATTEMPTS)"
+              sleep $POLL_INTERVAL
+            fi
+          done
+
+          if [ "$PR_STATE" != "MERGED" ]; then
+            TOTAL_WAIT=$((MAX_ATTEMPTS * POLL_INTERVAL))
+            echo "⚠️ PR merge timeout after ${TOTAL_WAIT}s ($MAX_ATTEMPTS attempts). Current state: $PR_STATE"
+            exit 1
+          fi
+
+          # Determine the merge commit SHA for precise tag placement
+          MERGE_COMMIT_SHA=$(gh pr view "$PR_URL" --json mergeCommit --jq '.mergeCommit.oid' 2>/dev/null || echo "")
+          if [ -z "$MERGE_COMMIT_SHA" ] || [ "$MERGE_COMMIT_SHA" = "null" ]; then
+            echo "⚠️ Could not determine merge commit SHA, falling back to origin/main"
+            git fetch origin main
+            MERGE_COMMIT_SHA="origin/main"
+          fi
+
+          # Create and push tag anchored to the PR's merge commit
+          git fetch origin main
+          git tag "v$VERSION" "$MERGE_COMMIT_SHA"
+          git push origin "v$VERSION"
+
+          # Create GitHub Release
           gh release create "v$VERSION" \
             --title "v$VERSION" \
             --notes-file release_notes.md \
