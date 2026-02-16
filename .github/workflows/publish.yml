@@ -401,6 +401,8 @@ jobs:
 
       - name: Apply changesets and prepare release data
         id: prep
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           CURRENT_VERSION="${{ needs.publish-npm.outputs.version }}"
           echo "current_version=$CURRENT_VERSION" >> $GITHUB_OUTPUT
