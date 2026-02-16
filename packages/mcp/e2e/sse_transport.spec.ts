@@ -72,6 +72,9 @@ test.describe("MCP SSE Transport", () => {
 
     expect(endpointFound).toBe(true);
 
+    // Cleanup connection
+    await reader?.cancel();
+
     // Check if server process is still running (didn't crash)
     expect(serverProcess.exitCode).toBeNull();
   });
