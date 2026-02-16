@@ -113,7 +113,7 @@ For full protocol: https://docs.cybermem.dev/agent-protocol`;
   const logActivity = async (
     operation: string,
     opts: {
-      details?: any;
+      details?: unknown;
       query?: string;
       memoryId?: string;
       delta?: string;
@@ -138,16 +138,7 @@ For full protocol: https://docs.cybermem.dev/agent-protocol`;
 
     if (!loggingDb) return; // Use loggingDb for the check
 
-    const {
-      method = "POST",
-      endpoint = "/mcp",
-      status = 200,
-      details,
-      query,
-      memoryId,
-      delta,
-      tags,
-    } = opts;
+    const { method = "POST", endpoint = "/mcp", status = 200 } = opts;
     try {
       const db = (await initLoggingDb()) as any;
       const ts = Date.now();
@@ -186,9 +177,6 @@ For full protocol: https://docs.cybermem.dev/agent-protocol`;
     // access underlying server
     (server as unknown as McpServer & { _memoryReady: boolean })._memoryReady =
       true;
-
-    // Load available tools
-    const tools = (server as unknown as McpServer & { _tools: any })._tools;
 
     server.registerResource(
       "CyberMem Agent Protocol",
@@ -520,7 +508,17 @@ For full protocol: https://docs.cybermem.dev/agent-protocol`;
         res.status(404).send("Session not found");
         return;
       }
-      await session.transport.handlePostMessage(req, res);
+      try {
+        await session.transport.handlePostMessage(req, res);
+      } catch (err) {
+        console.error(
+          `[MCP] Error handling message for session ${sessionId}:`,
+          err,
+        );
+        if (!res.headersSent) {
+          res.status(500).send("Internal Server Error processing message");
+        }
+      }
     });
 
     app.listen(port, () =>

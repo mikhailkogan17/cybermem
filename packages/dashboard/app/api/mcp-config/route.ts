@@ -61,7 +61,9 @@ export async function GET(request: Request) {
       : apiKey || "sk-your-generated-token";
     const actualKey = apiKey || "sk-your-generated-token";
 
-    const client = clientsConfig.find((c: any) => c.id === clientId);
+    const client = clientsConfig.find(
+      (c: { id: string; configType?: string }) => c.id === clientId,
+    );
 
     // Generate config based on client type
     let config: string | object;
