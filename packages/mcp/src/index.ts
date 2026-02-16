@@ -100,6 +100,16 @@ async function startServer() {
 
   let stdioClientName: string | undefined = undefined;
 
+  // Protocol Instructions
+  const CYBERMEM_INSTRUCTIONS = `CyberMem is a persistent context daemon for AI agents.
+PROTOCOL:
+1. On session start: call query_memory("user context profile")
+2. Store new insights immediately with add_memory (STABLE data)
+3. For corrections: use update_memory (STRUCTURAL mutation, high cost)
+4. To prevent decay: use reinforce_memory (METABOLIC boost, low cost)
+5. Always include tags: [topic, year, source:your-client-name]
+For full protocol: https://docs.cybermem.dev/agent-protocol`;
+
   const logActivity = async (
     operation: string,
     opts: {
@@ -150,16 +160,6 @@ async function startServer() {
 
   // Factory to create configured McpServer instance
   const createConfiguredServer = () => {
-    // Protocol Instructions
-    const CYBERMEM_INSTRUCTIONS = `CyberMem is a persistent context daemon for AI agents.
-PROTOCOL:
-1. On session start: call query_memory("user context profile")
-2. Store new insights immediately with add_memory (STABLE data)
-3. For corrections: use update_memory (STRUCTURAL mutation, high cost)
-4. To prevent decay: use reinforce_memory (METABOLIC boost, low cost)
-5. Always include tags: [topic, year, source:your-client-name]
-For full protocol: https://docs.cybermem.dev/agent-protocol`;
-
     const server = new McpServer(
       { name: "cybermem", version: "0.12.4" },
       {
@@ -237,7 +237,7 @@ For full protocol: https://docs.cybermem.dev/agent-protocol`;
       "query_memory",
       {
         description: "Search memories.",
-        inputSchema: z.object({ query: z.string(), k: z.number().default(5) }),
+        inputSchema: z.object({ query: z.string(), k: z.number().default(50) }),
       },
       async (args: any) => {
         const res = await memory!.search(args.query, { limit: args.k });
