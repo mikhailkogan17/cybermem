@@ -37,9 +37,9 @@ async function startServer() {
 
   // --- IMPLEMENTATION LOGIC ---
 
-  let memory: any = null;
-  let sdk_update_memory: any = null;
-  let sdk_reinforce_memory: any = null;
+  let memory: unknown = null;
+  let sdk_update_memory: ((id: string, content: string, tags?: string[]) => Promise<unknown>) | null = null;
+  let sdk_reinforce_memory: ((id: string, boost?: number) => Promise<unknown>) | null = null;
 
   // LOCAL SDK MODE
   const dbPath = process.env.OM_DB_PATH!;
@@ -136,11 +136,9 @@ For full protocol: https://docs.cybermem.dev/agent-protocol`;
       client = stdioClientName || "unknown";
     }
 
-    if (!loggingDb) return; // Use loggingDb for the check
-
     const { method = "POST", endpoint = "/mcp", status = 200 } = opts;
     try {
-      const db = (await initLoggingDb()) as any;
+      const db = await initLoggingDb();
       const ts = Date.now();
       const is_error = status >= 400 ? 1 : 0;
       db.serialize(() => {
@@ -269,7 +267,7 @@ For full protocol: https://docs.cybermem.dev/agent-protocol`;
           tags: z.array(z.string()).optional(),
         }),
       },
-      async (args: any) => {
+      async (args: { id: string; content: string; tags?: string[] }) => {
         if (!sdk_update_memory) throw new Error("Update not available in SDK");
         const res = await sdk_update_memory(args.id, args.content, args.tags);
         await logActivity("update", {
@@ -291,7 +289,7 @@ For full protocol: https://docs.cybermem.dev/agent-protocol`;
           boost: z.number().default(0.1),
         }),
       },
-      async (args: any) => {
+      async (args: { id: string; boost?: number }) => {
         if (!sdk_reinforce_memory)
           throw new Error("Reinforce not available in SDK");
         const res = await sdk_reinforce_memory(args.id, args.boost);
@@ -300,7 +298,7 @@ For full protocol: https://docs.cybermem.dev/agent-protocol`;
           endpoint: `/memory/${args.id}/reinforce`,
           status: 200,
         });
-        return { content: [{ type: "text", text: "Reinforced" }] };
+        return { content: [{ type: "text", text: JSON.stringify(res) }] };
       },
     );
 
@@ -310,7 +308,7 @@ For full protocol: https://docs.cybermem.dev/agent-protocol`;
         description: "Delete memory",
         inputSchema: z.object({ id: z.string() }),
       },
-      async (args: any) => {
+      async (args: { id: string }) => {
         const dbPath = process.env.OM_DB_PATH!;
         const sqlite3 = await import("sqlite3");
         const db = new sqlite3.default.Database(dbPath);
@@ -320,7 +318,7 @@ For full protocol: https://docs.cybermem.dev/agent-protocol`;
             db.run(
               "DELETE FROM vectors WHERE id = ?",
               [args.id],
-              async (err: any) => {
+              async (err: Error | null) => {
                 db.close();
                 await logActivity("delete", {
                   method: "DELETE",
@@ -475,7 +473,7 @@ For full protocol: https://docs.cybermem.dev/agent-protocol`;
       const newServer = createConfiguredServer();
 
       try {
-        newServer.connect(transport);
+        await newServer.connect(transport);
         sessions.set(transport.sessionId, { server: newServer, transport });
 
         transport.onclose = () => {
