@@ -89,7 +89,7 @@ Created `.github/CODEOWNERS`:
 
 **New Documentation:**
 - `docs/ci-workflow.md` - Mermaid diagrams for PR and Release workflows
-- `IMPLEMENTATION_SUMMARY.md` - Complete technical summary
+- `docs/IMPLEMENTATION_SUMMARY.md` - Complete technical summary
 
 ---
 
@@ -156,7 +156,7 @@ In CI, the publish workflow will auto-bump the version.
 | **Config** | `package.json` | Add validate command | +1 |
 | **Docs** | `CONTRIBUTING.md` | Release checklist | +55 |
 | **Docs** | `docs/ci-workflow.md` | Workflow diagrams | +147 |
-| **Docs** | `IMPLEMENTATION_SUMMARY.md` | Technical summary | +176 |
+| **Docs** | `docs/IMPLEMENTATION_SUMMARY.md` | Technical summary | +176 |
 | **Build** | `packages/cli/dist/*` | Build artifacts | +31 |
 
 ---
@@ -282,7 +282,7 @@ Successfully implemented a comprehensive validation framework that addresses all
 
 - **Issue:** CM-49 (Release Stability Retro)
 - **Branch:** `copilot/reduce-release-prep-time`
-- **Implementation:** `IMPLEMENTATION_SUMMARY.md`
+- **Implementation:** `docs/IMPLEMENTATION_SUMMARY.md`
 - **Workflows:** `docs/ci-workflow.md`
 - **Checklist:** `CONTRIBUTING.md#release-stability-checklist`
 

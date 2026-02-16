@@ -44,15 +44,19 @@ else
       echo -e "${YELLOW}⚠️  WARNING: No linked packages configured${NC}"
     else
       echo -e "${GREEN}✅ Linked packages found:${NC}"
-      echo "$LINKED_PACKAGES" | while read pkg; do
+      PACKAGES_VALID=true
+      while IFS= read -r pkg; do
         echo "  - $pkg"
         PKG_NAME=$(echo "$pkg" | sed 's/@cybermem\///')
         if [ ! -d "packages/$PKG_NAME" ]; then
           echo -e "${RED}❌ ERROR: Linked package $pkg does not exist in workspace${NC}"
-          VALIDATION_PASSED=false
-          exit 1
+          PACKAGES_VALID=false
         fi
-      done
+      done <<< "$LINKED_PACKAGES"
+      
+      if [ "$PACKAGES_VALID" = false ]; then
+        VALIDATION_PASSED=false
+      fi
     fi
     
     if [ "$VALIDATION_PASSED" = true ]; then

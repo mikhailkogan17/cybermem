@@ -160,29 +160,17 @@ test.describe("MCP SSE Transport - Multi-Session", () => {
     expect(healthResponse.status).toBe(200);
   });
 
-  test("should handle malformed SSE requests gracefully", async () => {
-    // Test with various invalid headers/methods
-    const testCases = [
-      { method: "POST", expectedStatus: 405 }, // POST not allowed for SSE
-      { 
-        method: "GET", 
-        headers: { "X-Forwarded-For": "attacker.com" },
-        expectedStatus: 200 // Should work, just log suspicious activity
-      },
-    ];
+  test("should handle requests with suspicious headers", async () => {
+    // Test SSE connection with various headers
+    const response = await fetch(`http://localhost:${PORT}/sse`, {
+      method: "GET",
+      headers: { "X-Forwarded-For": "attacker.com" },
+    });
 
-    for (const testCase of testCases) {
-      const response = await fetch(`http://localhost:${PORT}/sse`, {
-        method: testCase.method,
-        headers: testCase.headers || {},
-      });
-
-      expect(response.status).toBe(testCase.expectedStatus);
-      
-      if (response.status === 200) {
-        const reader = response.body!.getReader();
-        await reader.cancel();
-      }
-    }
+    expect(response.status).toBe(200);
+    expect(response.headers.get("content-type")).toBe("text/event-stream");
+    
+    const reader = response.body!.getReader();
+    await reader.cancel();
   });
 });

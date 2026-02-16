@@ -49,7 +49,7 @@ export default defineConfig({
       name: "dashboard-api",
       testDir: "./packages/dashboard/e2e",
       testMatch: "api.spec.ts",
-      dependencies: ["mcp-sse-multi"], // Wait for SSE multi-session tests
+      dependencies: ["mcp-api"], // Wait for MCP to complete
       use: {
         baseURL: process.env.DASHBOARD_URL || "http://localhost:3000",
       },

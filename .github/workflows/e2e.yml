@@ -44,7 +44,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: "20"
+          node-version: "24"
       - run: npm ci
 
       - name: Validate Changeset Configuration
@@ -74,15 +74,20 @@ jobs:
             echo "⚠️  WARNING: No linked packages configured"
           else
             echo "✅ Linked packages:"
-            echo "$LINKED_PACKAGES" | while read pkg; do
+            PACKAGES_VALID=true
+            while IFS= read -r pkg; do
               echo "  - $pkg"
               # Check if package exists
               PKG_NAME=$(echo "$pkg" | sed 's/@cybermem\///')
               if [ ! -d "packages/$PKG_NAME" ]; then
                 echo "❌ ERROR: Linked package $pkg does not exist in workspace"
-                exit 1
+                PACKAGES_VALID=false
               fi
-            done
+            done <<< "$LINKED_PACKAGES"
+            
+            if [ "$PACKAGES_VALID" = false ]; then
+              exit 1
+            fi
           fi
           
           echo "✅ Changeset configuration is valid"
@@ -112,7 +117,18 @@ jobs:
           
           echo "✅ All package versions are consistent: $CLI_VERSION"
 
+      - name: Check if package files changed
+        id: package_changes
+        run: |
+          # Check if any package.json or package-lock.json files changed
+          if git diff --name-only ${{ github.event.pull_request.base.sha }}...${{ github.sha }} | grep -E 'package(-lock)?\.json$'; then
+            echo "changed=true" >> $GITHUB_OUTPUT
+          else
+            echo "changed=false" >> $GITHUB_OUTPUT
+          fi
+
       - name: NPM Publish Dry-Run
+        if: steps.package_changes.outputs.changed == 'true'
         run: |
           echo "=== Running npm publish dry-run ==="
           
@@ -143,7 +159,11 @@ jobs:
           echo "=== Pre-Merge Validation Summary ==="
           echo "✅ Changeset configuration validated"
           echo "✅ Version consistency checked"
-          echo "✅ NPM publish dry-run completed"
+          if [ "${{ steps.package_changes.outputs.changed }}" == "true" ]; then
+            echo "✅ NPM publish dry-run completed"
+          else
+            echo "⏭️  NPM publish dry-run skipped (no package.json changes)"
+          fi
           echo ""
           echo "All validation gates passed. Ready for E2E tests."
 

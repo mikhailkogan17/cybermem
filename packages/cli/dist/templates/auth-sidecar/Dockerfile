@@ -1,4 +1,4 @@
-FROM node:24-alpine
+FROM node:20-alpine
 WORKDIR /app
 # Install build dependencies for native modules (sqlite3)
 RUN apk add --no-cache libc6-compat python3 make g++

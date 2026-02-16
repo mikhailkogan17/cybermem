@@ -73,7 +73,7 @@ services:
     #   - om_api_key
     labels:
       - traefik.enable=true
-      - traefik.http.routers.${PROJECT_NAME:-cybermem}-mcp.rule=PathPrefix(`/mcp`) || PathPrefix(`/sse`) || PathPrefix(`/message`)
+      - traefik.http.routers.${PROJECT_NAME:-cybermem}-mcp.rule=PathPrefix(`/mcp`) || PathPrefix(`/sse`)
       - traefik.http.routers.${PROJECT_NAME:-cybermem}-mcp.entrypoints=web
       - traefik.http.routers.${PROJECT_NAME:-cybermem}-mcp.priority=100
       - traefik.http.routers.${PROJECT_NAME:-cybermem}-mcp.service=${PROJECT_NAME:-cybermem}-mcp-service
