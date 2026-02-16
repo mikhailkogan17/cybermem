@@ -267,8 +267,11 @@ For full protocol: https://docs.cybermem.dev/agent-protocol`;
           tags: z.array(z.string()).optional(),
         }),
       },
-      async (args: { id: string; content: string; tags?: string[] }) => {
+      async (args: { id: string; content?: string; tags?: string[] }) => {
         if (!sdk_update_memory) throw new Error("Update not available in SDK");
+        if (args.content === undefined && args.tags === undefined) {
+          throw new Error("At least one of 'content' or 'tags' must be provided to update_memory");
+        }
         const res = await sdk_update_memory(args.id, args.content, args.tags);
         await logActivity("update", {
           method: "PATCH",
