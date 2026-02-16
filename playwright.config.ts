@@ -33,12 +33,23 @@ export default defineConfig({
         baseURL: process.env.MCP_URL || "http://localhost:8626",
       },
     },
+    // 1b. MCP SSE Transport Multi-Session Tests
+    {
+      name: "mcp-sse-multi",
+      testDir: "./packages/mcp/e2e",
+      testMatch: "sse_transport_multi.spec.ts",
+      retries: 1,
+      dependencies: ["mcp-api"],
+      use: {
+        baseURL: process.env.MCP_URL || "http://localhost:8626",
+      },
+    },
     // 2. Dashboard API tests - run after MCP
     {
       name: "dashboard-api",
       testDir: "./packages/dashboard/e2e",
       testMatch: "api.spec.ts",
-      dependencies: ["mcp-api"], // Wait for MCP to complete
+      dependencies: ["mcp-sse-multi"], // Wait for SSE multi-session tests
       use: {
         baseURL: process.env.DASHBOARD_URL || "http://localhost:3000",
       },
