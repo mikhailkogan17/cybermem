@@ -8,6 +8,8 @@ import { InitializeRequestSchema } from "@modelcontextprotocol/sdk/types.js";
 import { AsyncLocalStorage } from "async_hooks";
 import cors from "cors";
 import express from "express";
+import { readFileSync } from "fs";
+import { join } from "path";
 import { z } from "zod";
 
 // Type definition for OpenMemory Memory class
@@ -40,9 +42,6 @@ const requestContext = new AsyncLocalStorage<{
 const args = process.argv.slice(2);
 
 // Read version from package.json
-import { readFileSync } from "fs";
-import { join } from "path";
-
 let PACKAGE_VERSION = "0.0.0";
 try {
   const packageJsonPath = join(__dirname, "../package.json");
@@ -213,7 +212,8 @@ For full protocol: https://docs.cybermem.dev/agent-protocol`;
     );
 
     // access underlying server to set internal state for direct memory access
-    (server as any)._memoryReady = true;
+    // Casting to unknown first to allow adding private property
+    (server as unknown as { _memoryReady: boolean })._memoryReady = true;
 
     server.registerResource(
       "CyberMem Agent Protocol",

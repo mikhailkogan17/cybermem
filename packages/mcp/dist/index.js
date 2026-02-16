@@ -17,6 +17,18 @@ const zod_1 = require("zod");
 const requestContext = new async_hooks_1.AsyncLocalStorage();
 // CLI args processing
 const args = process.argv.slice(2);
+// Read version from package.json
+const fs_1 = require("fs");
+const path_1 = require("path");
+let PACKAGE_VERSION = "0.0.0";
+try {
+    const packageJsonPath = (0, path_1.join)(__dirname, "../package.json");
+    const packageJson = JSON.parse((0, fs_1.readFileSync)(packageJsonPath, "utf-8"));
+    PACKAGE_VERSION = packageJson.version;
+}
+catch (error) {
+    console.error("[MCP] Failed to read package.json version", error);
+}
 // Start the server
 startServer();
 async function startServer() {
@@ -115,7 +127,7 @@ For full protocol: https://docs.cybermem.dev/agent-protocol`;
                 db.run("INSERT INTO cybermem_access_log (timestamp, client_name, client_version, method, endpoint, operation, status, is_error) VALUES (?, ?, ?, ?, ?, ?, ?, ?)", [
                     ts,
                     client,
-                    "0.14.8",
+                    PACKAGE_VERSION,
                     method,
                     endpoint,
                     operation,
@@ -129,7 +141,7 @@ For full protocol: https://docs.cybermem.dev/agent-protocol`;
     };
     // Factory to create configured McpServer instance
     const createConfiguredServer = (onClientConnected) => {
-        const server = new mcp_js_1.McpServer({ name: "cybermem", version: "0.14.8" }, {
+        const server = new mcp_js_1.McpServer({ name: "cybermem", version: PACKAGE_VERSION }, {
             instructions: CYBERMEM_INSTRUCTIONS,
         });
         // access underlying server to set internal state for direct memory access
@@ -165,7 +177,7 @@ For full protocol: https://docs.cybermem.dev/agent-protocol`;
                 },
                 serverInfo: {
                     name: "cybermem",
-                    version: "0.14.8",
+                    version: PACKAGE_VERSION,
                 },
             };
         });
@@ -188,7 +200,7 @@ For full protocol: https://docs.cybermem.dev/agent-protocol`;
         });
         server.registerTool("query_memory", {
             description: "Search memories.",
-            inputSchema: zod_1.z.object({ query: zod_1.z.string(), k: zod_1.z.number().default(50) }),
+            inputSchema: zod_1.z.object({ query: zod_1.z.string(), k: zod_1.z.number().default(5) }),
         }, async (args) => {
             const res = await memory.search(args.query, { limit: args.k });
             await logActivity("read", {
@@ -271,7 +283,7 @@ For full protocol: https://docs.cybermem.dev/agent-protocol`;
         const app = (0, express_1.default)();
         app.use((0, cors_1.default)());
         app.use(express_1.default.json());
-        app.get("/health", (req, res) => res.json({ ok: true, version: "0.14.8" }));
+        app.get("/health", (req, res) => res.json({ ok: true, version: PACKAGE_VERSION }));
         app.use((req, res, next) => {
             const clientName = req.headers["x-client-name"] || "antigravity-client";
             requestContext.run({ clientName }, next);
