@@ -17,6 +17,18 @@ const zod_1 = require("zod");
 const requestContext = new async_hooks_1.AsyncLocalStorage();
 // CLI args processing
 const args = process.argv.slice(2);
+// Read version from package.json
+const fs_1 = require("fs");
+const path_1 = require("path");
+let PACKAGE_VERSION = "0.0.0";
+try {
+    const packageJsonPath = (0, path_1.join)(__dirname, "../package.json");
+    const packageJson = JSON.parse((0, fs_1.readFileSync)(packageJsonPath, "utf-8"));
+    PACKAGE_VERSION = packageJson.version;
+}
+catch (error) {
+    console.error("[MCP] Failed to read package.json version", error);
+}
 // Start the server
 startServer();
 async function startServer() {
@@ -97,7 +109,8 @@ For full protocol: https://docs.cybermem.dev/agent-protocol`;
         let client;
         const ctx = requestContext.getStore();
         if (opts.sessionId) {
-            client = "sse-client"; // TODO: Extract real client name from session state
+            // For SSE sessions, prefer the real client name from the request context when available
+            client = ctx?.clientName || "sse-client";
         }
         else if (ctx) {
             client = ctx.clientName || stdioClientName || "unknown";
@@ -114,7 +127,7 @@ For full protocol: https://docs.cybermem.dev/agent-protocol`;
                 db.run("INSERT INTO cybermem_access_log (timestamp, client_name, client_version, method, endpoint, operation, status, is_error) VALUES (?, ?, ?, ?, ?, ?, ?, ?)", [
                     ts,
                     client,
-                    "0.12.4",
+                    PACKAGE_VERSION,
                     method,
                     endpoint,
                     operation,
@@ -127,13 +140,12 @@ For full protocol: https://docs.cybermem.dev/agent-protocol`;
         catch { }
     };
     // Factory to create configured McpServer instance
-    const createConfiguredServer = () => {
-        const server = new mcp_js_1.McpServer({ name: "cybermem", version: "0.12.4" }, {
+    const createConfiguredServer = (onClientConnected) => {
+        const server = new mcp_js_1.McpServer({ name: "cybermem", version: PACKAGE_VERSION }, {
             instructions: CYBERMEM_INSTRUCTIONS,
         });
-        // access underlying server
-        server._memoryReady =
-            true;
+        // access underlying server to set internal state for direct memory access
+        server._memoryReady = true;
         server.registerResource("CyberMem Agent Protocol", "cybermem://protocol", { description: "Instructions for AI agents", mimeType: "text/plain" }, async () => ({
             contents: [
                 {
@@ -148,8 +160,15 @@ For full protocol: https://docs.cybermem.dev/agent-protocol`;
             // For SSE multiple clients, stdioClientName global is less useful,
             // but we can set it for context if running in single-user mode.
             // For multi-user, rely on requestContext.
-            stdioClientName = request.params.clientInfo.name;
-            console.error(`[MCP] Client identified via handshake: ${request.params.clientInfo.name}`);
+            // For SSE multiple clients, rely on per-request context instead of a global.
+            const clientName = request.params.clientInfo.name;
+            if (onClientConnected) {
+                onClientConnected(clientName);
+            }
+            else {
+                stdioClientName = clientName;
+            }
+            console.error(`[MCP] Client identified via handshake: ${clientName}`);
             return {
                 protocolVersion: "2024-11-05",
                 capabilities: {
@@ -158,7 +177,7 @@ For full protocol: https://docs.cybermem.dev/agent-protocol`;
                 },
                 serverInfo: {
                     name: "cybermem",
-                    version: "0.12.4",
+                    version: PACKAGE_VERSION,
                 },
             };
         });
@@ -181,7 +200,7 @@ For full protocol: https://docs.cybermem.dev/agent-protocol`;
         });
         server.registerTool("query_memory", {
             description: "Search memories.",
-            inputSchema: zod_1.z.object({ query: zod_1.z.string(), k: zod_1.z.number().default(50) }),
+            inputSchema: zod_1.z.object({ query: zod_1.z.string(), k: zod_1.z.number().default(5) }),
         }, async (args) => {
             const res = await memory.search(args.query, { limit: args.k });
             await logActivity("read", {
@@ -264,7 +283,7 @@ For full protocol: https://docs.cybermem.dev/agent-protocol`;
         const app = (0, express_1.default)();
         app.use((0, cors_1.default)());
         app.use(express_1.default.json());
-        app.get("/health", (req, res) => res.json({ ok: true, version: "0.12.4" }));
+        app.get("/health", (req, res) => res.json({ ok: true, version: PACKAGE_VERSION }));
         app.use((req, res, next) => {
             const clientName = req.headers["x-client-name"] || "antigravity-client";
             requestContext.run({ clientName }, next);
@@ -371,7 +390,11 @@ For full protocol: https://docs.cybermem.dev/agent-protocol`;
         app.get("/sse", async (req, res) => {
             console.error("[MCP] Attempting SSE Connection...");
             const transport = new sse_js_1.SSEServerTransport("/message", res);
-            const newServer = createConfiguredServer();
+            const newServer = createConfiguredServer((name) => {
+                const session = sessions.get(transport.sessionId);
+                if (session)
+                    session.clientName = name;
+            });
             try {
                 await newServer.connect(transport);
                 sessions.set(transport.sessionId, { server: newServer, transport });
@@ -383,7 +406,7 @@ For full protocol: https://docs.cybermem.dev/agent-protocol`;
                     console.error(`[MCP] SSE Connection Error: ${transport.sessionId}`, err);
                     sessions.delete(transport.sessionId);
                 };
-                await transport.start();
+                // await transport.start(); // FIXED: connect() starts it automatically
             }
             catch (err) {
                 console.error("[MCP] Failed to start SSE transport:", err);
@@ -402,7 +425,10 @@ For full protocol: https://docs.cybermem.dev/agent-protocol`;
                 return;
             }
             try {
-                await session.transport.handlePostMessage(req, res);
+                const clientName = session.clientName || "sse-client";
+                await requestContext.run({ clientName }, async () => {
+                    await session.transport.handlePostMessage(req, res);
+                });
             }
             catch (err) {
                 console.error(`[MCP] Error handling message for session ${sessionId}:`, err);
