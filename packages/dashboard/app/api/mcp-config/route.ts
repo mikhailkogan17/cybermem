@@ -48,9 +48,14 @@ export async function GET(request: Request) {
     }
 
     const apiKey = settings.apiKey !== "not-set" ? settings.apiKey : "";
+    const rawEndpoint =
+      typeof settings.endpoint === "string" ? settings.endpoint : "";
+    const normalizedEndpoint = rawEndpoint.endsWith("/mcp")
+      ? rawEndpoint.replace(/\/mcp$/, "/sse")
+      : rawEndpoint;
     const baseUrl =
       searchParams.get("baseUrl") ||
-      settings.endpoint ||
+      normalizedEndpoint ||
       "http://localhost:8626/sse";
     const isManaged = settings.isManaged || false;
     const env = settings.env || "prod";
