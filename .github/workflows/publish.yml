@@ -104,7 +104,8 @@ jobs:
           echo "📦 Current version in repo: $VERSION"
 
           # Check if this version is already published on npm
-          if npm view "@cybermem/cli@$VERSION" version 2>/dev/null; then
+          NPM_CHECK_OUTPUT=$(npm view "@cybermem/cli@$VERSION" version 2>&1) || true
+          if [ -n "$NPM_CHECK_OUTPUT" ] && echo "$NPM_CHECK_OUTPUT" | grep -qE "^[0-9]+\.[0-9]+\.[0-9]+"; then
             echo "⚠️ Version $VERSION already published on npm — auto-bumping patch"
 
             # Bump patch across all workspaces (no git tag)
@@ -371,7 +372,7 @@ jobs:
           echo "current_version=$CURRENT_VERSION" >> $GITHUB_OUTPUT
 
           # Extract Release Notes from Section [Unreleased]
-          awk '/## \[Unreleased\]/{flag=1; next} /^## \[ /{flag=0} flag' CHANGELOG.md | sed '/^$/d' > release_notes.md
+          awk '/## \[Unreleased\]/{flag=1; next} /^## \[/{flag=0} flag' CHANGELOG.md | sed '/^$/d' > release_notes.md
           if [ ! -s release_notes.md ]; then
             echo "Automated release v$CURRENT_VERSION" > release_notes.md
           fi
