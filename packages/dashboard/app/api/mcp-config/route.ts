@@ -90,11 +90,14 @@ export async function GET(request: Request) {
         config = `[mcpServers.cybermem]\ncommand = "npx"\nargs = ${localArgs}`;
       } else {
         const keyVal = maskKey ? displayKey : actualKey;
-        let argsStr = `["-y", "mcp-remote", "${baseUrl}"`;
-        if (isHttp && !isLocalhost) argsStr += `, "--allow-http"`;
-        if (!isRpiLan && !isLocalhost && apiKey)
-          argsStr += `, "--header", "X-API-Key:${keyVal}"`;
-        argsStr += `]`;
+        const args: string[] = ["-y", "mcp-remote", baseUrl];
+        if (isHttp && !isLocalhost) {
+          args.push("--allow-http");
+        }
+        if (!isRpiLan && !isLocalhost && apiKey) {
+          args.push("--header", `X-API-Key:${keyVal}`);
+        }
+        const argsStr = JSON.stringify(args);
         config = `[mcpServers.cybermem]\ncommand = "npx"\nargs = ${argsStr}`;
       }
     } else if (configType === "command" || configType === "cmd") {
