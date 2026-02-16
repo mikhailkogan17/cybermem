@@ -490,7 +490,7 @@ For full protocol: https://docs.cybermem.dev/agent-protocol`;
           sessions.delete(transport.sessionId);
         };
 
-        await transport.start();
+        // await transport.start(); // FIXED: connect() starts it automatically
       } catch (err) {
         console.error("[MCP] Failed to start SSE transport:", err);
         sessions.delete(transport.sessionId);
