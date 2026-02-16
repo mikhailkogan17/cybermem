@@ -38,7 +38,7 @@ async function startServer() {
   // --- IMPLEMENTATION LOGIC ---
 
   let memory: unknown = null;
-  let sdk_update_memory: ((id: string, content: string, tags?: string[]) => Promise<unknown>) | null = null;
+  let sdk_update_memory: ((id: string, content?: string, tags?: string[], metadata?: Record<string, unknown>) => Promise<unknown>) | null = null;
   let sdk_reinforce_memory: ((id: string, boost?: number) => Promise<unknown>) | null = null;
 
   // LOCAL SDK MODE
