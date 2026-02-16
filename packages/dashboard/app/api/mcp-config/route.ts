@@ -51,7 +51,7 @@ export async function GET(request: Request) {
     const baseUrl =
       searchParams.get("baseUrl") ||
       settings.endpoint ||
-      "http://localhost:8626/mcp";
+      "http://localhost:8626/sse";
     const isManaged = settings.isManaged || false;
     const env = settings.env || "prod";
     const isStaging = env === "staging";
@@ -67,6 +67,12 @@ export async function GET(request: Request) {
     let config: any;
     let configType = client?.configType || "json";
 
+    const isHttp = baseUrl.startsWith("http://");
+    const isLocalhost =
+      baseUrl.includes("localhost") || baseUrl.includes("127.0.0.1");
+    // RPi LAN is trusted, no auth required
+    const isRpiLan = baseUrl.includes("raspberrypi.local");
+
     // Local envs (isManaged): use @cybermem/mcp directly
     // Remote envs: use mcp-remote (standard stdio-to-HTTP bridge)
     if (configType === "toml") {
@@ -77,7 +83,12 @@ export async function GET(request: Request) {
         config = `[mcpServers.cybermem]\ncommand = "npx"\nargs = ${localArgs}`;
       } else {
         const keyVal = maskKey ? displayKey : actualKey;
-        config = `[mcpServers.cybermem]\ncommand = "npx"\nargs = ["-y", "mcp-remote", "${baseUrl}", "--header", "X-API-Key:${keyVal}"]`;
+        let argsStr = `["-y", "mcp-remote", "${baseUrl}"`;
+        if (isHttp && !isLocalhost) argsStr += `, "--allow-http"`;
+        if (!isRpiLan && apiKey)
+          argsStr += `, "--header", "X-API-Key:${keyVal}"`;
+        argsStr += `]`;
+        config = `[mcpServers.cybermem]\ncommand = "npx"\nargs = ${argsStr}`;
       }
     } else if (configType === "command" || configType === "cmd") {
       // Generate command directly (don't rely on clients.json templates)
@@ -89,7 +100,10 @@ export async function GET(request: Request) {
         const keyVal = maskKey ? displayKey : actualKey;
         const clientName = client?.id || "cybermem";
         const cliPrefix = client?.id === "gemini-cli" ? "gemini" : "claude";
-        config = `${cliPrefix} mcp add ${clientName} -- npx -y mcp-remote ${baseUrl} --header X-API-Key:${keyVal}`;
+        let cmd = `${cliPrefix} mcp add ${clientName} -- npx -y mcp-remote ${baseUrl}`;
+        if (isHttp && !isLocalhost) cmd += ` --allow-http`;
+        if (!isRpiLan && apiKey) cmd += ` --header X-API-Key:${keyVal}`;
+        config = cmd;
       }
     } else {
       // JSON (default)
@@ -103,13 +117,16 @@ export async function GET(request: Request) {
         }
       } else {
         // Remote: use mcp-remote (standard stdio-to-HTTP bridge)
-        args = [
-          "-y",
-          "mcp-remote",
-          baseUrl,
-          "--header",
-          `X-API-Key:${maskKey ? displayKey : actualKey}`,
-        ];
+        args = ["-y", "mcp-remote", baseUrl];
+        if (isHttp && !isLocalhost) {
+          args.push("--allow-http");
+        }
+        if (!isRpiLan && apiKey) {
+          args.push(
+            "--header",
+            `X-API-Key:${maskKey ? displayKey : actualKey}`,
+          );
+        }
       }
 
       config = {

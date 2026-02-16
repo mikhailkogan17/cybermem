@@ -138,6 +138,11 @@ To Ensure "Always Availability" and shorter token usage, follow this strict cycl
 1.  **Work**: Agent commits to `feat/*` or `chore/*` branches with `Antigravity Agent` git config.
 2.  **Template Verification**: BEFORE calling GitHub MCP, Agent MUST verify that the PR body contains all headers from the required template.
 3.  **PR Creation**: Agent uses `mcp_github-mcp-server_create_pull_request` to open the PR.
+    > [!CAUTION]
+    > **STRICT PROHIBITION: NO `gh pr create`**
+    > It is **STRICTLY FORBIDDEN** to use `gh pr create` via `run_command`.
+    > ALL Pull Requests MUST be created using the `github-mcp` tool (`mcp_github-mcp-server_create_pull_request`).
+    > This ensures proper template verification and consistent behavior.
 4.  **Review**: User (Tech Lead) reviews the PR and merges.
 
 
