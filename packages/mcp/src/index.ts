@@ -392,7 +392,13 @@ For full protocol: https://docs.cybermem.dev/agent-protocol`;
     const port = parseInt(getArg("--port") || "3100", 10);
     const app = express();
     app.use(cors());
-    app.use(express.json());
+    app.use((req, res, next) => {
+      // Skip JSON parsing for SSE message endpoint - it needs raw body stream
+      if (req.path === "/message") {
+        return next();
+      }
+      express.json()(req, res, next);
+    });
     app.get("/health", (req, res) =>
       res.json({ ok: true, version: PACKAGE_VERSION }),
     );
