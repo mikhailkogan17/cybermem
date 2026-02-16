@@ -41,6 +41,19 @@ CyberMem is a monorepo managed by NPM Workspaces.
 
 ## 🛠 Working on Components
 
+### Pre-Push Validation
+
+Before pushing your changes, run the validation script to catch issues early:
+
+```bash
+npm run validate
+```
+
+This will:
+- Validate changeset configuration
+- Check version consistency across packages
+- Run NPM publish dry-run
+
 ### Dashboard (`packages/dashboard`)
 ```bash
 cd packages/dashboard

@@ -12,14 +12,14 @@ const types_js_1 = require("@modelcontextprotocol/sdk/types.js");
 const async_hooks_1 = require("async_hooks");
 const cors_1 = __importDefault(require("cors"));
 const express_1 = __importDefault(require("express"));
+const fs_1 = require("fs");
+const path_1 = require("path");
 const zod_1 = require("zod");
 // Async Storage for Request Context (User ID and Client Name)
 const requestContext = new async_hooks_1.AsyncLocalStorage();
 // CLI args processing
 const args = process.argv.slice(2);
 // Read version from package.json
-const fs_1 = require("fs");
-const path_1 = require("path");
 let PACKAGE_VERSION = "0.0.0";
 try {
     const packageJsonPath = (0, path_1.join)(__dirname, "../package.json");
@@ -145,6 +145,7 @@ For full protocol: https://docs.cybermem.dev/agent-protocol`;
             instructions: CYBERMEM_INSTRUCTIONS,
         });
         // access underlying server to set internal state for direct memory access
+        // Casting to unknown first to allow adding private property
         server._memoryReady = true;
         server.registerResource("CyberMem Agent Protocol", "cybermem://protocol", { description: "Instructions for AI agents", mimeType: "text/plain" }, async () => ({
             contents: [
@@ -282,7 +283,14 @@ For full protocol: https://docs.cybermem.dev/agent-protocol`;
         const port = parseInt(getArg("--port") || "3100", 10);
         const app = (0, express_1.default)();
         app.use((0, cors_1.default)());
-        app.use(express_1.default.json());
+        app.use((req, res, next) => {
+            // Skip JSON parsing for SSE message endpoint - it needs raw body stream
+            // Use req.url to handle query params like /message?sessionId=...
+            if (req.url.startsWith("/message")) {
+                return next();
+            }
+            express_1.default.json()(req, res, next);
+        });
         app.get("/health", (req, res) => res.json({ ok: true, version: PACKAGE_VERSION }));
         app.use((req, res, next) => {
             const clientName = req.headers["x-client-name"] || "antigravity-client";
