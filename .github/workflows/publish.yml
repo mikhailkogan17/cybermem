@@ -440,6 +440,9 @@ jobs:
           fi
 
           # Extract release notes from CLI package CHANGELOG.md (changesets creates package-level CHANGELOGs)
+          # 1. awk: extract content between "## VERSION" and the next "## " header
+          # 2. awk: strip leading blank lines (skip until first non-empty)
+          # 3. awk: strip trailing blank lines (buffer all, print up to last non-empty)
           CHANGELOG_FILE="packages/cli/CHANGELOG.md"
           if [ -f "$CHANGELOG_FILE" ] && grep -q "## $CURRENT_VERSION" "$CHANGELOG_FILE"; then
             awk "/## $CURRENT_VERSION/,/^## / {if (/^## $CURRENT_VERSION/) next; if (/^## /) exit; print}" "$CHANGELOG_FILE" > release_notes_raw.md
