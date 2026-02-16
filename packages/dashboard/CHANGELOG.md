@@ -1,5 +1,11 @@
 # @cybermem/dashboard
 
+## 0.14.8
+
+### Patch Changes
+
+- Automated patch version bump.
+
 ## 0.14.7
 
 ### Patch Changes

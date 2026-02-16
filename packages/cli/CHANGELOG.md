@@ -1,5 +1,11 @@
 # @cybermem/cli
 
+## 0.14.8
+
+### Patch Changes
+
+- Automated patch version bump.
+
 ## 0.14.6
 
 ### Patch Changes
