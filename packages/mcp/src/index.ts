@@ -10,6 +10,15 @@ import cors from "cors";
 import express from "express";
 import { z } from "zod";
 
+// Type definition for OpenMemory Memory class
+interface IMemory {
+  add(content: string, opts?: { tags?: string[]; user_id?: string; [key: string]: unknown }): Promise<unknown>;
+  search(query: string, opts?: { limit?: number; user_id?: string; sectors?: unknown; [key: string]: unknown }): Promise<unknown>;
+  get(id: string): Promise<unknown>;
+  delete_all(user_id: string): Promise<unknown>;
+  wipe(): Promise<unknown>;
+}
+
 // Async Storage for Request Context (User ID and Client Name)
 const requestContext = new AsyncLocalStorage<{
   userId?: string;
@@ -37,7 +46,7 @@ async function startServer() {
 
   // --- IMPLEMENTATION LOGIC ---
 
-  let memory: unknown = null;
+  let memory: IMemory | null = null;
   let sdk_update_memory: ((id: string, content?: string, tags?: string[], metadata?: Record<string, unknown>) => Promise<unknown>) | null = null;
   let sdk_reinforce_memory: ((id: string, boost?: number) => Promise<unknown>) | null = null;
 
@@ -55,7 +64,7 @@ async function startServer() {
     const hsg = await import("openmemory-js/dist/memory/hsg.js");
     sdk_update_memory = hsg.update_memory;
     sdk_reinforce_memory = hsg.reinforce_memory;
-    memory = new Memory();
+    memory = new Memory() as IMemory;
 
     // Initialize Tables
     const sqlite3 = await import("sqlite3");
