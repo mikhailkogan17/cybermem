@@ -77,46 +77,11 @@ jobs:
     secrets: inherit
 
   # ==================================================================
-  # 4. DEPLOY GHCR (Pull latest and push)
-  # ==================================================================
-  deploy-ghcr:
-    name: "deploy:ghcr"
-    needs: build-prod
-    runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - name: mcp
-            image: cybermem-mcp
-          - name: dashboard
-            image: cybermem-dashboard
-          - name: auth-sidecar
-            image: cybermem-auth-sidecar
-          - name: db-exporter
-            image: cybermem-db_exporter
-          - name: log-exporter
-            image: cybermem-log_exporter
-    steps:
-      - name: Log in to GHCR
-        uses: docker/login-action@v3
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Tag and Push :latest
-        run: |
-          docker pull ghcr.io/${{ github.repository_owner }}/${{ matrix.image }}:latest
-          docker tag ghcr.io/${{ github.repository_owner }}/${{ matrix.image }}:latest ghcr.io/${{ github.repository_owner }}/${{ matrix.image }}:latest
-          docker push ghcr.io/${{ github.repository_owner }}/${{ matrix.image }}:latest
-
-  # ==================================================================
   # 5. VERSION BUMP (Apply changesets before publishing)
   # ==================================================================
   version-bump:
     name: "version:bump"
-    needs: deploy-ghcr
+    needs: build-prod
     runs-on: ubuntu-latest
     outputs:
       version: ${{ steps.version_bump.outputs.new_version }}
