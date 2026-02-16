@@ -183,12 +183,12 @@ For full protocol: https://docs.cybermem.dev/agent-protocol`;
       },
     );
 
-    // @ts-ignore - access underlying server
-    (server as any)._memoryReady = true;
+    // access underlying server
+    (server as unknown as McpServer & { _memoryReady: boolean })._memoryReady =
+      true;
 
     // Load available tools
-    // @ts-ignore - access underlying server
-    const tools = (server as any)._tools;
+    const tools = (server as unknown as McpServer & { _tools: any })._tools;
 
     server.registerResource(
       "CyberMem Agent Protocol",
@@ -205,8 +205,7 @@ For full protocol: https://docs.cybermem.dev/agent-protocol`;
       }),
     );
 
-    // Capture client info from handshake
-    // @ts-ignore - access underlying server
+    // access underlying server
     server.server.setRequestHandler(
       InitializeRequestSchema,
       async (request) => {
@@ -243,7 +242,7 @@ For full protocol: https://docs.cybermem.dev/agent-protocol`;
           tags: z.array(z.string()).optional(),
         }),
       },
-      async (args: any) => {
+      async (args: { content: string; tags?: string[] }) => {
         const res = await memory!.add(args.content, { tags: args.tags });
         await logActivity("create", {
           method: "POST",
@@ -260,7 +259,7 @@ For full protocol: https://docs.cybermem.dev/agent-protocol`;
         description: "Search memories.",
         inputSchema: z.object({ query: z.string(), k: z.number().default(50) }),
       },
-      async (args: any) => {
+      async (args: { query: string; k?: number }) => {
         const res = await memory!.search(args.query, { limit: args.k });
         await logActivity("read", {
           method: "POST",
@@ -493,6 +492,13 @@ For full protocol: https://docs.cybermem.dev/agent-protocol`;
 
         transport.onclose = () => {
           console.error(`[MCP] SSE Connection Closed: ${transport.sessionId}`);
+          sessions.delete(transport.sessionId);
+        };
+        transport.onerror = (err: Error) => {
+          console.error(
+            `[MCP] SSE Connection Error: ${transport.sessionId}`,
+            err,
+          );
           sessions.delete(transport.sessionId);
         };
 

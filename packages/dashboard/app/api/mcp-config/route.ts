@@ -64,8 +64,8 @@ export async function GET(request: Request) {
     const client = clientsConfig.find((c: any) => c.id === clientId);
 
     // Generate config based on client type
-    let config: any;
-    let configType = client?.configType || "json";
+    let config: string | object;
+    const configType = client?.configType || "json";
 
     const isHttp = baseUrl.startsWith("http://");
     const isLocalhost =
