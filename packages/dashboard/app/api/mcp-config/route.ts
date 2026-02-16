@@ -85,7 +85,7 @@ export async function GET(request: Request) {
         const keyVal = maskKey ? displayKey : actualKey;
         let argsStr = `["-y", "mcp-remote", "${baseUrl}"`;
         if (isHttp && !isLocalhost) argsStr += `, "--allow-http"`;
-        if (!isRpiLan && apiKey)
+        if (!isRpiLan && !isLocalhost && apiKey)
           argsStr += `, "--header", "X-API-Key:${keyVal}"`;
         argsStr += `]`;
         config = `[mcpServers.cybermem]\ncommand = "npx"\nargs = ${argsStr}`;
@@ -102,7 +102,8 @@ export async function GET(request: Request) {
         const cliPrefix = client?.id === "gemini-cli" ? "gemini" : "claude";
         let cmd = `${cliPrefix} mcp add ${clientName} -- npx -y mcp-remote ${baseUrl}`;
         if (isHttp && !isLocalhost) cmd += ` --allow-http`;
-        if (!isRpiLan && apiKey) cmd += ` --header X-API-Key:${keyVal}`;
+        if (!isRpiLan && !isLocalhost && apiKey)
+          cmd += ` --header X-API-Key:${keyVal}`;
         config = cmd;
       }
     } else {
@@ -121,7 +122,7 @@ export async function GET(request: Request) {
         if (isHttp && !isLocalhost) {
           args.push("--allow-http");
         }
-        if (!isRpiLan && apiKey) {
+        if (!isRpiLan && !isLocalhost && apiKey) {
           args.push(
             "--header",
             `X-API-Key:${maskKey ? displayKey : actualKey}`,

@@ -113,25 +113,41 @@ For full protocol: https://docs.cybermem.dev/agent-protocol`;
   const logActivity = async (
     operation: string,
     opts: {
-      client?: string;
+      details?: any;
+      query?: string;
+      memoryId?: string;
+      delta?: string;
+      tags?: string[];
+      sessionId?: string;
       method?: string;
       endpoint?: string;
       status?: number;
     } = {},
   ) => {
-    if (!memory) return;
+    // Determine client name (priority: specific > store > default)
+    let client: string;
+    const ctx = requestContext.getStore();
+
+    if (opts.sessionId) {
+      client = "sse-client"; // TODO: Extract real client name from session state
+    } else if (ctx) {
+      client = ctx.clientName || stdioClientName || "unknown";
+    } else {
+      client = stdioClientName || "unknown";
+    }
+
+    if (!loggingDb) return; // Use loggingDb for the check
+
     const {
-      client: providedClient,
       method = "POST",
       endpoint = "/mcp",
       status = 200,
+      details,
+      query,
+      memoryId,
+      delta,
+      tags,
     } = opts;
-    const ctx = requestContext.getStore();
-    const client =
-      providedClient ||
-      ctx?.clientName ||
-      stdioClientName ||
-      "antigravity-client";
     try {
       const db = (await initLoggingDb()) as any;
       const ts = Date.now();
@@ -167,7 +183,12 @@ For full protocol: https://docs.cybermem.dev/agent-protocol`;
       },
     );
 
+    // @ts-ignore - access underlying server
     (server as any)._memoryReady = true;
+
+    // Load available tools
+    // @ts-ignore - access underlying server
+    const tools = (server as any)._tools;
 
     server.registerResource(
       "CyberMem Agent Protocol",
@@ -452,20 +473,38 @@ For full protocol: https://docs.cybermem.dev/agent-protocol`;
       }
     >();
 
+    // Legacy MCP endpoint - 410 Gone
+    app.all("/mcp", (req, res) => {
+      res
+        .status(410)
+        .send(
+          "Endpoint /mcp is deprecated. Please update your client configuration to use /sse for Server-Sent Events.",
+        );
+    });
+
     app.get("/sse", async (req, res) => {
       console.error("[MCP] Attempting SSE Connection...");
       const transport = new SSEServerTransport("/message", res);
       const newServer = createConfiguredServer();
 
-      newServer.connect(transport);
-      sessions.set(transport.sessionId, { server: newServer, transport });
+      try {
+        newServer.connect(transport);
+        sessions.set(transport.sessionId, { server: newServer, transport });
 
-      transport.onclose = () => {
-        console.error(`[MCP] SSE Connection Closed: ${transport.sessionId}`);
+        transport.onclose = () => {
+          console.error(`[MCP] SSE Connection Closed: ${transport.sessionId}`);
+          sessions.delete(transport.sessionId);
+        };
+
+        await transport.start();
+      } catch (err) {
+        console.error("[MCP] Failed to start SSE transport:", err);
         sessions.delete(transport.sessionId);
-      };
-
-      await transport.start();
+        // If headers haven't been sent, send 500
+        if (!res.headersSent) {
+          res.status(500).send("Internal Server Error during SSE handshake");
+        }
+      }
     });
 
     app.post("/message", async (req, res) => {
