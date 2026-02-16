@@ -1,107 +1,96 @@
-# GitHub Token Setup for Publish Workflow
+# GitHub Token Configuration for Publish Workflow
 
 ## Overview
 
-The `publish.yml` workflow requires proper GitHub token configuration to successfully create pull requests and push to protected branches during the finalize job.
+The `publish.yml` workflow's finalize job uses the default `GITHUB_TOKEN` provided by GitHub Actions to create pull requests and push changes.
 
-## Token Requirements
+## Root Cause of Previous Failures
 
-### Option 1: Use PUBLISH_GITHUB_TOKEN (Recommended)
+The finalize job was failing intermittently **not** due to token permissions, but because:
+1. `continue-on-error: true` was set at the job level, masking real failures
+2. No error diagnostics made it difficult to identify issues
 
-Create a Personal Access Token (PAT) or GitHub App token with the following permissions:
+## What Was Fixed
 
-- **repo** (full control) - Required for:
-  - Pushing to branches
-  - Creating pull requests
-  - Creating releases
-  
-- **workflow** - Required for:
-  - Updating GitHub Actions workflows
-  - Managing workflow files
+### 1. Removed Job-Level `continue-on-error`
+The `continue-on-error: true` directive was hiding actual failures. It has been:
+- **Removed** from the finalize job level
+- **Kept only** for Slack notifications (non-critical)
 
-### Option 2: Use Default GITHUB_TOKEN (Limited)
+### 2. Added Token Verification
+A verification step now checks token access before any operations:
+```yaml
+- name: Verify GitHub Token Permissions
+  env:
+    GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  run: |
+    if ! gh auth status 2>&1; then
+      echo "❌ ERROR: GitHub token is not properly configured"
+      exit 1
+    fi
+```
 
-The default `GITHUB_TOKEN` provided by GitHub Actions has limited permissions:
-- ✅ Can create PRs
-- ✅ Can push to unprotected branches
-- ❌ Cannot push to protected branches (like `main`)
-- ❌ May have restrictions in some repository configurations
+### 3. Enhanced Error Diagnostics
+All critical operations now have proper error handling:
+- **Push errors**: Detailed messages about branch protection, network issues
+- **PR creation errors**: Specific guidance on common failures
+- **Auto-merge errors**: Non-fatal warnings (PR still created)
+- **Empty commits**: Skip PR creation if no changes
 
-## Setup Instructions
+## GITHUB_TOKEN Permissions
 
-### Creating a Personal Access Token
+The default `GITHUB_TOKEN` provided by GitHub Actions has sufficient permissions for this workflow:
+- ✅ Create and update pull requests
+- ✅ Push to branches (including creating release branches)
+- ✅ Create releases
+- ✅ Read repository contents
 
-1. Go to GitHub Settings → Developer settings → Personal access tokens → Fine-grained tokens
-2. Click "Generate new token"
-3. Configure the token:
-   - **Token name**: `CYBERMEM_PUBLISH_TOKEN`
-   - **Expiration**: Choose appropriate duration
-   - **Repository access**: Select "Only select repositories" → Choose your repository
-   - **Permissions**:
-     - Repository permissions:
-       - Contents: Read and write
-       - Pull requests: Read and write
-       - Workflows: Read and write
-4. Generate and copy the token
-
-### Adding the Secret to GitHub
-
-1. Go to your repository → Settings → Secrets and variables → Actions
-2. Click "New repository secret"
-3. Name: `PUBLISH_GITHUB_TOKEN`
-4. Value: Paste your token
-5. Click "Add secret"
+**Note**: The `GITHUB_TOKEN` **cannot** push directly to protected branches (like `main`), which is why the workflow creates a PR instead. This is by design and correct behavior.
 
 ## Workflow Behavior
 
-The workflow will automatically:
-1. Try to use `PUBLISH_GITHUB_TOKEN` if available
-2. Fall back to `GITHUB_TOKEN` if `PUBLISH_GITHUB_TOKEN` is not set
-3. Verify token permissions before proceeding
-4. Provide clear error messages if token lacks required permissions
+The finalize job will now:
+1. Verify token permissions upfront
+2. Create version bump commits on a release branch
+3. Push the release branch (not directly to `main`)
+4. Create a PR for review and merging
+5. Enable auto-merge if repository settings allow
+6. Wait for PR merge, then create GitHub Release
+7. Fail properly if any step encounters an error (except Slack notifications)
 
 ## Troubleshooting
 
 ### Error: "Failed to push release branch"
 
-**Cause**: Token doesn't have permission to push to the branch.
+**Possible causes**:
+- Network connectivity issues
+- Branch protection rules preventing branch creation
+- Repository permissions
 
-**Solutions**:
-- Ensure `PUBLISH_GITHUB_TOKEN` is set with proper permissions
-- Check that the token has not expired
-- Verify branch protection rules allow the token to push
+**Solution**: Check repository settings and network. The default `GITHUB_TOKEN` should work.
 
 ### Error: "Failed to create PR"
 
-**Cause**: Token lacks pull request write permissions.
+**Possible causes**:
+- A PR already exists for this release branch
+- Repository settings prevent PR creation
+- Token expired or invalid
 
-**Solutions**:
-- Ensure the token has "Pull requests: Read and write" permission
-- Check repository settings allow PR creation
-- Verify the branch doesn't already have an open PR
+**Solution**: Check for existing PRs with the same branch name, verify repository settings.
 
-### Error: "Could not enable auto-merge for PR"
+### Warning: "Could not enable auto-merge for PR"
 
-**Cause**: Repository settings may not allow auto-merge or token lacks permissions.
+**This is not an error** - the PR was created successfully. Auto-merge may not be enabled in repository settings or may require additional checks to pass.
 
-**Solutions**:
-- This is a warning, not an error - the PR is still created
-- Check repository Settings → General → Allow auto-merge
-- Manually merge the PR if needed
+**Action**: Manually merge the PR or enable auto-merge in repository settings.
 
-## Migration Guide
+## Migration Notes
 
-If you're migrating from the old workflow:
+If you previously had `PUBLISH_GITHUB_TOKEN` configured:
+- It is no longer needed or used
+- The workflow uses only the default `GITHUB_TOKEN`
+- No action required - the workflow will work as before
 
-1. Create and configure `PUBLISH_GITHUB_TOKEN` secret (see above)
-2. The workflow will automatically use the new token
-3. No code changes are required
-4. Existing `GITHUB_TOKEN` will still work as fallback for basic operations
+## Key Takeaway
 
-## Security Notes
-
-- Never commit tokens directly to the repository
-- Use GitHub Secrets for storing tokens
-- Regularly rotate tokens
-- Use fine-grained tokens with minimal required permissions
-- Consider using GitHub Apps for automated workflows (more secure than PATs)
+**The main fix was removing `continue-on-error: true` from the job level**, which was masking failures. The token permissions were not the root cause - the default `GITHUB_TOKEN` has always had sufficient permissions for this workflow.
