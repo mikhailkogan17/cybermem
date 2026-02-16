@@ -15,7 +15,7 @@ const fs = require("fs");
  */
 function validateTemplate(type, body) {
   const templatePath = `.github/PULL_REQUEST_TEMPLATE/${type}.md`;
-  
+
   try {
     if (!fs.existsSync(templatePath)) {
       warn(
@@ -27,7 +27,10 @@ function validateTemplate(type, body) {
 
     const templateContent = fs.readFileSync(templatePath, "utf8");
     // Remove frontmatter before extracting headers
-    const contentWithoutFrontmatter = templateContent.replace(/^---[\s\S]*?---\n/, "");
+    const contentWithoutFrontmatter = templateContent.replace(
+      /^---[\s\S]*?---\n/,
+      "",
+    );
     // Extract headers (lines starting with #)
     const requiredHeaders = contentWithoutFrontmatter
       .split("\n")
@@ -95,4 +98,34 @@ const bigPR = isPR
   : false;
 if (bigPR) {
   warn("Big PR! 📉 Consider breaking this into smaller PRs for better review.");
+}
+
+// 4. Branch Naming Convention
+if (isPR) {
+  const branchName = danger.github.pr.head.ref;
+  const branchPattern = /^(feat|fix|chore|docs|test)\/CM-\d+-[a-z0-9-]+$/;
+
+  if (!branchPattern.test(branchName)) {
+    fail(
+      `❌ Invalid branch name: \`${branchName}\`\n\n` +
+        `Expected format: \`<type>/CM-<number>-<description>\`\n` +
+        `Types: feat, fix, chore, docs, test\n\n` +
+        `Example: \`feat/CM-48-rag-summary-endpoint\``,
+    );
+  }
+
+  // Extract and link to Linear issue
+  const issueMatch = branchName.match(/CM-(\d+)/);
+  if (issueMatch) {
+    const issueId = `CM-${issueMatch[1]}`;
+    const issueUrl = `https://linear.app/cybermem/issue/${issueId}`;
+
+    // Check if PR body already contains the Linear link
+    if (!body.includes(issueUrl)) {
+      warn(
+        `📋 **Linear Issue:** [${issueId}](${issueUrl})\n\n` +
+          `Consider adding this link to your PR description for better traceability.`,
+      );
+    }
+  }
 }
