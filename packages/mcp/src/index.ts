@@ -394,7 +394,8 @@ For full protocol: https://docs.cybermem.dev/agent-protocol`;
     app.use(cors());
     app.use((req, res, next) => {
       // Skip JSON parsing for SSE message endpoint - it needs raw body stream
-      if (req.path === "/message") {
+      // Use req.url to handle query params like /message?sessionId=...
+      if (req.url.startsWith("/message")) {
         return next();
       }
       express.json()(req, res, next);
