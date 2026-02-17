@@ -381,6 +381,7 @@ jobs:
     name: "finalize"
     needs: [publish-npm, e2e]
     runs-on: ubuntu-latest
+    continue-on-error: true
     steps:
       - uses: actions/checkout@v4
         with:
@@ -472,6 +473,14 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           CURRENT_VERSION="${{ steps.prep.outputs.current_version }}"
+
+          # Pull fresh main to minimize merge conflicts
+          git fetch origin main
+          git rebase origin/main || {
+            echo "⚠️ Rebase failed, attempting merge instead"
+            git rebase --abort
+            git merge origin/main --no-edit || true
+          }
 
           # Create a release branch
           BRANCH_NAME="release/v$CURRENT_VERSION-auto"
