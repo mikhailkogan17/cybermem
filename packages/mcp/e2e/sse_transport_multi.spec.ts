@@ -7,9 +7,9 @@ import path from "path";
  *
  * This test validates:
  * 1. Multiple concurrent SSE connections
- * 2. Connection isolation (session-specific messages)
- * 3. Graceful handling of unauthorized requests (when auth is enabled)
- * 4. Connection cleanup and resource management
+ * 2. Handling of missing X-Client-Name headers
+ * 3. Rapid connection establishment and teardown behavior
+ * 4. Graceful handling of malformed SSE requests and overall server health
  *
  * Purpose: Prevent SSE transport regressions identified in 0.12-0.14 releases
  */
