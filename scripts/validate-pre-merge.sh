@@ -1,6 +1,9 @@
 #!/bin/bash
-# Validation script to run pre-merge checks locally
-# This script mimics what the CI pr-validation job will do
+# Validation script to run core pre-merge checks locally.
+# This script runs a fast subset of the CI pr-validation job: it validates
+# changesets and versions and builds the CLI and MCP packages. The dashboard
+# workspace is intentionally excluded here and is validated in CI, where the
+# pr-validation workflow builds all workspaces.
 
 set -e
 
