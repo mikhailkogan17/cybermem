@@ -41,6 +41,19 @@ CyberMem is a monorepo managed by NPM Workspaces.
 
 ## 🛠 Working on Components
 
+### Pre-Push Validation
+
+Before pushing your changes, run the validation script to catch issues early:
+
+```bash
+npm run validate
+```
+
+This will:
+- Validate changeset configuration
+- Check version consistency across packages
+- Run NPM publish dry-run
+
 ### Dashboard (`packages/dashboard`)
 ```bash
 cd packages/dashboard
@@ -66,6 +79,11 @@ npm link
 
 CyberMem uses [Changesets](https://github.com/changesets/changesets) for version management and publishing.
 
+### Release Stability Checklist
+
+> See sections 1.3 and 11 of `GEMINI.md` for the full release process, stability checklist, and failure recovery table.
+> Run `npm run validate` before pushing to catch issues early.
+
 ### Creating a Changeset
 
 When you make changes that should be included in a release:
@@ -88,6 +106,8 @@ Releases are handled automatically by the CI/CD pipeline via GitHub Actions:
 1. **Trigger Release Workflow**: Go to Actions → Publish → Run workflow
 2. **Versioning**: The workflow uses the committed Changesets in `.changeset/` to determine which packages to release and what version bumps to apply.
 3. **Automated Steps**:
+   - Validates changeset configuration
+   - Checks version consistency
    - Runs E2E tests
    - Builds production images
    - Applies all pending changesets (bumps versions and updates CHANGELOG.md)
