@@ -601,7 +601,7 @@ jobs:
           fi
           curl -X POST -H 'Content-type: application/json' \
             --data "{\"text\":\"$MESSAGE\"}" \
-            $SLACK_WEBHOOK || true
+            "$SLACK_WEBHOOK" || true
 
   # ==================================================================
   # 7. LINEAR SYNC (Tag issues with deployed version) — FAILABLE

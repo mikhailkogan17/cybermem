@@ -18,6 +18,13 @@ NC='\033[0m' # No Color
 # Track overall status
 VALIDATION_PASSED=true
 
+# Ensure jq is installed before proceeding
+if ! command -v jq > /dev/null 2>&1; then
+  echo -e "${RED}❌ ERROR: jq is required but not installed. Please install jq to run this script.${NC}"
+  VALIDATION_PASSED=false
+  exit 1
+fi
+
 # 1. Validate Changeset Configuration
 echo "=== 1/3: Validating Changeset Configuration ==="
 if [ ! -f .changeset/config.json ]; then

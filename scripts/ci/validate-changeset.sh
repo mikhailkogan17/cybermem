@@ -1,7 +1,13 @@
 #!/bin/bash
 # Validate .changeset/config.json for CI
 # Usage: scripts/ci/validate-changeset.sh
-set -e
+set -eo pipefail
+
+# Ensure jq is installed before proceeding
+if ! command -v jq > /dev/null 2>&1; then
+  echo "❌ ERROR: jq is required but not installed. Please install jq to run this script."
+  exit 1
+fi
 
 echo "=== Validating .changeset/config.json ==="
 if [ ! -f .changeset/config.json ]; then

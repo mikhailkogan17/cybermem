@@ -57,7 +57,7 @@ jobs:
         run: bash scripts/ci/npm-dry-run.sh
 
       - name: Validation Summary
-        if: always()
+        if: success()
         run: |
           echo "=== Pre-Merge Validation Summary ==="
           echo "✅ Changeset configuration validated"

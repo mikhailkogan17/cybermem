@@ -1,7 +1,7 @@
 #!/bin/bash
 # NPM publish dry-run to validate package structure
 # Usage: scripts/ci/npm-dry-run.sh
-set -e
+set -eo pipefail
 
 echo "=== Running npm publish dry-run ==="
 

@@ -81,7 +81,7 @@ CyberMem uses [Changesets](https://github.com/changesets/changesets) for version
 
 ### Release Stability Checklist
 
-> See `GEMINI.md` §1.3 and §11 for the full release process, stability checklist, and failure recovery table.
+> See sections 1.3 and 11 of `GEMINI.md` for the full release process, stability checklist, and failure recovery table.
 > Run `npm run validate` before pushing to catch issues early.
 
 ### Creating a Changeset
