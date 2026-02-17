@@ -37,24 +37,23 @@ else
     else
       echo -e "${GREEN}✅ Changeset repository configured: $REPO${NC}"
     fi
-    
+
     # Validate linked packages match workspace packages
     LINKED_PACKAGES=$(jq -r '.linked[0][]' .changeset/config.json 2>/dev/null || echo "")
     if [ -z "$LINKED_PACKAGES" ]; then
       echo -e "${YELLOW}⚠️  WARNING: No linked packages configured${NC}"
     else
       echo -e "${GREEN}✅ Linked packages found:${NC}"
-      echo "$LINKED_PACKAGES" | while read pkg; do
+      for pkg in $LINKED_PACKAGES; do
         echo "  - $pkg"
         PKG_NAME=$(echo "$pkg" | sed 's/@cybermem\///')
         if [ ! -d "packages/$PKG_NAME" ]; then
           echo -e "${RED}❌ ERROR: Linked package $pkg does not exist in workspace${NC}"
           VALIDATION_PASSED=false
-          exit 1
         fi
       done
     fi
-    
+
     if [ "$VALIDATION_PASSED" = true ]; then
       echo -e "${GREEN}✅ Changeset configuration is valid${NC}"
     fi
@@ -93,7 +92,7 @@ echo "Building packages..."
 # Build CLI and MCP (skip dashboard if it fails due to font fetch)
 if npm run build -w packages/cli -w packages/mcp > /tmp/build.log 2>&1; then
   echo -e "${GREEN}✅ Packages built successfully${NC}"
-  
+
   echo "Running npm publish dry-run..."
   if npm publish --workspaces --access public --dry-run > /tmp/publish-dry-run.log 2>&1; then
     echo -e "${GREEN}✅ Dry-run publish successful for all packages${NC}"

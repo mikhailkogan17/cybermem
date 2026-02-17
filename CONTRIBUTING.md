@@ -81,43 +81,8 @@ CyberMem uses [Changesets](https://github.com/changesets/changesets) for version
 
 ### Release Stability Checklist
 
-**Before Triggering Release Workflow:**
-
-- [ ] All PRs have passed E2E tests on both staging (8625) and prod (8626) ports
-- [ ] Version consistency check passed (all packages have same version)
-- [ ] Changeset configuration is valid (`.changeset/config.json`)
-- [ ] NPM publish dry-run succeeded
-- [ ] No pending security vulnerabilities (run `npm audit`)
-- [ ] SSE transport multi-session tests passed
-- [ ] Docker health checks pass within 120s timeout
-
-**During Release:**
-
-- [ ] Monitor publish workflow progress in GitHub Actions
-- [ ] Verify NPM packages published successfully
-- [ ] Check Docker images built for all architectures (amd64, arm64)
-- [ ] Confirm Ansible deployment to RPi completed without errors
-- [ ] Verify release PR created and auto-merged
-
-**Post-Release Verification:**
-
-- [ ] Test `npx @cybermem/cli@latest install` on fresh environment
-- [ ] Verify RPi production environment running new version
-- [ ] Check release notes in GitHub release
-- [ ] Monitor Slack notifications for any failures
-- [ ] Run smoke tests on production: `curl https://raspberrypi.ts.net/health`
-
-**Common Failure Modes & Solutions:**
-
-| Issue | Solution |
-|-------|----------|
-| Version already published | Workflow auto-bumps patch version |
-| Docker registry 502 | Retry logic handles transient failures (3 attempts) |
-| Health check timeout | Check container logs: `docker logs <container-name>` |
-| RPi deployment failure | SSH to RPi, check disk space and Docker status |
-| Changeset not found | Run `npm run changeset` or use workflow_dispatch with version_type |
-| ARM64 build hang/OOM | Reduce parallelism, check QEMU memory limits |
-| Finalize job push failure | Ensure GITHUB_TOKEN has write permissions |
+> See `GEMINI.md` §1.3 and §11 for the full release process, stability checklist, and failure recovery table.
+> Run `npm run validate` before pushing to catch issues early.
 
 ### Creating a Changeset
 
