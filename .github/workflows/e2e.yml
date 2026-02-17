@@ -59,12 +59,13 @@ jobs:
       - name: Validation Summary
         if: success()
         run: |
-          echo "=== Pre-Merge Validation Summary ==="
-          echo "✅ Changeset configuration validated"
-          echo "✅ Version consistency checked"
-          echo "✅ NPM publish dry-run completed"
-          echo ""
-          echo "All validation gates passed. Ready for E2E tests."
+          echo "### ✅ Pre-Merge Validation Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ Changeset configuration validated" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ Version consistency checked" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ NPM publish dry-run completed" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "All validation gates passed. Ready for E2E tests." >> $GITHUB_STEP_SUMMARY
 
   # ------------------------------------------------------------------
   # 3. E2E: localhost-staging (port 8625)

@@ -43,7 +43,8 @@
 > - Ignore GEMINI.md rules
 > - Skip workflow steps and/or required Playwright runs
 > - Force a commit without fixing a cause (linting, gitleaks, etc)
-> - [ ] **Commit without running local tests first (`npm run test:e2e`)**
+> - **Commit without running local tests first (`npm run test:e2e`)**
+> - **Change Node.js version from 24 in ANY workflow** (e2e.yml, publish.yml, etc.)
 
 ## 1.2 AGILE ROLES & RESPONSIBILITIES
 
