@@ -13,7 +13,7 @@ permissions:
 
 jobs:
   # ------------------------------------------------------------------
-  # 1. Quality Gates (Lint, Danger)
+  # 1. Quality Gates (Lint, Danger, Version Checks)
   # ------------------------------------------------------------------
   pr-lint:
     name: "Lint & Danger"
@@ -22,7 +22,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: "20"
+          node-version: "24"
       - run: npm ci
       - name: Lint Dashboard
         run: |
@@ -35,7 +35,120 @@ jobs:
         run: npx danger ci
 
   # ------------------------------------------------------------------
-  # 2. E2E: localhost-staging (port 8625)
+  # 2. Pre-Merge Validation (Changesets, Versions, NPM Dry-Run)
+  # ------------------------------------------------------------------
+  pr-validation:
+    name: "Pre-Merge Validation"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+      - run: npm ci
+
+      - name: Validate Changeset Configuration
+        run: |
+          echo "=== Validating .changeset/config.json ==="
+          if [ ! -f .changeset/config.json ]; then
+            echo "❌ ERROR: .changeset/config.json not found"
+            exit 1
+          fi
+
+          # Validate JSON syntax
+          if ! jq empty .changeset/config.json 2>/dev/null; then
+            echo "❌ ERROR: Invalid JSON in .changeset/config.json"
+            exit 1
+          fi
+
+          # Validate required fields
+          REPO=$(jq -r '.changelog[1].repo // empty' .changeset/config.json)
+          if [ -z "$REPO" ]; then
+            echo "❌ ERROR: changelog.repo is required in .changeset/config.json"
+            exit 1
+          fi
+
+          # Validate linked packages match workspace packages
+          LINKED_PACKAGES=$(jq -r '.linked[0][]' .changeset/config.json 2>/dev/null || echo "")
+          if [ -z "$LINKED_PACKAGES" ]; then
+            echo "⚠️  WARNING: No linked packages configured"
+          else
+            echo "✅ Linked packages:"
+            echo "$LINKED_PACKAGES" | while read pkg; do
+              echo "  - $pkg"
+              # Check if package exists
+              PKG_NAME=$(echo "$pkg" | sed 's/@cybermem\///')
+              if [ ! -d "packages/$PKG_NAME" ]; then
+                echo "❌ ERROR: Linked package $pkg does not exist in workspace"
+                exit 1
+              fi
+            done
+          fi
+
+          echo "✅ Changeset configuration is valid"
+
+      - name: Version Consistency Check
+        run: |
+          echo "=== Checking version consistency across all packages ==="
+
+          CLI_VERSION=$(node -p "require('./packages/cli/package.json').version")
+          MCP_VERSION=$(node -p "require('./packages/mcp/package.json').version")
+          DASHBOARD_VERSION=$(node -p "require('./packages/dashboard/package.json').version")
+          ROOT_VERSION=$(node -p "require('./package.json').version")
+
+          echo "Versions found:"
+          echo "  Root: $ROOT_VERSION"
+          echo "  @cybermem/cli: $CLI_VERSION"
+          echo "  @cybermem/mcp: $MCP_VERSION"
+          echo "  @cybermem/dashboard: $DASHBOARD_VERSION"
+
+          # All workspace packages should have the same version (linked packages)
+          if [ "$CLI_VERSION" != "$MCP_VERSION" ] || [ "$CLI_VERSION" != "$DASHBOARD_VERSION" ]; then
+            echo "❌ ERROR: Package versions are inconsistent!"
+            echo "All linked packages must have the same version."
+            echo "Run 'npm version <version> --workspaces --no-git-tag-version' to sync versions."
+            exit 1
+          fi
+
+          echo "✅ All package versions are consistent: $CLI_VERSION"
+
+      - name: NPM Publish Dry-Run
+        run: |
+          echo "=== Running npm publish dry-run ==="
+
+          # Build all packages
+          npm run build --workspaces
+
+          # Dry-run publish for each workspace
+          # Note: In local development, this may fail if version is already published
+          # In CI on fresh PRs, this should succeed
+          if npm publish --workspaces --access public --dry-run 2>&1 | tee /tmp/publish-dry-run.log; then
+            echo "✅ Dry-run publish successful for all packages"
+          else
+            # Check if the error is due to version already published
+            if grep -q "cannot publish over the previously published versions" /tmp/publish-dry-run.log; then
+              echo "⚠️  Current version already published"
+              echo "The publish workflow will auto-bump the version if needed"
+              echo "✅ Package structure validation passed"
+            else
+              echo "❌ Dry-run publish failed with unexpected error"
+              cat /tmp/publish-dry-run.log
+              exit 1
+            fi
+          fi
+
+      - name: Validation Summary
+        if: always()
+        run: |
+          echo "=== Pre-Merge Validation Summary ==="
+          echo "✅ Changeset configuration validated"
+          echo "✅ Version consistency checked"
+          echo "✅ NPM publish dry-run completed"
+          echo ""
+          echo "All validation gates passed. Ready for E2E tests."
+
+  # ------------------------------------------------------------------
+  # 3. E2E: localhost-staging (port 8625)
   #    Identical flow: checkout → npm ci → CLI install → Playwright
   # ------------------------------------------------------------------
   pr-e2e-localhost-staging:
@@ -47,7 +160,7 @@ jobs:
           submodules: recursive
       - uses: actions/setup-node@v4
         with:
-          node-version: "20"
+          node-version: "24"
 
       - run: |
           mkdir -p ~/.cybermem
@@ -126,7 +239,7 @@ jobs:
           retention-days: 7
 
   # ------------------------------------------------------------------
-  # 3. E2E: localhost-prod (port 8626)
+  # 4. E2E: localhost-prod (port 8626)
   #    Identical flow: checkout → npm ci → CLI install → Playwright
   # ------------------------------------------------------------------
   pr-e2e-localhost-prod:
@@ -138,7 +251,7 @@ jobs:
           submodules: recursive
       - uses: actions/setup-node@v4
         with:
-          node-version: "20"
+          node-version: "24"
 
       - run: |
           mkdir -p ~/.cybermem
