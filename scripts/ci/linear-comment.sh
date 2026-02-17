@@ -38,9 +38,9 @@ for ISSUE_ID in $ISSUES; do
     continue
   fi
 
-  # Add comment (using jq for safe GraphQL mutation construction)
+  # Add comment (using jq for safe GraphQL variables construction)
   RESULT=$(jq -n --arg issueId "$ISSUE_UUID" --arg body "$COMMENT_BODY" \
-    '{query: "mutation { commentCreate(input: { issueId: \($issueId), body: \($body) }) { success } }"}' | \
+    '{query: "mutation ($issueId: ID!, $body: String!) { commentCreate(input: { issueId: $issueId, body: $body }) { success } }", variables: {issueId: $issueId, body: $body}}' | \
     curl -s -X POST https://api.linear.app/graphql \
       -H "Content-Type: application/json" \
       -H "Authorization: $LINEAR_API_KEY" \

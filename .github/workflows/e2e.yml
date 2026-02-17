@@ -73,6 +73,7 @@ jobs:
   # ------------------------------------------------------------------
   pr-e2e-localhost-staging:
     name: "E2E: localhost-staging"
+    needs: [pr-lint, pr-validation]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -164,6 +165,7 @@ jobs:
   # ------------------------------------------------------------------
   pr-e2e-localhost-prod:
     name: "E2E: localhost-prod"
+    needs: [pr-lint, pr-validation]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

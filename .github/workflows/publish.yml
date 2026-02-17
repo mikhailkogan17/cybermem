@@ -478,8 +478,12 @@ jobs:
           git fetch origin main
           git rebase origin/main || {
             echo "⚠️ Rebase failed, attempting merge instead"
-            git rebase --abort
-            git merge origin/main --no-edit || true
+            git rebase --abort || true
+            if ! git merge origin/main --no-edit; then
+              echo "❌ Merge failed; aborting release process"
+              git merge --abort || true
+              exit 1
+            fi
           }
 
           # Create a release branch
