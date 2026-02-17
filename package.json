@@ -14,6 +14,7 @@
     "test:unit": "jest",
     "test:e2e": "playwright test",
     "test:e2e:ci": "playwright test",
+    "validate": "bash scripts/validate-pre-merge.sh",
     "cli": "npm run start -w packages/cli",
     "dashboard:dev": "npm run dev -w packages/dashboard",
     "mcp:dev": "npm run dev -w packages/mcp",
