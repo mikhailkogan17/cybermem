@@ -399,12 +399,27 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
+      - name: Create release branch from fresh main
+        id: branch
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          CURRENT_VERSION="${{ needs.publish-npm.outputs.version }}"
+          echo "current_version=$CURRENT_VERSION" >> $GITHUB_OUTPUT
+
+          BRANCH_NAME="release/v$CURRENT_VERSION-auto"
+          echo "branch_name=$BRANCH_NAME" >> $GITHUB_OUTPUT
+
+          # Create release branch from latest origin/main (clean tree)
+          git fetch origin main
+          git checkout -b "$BRANCH_NAME" origin/main
+
       - name: Apply changesets and prepare release data
         id: prep
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          CURRENT_VERSION="${{ needs.publish-npm.outputs.version }}"
+          CURRENT_VERSION="${{ steps.branch.outputs.current_version }}"
           echo "current_version=$CURRENT_VERSION" >> $GITHUB_OUTPUT
 
           # Auto-generate changeset if version_type is provided and no changesets exist
@@ -473,22 +488,7 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           CURRENT_VERSION="${{ steps.prep.outputs.current_version }}"
-
-          # Pull fresh main to minimize merge conflicts
-          git fetch origin main
-          git rebase origin/main || {
-            echo "⚠️ Rebase failed, attempting merge instead"
-            git rebase --abort || true
-            if ! git merge origin/main --no-edit; then
-              echo "❌ Merge failed; aborting release process"
-              git merge --abort || true
-              exit 1
-            fi
-          }
-
-          # Create a release branch
-          BRANCH_NAME="release/v$CURRENT_VERSION-auto"
-          git checkout -b "$BRANCH_NAME"
+          BRANCH_NAME="${{ steps.branch.outputs.branch_name }}"
 
           # Commit all changes (changeset-applied versions, CHANGELOGs, reports)
           git add .
