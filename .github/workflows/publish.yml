@@ -489,9 +489,10 @@ jobs:
           git commit -m "chore: release v$CURRENT_VERSION [skip ci]"
 
           # Push with error handling
-          if ! git push origin "$BRANCH_NAME" 2>&1; then
+          if ! PUSH_OUTPUT=$(git push origin "$BRANCH_NAME" 2>&1); then
             echo "❌ ERROR: Failed to push release branch"
             echo "Check token permissions and branch protection rules."
+            echo "$PUSH_OUTPUT"
             exit 1
           fi
 
@@ -517,9 +518,10 @@ jobs:
           echo "pr_url=$PR_URL" >> $GITHUB_OUTPUT
 
           # Enable auto-merge with error handling
-          if ! gh pr merge "$PR_URL" --auto --squash 2>&1; then
+          if ! MERGE_OUTPUT=$(gh pr merge "$PR_URL" --auto --squash 2>&1); then
             echo "⚠️ WARNING: Could not enable auto-merge for PR"
             echo "The PR was created but auto-merge failed. Manual merge may be needed."
+            echo "$MERGE_OUTPUT"
           else
             echo "✅ Auto-merge enabled successfully"
           fi
