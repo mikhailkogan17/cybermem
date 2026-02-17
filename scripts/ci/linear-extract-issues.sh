@@ -5,7 +5,7 @@
 set -e
 
 VERSION="${1:?Usage: $0 <version>}"
-echo "version=$VERSION" >> $GITHUB_OUTPUT
+echo "version=$VERSION" >> "$GITHUB_OUTPUT"
 
 LAST_TAG=$(git tag --sort=-creatordate | grep -E '^v[0-9]' | head -2 | tail -1)
 if [ -z "$LAST_TAG" ]; then
@@ -20,9 +20,9 @@ ISSUES=$(git log "$COMMIT_RANGE" --pretty=format:"%s %D" 2>/dev/null | grep -oE 
 
 if [ -z "$ISSUES" ]; then
   echo "ℹ️ No Linear issues found in commits"
-  echo "issues=" >> $GITHUB_OUTPUT
+  echo "issues=" >> "$GITHUB_OUTPUT"
   exit 0
 fi
 
 echo "📝 Found Linear issues: $ISSUES"
-echo "issues=$ISSUES" >> $GITHUB_OUTPUT
+echo "issues=$ISSUES" >> "$GITHUB_OUTPUT"
