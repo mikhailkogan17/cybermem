@@ -577,3 +577,134 @@ jobs:
           curl -X POST -H 'Content-type: application/json' \
             --data "{\"text\":\"$MESSAGE\"}" \
             $SLACK_WEBHOOK || true
+
+  # ==================================================================
+  # 7. LINEAR SYNC (Tag issues with deployed version) — FAILABLE
+  # ==================================================================
+  linear-sync:
+    name: "linear-sync"
+    needs: [publish-npm, deploy-prod, finalize]
+    if: always() && needs.publish-npm.result == 'success'
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Extract Linear issue IDs from commits
+        id: issues
+        run: |
+          VERSION="${{ needs.publish-npm.outputs.version }}"
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+
+          # Get commits since last tag (excluding the current release)
+          LAST_TAG=$(git tag --sort=-creatordate | grep -E '^v[0-9]' | head -2 | tail -1)
+          if [ -z "$LAST_TAG" ]; then
+            echo "⚠️ No previous tag found, scanning last 50 commits"
+            COMMIT_RANGE="HEAD~50..HEAD"
+          else
+            echo "📋 Scanning commits since $LAST_TAG"
+            COMMIT_RANGE="${LAST_TAG}..HEAD"
+          fi
+
+          # Extract unique CM-* issue identifiers from commit messages and branch names
+          ISSUES=$(git log "$COMMIT_RANGE" --pretty=format:"%s %D" 2>/dev/null | grep -oE 'CM-[0-9]+' | sort -u | tr '\n' ' ')
+
+          if [ -z "$ISSUES" ]; then
+            echo "ℹ️ No Linear issues found in commits"
+            echo "issues=" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
+          echo "📝 Found Linear issues: $ISSUES"
+          echo "issues=$ISSUES" >> $GITHUB_OUTPUT
+
+      - name: Comment on Linear issues with version
+        if: steps.issues.outputs.issues != ''
+        env:
+          LINEAR_API_KEY: ${{ secrets.LINEAR_API_KEY }}
+        run: |
+          VERSION="${{ steps.issues.outputs.version }}"
+          ISSUES="${{ steps.issues.outputs.issues }}"
+          RUN_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+
+          if [ -z "$LINEAR_API_KEY" ]; then
+            echo "⚠️ LINEAR_API_KEY not set, skipping Linear sync"
+            exit 0
+          fi
+
+          COMMENT_BODY="🚀 **Deployed in v${VERSION}**\n\n- NPM: [@cybermem/cli@${VERSION}](https://www.npmjs.com/package/@cybermem/cli/v/${VERSION})\n- [GitHub Actions Run](${RUN_URL})"
+
+          for ISSUE_ID in $ISSUES; do
+            echo "📝 Commenting on $ISSUE_ID..."
+
+            # Get the issue UUID from identifier
+            ISSUE_UUID=$(curl -s -X POST https://api.linear.app/graphql \
+              -H "Content-Type: application/json" \
+              -H "Authorization: $LINEAR_API_KEY" \
+              -d "{\"query\": \"query { issueSearch(filter: { number: { eq: ${ISSUE_ID#CM-} } }, first: 1) { nodes { id identifier } } }\"}" \
+              | jq -r '.data.issueSearch.nodes[0].id // empty')
+
+            if [ -z "$ISSUE_UUID" ]; then
+              echo "⚠️ Could not find $ISSUE_ID in Linear, skipping"
+              continue
+            fi
+
+            # Add comment
+            RESULT=$(curl -s -X POST https://api.linear.app/graphql \
+              -H "Content-Type: application/json" \
+              -H "Authorization: $LINEAR_API_KEY" \
+              -d "{\"query\": \"mutation { commentCreate(input: { issueId: \\\"${ISSUE_UUID}\\\", body: \\\"${COMMENT_BODY}\\\" }) { success } }\"}")
+
+            if echo "$RESULT" | jq -e '.data.commentCreate.success' > /dev/null 2>&1; then
+              echo "✅ Commented on $ISSUE_ID"
+            else
+              echo "⚠️ Failed to comment on $ISSUE_ID: $RESULT"
+            fi
+          done
+
+          echo "✅ Linear sync complete for v$VERSION"
+
+      - name: Update Slack with issue list
+        if: steps.issues.outputs.issues != ''
+        continue-on-error: true
+        env:
+          SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK_URL }}
+        run: |
+          VERSION="${{ steps.issues.outputs.version }}"
+          ISSUES="${{ steps.issues.outputs.issues }}"
+
+          # Build issue list for Slack
+          ISSUE_LIST=""
+          for ISSUE_ID in $ISSUES; do
+            ISSUE_LIST="${ISSUE_LIST}\n• <https://linear.app/cybermem/issue/${ISSUE_ID}|${ISSUE_ID}>"
+          done
+
+          if [ -z "$SLACK_WEBHOOK" ]; then
+            echo "⚠️ SLACK_WEBHOOK not set, skipping"
+            exit 0
+          fi
+
+          cat <<EOF > payload.json
+          {
+            "text": "📋 CyberMem v${VERSION} — Linear Issues",
+            "blocks": [
+              {
+                "type": "header",
+                "text": {
+                  "type": "plain_text",
+                  "text": "📋 CyberMem v${VERSION} — Linked Issues"
+                }
+              },
+              {
+                "type": "section",
+                "text": {
+                  "type": "mrkdwn",
+                  "text": "*Issues included in this release:*${ISSUE_LIST}"
+                }
+              }
+            ]
+          }
+          EOF
+          curl -X POST -H 'Content-type: application/json' --data @payload.json $SLACK_WEBHOOK || true
