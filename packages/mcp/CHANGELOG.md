@@ -1,5 +1,11 @@
 # @cybermem/mcp
 
+## 0.14.14
+
+### Patch Changes
+
+- Automated patch version bump.
+
 ## 0.14.13
 
 ### Patch Changes
