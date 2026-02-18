@@ -56,7 +56,7 @@ async function mcpRpc(
   headers["Accept"] = "application/json, text/event-stream";
   if (sessionId) headers["Mcp-Session-Id"] = sessionId;
 
-  const resp = await request.post(`${RAW_MCP_URL}/mcp`, {
+  const resp = await request.post(`${MCP_API_URL}/mcp`, {
     data: { jsonrpc: "2.0", id, method, params },
     headers,
   });
