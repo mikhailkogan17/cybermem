@@ -1,7 +1,7 @@
 const fs = require("fs");
 const path = require("path");
 
-const distFile = path.join(__dirname, "dist", "index.js");
+const distFile = path.join(__dirname, "..", "dist", "index.js");
 if (!fs.existsSync(distFile)) {
   console.error("dist/index.js not found");
   process.exit(1);

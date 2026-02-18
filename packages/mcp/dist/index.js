@@ -63,16 +63,20 @@ async function initialize() {
     // Migrations
     try {
         await (0, db_js_1.run_async)("CREATE TABLE IF NOT EXISTS cybermem_stats (id INTEGER PRIMARY KEY AUTOINCREMENT, client_name TEXT NOT NULL, tool TEXT NOT NULL, count INTEGER DEFAULT 0, errors INTEGER DEFAULT 0, last_updated INTEGER NOT NULL, UNIQUE(client_name, tool));");
-        const statsInfo = await (0, db_js_1.all_async)("PRAGMA table_info(cybermem_stats)");
-        if (statsInfo.some((r) => r.name === "operation")) {
+        await (0, db_js_1.run_async)("CREATE TABLE IF NOT EXISTS cybermem_access_log (id INTEGER PRIMARY KEY AUTOINCREMENT, timestamp INTEGER NOT NULL, client_name TEXT NOT NULL, client_version TEXT, method TEXT NOT NULL, endpoint TEXT NOT NULL, tool TEXT NOT NULL, status TEXT NOT NULL, is_error INTEGER DEFAULT 0);");
+        // Robustly check for and rename 'operation' to 'tool'
+        const statsInfo = (await (0, db_js_1.all_async)("PRAGMA table_info(cybermem_stats);"));
+        if (statsInfo.some((col) => col.name === "operation")) {
             await (0, db_js_1.run_async)("ALTER TABLE cybermem_stats RENAME COLUMN operation TO tool;");
         }
-        await (0, db_js_1.run_async)("CREATE TABLE IF NOT EXISTS cybermem_access_log (id INTEGER PRIMARY KEY AUTOINCREMENT, timestamp INTEGER NOT NULL, client_name TEXT NOT NULL, client_version TEXT, method TEXT NOT NULL, endpoint TEXT NOT NULL, tool TEXT NOT NULL, status TEXT NOT NULL, is_error INTEGER DEFAULT 0);");
-        const logInfo = await (0, db_js_1.all_async)("PRAGMA table_info(cybermem_access_log)");
-        if (logInfo.some((r) => r.name === "operation")) {
+        else if (!statsInfo.some((col) => col.name === "tool")) {
+            await (0, db_js_1.run_async)("ALTER TABLE cybermem_stats ADD COLUMN tool TEXT DEFAULT 'unknown';");
+        }
+        const logInfo = (await (0, db_js_1.all_async)("PRAGMA table_info(cybermem_access_log);"));
+        if (logInfo.some((col) => col.name === "operation")) {
             await (0, db_js_1.run_async)("ALTER TABLE cybermem_access_log RENAME COLUMN operation TO tool;");
         }
-        else if (!logInfo.some((r) => r.name === "tool")) {
+        else if (!logInfo.some((col) => col.name === "tool")) {
             await (0, db_js_1.run_async)("ALTER TABLE cybermem_access_log ADD COLUMN tool TEXT DEFAULT 'unknown';");
         }
         // Backfill NULL tool values for SQLite safety
@@ -108,9 +112,10 @@ app.use("*", async (c, next) => {
 // TOOLS
 server.addTool({
     name: "add_memory",
+    description: "Store a new memory with optional tags for semantic retrieval.",
     parameters: zod_1.z.object({
-        content: zod_1.z.string(),
-        tags: zod_1.z.array(zod_1.z.string()).optional(),
+        content: zod_1.z.string().describe("The text content of the memory"),
+        tags: zod_1.z.array(zod_1.z.string()).optional().describe("Category tags"),
     }),
     execute: async (args, context) => {
         return requestContext.run({ clientName: context.session?.clientName }, async () => {
@@ -128,7 +133,11 @@ server.addTool({
 });
 server.addTool({
     name: "query_memory",
-    parameters: zod_1.z.object({ query: zod_1.z.string(), k: zod_1.z.number().default(5) }),
+    description: "Retrieve relevant memories using semantic search.",
+    parameters: zod_1.z.object({
+        query: zod_1.z.string().describe("Search query string"),
+        k: zod_1.z.number().default(5).describe("Number of results"),
+    }),
     execute: async (args, context) => {
         return requestContext.run({ clientName: context.session?.clientName }, async () => {
             try {
@@ -145,10 +154,16 @@ server.addTool({
 });
 server.addTool({
     name: "update_memory",
-    parameters: zod_1.z.object({
-        id: zod_1.z.string(),
-        content: zod_1.z.string().optional(),
-        tags: zod_1.z.array(zod_1.z.string()).optional(),
+    description: "Update an existing memory's content or tags. At least one must be provided.",
+    parameters: zod_1.z
+        .object({
+        id: zod_1.z.string().describe("Memory ID"),
+        content: zod_1.z.string().optional().describe("New content"),
+        tags: zod_1.z.array(zod_1.z.string()).optional().describe("New tags"),
+    })
+        .refine((data) => data.content !== undefined || data.tags !== undefined, {
+        message: "Either content or tags must be provided for update",
+        path: ["content"],
     }),
     execute: async (args, context) => {
         return requestContext.run({ clientName: context.session?.clientName }, async () => {
@@ -166,7 +181,14 @@ server.addTool({
 });
 server.addTool({
     name: "reinforce_memory",
-    parameters: zod_1.z.object({ id: zod_1.z.string(), boost: zod_1.z.number().default(0.1) }),
+    description: "Boost a memory's relevance score to prevent decay.",
+    parameters: zod_1.z.object({
+        id: zod_1.z.string().describe("Memory ID"),
+        boost: zod_1.z
+            .number()
+            .default(0.1)
+            .describe("Relevance boost amount (0.0 to 1.0)"),
+    }),
     execute: async (args, context) => {
         return requestContext.run({ clientName: context.session?.clientName }, async () => {
             try {
@@ -183,7 +205,10 @@ server.addTool({
 });
 server.addTool({
     name: "delete_memory",
-    parameters: zod_1.z.object({ id: zod_1.z.string() }),
+    description: "Permanently delete a memory and its associated vectors.",
+    parameters: zod_1.z.object({
+        id: zod_1.z.string().describe("Memory ID"),
+    }),
     execute: async (args, context) => {
         return requestContext.run({ clientName: context.session?.clientName }, async () => {
             try {

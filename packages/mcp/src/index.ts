@@ -106,6 +106,10 @@ async function initialize() {
       await run_async(
         "ALTER TABLE cybermem_stats RENAME COLUMN operation TO tool;",
       );
+    } else if (!statsInfo.some((col: any) => col.name === "tool")) {
+      await run_async(
+        "ALTER TABLE cybermem_stats ADD COLUMN tool TEXT DEFAULT 'unknown';",
+      );
     }
 
     const logInfo = (await all_async(
