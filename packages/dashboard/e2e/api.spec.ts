@@ -61,7 +61,25 @@ async function mcpRpc(
     headers,
   });
 
-  const body = await resp.json();
+  const text = await resp.text();
+  let body;
+  if (text.includes("event: message") && text.includes("data: ")) {
+    const dataLine = text
+      .split("\n")
+      .find((l: string) => l.startsWith("data: "));
+    if (dataLine) {
+      body = JSON.parse(dataLine.replace("data: ", ""));
+    }
+  }
+  if (!body) {
+    try {
+      body = JSON.parse(text);
+    } catch (e) {
+      console.error("Failed to parse MCP response:", text);
+      throw e;
+    }
+  }
+
   const newSessionId = resp.headers()["mcp-session-id"];
   return { body, status: resp.status(), sessionId: newSessionId || sessionId };
 }
