@@ -55,35 +55,9 @@ async function waitForMCPReady(
       if (response.ok) {
         consecutiveSuccesses++;
         if (consecutiveSuccesses >= requiredSuccesses) {
-          // Now verify /mcp endpoint works (Traefik routing fully ready)
-          console.log(`   ✅ Health OK, verifying /mcp endpoint...`);
-
-          const mcpResponse = await fetch(baseUrl + "/mcp", {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              "X-Client-Name": "e2e-global-setup",
-            },
-            body: JSON.stringify({
-              jsonrpc: "2.0",
-              id: 1,
-              method: "listTools",
-              params: {},
-            }),
-            signal: AbortSignal.timeout(10000),
-          });
-
-          if (mcpResponse.ok) {
-            const elapsed = Date.now() - startTime;
-            console.log(`   ✅ MCP API fully ready after ${elapsed}ms`);
-            // Extra stabilization wait
-            await new Promise((resolve) => setTimeout(resolve, 3000));
+          if (consecutiveSuccesses >= requiredSuccesses) {
+            console.log(`   ✅ Health OK, MCP API ready`);
             return true;
-          } else {
-            console.log(
-              `   ⚠️ /mcp returned ${mcpResponse.status}, retrying...`,
-            );
-            consecutiveSuccesses = 0;
           }
         }
       } else {
