@@ -1,29 +1,220 @@
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
-import { SSEClientTransport } from "@modelcontextprotocol/sdk/client/sse.js";
+import { Transport } from "@modelcontextprotocol/sdk/shared/transport.js";
+import {
+  JSONRPCMessage,
+  JSONRPCMessageSchema,
+} from "@modelcontextprotocol/sdk/types.js";
 import { expect, test } from "@playwright/test";
-import { EventSource } from "eventsource";
+import { spawn } from "child_process";
+import path from "path";
 
-// Polyfill EventSource for Node.js
-(global as any).EventSource = EventSource;
+const PORT = 3102;
+const BASE_URL = `http://localhost:${PORT}`;
 
-const BASE_URL = process.env.MCP_URL
-  ? process.env.MCP_URL.replace(/\/mcp$/, "")
-  : "http://localhost:8626";
+/**
+ * Custom transport for FastMCP httpStream mode.
+ * Uses manual fetch reader instead of EventSource for Node.js reliability.
+ */
+class FastMCPHandshakeTransport implements Transport {
+  public sessionId: string | undefined = undefined;
+  private endpoint: URL;
+  private headers: Record<string, string>;
+  private abortController: AbortController | null = null;
+  private isClosing = false;
 
-// Tailscale environments require auth token
-const isLocalhost =
-  BASE_URL.includes("localhost") || BASE_URL.includes("127.0.0.1");
-const CYBERMEM_TOKEN = process.env.CYBERMEM_TOKEN || "";
+  onclose?: () => void;
+  onerror?: (error: Error) => void;
+  onmessage?: (message: JSONRPCMessage) => void;
+
+  constructor(endpoint: URL, headers: Record<string, string> = {}) {
+    this.endpoint = endpoint;
+    this.headers = headers;
+  }
+
+  async start(): Promise<void> {
+    // 1. Handshake (POST)
+    const initResponse = await fetch(this.endpoint.toString(), {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Accept: "application/json, text/event-stream",
+        ...this.headers,
+      },
+      body: JSON.stringify({
+        jsonrpc: "2.0",
+        id: "handshake",
+        method: "initialize",
+        params: {
+          protocolVersion: "2024-11-05",
+          capabilities: {},
+          clientInfo: { name: "api-spec", version: "1.0.0" },
+        },
+      }),
+    });
+
+    if (!initResponse.ok) {
+      throw new Error(`Handshake failed: ${initResponse.status}`);
+    }
+
+    this.sessionId = initResponse.headers.get("mcp-session-id") || undefined;
+    if (!this.sessionId) {
+      throw new Error("No mcp-session-id received");
+    }
+
+    // 2. Start Stream (GET)
+    this.abortController = new AbortController();
+    const streamResponse = await fetch(this.endpoint.toString(), {
+      headers: {
+        ...this.headers,
+        Accept: "text/event-stream",
+        "mcp-session-id": this.sessionId,
+      },
+      signal: this.abortController.signal,
+    });
+
+    console.log(`   [Transport] Stream status: ${streamResponse.status}`);
+    if (!streamResponse.ok) {
+      throw new Error(`Stream establishment failed: ${streamResponse.status}`);
+    }
+
+    // Async stream reading
+    console.log("   [Transport] Starting stream reader...");
+    this.readStream(streamResponse.body!).catch((err) => {
+      if (!this.isClosing) {
+        console.error("   [Transport] Stream error:", err);
+        this.onerror?.(err);
+      }
+    });
+
+    // Wait a bit for stream to stabilize
+    await new Promise((r) => setTimeout(r, 500));
+  }
+
+  private async readStream(body: ReadableStream<Uint8Array>) {
+    const reader = body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = "";
+
+    try {
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) {
+          console.log("   [Transport] Stream ended");
+          break;
+        }
+
+        const chunk = decoder.decode(value, { stream: true });
+        // console.log(`   [Transport] Chunk: ${chunk}`);
+        buffer += chunk;
+        const lines = buffer.split("\n");
+        buffer = lines.pop() || "";
+
+        for (const line of lines) {
+          if (line.trim() === "") continue;
+          if (line.startsWith("data: ")) {
+            const data = line.slice(6).trim();
+            if (data) {
+              try {
+                // console.log(`   [Transport] Message: ${data}`);
+                const message = JSONRPCMessageSchema.parse(JSON.parse(data));
+                this.onmessage?.(message);
+              } catch (err) {
+                console.error("   [Transport] Message parse error:", err);
+              }
+            }
+          }
+        }
+      }
+    } catch (err) {
+      if (!this.isClosing) {
+        console.error("   [Transport] Reader error:", err);
+      }
+    } finally {
+      reader.releaseLock();
+    }
+  }
+
+  async send(message: JSONRPCMessage): Promise<void> {
+    if (!this.sessionId) throw new Error("Not connected");
+
+    const response = await fetch(this.endpoint.toString(), {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Accept: "application/json, text/event-stream",
+        "mcp-session-id": this.sessionId,
+        ...this.headers,
+      },
+      body: JSON.stringify(message),
+    });
+
+    if (!response.ok) {
+      throw new Error(`Failed to send message: ${response.status}`);
+    }
+
+    // If result is in the response (enableJsonResponse: true), emit it
+    if (response.headers.get("Content-Type")?.includes("application/json")) {
+      try {
+        const body = await response.json();
+        // console.log("   [Transport] Received response via POST:", JSON.stringify(body));
+        // Use setTimeout to ensure the promise for send() resolves before the message is processed if needed,
+        // but SDK usually handles this fine.
+        this.onmessage?.(body);
+      } catch (err) {
+        // Not JSON or empty (e.g. 202 accepted) - ignore
+      }
+    }
+  }
+
+  async close(): Promise<void> {
+    this.isClosing = true;
+    this.abortController?.abort();
+    this.onclose?.();
+  }
+}
 
 // CRITICAL: MCP CRUD tests MUST run in serial order (each depends on the previous)
 test.describe.configure({ mode: "serial" });
 
 test.describe("MCP:E2E (Protocol Tool Calls)", () => {
   let client: Client;
-  let transport: SSEClientTransport;
+  let transport: FastMCPHandshakeTransport;
   let memoryId: string;
+  let serverProcess: any;
 
-  test.beforeAll(async ({}, testInfo) => {
+  test.beforeAll(async () => {
+    // Spawn server
+    const serverPath = path.join(__dirname, "../dist/index.js");
+    serverProcess = spawn(
+      "node",
+      [
+        serverPath,
+        "--port",
+        PORT.toString(),
+        "--env",
+        "test",
+        "--db-path",
+        ":memory:",
+      ],
+      {
+        stdio: "pipe",
+        env: { ...process.env, OM_DB_PATH: ":memory:" },
+      },
+    );
+
+    await new Promise<void>((resolve, reject) => {
+      serverProcess.stderr?.on("data", (data: any) => {
+        const output = data.toString();
+        if (
+          output.includes(`CyberMem MCP running on http://localhost:${PORT}`)
+        ) {
+          resolve();
+        }
+      });
+      serverProcess.on("error", reject);
+      setTimeout(() => reject(new Error("Server start timeout")), 60000);
+    });
+
     console.log(`🔧 Testing against: ${BASE_URL}`);
 
     // Initialize MCP Client
@@ -32,37 +223,27 @@ test.describe("MCP:E2E (Protocol Tool Calls)", () => {
       { capabilities: {} },
     );
 
-    // Build SSE URL
-    const sseUrl = new URL(`${BASE_URL}/sse`);
-
-    // Create Transport with headers if needed
+    const sseUrl = new URL(`${BASE_URL}/mcp`);
     const headers: Record<string, string> = {
       "X-Client-Name": "antigravity-e2e",
     };
-    if (!isLocalhost && CYBERMEM_TOKEN) {
-      headers["X-API-Key"] = CYBERMEM_TOKEN;
-    }
 
-    transport = new SSEClientTransport(sseUrl, {
-      eventSourceInit: {
-        headers,
-      } as any,
-    });
+    transport = new FastMCPHandshakeTransport(sseUrl, headers);
 
-    console.log(`🔗 Connecting to MCP via SSE: ${sseUrl.toString()}`);
+    console.log(`🔗 Connecting to MCP via Handshake: ${sseUrl.toString()}`);
     await client.connect(transport);
     console.log("✅ MCP Client connected");
-
-    await testInfo.attach("🔧 Test Environment", {
-      body: `Base URL: ${BASE_URL}\nSSE URL: ${sseUrl.toString()}\nClient: antigravity-e2e\n`,
-      contentType: "text/plain",
-    });
   });
 
   test.afterAll(async () => {
     if (transport) {
       await transport.close();
     }
+    if (serverProcess) {
+      serverProcess.kill();
+    }
+    // Clean up port 3102 just in case
+    spawn("sh", ["-c", `lsof -ti:${PORT} | xargs kill -9 || true`]);
   });
 
   test("1. Create Memory (add_memory)", async ({}, testInfo) => {

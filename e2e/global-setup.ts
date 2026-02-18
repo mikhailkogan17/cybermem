@@ -55,20 +55,25 @@ async function waitForMCPReady(
       if (response.ok) {
         consecutiveSuccesses++;
         if (consecutiveSuccesses >= requiredSuccesses) {
-          // Now verify /add endpoint works (Traefik routing fully ready)
-          console.log(`   ✅ Health OK, verifying /add endpoint...`);
+          // Now verify /mcp endpoint works (Traefik routing fully ready)
+          console.log(`   ✅ Health OK, verifying /mcp endpoint...`);
 
-          const addResponse = await fetch(addUrl, {
+          const mcpResponse = await fetch(baseUrl + "/mcp", {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
               "X-Client-Name": "e2e-global-setup",
             },
-            body: JSON.stringify({ content: "E2E warmup test" }),
+            body: JSON.stringify({
+              jsonrpc: "2.0",
+              id: 1,
+              method: "listTools",
+              params: {},
+            }),
             signal: AbortSignal.timeout(10000),
           });
 
-          if (addResponse.ok) {
+          if (mcpResponse.ok) {
             const elapsed = Date.now() - startTime;
             console.log(`   ✅ MCP API fully ready after ${elapsed}ms`);
             // Extra stabilization wait
@@ -76,7 +81,7 @@ async function waitForMCPReady(
             return true;
           } else {
             console.log(
-              `   ⚠️ /add returned ${addResponse.status}, retrying...`,
+              `   ⚠️ /mcp returned ${mcpResponse.status}, retrying...`,
             );
             consecutiveSuccesses = 0;
           }
@@ -125,7 +130,9 @@ async function globalSetup(_config: FullConfig) {
   // Step 1: Reset database
 
   // Step 1: Reset database
-  console.log("🧹 [1/2] Wiping database via node packages/cli/dist/index.js reset -f");
+  console.log(
+    "🧹 [1/2] Wiping database via node packages/cli/dist/index.js reset -f",
+  );
   const resetResult = runCLI("node packages/cli/dist/index.js reset -f");
   if (resetResult.success) {
     console.log("   ✅ Database reset successfully");
@@ -137,7 +144,9 @@ async function globalSetup(_config: FullConfig) {
   }
 
   // Step 2: Start/ensure CyberMem services
-  console.log("🚀 [2/2] Starting CyberMem via node packages/cli/dist/index.js install");
+  console.log(
+    "🚀 [2/2] Starting CyberMem via node packages/cli/dist/index.js install",
+  );
   const installResult = runCLI("node packages/cli/dist/index.js install");
   if (installResult.success) {
     console.log("   ✅ CyberMem services started");

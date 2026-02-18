@@ -181,6 +181,7 @@ services:
 
   ollama:
     image: ollama/ollama:latest
+    profiles: ["ollama"]
     # container_name removed for simultaneity
     ports:
       - "11434:11434"

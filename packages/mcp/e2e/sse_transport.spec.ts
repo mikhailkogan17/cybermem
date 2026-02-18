@@ -2,14 +2,13 @@ import { expect, test } from "@playwright/test";
 import { ChildProcess, spawn } from "child_process";
 import path from "path";
 
-test.describe("MCP SSE Transport", () => {
+test.describe("MCP SSE Transport Handshake", () => {
   let serverProcess: ChildProcess;
-  const PORT = 3101; // Use unique port for this test
+  const PORT = 3101;
 
   test.setTimeout(120000);
 
   test.beforeAll(async () => {
-    // Start the server in http mode
     const serverPath = path.join(__dirname, "../dist/index.js");
     serverProcess = spawn(
       "node",
@@ -28,11 +27,9 @@ test.describe("MCP SSE Transport", () => {
       },
     );
 
-    // Wait for server to start
     await new Promise<void>((resolve, reject) => {
       serverProcess.stderr?.on("data", (data) => {
         const output = data.toString();
-        console.log("[Server]", output);
         if (
           output.includes(`CyberMem MCP running on http://localhost:${PORT}`)
         ) {
@@ -45,39 +42,80 @@ test.describe("MCP SSE Transport", () => {
   });
 
   test.afterAll(() => {
-    serverProcess.kill();
+    if (serverProcess && !serverProcess.killed) {
+      serverProcess.kill();
+    }
   });
 
-  test("should establish SSE connection without crashing", async () => {
-    const response = await fetch(`http://localhost:${PORT}/sse`);
-    expect(response.status).toBe(200);
-    expect(response.headers.get("content-type")).toBe("text/event-stream");
+  test("should establishment session and call tool via handshake", async () => {
+    const CLIENT_NAME = "e2e-handshake-tester";
 
-    // Read stream for a bit to ensure it doesn't close immediately due to error
-    const reader = response.body?.getReader();
-    expect(reader).toBeDefined();
+    // 1. Handshake (POST initialize)
+    const initResponse = await fetch(`http://localhost:${PORT}/mcp`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Accept: "application/json, text/event-stream",
+        "X-Client-Name": CLIENT_NAME,
+      },
+      body: JSON.stringify({
+        jsonrpc: "2.0",
+        id: 1,
+        method: "initialize",
+        params: {
+          protocolVersion: "2024-11-05",
+          capabilities: {},
+          clientInfo: { name: "e2e", version: "1.0.0" },
+        },
+      }),
+    });
 
-    const decoder = new TextDecoder();
-    let endpointFound = false;
+    expect(initResponse.status).toBe(200);
+    const sessionId = initResponse.headers.get("mcp-session-id");
+    const initBody = await initResponse.json();
+    console.log(
+      "[Test] Init Headers:",
+      JSON.stringify(Object.fromEntries(initResponse.headers.entries())),
+    );
+    console.log("[Test] Init Body:", JSON.stringify(initBody));
+    expect(sessionId).toBeDefined();
 
-    // Read first few chunks
-    for (let i = 0; i < 10; i++) {
-      const { value, done } = await reader!.read();
-      if (done) break;
-      const text = decoder.decode(value);
-      console.log(`[Chunk ${i}]`, text);
-      if (text.includes("event: endpoint")) {
-        endpointFound = true;
-        break;
-      }
-    }
+    // 2. Open Stream (GET)
+    const streamResponse = await fetch(`http://localhost:${PORT}/mcp`, {
+      headers: {
+        Accept: "text/event-stream",
+        "mcp-session-id": sessionId!,
+      },
+    });
+    expect(streamResponse.status).toBe(200);
+    const reader = streamResponse.body?.getReader();
 
-    expect(endpointFound).toBe(true);
+    // 3. Call Tool (POST)
+    const toolResponse = await fetch(`http://localhost:${PORT}/mcp`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Accept: "application/json, text/event-stream",
+        "mcp-session-id": sessionId!,
+        "X-Client-Name": CLIENT_NAME,
+      },
+      body: JSON.stringify({
+        jsonrpc: "2.0",
+        id: 2,
+        method: "tools/call",
+        params: {
+          name: "add_memory",
+          arguments: { content: "Handshake Test Memory" },
+        },
+      }),
+    });
 
-    // Cleanup connection
+    expect(toolResponse.status).toBe(200);
+    const toolBody = await toolResponse.json();
+    console.log("[Test] Tool Result:", JSON.stringify(toolBody));
+    expect(toolBody.result).toBeDefined();
+
+    // Cleanup
     await reader?.cancel();
-
-    // Check if server process is still running (didn't crash)
-    expect(serverProcess.exitCode).toBeNull();
   });
 });

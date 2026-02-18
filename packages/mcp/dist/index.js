@@ -9,12 +9,9 @@ const fs_1 = require("fs");
 const path_1 = require("path");
 const zod_1 = require("zod");
 // --- CORE SDK IMPORTS ---
-// @ts-ignore
-const memory_js_1 = require("openmemory-js/dist/core/memory.js");
-// @ts-ignore
-const hsg_js_1 = require("openmemory-js/dist/memory/hsg.js");
-// @ts-ignore
 const db_js_1 = require("openmemory-js/dist/core/db.js");
+const memory_js_1 = require("openmemory-js/dist/core/memory.js");
+const hsg_js_1 = require("openmemory-js/dist/memory/hsg.js");
 // --- GLOBALS & CONTEXT ---
 const requestContext = new async_hooks_1.AsyncLocalStorage();
 let PACKAGE_VERSION = "0.0.0";
@@ -24,9 +21,7 @@ try {
     PACKAGE_VERSION = packageJson.version;
 }
 catch { }
-const VALID_VERSION = (PACKAGE_VERSION.match(/^\d+\.\d+\.\d+$/)
-    ? PACKAGE_VERSION
-    : "0.0.0");
+const VALID_VERSION = (PACKAGE_VERSION.match(/^\d+\.\d+\.\d+$/) ? PACKAGE_VERSION : "0.0.0");
 const CYBERMEM_INSTRUCTIONS = `CyberMem is a persistent context daemon for AI agents.
 PROTOCOL:
 1. On session start: call query_memory("user context profile")
@@ -58,6 +53,10 @@ const logActivity = async (tool, status = 200) => {
 // --- INITIALIZATION ---
 async function initialize() {
     const dbPath = process.env.OM_DB_PATH;
+    if (!dbPath) {
+        console.error("[INIT] Environment variable OM_DB_PATH is not set. Please configure OM_DB_PATH to point to the OpenMemory database file (e.g., /path/to/openmemory.db).");
+        process.exit(1);
+    }
     const dir = (0, path_1.dirname)(dbPath);
     if (dir && !(0, fs_1.existsSync)(dir))
         (0, fs_1.mkdirSync)(dir, { recursive: true });
@@ -76,74 +75,135 @@ async function initialize() {
         else if (!logInfo.some((r) => r.name === "tool")) {
             await (0, db_js_1.run_async)("ALTER TABLE cybermem_access_log ADD COLUMN tool TEXT DEFAULT 'unknown';");
         }
+        // Backfill NULL tool values for SQLite safety
+        await (0, db_js_1.run_async)("UPDATE cybermem_access_log SET tool = 'unknown' WHERE tool IS NULL;");
+        await (0, db_js_1.run_async)("UPDATE cybermem_stats SET tool = 'unknown' WHERE tool IS NULL;");
     }
     catch (e) {
         console.error("[INIT] Migration Warning:", e.message);
     }
 }
-// --- SERVER SETUP ---
 const server = new fastmcp_1.FastMCP({
     name: "cybermem",
     version: VALID_VERSION,
     instructions: CYBERMEM_INSTRUCTIONS,
     health: { enabled: true, path: "/health" },
+    authenticate: async (req) => {
+        const clientName = (req.headers["x-client-name"] ||
+            req.headers["X-Client-Name"] ||
+            "unknown");
+        // Extract versioned naming if present (e.g. "antigravity/v1.0.0" -> "antigravity")
+        return { clientName: clientName.split("/")[0] };
+    },
 });
 const memory = new memory_js_1.Memory();
 const app = server.getApp();
+// Keep Hono middleware for custom routes if any, though FastMCP transport bypasses it
 app.use("*", async (c, next) => {
-    const clientName = (c.req.header("X-Client-Name") || c.req.header("x-client-name") || "unknown").split("/")[0];
+    const clientName = (c.req.header("X-Client-Name") ||
+        c.req.header("x-client-name") ||
+        "unknown").split("/")[0];
     return requestContext.run({ clientName }, next);
 });
 // TOOLS
 server.addTool({
     name: "add_memory",
-    parameters: zod_1.z.object({ content: zod_1.z.string(), tags: zod_1.z.array(zod_1.z.string()).optional() }),
-    execute: async (args) => {
-        const res = await memory.add(args.content, { tags: args.tags });
-        await logActivity("add_memory");
-        return JSON.stringify(res);
+    parameters: zod_1.z.object({
+        content: zod_1.z.string(),
+        tags: zod_1.z.array(zod_1.z.string()).optional(),
+    }),
+    execute: async (args, context) => {
+        return requestContext.run({ clientName: context.session?.clientName }, async () => {
+            try {
+                const res = await memory.add(args.content, { tags: args.tags });
+                await logActivity("add_memory");
+                return JSON.stringify(res);
+            }
+            catch (err) {
+                await logActivity("add_memory", 500);
+                throw err;
+            }
+        });
     },
 });
 server.addTool({
     name: "query_memory",
     parameters: zod_1.z.object({ query: zod_1.z.string(), k: zod_1.z.number().default(5) }),
-    execute: async (args) => {
-        const res = await memory.search(args.query, { limit: args.k });
-        await logActivity("query_memory");
-        return JSON.stringify(res);
+    execute: async (args, context) => {
+        return requestContext.run({ clientName: context.session?.clientName }, async () => {
+            try {
+                const res = await memory.search(args.query, { limit: args.k });
+                await logActivity("query_memory");
+                return JSON.stringify(res);
+            }
+            catch (err) {
+                await logActivity("query_memory", 500);
+                throw err;
+            }
+        });
     },
 });
 server.addTool({
     name: "update_memory",
-    parameters: zod_1.z.object({ id: zod_1.z.string(), content: zod_1.z.string().optional(), tags: zod_1.z.array(zod_1.z.string()).optional() }),
-    execute: async (args) => {
-        const res = await (0, hsg_js_1.update_memory)(args.id, args.content, args.tags);
-        await logActivity("update_memory");
-        return JSON.stringify(res);
+    parameters: zod_1.z.object({
+        id: zod_1.z.string(),
+        content: zod_1.z.string().optional(),
+        tags: zod_1.z.array(zod_1.z.string()).optional(),
+    }),
+    execute: async (args, context) => {
+        return requestContext.run({ clientName: context.session?.clientName }, async () => {
+            try {
+                const res = await (0, hsg_js_1.update_memory)(args.id, args.content, args.tags);
+                await logActivity("update_memory");
+                return JSON.stringify(res);
+            }
+            catch (err) {
+                await logActivity("update_memory", 500);
+                throw err;
+            }
+        });
     },
 });
 server.addTool({
     name: "reinforce_memory",
     parameters: zod_1.z.object({ id: zod_1.z.string(), boost: zod_1.z.number().default(0.1) }),
-    execute: async (args) => {
-        await (0, hsg_js_1.reinforce_memory)(args.id, args.boost);
-        await logActivity("reinforce_memory");
-        return `Memory reinforced: ${args.id}`;
+    execute: async (args, context) => {
+        return requestContext.run({ clientName: context.session?.clientName }, async () => {
+            try {
+                await (0, hsg_js_1.reinforce_memory)(args.id, args.boost);
+                await logActivity("reinforce_memory");
+                return `Memory reinforced: ${args.id}`;
+            }
+            catch (err) {
+                await logActivity("reinforce_memory", 500);
+                throw err;
+            }
+        });
     },
 });
 server.addTool({
     name: "delete_memory",
     parameters: zod_1.z.object({ id: zod_1.z.string() }),
-    execute: async (args) => {
-        await (0, db_js_1.run_async)("DELETE FROM memories WHERE id=?", [args.id]);
-        await (0, db_js_1.run_async)("DELETE FROM vectors WHERE id=?", [args.id]);
-        await logActivity("delete_memory");
-        return "Deleted";
+    execute: async (args, context) => {
+        return requestContext.run({ clientName: context.session?.clientName }, async () => {
+            try {
+                await (0, db_js_1.run_async)("DELETE FROM memories WHERE id=?", [args.id]);
+                await (0, db_js_1.run_async)("DELETE FROM vectors WHERE id=?", [args.id]);
+                await logActivity("delete_memory");
+                return "Deleted";
+            }
+            catch (err) {
+                await logActivity("delete_memory", 500);
+                throw err;
+            }
+        });
     },
 });
 // START
 async function main() {
+    console.error("[INIT] Starting CyberMem MCP...");
     await initialize();
+    console.error("[INIT] Database initialized.");
     const argsArr = process.argv.slice(2);
     const getArg = (name) => {
         const idx = argsArr.indexOf(name);
@@ -151,10 +211,27 @@ async function main() {
     };
     const port = parseInt(getArg("--port") || "3100", 10);
     const useHttp = argsArr.includes("--http") || argsArr.includes("--port");
+    console.error(`[INIT] Starting ${useHttp ? "HTTP" : "STDIO"} server...`);
     await server.start({
         transportType: useHttp ? "httpStream" : "stdio",
-        httpStream: useHttp ? { port, host: "0.0.0.0", endpoint: "/mcp" } : undefined,
+        httpStream: useHttp
+            ? {
+                port,
+                host: "0.0.0.0",
+                endpoint: "/mcp",
+                stateless: false,
+                enableJsonResponse: true,
+            }
+            : undefined,
     });
-    console.error(`CyberMem MCP ${VALID_VERSION} [${useHttp ? "HTTP:" + port : "STDIO"}]`);
+    if (useHttp) {
+        console.error(`CyberMem MCP running on http://localhost:${port}/mcp`);
+    }
+    else {
+        console.error(`CyberMem MCP ${VALID_VERSION} [STDIO]`);
+    }
 }
-main().catch(console.error);
+main().catch((err) => {
+    console.error("[CRITICAL] Main Failure:", err);
+    process.exit(1);
+});

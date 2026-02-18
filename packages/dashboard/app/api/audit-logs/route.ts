@@ -91,18 +91,21 @@ export async function GET(request: Request) {
         status = "Error";
       else if (statusCode >= 300) status = "Warning";
 
-      let tool = log.tool.toLowerCase();
+      const rawTool = log.tool ?? "unknown";
+      let toolDisplayName = String(rawTool).toLowerCase();
       // Friendly labels for core tools if needed
-      if (tool === "add_memory") tool = "Write";
-      else if (tool === "query_memory") tool = "Read";
-      else if (tool === "update_memory") tool = "Update";
-      else if (tool === "delete_memory") tool = "Delete";
-      else tool = tool.charAt(0).toUpperCase() + tool.slice(1);
+      if (toolDisplayName === "add_memory") toolDisplayName = "Write";
+      else if (toolDisplayName === "query_memory") toolDisplayName = "Read";
+      else if (toolDisplayName === "update_memory") toolDisplayName = "Update";
+      else if (toolDisplayName === "delete_memory") toolDisplayName = "Delete";
+      else
+        toolDisplayName =
+          toolDisplayName.charAt(0).toUpperCase() + toolDisplayName.slice(1);
 
       return {
         timestamp: log.timestamp,
         client: normalizeClientName(log.client_name),
-        tool: tool,
+        tool: toolDisplayName,
         status: status,
         method: log.method,
         description: log.endpoint,
