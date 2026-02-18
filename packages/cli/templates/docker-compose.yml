@@ -61,6 +61,7 @@ services:
       CYBERMEM_ENV: ${CYBERMEM_ENV:-prod}
       CYBERMEM_INSTANCE: ${CYBERMEM_INSTANCE:-local}
       CYBERMEM_TAILSCALE: ${CYBERMEM_TAILSCALE:-false}
+      OLLAMA_URL: http://ollama:11434
     volumes:
       - ${CYBERMEM_ENV_PATH:-${HOME}/.cybermem/.env}:/.env
       - ${DATA_DIR:-${HOME}/.cybermem/data}:/data
@@ -68,6 +69,7 @@ services:
     depends_on:
       - traefik
       - auth-sidecar
+
     # Secrets removed to avoid CI read-only mount issues
     # secrets:
     #   - om_api_key
@@ -179,14 +181,13 @@ services:
 
   ollama:
     image: ollama/ollama:latest
+    profiles: ["ollama"]
     # container_name removed for simultaneity
     ports:
       - "11434:11434"
     volumes:
       - ollama-models:/root/.ollama
     restart: unless-stopped
-    profiles:
-      - ollama
 
   dashboard:
     build:

@@ -1,597 +1,348 @@
+#!/usr/bin/env node
 import "./console-fix.js";
 import "./env.js";
 
-import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { SSEServerTransport } from "@modelcontextprotocol/sdk/server/sse.js";
-import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
-import { InitializeRequestSchema } from "@modelcontextprotocol/sdk/types.js";
 import { AsyncLocalStorage } from "async_hooks";
-import cors from "cors";
-import express from "express";
-import { readFileSync } from "fs";
-import { join } from "path";
+import { FastMCP } from "fastmcp";
+import { existsSync, mkdirSync, readFileSync } from "fs";
+import { dirname, join } from "path";
 import { z } from "zod";
 
-// Type definition for OpenMemory Memory class
+// --- CORE SDK IMPORTS ---
+import { all_async, run_async } from "openmemory-js/dist/core/db.js";
+import { Memory } from "openmemory-js/dist/core/memory.js";
+import {
+    reinforce_memory,
+    update_memory,
+} from "openmemory-js/dist/memory/hsg.js";
+
+// --- TYPES ---
 interface IMemory {
-  add(
-    content: string,
-    opts?: { tags?: string[]; user_id?: string; [key: string]: unknown },
-  ): Promise<unknown>;
-  search(
-    query: string,
-    opts?: {
-      limit?: number;
-      user_id?: string;
-      sectors?: unknown;
-      [key: string]: unknown;
-    },
-  ): Promise<unknown>;
+  add(content: string, opts?: any): Promise<unknown>;
+  search(query: string, opts?: any): Promise<unknown>;
   get(id: string): Promise<unknown>;
   delete_all(user_id: string): Promise<unknown>;
   wipe(): Promise<unknown>;
 }
 
-// Async Storage for Request Context (User ID and Client Name)
-const requestContext = new AsyncLocalStorage<{
-  userId?: string;
-  clientName?: string;
-}>();
+// --- GLOBALS & CONTEXT ---
+const requestContext = new AsyncLocalStorage<{ clientName?: string }>();
 
-// CLI args processing
-const args = process.argv.slice(2);
-
-// Read version from package.json
 let PACKAGE_VERSION = "0.0.0";
 try {
   const packageJsonPath = join(__dirname, "../package.json");
   const packageJson = JSON.parse(readFileSync(packageJsonPath, "utf-8"));
   PACKAGE_VERSION = packageJson.version;
-} catch (error) {
-  console.error("[MCP] Failed to read package.json version", error);
-}
+} catch {}
 
-// Start the server
-startServer();
+const VALID_VERSION = (
+  PACKAGE_VERSION.match(/^\d+\.\d+\.\d+$/) ? PACKAGE_VERSION : "0.0.0"
+) as `${number}.${number}.${number}`;
 
-async function startServer() {
-  const getArg = (name: string) => {
-    const idx = args.indexOf(name);
-    return idx !== -1 && args[idx + 1] ? args[idx + 1] : undefined;
-  };
+const CYBERMEM_INSTRUCTIONS = `CyberMem is a persistent context daemon for AI agents.
+PROTOCOL:
+1. On session start: call query_memory("user context profile")
+2. Store insights immediately with add_memory
+3. Corrections: update_memory
+4. Decay prevention: reinforce_memory
+Full protocol: https://docs.cybermem.dev/agent-protocol`;
 
-  const cliEnv = getArg("--env");
+// --- ERROR TRAPPING ---
+process.on("uncaughtException", (err) => {
+  console.error("[CRITICAL] Uncaught Exception:", err);
+});
+process.on("unhandledRejection", (reason) => {
+  console.error("[CRITICAL] Unhandled Rejection:", reason);
+});
 
-  if (cliEnv === "staging") {
-    console.error("[MCP] Running in Staging environment");
-    process.env.CYBERMEM_ENV = "staging";
+// --- LOGGING ---
+const logActivity = async (tool: string, status: number = 200) => {
+  try {
+    const ctx = requestContext.getStore();
+    const client = ctx?.clientName || "unknown";
+    console.log(`[MCP-LOG] client=${client} tool=${tool} status=${status}`);
+    const ts = Date.now();
+    const isError = status >= 400 ? 1 : 0;
+
+    await run_async(
+      "INSERT INTO cybermem_access_log (timestamp, client_name, client_version, method, endpoint, tool, status, is_error) VALUES (?, ?, ?, 'POST', '/mcp', ?, ?, ?)",
+      [ts, client, PACKAGE_VERSION, tool, status.toString(), isError],
+    );
+    await run_async(
+      "INSERT INTO cybermem_stats (client_name, tool, count, errors, last_updated) VALUES (?, ?, 1, ?, ?) ON CONFLICT(client_name, tool) DO UPDATE SET count=count+1, errors=errors+?, last_updated=?",
+      [client, tool, isError, ts, isError, ts],
+    );
+  } catch (err: any) {
+    console.error("[MCP] Log Error:", err.message);
   }
+};
 
-  // --- IMPLEMENTATION LOGIC ---
-
-  let memory: IMemory | null = null;
-  let sdk_update_memory:
-    | ((
-        id: string,
-        content?: string,
-        tags?: string[],
-        metadata?: Record<string, unknown>,
-      ) => Promise<unknown>)
-    | null = null;
-  let sdk_reinforce_memory:
-    | ((id: string, boost?: number) => Promise<unknown>)
-    | null = null;
-
-  // LOCAL SDK MODE
-  const dbPath = process.env.OM_DB_PATH!;
-  const fs = await import("fs");
-  const path = await import("path");
-  try {
-    const dir = path.dirname(dbPath);
-    if (dir) fs.mkdirSync(dir, { recursive: true });
-  } catch {}
-
-  try {
-    const { Memory } = await import("openmemory-js/dist/core/memory.js");
-    const hsg = await import("openmemory-js/dist/memory/hsg.js");
-    sdk_update_memory = hsg.update_memory;
-    sdk_reinforce_memory = hsg.reinforce_memory;
-    memory = new Memory() as IMemory;
-
-    // Initialize Tables
-    const sqlite3 = await import("sqlite3");
-    const db = new sqlite3.default.Database(dbPath);
-    db.configure("busyTimeout", 5000);
-    db.serialize(() => {
-      db.run(
-        "CREATE TABLE IF NOT EXISTS cybermem_stats (id INTEGER PRIMARY KEY AUTOINCREMENT, client_name TEXT NOT NULL, operation TEXT NOT NULL, count INTEGER DEFAULT 0, errors INTEGER DEFAULT 0, last_updated INTEGER NOT NULL, UNIQUE(client_name, operation));",
-      );
-      db.run(
-        "CREATE TABLE IF NOT EXISTS cybermem_access_log (id INTEGER PRIMARY KEY AUTOINCREMENT, timestamp INTEGER NOT NULL, client_name TEXT NOT NULL, client_version TEXT, method TEXT NOT NULL, endpoint TEXT NOT NULL, operation TEXT NOT NULL, status TEXT NOT NULL, is_error INTEGER DEFAULT 0);",
-      );
-      db.run(
-        "CREATE TABLE IF NOT EXISTS access_keys (id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))), key_hash TEXT NOT NULL, name TEXT DEFAULT 'default', user_id TEXT DEFAULT 'default', created_at TEXT DEFAULT (datetime('now')), last_used_at TEXT, is_active INTEGER DEFAULT 1);",
-      );
-    });
-    db.close();
-  } catch (e) {
-    console.error("Failed to initialize OpenMemory SDK:", e);
+// --- INITIALIZATION ---
+async function initialize() {
+  const dbPath = process.env.OM_DB_PATH;
+  if (!dbPath) {
     console.error(
-      "[FATAL] CyberMem cannot start without a working database. " +
-        "Check OM_DB_PATH and ensure sqlite3 native bindings are installed.",
+      "[INIT] Environment variable OM_DB_PATH is not set. Please configure OM_DB_PATH to point to the OpenMemory database file (e.g., /path/to/openmemory.db).",
     );
     process.exit(1);
   }
 
-  // PERSISTENT LOGGING DB
-  let loggingDb: any = null;
-  const initLoggingDb = async () => {
-    if (loggingDb) return loggingDb;
-    const dbPath = process.env.OM_DB_PATH!;
-    const sqlite3 = await import("sqlite3");
-    loggingDb = new sqlite3.default.Database(dbPath);
-    loggingDb.configure("busyTimeout", 10000);
-    return new Promise((resolve) => {
-      loggingDb.serialize(() => {
-        loggingDb.run("PRAGMA journal_mode=WAL;");
-        loggingDb.run("PRAGMA synchronous=NORMAL;", () => resolve(loggingDb));
-      });
-    });
-  };
+  const dir = dirname(dbPath);
+  if (dir && !existsSync(dir)) mkdirSync(dir, { recursive: true });
 
-  let stdioClientName: string | undefined = undefined;
+  // Migrations
+  try {
+    await run_async(
+      "CREATE TABLE IF NOT EXISTS cybermem_stats (id INTEGER PRIMARY KEY AUTOINCREMENT, client_name TEXT NOT NULL, tool TEXT NOT NULL, count INTEGER DEFAULT 0, errors INTEGER DEFAULT 0, last_updated INTEGER NOT NULL, UNIQUE(client_name, tool));",
+    );
+    await run_async(
+      "CREATE TABLE IF NOT EXISTS cybermem_access_log (id INTEGER PRIMARY KEY AUTOINCREMENT, timestamp INTEGER NOT NULL, client_name TEXT NOT NULL, client_version TEXT, method TEXT NOT NULL, endpoint TEXT NOT NULL, tool TEXT NOT NULL, status TEXT NOT NULL, is_error INTEGER DEFAULT 0);",
+    );
 
-  // Protocol Instructions
-  const CYBERMEM_INSTRUCTIONS = `CyberMem is a persistent context daemon for AI agents.
-PROTOCOL:
-1. On session start: call query_memory("user context profile")
-2. Store new insights immediately with add_memory (STABLE data)
-3. For corrections: use update_memory (STRUCTURAL mutation, high cost)
-4. To prevent decay: use reinforce_memory (METABOLIC boost, low cost)
-5. Always include tags: [topic, year, source:your-client-name]
-For full protocol: https://docs.cybermem.dev/agent-protocol`;
-
-  const logActivity = async (
-    operation: string,
-    opts: {
-      method?: string;
-      endpoint?: string;
-      status?: number;
-      sessionId?: string;
-    } = {},
-  ) => {
-    // Determine client name (priority: specific > store > default)
-    let client: string;
-    const ctx = requestContext.getStore();
-
-    if (opts.sessionId) {
-      // For SSE sessions, prefer the real client name from the request context when available
-      client = ctx?.clientName || "sse-client";
-    } else if (ctx) {
-      client = ctx.clientName || stdioClientName || "unknown";
-    } else {
-      client = stdioClientName || "unknown";
+    // Robustly check for and rename 'operation' to 'tool'
+    const statsInfo = (await all_async(
+      "PRAGMA table_info(cybermem_stats);",
+    )) as any[];
+    if (statsInfo.some((col: any) => col.name === "operation")) {
+      await run_async(
+        "ALTER TABLE cybermem_stats RENAME COLUMN operation TO tool;",
+      );
+    } else if (!statsInfo.some((col: any) => col.name === "tool")) {
+      await run_async(
+        "ALTER TABLE cybermem_stats ADD COLUMN tool TEXT DEFAULT 'unknown';",
+      );
     }
 
-    const { method = "POST", endpoint = "/mcp", status = 200 } = opts;
-    try {
-      const db = await initLoggingDb();
-      const ts = Date.now();
-      const is_error = status >= 400 ? 1 : 0;
-      db.serialize(() => {
-        db.run(
-          "INSERT INTO cybermem_access_log (timestamp, client_name, client_version, method, endpoint, operation, status, is_error) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-          [
-            ts,
-            client,
-            PACKAGE_VERSION,
-            method,
-            endpoint,
-            operation,
-            status.toString(),
-            is_error,
-          ],
-        );
-        db.run(
-          "INSERT INTO cybermem_stats (client_name, operation, count, errors, last_updated) VALUES (?, ?, 1, ?, ?) ON CONFLICT(client_name, operation) DO UPDATE SET count = count + 1, errors = errors + ?, last_updated = ?",
-          [client, operation, is_error, ts, is_error, ts],
-        );
-      });
-    } catch {}
-  };
-
-  // Factory to create configured McpServer instance
-  const createConfiguredServer = (
-    onClientConnected?: (name: string) => void,
-  ) => {
-    const server = new McpServer(
-      { name: "cybermem", version: PACKAGE_VERSION },
-      {
-        instructions: CYBERMEM_INSTRUCTIONS,
-      },
-    );
-
-    // access underlying server to set internal state for direct memory access
-    // Casting to unknown first to allow adding private property
-    (server as unknown as { _memoryReady: boolean })._memoryReady = true;
-
-    server.registerResource(
-      "CyberMem Agent Protocol",
-      "cybermem://protocol",
-      { description: "Instructions for AI agents", mimeType: "text/plain" },
-      async () => ({
-        contents: [
-          {
-            uri: "cybermem://protocol",
-            mimeType: "text/plain",
-            text: CYBERMEM_INSTRUCTIONS,
-          },
-        ],
-      }),
-    );
-
-    // access underlying server
-    server.server.setRequestHandler(
-      InitializeRequestSchema,
-      async (request) => {
-        // For SSE multiple clients, stdioClientName global is less useful,
-        // but we can set it for context if running in single-user mode.
-        // For multi-user, rely on requestContext.
-        // For SSE multiple clients, rely on per-request context instead of a global.
-        const clientName = request.params.clientInfo.name;
-        if (onClientConnected) {
-          onClientConnected(clientName);
-        } else {
-          stdioClientName = clientName;
-        }
-        console.error(`[MCP] Client identified via handshake: ${clientName}`);
-        return {
-          protocolVersion: "2024-11-05",
-          capabilities: {
-            tools: { listChanged: true },
-            resources: { subscribe: true },
-          },
-          serverInfo: {
-            name: "cybermem",
-            version: PACKAGE_VERSION,
-          },
-        };
-      },
-    );
-
-    // TOOLS
-    server.registerTool(
-      "add_memory",
-      {
-        description:
-          "Store a new memory. Use for high-quality, stable data. " +
-          CYBERMEM_INSTRUCTIONS,
-        inputSchema: z.object({
-          content: z.string(),
-          tags: z.array(z.string()).optional(),
-        }),
-      },
-      async (args: { content: string; tags?: string[] }) => {
-        const res = await memory!.add(args.content, { tags: args.tags });
-        await logActivity("create", {
-          method: "POST",
-          endpoint: "/memory/add",
-          status: 200,
-        });
-        return { content: [{ type: "text", text: JSON.stringify(res) }] };
-      },
-    );
-
-    server.registerTool(
-      "query_memory",
-      {
-        description: "Search memories.",
-        inputSchema: z.object({ query: z.string(), k: z.number().default(5) }),
-      },
-      async (args: { query: string; k?: number }) => {
-        const res = await memory!.search(args.query, { limit: args.k });
-        await logActivity("read", {
-          method: "POST",
-          endpoint: "/memory/query",
-          status: 200,
-        });
-        return { content: [{ type: "text", text: JSON.stringify(res) }] };
-      },
-    );
-
-    server.registerTool(
-      "update_memory",
-      {
-        description:
-          "Mutate existing memory (content/tags). HIGH COST: re-embeds and re-links. Use for corrections.",
-        inputSchema: z.object({
-          id: z.string(),
-          content: z.string().optional(),
-          tags: z.array(z.string()).optional(),
-        }),
-      },
-      async (args: { id: string; content?: string; tags?: string[] }) => {
-        if (!sdk_update_memory) throw new Error("Update not available in SDK");
-        if (args.content === undefined && args.tags === undefined) {
-          throw new Error(
-            "At least one of 'content' or 'tags' must be provided to update_memory",
-          );
-        }
-        const res = await sdk_update_memory(args.id, args.content, args.tags);
-        await logActivity("update", {
-          method: "PATCH",
-          endpoint: `/memory/${args.id}`,
-          status: 200,
-        });
-        return { content: [{ type: "text", text: JSON.stringify(res) }] };
-      },
-    );
-
-    server.registerTool(
-      "reinforce_memory",
-      {
-        description:
-          "Metabolic boost (salience). LOW COST: prevents decay without mutation. Use for active topics.",
-        inputSchema: z.object({
-          id: z.string(),
-          boost: z.number().default(0.1),
-        }),
-      },
-      async (args: { id: string; boost?: number }) => {
-        if (!sdk_reinforce_memory)
-          throw new Error("Reinforce not available in SDK");
-        const res = await sdk_reinforce_memory(args.id, args.boost);
-        await logActivity("update", {
-          method: "POST",
-          endpoint: `/memory/${args.id}/reinforce`,
-          status: 200,
-        });
-        return { content: [{ type: "text", text: JSON.stringify(res) }] };
-      },
-    );
-
-    server.registerTool(
-      "delete_memory",
-      {
-        description: "Delete memory",
-        inputSchema: z.object({ id: z.string() }),
-      },
-      async (args: { id: string }) => {
-        const dbPath = process.env.OM_DB_PATH!;
-        const sqlite3 = await import("sqlite3");
-        const db = new sqlite3.default.Database(dbPath);
-        return new Promise((resolve, reject) => {
-          db.serialize(() => {
-            db.run("DELETE FROM memories WHERE id = ?", [args.id]);
-            db.run(
-              "DELETE FROM vectors WHERE id = ?",
-              [args.id],
-              async (err: Error | null) => {
-                db.close();
-                await logActivity("delete", {
-                  method: "DELETE",
-                  endpoint: `/memory/${args.id}`,
-                  status: err ? 500 : 200,
-                });
-                if (err) reject(err);
-                else resolve({ content: [{ type: "text", text: "Deleted" }] });
-              },
-            );
-          });
-        });
-      },
-    );
-
-    return server;
-  };
-
-  // EXPRESS SERVER
-  // HTTP server mode for Docker/Traefik deployment
-  const useHttp = args.includes("--http") || args.includes("--port");
-  if (useHttp) {
-    const port = parseInt(getArg("--port") || "3100", 10);
-    const app = express();
-    app.use(cors());
-    app.use((req, res, next) => {
-      // Skip JSON parsing for SSE message endpoint - it needs raw body stream
-      // Use req.url to handle query params like /message?sessionId=...
-      if (req.url.startsWith("/message")) {
-        return next();
-      }
-      express.json()(req, res, next);
-    });
-    app.get("/health", (req, res) =>
-      res.json({ ok: true, version: PACKAGE_VERSION }),
-    );
-
-    app.use((req, res, next) => {
-      const clientName =
-        (req.headers["x-client-name"] as string) || "antigravity-client";
-      requestContext.run({ clientName }, next);
-    });
-
-    if (memory) {
-      app.post("/add", async (req, res) => {
-        try {
-          const result = await (memory as any)!.add(req.body.content, {
-            id: req.body.id,
-            tags: req.body.tags,
-          });
-          await logActivity("create", {
-            method: "POST",
-            endpoint: "/add",
-            status: 200,
-          });
-          res.json(result);
-        } catch (e: any) {
-          res.status(500).json({ error: e.message });
-        }
-      });
-      app.post("/query", async (req, res) => {
-        try {
-          const result = await memory!.search(req.body.query || "", {
-            limit: req.body.k || 5,
-          });
-          await logActivity("read", {
-            method: "POST",
-            endpoint: "/query",
-            status: 200,
-          });
-          res.json(result);
-        } catch (e: any) {
-          res.status(500).json({ error: e.message });
-        }
-      });
-      app.get("/all", async (req, res) => {
-        try {
-          const result = await memory!.search("", { limit: 10 });
-          await logActivity("read", {
-            method: "GET",
-            endpoint: "/all",
-            status: 200,
-          });
-          res.json(result);
-        } catch (e: any) {
-          res.status(500).json({ error: e.message });
-        }
-      });
-      app.patch("/memory/:id", async (req, res) => {
-        try {
-          const result = await sdk_update_memory(
-            req.params.id,
-            req.body.content,
-            req.body.tags,
-            req.body.metadata,
-          );
-          await logActivity("update", {
-            method: "PATCH",
-            endpoint: `/memory/${req.params.id}`,
-            status: 200,
-          });
-          res.json(result);
-        } catch (e: any) {
-          res.status(500).json({ error: e.message });
-        }
-      });
-      app.post("/memory/:id/reinforce", async (req, res) => {
-        try {
-          await sdk_reinforce_memory(req.params.id, req.body.boost);
-          await logActivity("update", {
-            method: "POST",
-            endpoint: `/memory/${req.params.id}/reinforce`,
-            status: 200,
-          });
-          res.json({ ok: true });
-        } catch (e: any) {
-          res.status(500).json({ error: e.message });
-        }
-      });
-      app.delete("/memory/:id", async (req, res) => {
-        const dbPath = process.env.OM_DB_PATH!;
-        const sqlite3 = await import("sqlite3");
-        const db = new sqlite3.default.Database(dbPath);
-        db.run(
-          "DELETE FROM memories WHERE id = ?",
-          [req.params.id],
-          async () => {
-            db.close();
-            await logActivity("delete", {
-              method: "DELETE",
-              endpoint: `/memory/${req.params.id}`,
-              status: 200,
-            });
-            res.json({ ok: true });
-          },
-        );
-      });
+    const logInfo = (await all_async(
+      "PRAGMA table_info(cybermem_access_log);",
+    )) as any[];
+    if (logInfo.some((col: any) => col.name === "operation")) {
+      await run_async(
+        "ALTER TABLE cybermem_access_log RENAME COLUMN operation TO tool;",
+      );
+    } else if (!logInfo.some((col: any) => col.name === "tool")) {
+      await run_async(
+        "ALTER TABLE cybermem_access_log ADD COLUMN tool TEXT DEFAULT 'unknown';",
+      );
     }
 
-    // MULTI-SESSION SSE SUPPORT
-    const sessions = new Map<
-      string,
-      {
-        server: McpServer;
-        transport: SSEServerTransport;
-        clientName?: string;
-      }
-    >();
-
-    // Legacy MCP endpoint - 410 Gone
-    app.all("/mcp", (req, res) => {
-      res
-        .status(410)
-        .send(
-          "Endpoint /mcp is deprecated. Please update your client configuration to use /sse for Server-Sent Events.",
-        );
-    });
-
-    app.get("/sse", async (req, res) => {
-      console.error("[MCP] Attempting SSE Connection...");
-      const transport = new SSEServerTransport("/message", res);
-      const newServer = createConfiguredServer((name) => {
-        const session = sessions.get(transport.sessionId);
-        if (session) session.clientName = name;
-      });
-
-      try {
-        await newServer.connect(transport);
-        sessions.set(transport.sessionId, { server: newServer, transport });
-
-        transport.onclose = () => {
-          console.error(`[MCP] SSE Connection Closed: ${transport.sessionId}`);
-          sessions.delete(transport.sessionId);
-        };
-        transport.onerror = (err: Error) => {
-          console.error(
-            `[MCP] SSE Connection Error: ${transport.sessionId}`,
-            err,
-          );
-          sessions.delete(transport.sessionId);
-        };
-
-        // await transport.start(); // FIXED: connect() starts it automatically
-      } catch (err) {
-        console.error("[MCP] Failed to start SSE transport:", err);
-        sessions.delete(transport.sessionId);
-        // If headers haven't been sent, send 500
-        if (!res.headersSent) {
-          res.status(500).send("Internal Server Error during SSE handshake");
-        }
-      }
-    });
-
-    app.post("/message", async (req, res) => {
-      const sessionId = req.query.sessionId as string;
-      const session = sessions.get(sessionId);
-      if (!session) {
-        res.status(404).send("Session not found");
-        return;
-      }
-      try {
-        const clientName = session.clientName || "sse-client";
-        await requestContext.run({ clientName }, async () => {
-          await session.transport.handlePostMessage(req, res);
-        });
-      } catch (err) {
-        console.error(
-          `[MCP] Error handling message for session ${sessionId}:`,
-          err,
-        );
-        if (!res.headersSent) {
-          res.status(500).send("Internal Server Error processing message");
-        }
-      }
-    });
-
-    app.listen(port, () =>
-      console.error(`CyberMem MCP running on http://localhost:${port}`),
+    // Backfill NULL tool values for SQLite safety
+    await run_async(
+      "UPDATE cybermem_access_log SET tool = 'unknown' WHERE tool IS NULL;",
     );
-  } else {
-    // STDIO
-    const transport = new StdioServerTransport();
-    const server = createConfiguredServer();
-    server
-      .connect(transport)
-      .then(() => console.error("CyberMem MCP connected via STDIO"));
+    await run_async(
+      "UPDATE cybermem_stats SET tool = 'unknown' WHERE tool IS NULL;",
+    );
+  } catch (e: any) {
+    console.error(
+      "[INIT] Migration Error: Failed to apply database migrations:",
+      e?.message ?? e,
+    );
+    process.exit(1);
   }
 }
+
+// --- SERVER SETUP ---
+interface AuthContext {
+  clientName: string;
+  [key: string]: unknown;
+}
+
+const server = new FastMCP<AuthContext>({
+  name: "cybermem",
+  version: VALID_VERSION,
+  instructions: CYBERMEM_INSTRUCTIONS,
+  health: { enabled: true, path: "/health" },
+  authenticate: async (req) => {
+    const clientName = (req.headers["x-client-name"] ||
+      req.headers["X-Client-Name"] ||
+      "unknown") as string;
+    // Extract versioned naming if present (e.g. "antigravity/v1.0.0" -> "antigravity")
+    return { clientName: clientName.split("/")[0] };
+  },
+});
+
+const memory = new Memory() as IMemory;
+
+const app = server.getApp();
+// Keep Hono middleware for custom routes if any, though FastMCP transport bypasses it
+app.use("*", async (c, next) => {
+  const clientName = (
+    c.req.header("X-Client-Name") ||
+    c.req.header("x-client-name") ||
+    "unknown"
+  ).split("/")[0];
+  return requestContext.run({ clientName }, next);
+});
+
+// TOOLS
+server.addTool({
+  name: "add_memory",
+  description: "Store a new memory with optional tags for semantic retrieval.",
+  parameters: z.object({
+    content: z.string().describe("The text content of the memory"),
+    tags: z.array(z.string()).optional().describe("Category tags"),
+  }),
+  execute: async (args, context) => {
+    return requestContext.run(
+      { clientName: context.session?.clientName },
+      async () => {
+        try {
+          const res = await memory.add(args.content, { tags: args.tags });
+          await logActivity("add_memory");
+          return JSON.stringify(res);
+        } catch (err: any) {
+          await logActivity("add_memory", 500);
+          throw err;
+        }
+      },
+    );
+  },
+});
+
+server.addTool({
+  name: "query_memory",
+  description: "Retrieve relevant memories using semantic search.",
+  parameters: z.object({
+    query: z.string().describe("Search query string"),
+    k: z.number().default(5).describe("Number of results"),
+  }),
+  execute: async (args, context) => {
+    return requestContext.run(
+      { clientName: context.session?.clientName },
+      async () => {
+        try {
+          const res = await memory.search(args.query, { limit: args.k });
+          await logActivity("query_memory");
+          return JSON.stringify(res);
+        } catch (err: any) {
+          await logActivity("query_memory", 500);
+          throw err;
+        }
+      },
+    );
+  },
+});
+
+server.addTool({
+  name: "update_memory",
+  description:
+    "Update an existing memory's content or tags. At least one must be provided.",
+  parameters: z
+    .object({
+      id: z.string().describe("Memory ID"),
+      content: z.string().optional().describe("New content"),
+      tags: z.array(z.string()).optional().describe("New tags"),
+    })
+    .refine((data) => data.content !== undefined || data.tags !== undefined, {
+      message: "Either content or tags must be provided for update",
+      path: ["content"],
+    }),
+  execute: async (args, context) => {
+    return requestContext.run(
+      { clientName: context.session?.clientName },
+      async () => {
+        try {
+          const res = await update_memory(args.id, args.content, args.tags);
+          await logActivity("update_memory");
+          return JSON.stringify(res);
+        } catch (err: any) {
+          await logActivity("update_memory", 500);
+          throw err;
+        }
+      },
+    );
+  },
+});
+
+server.addTool({
+  name: "reinforce_memory",
+  description: "Boost a memory's relevance score to prevent decay.",
+  parameters: z.object({
+    id: z.string().describe("Memory ID"),
+    boost: z
+      .number()
+      .default(0.1)
+      .describe("Relevance boost amount (0.0 to 1.0)"),
+  }),
+  execute: async (args, context) => {
+    return requestContext.run(
+      { clientName: context.session?.clientName },
+      async () => {
+        try {
+          await reinforce_memory(args.id, args.boost);
+          await logActivity("reinforce_memory");
+          return `Memory reinforced: ${args.id}`;
+        } catch (err: any) {
+          await logActivity("reinforce_memory", 500);
+          throw err;
+        }
+      },
+    );
+  },
+});
+
+server.addTool({
+  name: "delete_memory",
+  description: "Permanently delete a memory and its associated vectors.",
+  parameters: z.object({
+    id: z.string().describe("Memory ID"),
+  }),
+  execute: async (args, context) => {
+    return requestContext.run(
+      { clientName: context.session?.clientName },
+      async () => {
+        try {
+          await run_async("DELETE FROM memories WHERE id=?", [args.id]);
+          await run_async("DELETE FROM vectors WHERE id=?", [args.id]);
+          await logActivity("delete_memory");
+          return "Deleted";
+        } catch (err: any) {
+          await logActivity("delete_memory", 500);
+          throw err;
+        }
+      },
+    );
+  },
+});
+
+// START
+async function main() {
+  console.error("[INIT] Starting CyberMem MCP...");
+  await initialize();
+  console.error("[INIT] Database initialized.");
+
+  const argsArr = process.argv.slice(2);
+  const getArg = (name: string) => {
+    const idx = argsArr.indexOf(name);
+    return idx !== -1 ? argsArr[idx + 1] : undefined;
+  };
+
+  const port = parseInt(getArg("--port") || "3100", 10);
+  const useHttp = argsArr.includes("--http") || argsArr.includes("--port");
+
+  console.error(`[INIT] Starting ${useHttp ? "HTTP" : "STDIO"} server...`);
+  await server.start({
+    transportType: useHttp ? "httpStream" : "stdio",
+    httpStream: useHttp
+      ? {
+          port,
+          host: "0.0.0.0",
+          endpoint: "/mcp",
+          stateless: false,
+          enableJsonResponse: true,
+        }
+      : undefined,
+  });
+
+  if (useHttp) {
+    console.error(`CyberMem MCP running on http://localhost:${port}/mcp`);
+  } else {
+    console.error(`CyberMem MCP ${VALID_VERSION} [STDIO]`);
+  }
+}
+
+main().catch((err) => {
+  console.error("[CRITICAL] Main Failure:", err);
+  process.exit(1);
+});

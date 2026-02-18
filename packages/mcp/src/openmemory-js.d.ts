@@ -31,6 +31,12 @@ declare module "openmemory-js" {
   export function reinforce_memory(id: string, boost?: number): Promise<void>;
 }
 
+declare module "openmemory-js/dist/core/db.js" {
+  export function run_async<T = unknown>(...args: any[]): Promise<T>;
+  export function all_async<T = unknown>(...args: any[]): Promise<T[]>;
+  export function get_async<T = unknown>(...args: any[]): Promise<T>;
+}
+
 declare module "openmemory-js/dist/core/memory.js" {
   import { Memory } from "openmemory-js";
   export { Memory };

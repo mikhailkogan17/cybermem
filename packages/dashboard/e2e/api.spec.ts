@@ -44,6 +44,114 @@ function runCLI(cmd: string): { stdout: string; success: boolean } {
   }
 }
 
+// MCP JSON-RPC helper using Node fetch (handles SSE responses from FastMCP)
+async function mcpRpc(
+  method: string,
+  params: any = {},
+  id: number | null = 1,
+  sessionId?: string,
+  clientName: string = "antigravity-client",
+): Promise<{ body: any; status: number; sessionId?: string }> {
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+    Accept: "application/json, text/event-stream",
+    "X-Client-Name": clientName,
+  };
+  if (!isLocalhost && CYBERMEM_TOKEN) {
+    headers["X-API-Key"] = CYBERMEM_TOKEN;
+  }
+  if (sessionId) headers["Mcp-Session-Id"] = sessionId;
+
+  const payload: any = { jsonrpc: "2.0", method, params: params || {} };
+  if (id !== null) payload.id = id;
+
+  const resp = await fetch(`${MCP_API_URL}/mcp`, {
+    method: "POST",
+    headers,
+    body: JSON.stringify(payload),
+  });
+
+  const newSessionId = resp.headers.get("mcp-session-id") || sessionId;
+  const contentType = resp.headers.get("content-type") || "";
+
+  // For notifications (no id), the server returns 202 with no body
+  if (id === null || resp.status === 202) {
+    return { body: {}, status: resp.status, sessionId: newSessionId };
+  }
+
+  // If JSON, parse directly
+  if (contentType.includes("application/json")) {
+    const body = await resp.json();
+    return { body, status: resp.status, sessionId: newSessionId };
+  }
+
+  // If SSE, parse data lines from the stream
+  if (contentType.includes("text/event-stream")) {
+    const reader = resp.body!.getReader();
+    const decoder = new TextDecoder();
+    let buffer = "";
+    let result: any = null;
+
+    try {
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+
+        const lines = buffer.split("\n");
+        buffer = lines.pop() || "";
+
+        for (const line of lines) {
+          if (line.startsWith("data: ")) {
+            const data = line.slice(6).trim();
+            if (data) {
+              try {
+                const parsed = JSON.parse(data);
+                // Take the first response that matches our request id
+                if (parsed.id === id || !result) {
+                  result = parsed;
+                }
+              } catch {
+                /* continuation frame */
+              }
+            }
+          }
+        }
+
+        // Once we have a result, stop reading
+        if (result) {
+          reader.cancel().catch(() => {});
+          break;
+        }
+      }
+    } catch {
+      // Stream ended or was cancelled
+    }
+
+    if (!result) {
+      throw new Error(`No SSE data received for method=${method}`);
+    }
+    return { body: result, status: resp.status, sessionId: newSessionId };
+  }
+
+  // Fallback: try to read as text and parse as JSON
+  const text = await resp.text();
+  try {
+    return {
+      body: JSON.parse(text),
+      status: resp.status,
+      sessionId: newSessionId,
+    };
+  } catch {
+    throw new Error(
+      `Failed to parse MCP response for method=${method}: ${text.slice(
+        0,
+        200,
+      )}`,
+    );
+  }
+}
+
 test.describe("Dashboard:E2E:API (Deep Verification)", () => {
   const TEST_CLIENT = `e2e-api-journey-${Date.now()}`;
 
@@ -72,7 +180,11 @@ test.describe("Dashboard:E2E:API (Deep Verification)", () => {
       expect(body.services.length).toBeGreaterThan(0);
 
       await testInfo.attach("📊 Health Check Result", {
-        body: `Status: ${response.status()}\nOverall: ${body.overall}\nServices: ${body.services.map((s: any) => `${s.name}: ${s.status}`).join(", ")}`,
+        body: `Status: ${response.status()}\nOverall: ${
+          body.overall
+        }\nServices: ${body.services
+          .map((s: any) => `${s.name}: ${s.status}`)
+          .join(", ")}`,
         contentType: "text/plain",
       });
     });
@@ -87,51 +199,106 @@ test.describe("Dashboard:E2E:API (Deep Verification)", () => {
     console.log(`   Test Client: ${TEST_CLIENT}`);
     console.log(`   Content: ${uniqueContent}`);
 
-    // Step 1: Trigger MCP Write
-    await test.step("📤 CRUD — POST /add — Create new memory", async () => {
-      console.log("📤 POST /add (MCP API)");
-      console.log(
-        `   Payload: { content: "${uniqueContent}", tags: ["journey"] }`,
+    // Step 1: Initialize MCP Session
+    let sessionId: string | undefined;
+
+    await test.step("🤝 MCP — Initialize Session", async () => {
+      console.log("🤝 JSON-RPC: initialize");
+      const initRes = await mcpRpc(
+        "initialize",
+        {
+          protocolVersion: "2024-11-05",
+          capabilities: {},
+          clientInfo: { name: TEST_CLIENT, version: "1.0.0" },
+        },
+        1,
+        undefined,
+        TEST_CLIENT,
       );
+      expect(initRes.status).toBe(200);
+      sessionId = initRes.sessionId;
+      console.log(`   Session ID: ${sessionId}`);
 
-      const resp = await request.post(`${MCP_API_URL}/add`, {
-        data: { content: uniqueContent, tags: ["journey"] },
-        headers: getHeaders(TEST_CLIENT),
-      });
+      // Send initialized notification
+      await mcpRpc(
+        "notifications/initialized",
+        {},
+        null,
+        sessionId,
+        TEST_CLIENT,
+      );
+    });
 
-      console.log(`   Status: ${resp.status()}`);
-      const body = await resp.json();
-      console.log(`   Response: ${JSON.stringify(body, null, 2)}`);
+    // Step 2: Trigger MCP Write via JSON-RPC
+    await test.step("📤 CRUD — POST /mcp — Create new memory", async () => {
+      console.log("📤 POST /mcp (JSON-RPC: tools/call add_memory)");
 
-      expect(resp.status()).toBe(200);
+      let rpcRes: any;
+      for (let i = 0; i < 3; i++) {
+        rpcRes = await mcpRpc(
+          "tools/call",
+          {
+            name: "add_memory",
+            arguments: {
+              content: uniqueContent,
+              tags: ["journey"],
+            },
+          },
+          2,
+          sessionId,
+          TEST_CLIENT,
+        );
+        if (rpcRes.status === 200 && !rpcRes.body.result?.isError) break;
+        console.log(`   ⚠️ Attempt ${i + 1} failed, retrying...`);
+        await new Promise((resolve) => setTimeout(resolve, 1000));
+      }
 
-      await testInfo.attach("📝 CRUD — CREATE", {
-        body: `Endpoint: POST ${MCP_API_URL}/add\n\nRequest:\n{\n  "content": "${uniqueContent}",\n  "tags": ["journey"]\n}\n\nResponse:\n${JSON.stringify(body, null, 2)}`,
+      console.log(`   Status: ${rpcRes.status}`);
+      console.log(`   Response: ${JSON.stringify(rpcRes.body, null, 2)}`);
+
+      expect(rpcRes.status).toBe(200);
+      expect(
+        rpcRes.body.result,
+        `RPC response result missing. Body: ${JSON.stringify(rpcRes.body)}`,
+      ).toBeDefined();
+      expect(rpcRes.body.result.isError).not.toBe(true);
+
+      await testInfo.attach("📝 CRUD — CREATE (RPC)", {
+        body: `Endpoint: POST ${RAW_MCP_URL}/mcp\nSession: ${sessionId}\nResponse:\n${JSON.stringify(
+          rpcRes.body,
+          null,
+          2,
+        )}`,
         contentType: "text/plain",
       });
     });
 
-    // Step 2: Verify Metrics
+    // Step 3: Verify Metrics in Dashboard
     await test.step("📊 Discovery — Metrics Reflect Write Activity", async () => {
       console.log("📊 GET /api/metrics");
 
-      const resp = await request.get(`${DASHBOARD_URL}/api/metrics`, {
-        headers: getHeaders("antigravity-client"),
+      // Use unique URL to avoid caching issues in playwright if any
+      const metricsUrl = `${DASHBOARD_URL}/api/metrics?t=${Date.now()}`;
+      const metricsResp = await request.get(metricsUrl, {
+        headers: { "X-Client-Name": "e2e-api-metrics-check" },
       });
+      const data = await metricsResp.json();
 
-      const data = await resp.json();
-      console.log(`   Last Writer: ${data.stats.lastWriter.name}`);
+      console.log(`   Last Writer: ${data.stats.lastWriter?.name || "N/A"}`);
       console.log(`   Total Requests: ${data.stats.totalRequests}`);
       console.log(
-        `   Creates Time Series Length: ${data.timeSeries.creates.length}`,
+        `   Creates Time Series Length: ${
+          data.timeSeries?.creates?.length || 0
+        }`,
       );
 
+      // Verify that the dashboard reports the unique E2E test client
       expect(data.stats.lastWriter.name).toContain(TEST_CLIENT);
       expect(data.stats.totalRequests).toBeGreaterThan(0);
 
       await testInfo.attach("📊 Metrics Snapshot", {
-        body: `Last Writer: ${data.stats.lastWriter.name}\nTotal Requests: ${data.stats.totalRequests}\nCreates Time Series: ${data.timeSeries.creates.length} entries`,
-        contentType: "text/plain",
+        body: JSON.stringify(data, null, 2),
+        contentType: "application/json",
       });
     });
 
@@ -153,10 +320,12 @@ test.describe("Dashboard:E2E:API (Deep Verification)", () => {
       }
 
       expect(latestLog).toBeDefined();
-      expect(latestLog.operation).toBe("Write");
+      expect(latestLog.tool).toBe("Write");
 
       await testInfo.attach("📋 Audit Log Entry", {
-        body: `Found: ${latestLog ? "YES" : "NO"}\nClient: ${latestLog?.client}\nOperation: ${latestLog?.operation}\nStatus: ${latestLog?.status}`,
+        body: `Found: ${latestLog ? "YES" : "NO"}\nClient: ${
+          latestLog?.client
+        }\nTool: ${latestLog?.tool}\nStatus: ${latestLog?.status}`,
         contentType: "text/plain",
       });
     });
@@ -164,7 +333,7 @@ test.describe("Dashboard:E2E:API (Deep Verification)", () => {
     console.log("✅ FULL JOURNEY TEST COMPLETE");
 
     await testInfo.attach("✅ Journey Complete", {
-      body: `Test Client: ${TEST_CLIENT}\nContent: ${uniqueContent}\n\nVerified:\n✅ MCP Write (POST /add)\n✅ Metrics (GET /api/metrics) — Last Writer confirmed\n✅ Audit Logs (GET /api/audit-logs) — Entry found`,
+      body: `Test Client: ${TEST_CLIENT}\nContent: ${uniqueContent}\n\nVerified:\n✅ MCP Write (POST /mcp)\n✅ Metrics (GET /api/metrics) — Last Writer confirmed\n✅ Audit Logs (GET /api/audit-logs) — Entry found`,
       contentType: "text/plain",
     });
   });
@@ -189,7 +358,9 @@ test.describe("Dashboard:E2E:API (Deep Verification)", () => {
       expect(config.config.mcpServers).toBeDefined();
 
       await testInfo.attach("⚙️ MCP Config", {
-        body: `Config Type: ${config.configType}\nmcpServers: ${Object.keys(config.config.mcpServers).join(", ")}`,
+        body: `Config Type: ${config.configType}\nmcpServers: ${Object.keys(
+          config.config.mcpServers,
+        ).join(", ")}`,
         contentType: "text/plain",
       });
     });
@@ -211,7 +382,11 @@ test.describe("Dashboard:E2E:API (Deep Verification)", () => {
       expect(settings).toHaveProperty("endpoint");
 
       await testInfo.attach("⚙️ Settings", {
-        body: `Instance Type: ${settings.instanceType}\nEndpoint: ${settings.endpoint}\nAPI Key: ${settings.apiKey ? "***" + settings.apiKey.slice(-4) : "N/A"}`,
+        body: `Instance Type: ${settings.instanceType}\nEndpoint: ${
+          settings.endpoint
+        }\nAPI Key: ${
+          settings.apiKey ? "***" + settings.apiKey.slice(-4) : "N/A"
+        }`,
         contentType: "text/plain",
       });
     });

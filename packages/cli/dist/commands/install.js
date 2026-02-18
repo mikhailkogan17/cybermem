@@ -286,7 +286,7 @@ async function install(options) {
                 }
                 const entryPort = isStaging ? "8625" : "8626";
                 console.log(chalk_1.default.bold("Next Steps:"));
-                console.log(`  1. Open ${chalk_1.default.underline(`http://localhost:${entryPort}/client-setup`)} to connect your MCP clients`);
+                console.log(`  1. Open ${chalk_1.default.underline(`http://localhost:${entryPort}/`)} to connect your MCP clients`);
                 console.log(`  2. Local access is auto-authenticated (no token needed on localhost)`);
                 console.log("");
                 console.log(chalk_1.default.dim("Local mode is active: No auth required for connections from this device."));

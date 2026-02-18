@@ -31,17 +31,17 @@ def init_db():
         CREATE TABLE IF NOT EXISTS cybermem_stats (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             client_name TEXT NOT NULL,
-            operation TEXT NOT NULL,
+            tool TEXT NOT NULL,
             count INTEGER DEFAULT 0,
             errors INTEGER DEFAULT 0,
             last_updated INTEGER NOT NULL,
-            UNIQUE(client_name, operation)
+            UNIQUE(client_name, tool)
         )
     """)
 
     cursor.execute("""
-        CREATE INDEX IF NOT EXISTS idx_cybermem_stats_client_op
-        ON cybermem_stats(client_name, operation)
+        CREATE INDEX IF NOT EXISTS idx_cybermem_stats_client_tool
+        ON cybermem_stats(client_name, tool)
     """)
 
     # Create access log table for detailed request history
@@ -53,7 +53,7 @@ def init_db():
             client_version TEXT,
             method TEXT NOT NULL,
             endpoint TEXT NOT NULL,
-            operation TEXT NOT NULL,
+            tool TEXT NOT NULL,
             status TEXT NOT NULL,
             is_error INTEGER DEFAULT 0
         )
@@ -74,7 +74,7 @@ def init_db():
     print(f"[DB] Initialized cybermem tables in {DB_PATH}")
 
 
-def increment_stat(client_name: str, operation: str, is_error: bool = False):
+def increment_stat(client_name: str, tool: str, is_error: bool = False):
     """Increment counter in cybermem_stats table"""
     try:
         conn = sqlite3.connect(DB_PATH)
@@ -86,27 +86,27 @@ def increment_stat(client_name: str, operation: str, is_error: bool = False):
         if is_error:
             cursor.execute(
                 """
-                INSERT INTO cybermem_stats (client_name, operation, count, errors, last_updated)
+                INSERT INTO cybermem_stats (client_name, tool, count, errors, last_updated)
                 VALUES (?, ?, 1, 1, ?)
-                ON CONFLICT(client_name, operation)
+                ON CONFLICT(client_name, tool)
                 DO UPDATE SET
                     count = count + 1,
                     errors = errors + 1,
                     last_updated = ?
             """,
-                [client_name, operation, ts, ts],
+                [client_name, tool, ts, ts],
             )
         else:
             cursor.execute(
                 """
-                INSERT INTO cybermem_stats (client_name, operation, count, errors, last_updated)
+                INSERT INTO cybermem_stats (client_name, tool, count, errors, last_updated)
                 VALUES (?, ?, 1, 0, ?)
-                ON CONFLICT(client_name, operation)
+                ON CONFLICT(client_name, tool)
                 DO UPDATE SET
                     count = count + 1,
                     last_updated = ?
             """,
-                [client_name, operation, ts, ts],
+                [client_name, tool, ts, ts],
             )
 
         conn.commit()
@@ -120,7 +120,7 @@ def log_access(
     client_version: str,
     method: str,
     endpoint: str,
-    operation: str,
+    tool: str,
     status: str,
     is_error: bool,
 ):
@@ -133,7 +133,7 @@ def log_access(
 
         cursor.execute(
             """
-            INSERT INTO cybermem_access_log (timestamp, client_name, client_version, method, endpoint, operation, status, is_error)
+            INSERT INTO cybermem_access_log (timestamp, client_name, client_version, method, endpoint, tool, status, is_error)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         """,
             [
@@ -142,7 +142,7 @@ def log_access(
                 client_version,
                 method,
                 endpoint,
-                operation,
+                tool,
                 status,
                 1 if is_error else 0,
             ],
@@ -201,29 +201,29 @@ def parse_and_export():
             # Remove query params first
             endpoint = path.split("?")[0]
 
-            # Determine operation type from endpoint BEFORE normalization
+            # Determine tool type from endpoint BEFORE normalization
             if endpoint == "/memory/add" or endpoint == "/add":
-                operation = "create"
+                tool = "create"
             elif endpoint == "/memory/query" or endpoint == "/query":
-                operation = "read"
+                tool = "read"
             elif endpoint == "/memory/all" or endpoint == "/all":
-                operation = "read"  # list_memories
+                tool = "read"  # list_memories
             elif endpoint.startswith("/memory/") and method == "GET":
-                operation = "read"  # get by ID
+                tool = "read"  # get by ID
             elif endpoint.startswith("/memory/") and method == "PATCH":
-                operation = "update"
+                tool = "update"
             elif endpoint.startswith("/memory/") and method == "DELETE":
-                operation = "delete"
+                tool = "delete"
             elif endpoint.startswith("/mcp"):
-                operation = "mcp"  # MCP operations tracked separately
+                tool = "mcp"  # MCP operations tracked separately
             else:
-                operation = "other"
+                tool = "other"
 
             # NOW normalize endpoint to remove IDs (e.g., /memory/123 -> /memory/:id)
             if (
                 endpoint.startswith("/memory/")
                 and len(endpoint) > 8
-                and operation in ["update", "delete"]
+                and tool in ["update", "delete"]
             ):
                 endpoint = "/memory/:id"
 
@@ -234,7 +234,7 @@ def parse_and_export():
 
                 # Write aggregate stats AND audit log ONLY for known clients
                 if client_name != "unknown" and "health" not in endpoint:
-                    increment_stat(client_name, operation, is_error)
+                    increment_stat(client_name, tool, is_error)
 
                     # Log individual request to access_log
                     log_access(
@@ -242,13 +242,13 @@ def parse_and_export():
                         client_version,
                         method,
                         endpoint,
-                        operation,
+                        tool,
                         status,
                         is_error,
                     )
 
                     print(
-                        f"[{time.strftime('%H:%M:%S')}] {client_name}/{client_version} {method} {endpoint} ({operation}) -> {status}"
+                        f"[{time.strftime('%H:%M:%S')}] {client_name}/{client_version} {method} {endpoint} ({tool}) -> {status}"
                     )
 
         except json.JSONDecodeError:

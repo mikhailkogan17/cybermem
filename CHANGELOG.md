@@ -5,11 +5,22 @@ All notable changes to this project will be documented in this file.
 
 ### Added
 
+- **MCP**: Migrated to `FastMCP` for better DX and session management.
+- **MCP**: Added `httpStream` session tracking with 2-step handshake (POST /mcp -> GET /mcp).
+- **MCP**: Added `X-Client-Name` authentication to FastMCP core.
+- **MCP**: New `postbuild.js` script for portable shebang enforcement.
+
 ### Changed
+
+- **MCP**: Default transport endpoint moved from `/sse` to `/mcp`.
+- **Infrastructure**: Renamed `operation` column to `tool` in all audit tables.
+- **E2E**: Realignment of global setup and test suites with the new handshake protocol.
 
 ### Fixed
 
-### Removed
+- **MCP**: Robust database migrations using `PRAGMA table_info`.
+- **Dashboard**: Added fallback support for legacy database schemas missing the `tool` column.
+- **CLI**: Restored `ollama` profile gating in docker-compose templates.
 
 
 ## [0.13.16] - 2026-02-11

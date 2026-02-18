@@ -11,11 +11,10 @@
 openmemory.env
 
 # CLI & Build
-cli/dist/
-cli/node_modules/
-dashboard/.next/
-dashboard/node_modules/
-dashboard/shared.env
+**/dist/
+**/node_modules/
+**/.next/
+**/shared.env
 
 # Docker volumes
 /data/

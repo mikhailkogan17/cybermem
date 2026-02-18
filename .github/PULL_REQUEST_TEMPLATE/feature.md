@@ -22,16 +22,17 @@ assignees: []
 - [ ] Failure Mode 2: (e.g. Read-only Filesystem)
 
 ## Verification
-<!-- AGENT: Attach screenshots proving usage in 4 environments (16-Screen Rule). -->
+<!-- AGENT: Attach screenshots proving usage in relevant environments. Use the 16-Screen Rule for major features. -->
 
-### Local (localhost:8626)
-![Local Dashboard](...)
+### Automated Tests
+- [ ] `npm run test:e2e` (Local)
+- [ ] `npm run test:e2e` (RPi - Read-only)
 
-### Local (k3d)
-![k3d Dashboard](...)
+### Environments Verified
+- [ ] **Local (localhost:8626)**
+- [ ] **Local (k3d)**
+- [ ] **RPi (Lan)**
+- [ ] **RPi (Tailscale)**
 
-### RPi (Lan)
-![RPi Local](...)
-
-### RPi (Tailscale)
-![RPi Remote](...)
+### Visual Proof (Screenshots/Videos)
+<!-- Attach media here -->

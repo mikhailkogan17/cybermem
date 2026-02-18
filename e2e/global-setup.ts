@@ -38,7 +38,7 @@ async function waitForMCPReady(
   const startTime = Date.now();
   const baseUrl = url.replace(/\/mcp$/, "");
   const healthUrl = baseUrl + "/health";
-  const addUrl = baseUrl + "/add";
+  const mcpUrl = baseUrl + "/mcp";
 
   console.log(`⏳ Waiting for MCP API at ${healthUrl}...`);
 
@@ -55,29 +55,43 @@ async function waitForMCPReady(
       if (response.ok) {
         consecutiveSuccesses++;
         if (consecutiveSuccesses >= requiredSuccesses) {
-          // Now verify /add endpoint works (Traefik routing fully ready)
-          console.log(`   ✅ Health OK, verifying /add endpoint...`);
+          console.log(`   ✅ Health OK, verifying MCP protocol...`);
 
-          const addResponse = await fetch(addUrl, {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              "X-Client-Name": "e2e-global-setup",
-            },
-            body: JSON.stringify({ content: "E2E warmup test" }),
-            signal: AbortSignal.timeout(10000),
-          });
+          // Verify MCP protocol endpoint is operational via JSON-RPC handshake
+          try {
+            const mcpResponse = await fetch(mcpUrl, {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                Accept: "application/json, text/event-stream",
+                "X-Client-Name": "e2e-global-setup",
+              },
+              body: JSON.stringify({
+                jsonrpc: "2.0",
+                id: "readiness-check",
+                method: "initialize",
+                params: {
+                  protocolVersion: "2024-11-05",
+                  capabilities: {},
+                  clientInfo: {
+                    name: "e2e-global-setup",
+                    version: "1.0.0",
+                  },
+                },
+              }),
+              signal: AbortSignal.timeout(5000),
+            });
 
-          if (addResponse.ok) {
-            const elapsed = Date.now() - startTime;
-            console.log(`   ✅ MCP API fully ready after ${elapsed}ms`);
-            // Extra stabilization wait
-            await new Promise((resolve) => setTimeout(resolve, 3000));
-            return true;
-          } else {
+            if (mcpResponse.ok) {
+              console.log(`   ✅ MCP protocol ready`);
+              return true;
+            }
             console.log(
-              `   ⚠️ /add returned ${addResponse.status}, retrying...`,
+              `   ⚠️ MCP protocol not ready (${mcpResponse.status}), retrying...`,
             );
+            consecutiveSuccesses = 0;
+          } catch {
+            console.log(`   ⚠️ MCP protocol check failed, retrying...`);
             consecutiveSuccesses = 0;
           }
         }
@@ -125,7 +139,9 @@ async function globalSetup(_config: FullConfig) {
   // Step 1: Reset database
 
   // Step 1: Reset database
-  console.log("🧹 [1/2] Wiping database via node packages/cli/dist/index.js reset -f");
+  console.log(
+    "🧹 [1/2] Wiping database via node packages/cli/dist/index.js reset -f",
+  );
   const resetResult = runCLI("node packages/cli/dist/index.js reset -f");
   if (resetResult.success) {
     console.log("   ✅ Database reset successfully");
@@ -137,7 +153,9 @@ async function globalSetup(_config: FullConfig) {
   }
 
   // Step 2: Start/ensure CyberMem services
-  console.log("🚀 [2/2] Starting CyberMem via node packages/cli/dist/index.js install");
+  console.log(
+    "🚀 [2/2] Starting CyberMem via node packages/cli/dist/index.js install",
+  );
   const installResult = runCLI("node packages/cli/dist/index.js install");
   if (installResult.success) {
     console.log("   ✅ CyberMem services started");
@@ -153,6 +171,24 @@ async function globalSetup(_config: FullConfig) {
       installResult.stdout.substring(0, 200),
     );
   }
+
+  // Step 2.5: Force-restart MCP container to ensure fresh SQLite connections
+  // This prevents SQLITE_CORRUPT errors caused by stale WAL/journal files
+  // lingering from the reset step
+  console.log("🔄 [2.5/3] Restarting MCP container for clean DB state...");
+  const restartResult = runCLI(
+    "docker-compose -p cybermem -f packages/cli/templates/docker-compose.yml restart mcp-server",
+  );
+  if (restartResult.success) {
+    console.log("   ✅ MCP container restarted");
+  } else {
+    console.log(
+      "   ⚠️  Restart failed:",
+      restartResult.stdout.substring(0, 200),
+    );
+  }
+  // Small delay for container to initialize
+  await new Promise((resolve) => setTimeout(resolve, 3000));
 
   // Step 3: Wait for MCP API to be fully ready (prevents "Bad Gateway")
   console.log("🔄 [3/3] Health check — waiting for MCP API...");

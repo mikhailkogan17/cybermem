@@ -61,6 +61,7 @@ services:
       CYBERMEM_ENV: ${CYBERMEM_ENV:-prod}
       CYBERMEM_INSTANCE: ${CYBERMEM_INSTANCE:-local}
       CYBERMEM_TAILSCALE: ${CYBERMEM_TAILSCALE:-false}
+      OLLAMA_URL: http://ollama:11434
     volumes:
       - ${CYBERMEM_ENV_PATH:-${HOME}/.cybermem/.env}:/.env
       - ${DATA_DIR:-${HOME}/.cybermem/data}:/data
@@ -68,12 +69,13 @@ services:
     depends_on:
       - traefik
       - auth-sidecar
+      - ollama
     # Secrets removed to avoid CI read-only mount issues
     # secrets:
     #   - om_api_key
     labels:
       - traefik.enable=true
-      - traefik.http.routers.${PROJECT_NAME:-cybermem}-mcp.rule=PathPrefix(`/mcp`) || PathPrefix(`/sse`)
+      - traefik.http.routers.${PROJECT_NAME:-cybermem}-mcp.rule=PathPrefix(`/mcp`) || PathPrefix(`/sse`) || PathPrefix(`/message`)
       - traefik.http.routers.${PROJECT_NAME:-cybermem}-mcp.entrypoints=web
       - traefik.http.routers.${PROJECT_NAME:-cybermem}-mcp.priority=100
       - traefik.http.routers.${PROJECT_NAME:-cybermem}-mcp.service=${PROJECT_NAME:-cybermem}-mcp-service
@@ -185,8 +187,6 @@ services:
     volumes:
       - ollama-models:/root/.ollama
     restart: unless-stopped
-    profiles:
-      - ollama
 
   dashboard:
     build:
