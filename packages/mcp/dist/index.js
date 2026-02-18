@@ -85,7 +85,8 @@ async function initialize() {
         await (0, db_js_1.run_async)("UPDATE cybermem_stats SET tool = 'unknown' WHERE tool IS NULL;");
     }
     catch (e) {
-        console.error("[INIT] Migration Warning:", e.message);
+        console.error("[INIT] Migration Error: Failed to apply database migrations:", e?.message ?? e);
+        process.exit(1);
     }
 }
 const server = new fastmcp_1.FastMCP({

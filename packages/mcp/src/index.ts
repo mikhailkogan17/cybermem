@@ -134,7 +134,11 @@ async function initialize() {
       "UPDATE cybermem_stats SET tool = 'unknown' WHERE tool IS NULL;",
     );
   } catch (e: any) {
-    console.error("[INIT] Migration Warning:", e.message);
+    console.error(
+      "[INIT] Migration Error: Failed to apply database migrations:",
+      e?.message ?? e,
+    );
+    process.exit(1);
   }
 }
 

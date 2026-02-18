@@ -38,7 +38,7 @@ async function waitForMCPReady(
   const startTime = Date.now();
   const baseUrl = url.replace(/\/mcp$/, "");
   const healthUrl = baseUrl + "/health";
-  const addUrl = baseUrl + "/add";
+  const mcpUrl = baseUrl + "/mcp";
 
   console.log(`⏳ Waiting for MCP API at ${healthUrl}...`);
 
@@ -55,9 +55,44 @@ async function waitForMCPReady(
       if (response.ok) {
         consecutiveSuccesses++;
         if (consecutiveSuccesses >= requiredSuccesses) {
-          if (consecutiveSuccesses >= requiredSuccesses) {
-            console.log(`   ✅ Health OK, MCP API ready`);
-            return true;
+          console.log(`   ✅ Health OK, verifying MCP protocol...`);
+
+          // Verify MCP protocol endpoint is operational via JSON-RPC handshake
+          try {
+            const mcpResponse = await fetch(mcpUrl, {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                Accept: "application/json, text/event-stream",
+                "X-Client-Name": "e2e-global-setup",
+              },
+              body: JSON.stringify({
+                jsonrpc: "2.0",
+                id: "readiness-check",
+                method: "initialize",
+                params: {
+                  protocolVersion: "2024-11-05",
+                  capabilities: {},
+                  clientInfo: {
+                    name: "e2e-global-setup",
+                    version: "1.0.0",
+                  },
+                },
+              }),
+              signal: AbortSignal.timeout(5000),
+            });
+
+            if (mcpResponse.ok) {
+              console.log(`   ✅ MCP protocol ready`);
+              return true;
+            }
+            console.log(
+              `   ⚠️ MCP protocol not ready (${mcpResponse.status}), retrying...`,
+            );
+            consecutiveSuccesses = 0;
+          } catch {
+            console.log(`   ⚠️ MCP protocol check failed, retrying...`);
+            consecutiveSuccesses = 0;
           }
         }
       } else {
