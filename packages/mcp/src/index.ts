@@ -325,7 +325,7 @@ async function main() {
           port,
           host: "0.0.0.0",
           endpoint: "/mcp",
-          stateless: true,
+          stateless: false,
           enableJsonResponse: true,
         }
       : undefined,
