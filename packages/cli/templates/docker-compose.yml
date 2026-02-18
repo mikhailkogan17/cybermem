@@ -69,7 +69,7 @@ services:
     depends_on:
       - traefik
       - auth-sidecar
-      - ollama
+
     # Secrets removed to avoid CI read-only mount issues
     # secrets:
     #   - om_api_key
