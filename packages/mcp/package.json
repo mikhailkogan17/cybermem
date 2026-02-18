@@ -1,13 +1,14 @@
 {
   "name": "@cybermem/mcp",
-  "version": "0.14.14",
+  "version": "0.14.15",
   "description": "CyberMem MCP Server - AI Memory with openmemory-js SDK",
   "main": "dist/index.js",
   "bin": {
     "cybermem-mcp": "./dist/index.js"
   },
   "scripts": {
-    "build": "tsc",
+    "build": "tsc && npm run postbuild",
+    "postbuild": "grep -q '#!/usr/bin/env node' dist/index.js || (echo '#!/usr/bin/env node' | cat - dist/index.js > temp.js && mv temp.js dist/index.js && chmod +x dist/index.js)",
     "start": "node dist/index.js",
     "dev": "ts-node src/index.ts",
     "lint": "tsc --noEmit",
