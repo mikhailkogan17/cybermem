@@ -44,6 +44,28 @@ function runCLI(cmd: string): { stdout: string; success: boolean } {
   }
 }
 
+// JSON-RPC Helper for MCP
+async function mcpRpc(
+  request: any,
+  method: string,
+  params: any = {},
+  id: number | null = 1,
+  sessionId?: string,
+) {
+  const headers = getHeaders("antigravity-client");
+  headers["Accept"] = "application/json, text/event-stream";
+  if (sessionId) headers["Mcp-Session-Id"] = sessionId;
+
+  const resp = await request.post(`${RAW_MCP_URL}/mcp`, {
+    data: { jsonrpc: "2.0", id, method, params },
+    headers,
+  });
+
+  const body = await resp.json();
+  const newSessionId = resp.headers()["mcp-session-id"];
+  return { body, status: resp.status(), sessionId: newSessionId || sessionId };
+}
+
 test.describe("Dashboard:E2E:API (Deep Verification)", () => {
   const TEST_CLIENT = `e2e-api-journey-${Date.now()}`;
 
@@ -72,7 +94,11 @@ test.describe("Dashboard:E2E:API (Deep Verification)", () => {
       expect(body.services.length).toBeGreaterThan(0);
 
       await testInfo.attach("📊 Health Check Result", {
-        body: `Status: ${response.status()}\nOverall: ${body.overall}\nServices: ${body.services.map((s: any) => `${s.name}: ${s.status}`).join(", ")}`,
+        body: `Status: ${response.status()}\nOverall: ${
+          body.overall
+        }\nServices: ${body.services
+          .map((s: any) => `${s.name}: ${s.status}`)
+          .join(", ")}`,
         contentType: "text/plain",
       });
     });
@@ -87,26 +113,59 @@ test.describe("Dashboard:E2E:API (Deep Verification)", () => {
     console.log(`   Test Client: ${TEST_CLIENT}`);
     console.log(`   Content: ${uniqueContent}`);
 
-    // Step 1: Trigger MCP Write
-    await test.step("📤 CRUD — POST /add — Create new memory", async () => {
-      console.log("📤 POST /add (MCP API)");
-      console.log(
-        `   Payload: { content: "${uniqueContent}", tags: ["journey"] }`,
+    // Step 1: Initialize MCP Session
+    let sessionId: string | undefined;
+
+    await test.step("🤝 MCP — Initialize Session", async () => {
+      console.log("🤝 JSON-RPC: initialize");
+      const initRes = await mcpRpc(
+        request,
+        "initialize",
+        {
+          protocolVersion: "2024-11-05",
+          capabilities: {},
+          clientInfo: { name: TEST_CLIENT, version: "1.0.0" },
+        },
+        1,
+      );
+      expect(initRes.status).toBe(200);
+      sessionId = initRes.sessionId;
+      console.log(`   Session ID: ${sessionId}`);
+
+      // Send initialized notification
+      await mcpRpc(request, "notifications/initialized", {}, null, sessionId);
+    });
+
+    // Step 2: Trigger MCP Write via JSON-RPC
+    await test.step("📤 CRUD — POST /mcp — Create new memory", async () => {
+      console.log("📤 POST /mcp (JSON-RPC: tools/call add_memory)");
+
+      const rpcRes = await mcpRpc(
+        request,
+        "tools/call",
+        {
+          name: "add_memory",
+          arguments: {
+            content: uniqueContent,
+            tags: ["journey"],
+          },
+        },
+        2,
+        sessionId,
       );
 
-      const resp = await request.post(`${MCP_API_URL}/add`, {
-        data: { content: uniqueContent, tags: ["journey"] },
-        headers: getHeaders(TEST_CLIENT),
-      });
+      console.log(`   Status: ${rpcRes.status}`);
+      console.log(`   Response: ${JSON.stringify(rpcRes.body, null, 2)}`);
 
-      console.log(`   Status: ${resp.status()}`);
-      const body = await resp.json();
-      console.log(`   Response: ${JSON.stringify(body, null, 2)}`);
+      expect(rpcRes.status).toBe(200);
+      expect(rpcRes.body.result).toBeDefined();
 
-      expect(resp.status()).toBe(200);
-
-      await testInfo.attach("📝 CRUD — CREATE", {
-        body: `Endpoint: POST ${MCP_API_URL}/add\n\nRequest:\n{\n  "content": "${uniqueContent}",\n  "tags": ["journey"]\n}\n\nResponse:\n${JSON.stringify(body, null, 2)}`,
+      await testInfo.attach("📝 CRUD — CREATE (RPC)", {
+        body: `Endpoint: POST ${RAW_MCP_URL}/mcp\nSession: ${sessionId}\nResponse:\n${JSON.stringify(
+          rpcRes.body,
+          null,
+          2,
+        )}`,
         contentType: "text/plain",
       });
     });
@@ -156,7 +215,9 @@ test.describe("Dashboard:E2E:API (Deep Verification)", () => {
       expect(latestLog.operation).toBe("Write");
 
       await testInfo.attach("📋 Audit Log Entry", {
-        body: `Found: ${latestLog ? "YES" : "NO"}\nClient: ${latestLog?.client}\nOperation: ${latestLog?.operation}\nStatus: ${latestLog?.status}`,
+        body: `Found: ${latestLog ? "YES" : "NO"}\nClient: ${
+          latestLog?.client
+        }\nOperation: ${latestLog?.operation}\nStatus: ${latestLog?.status}`,
         contentType: "text/plain",
       });
     });
@@ -189,7 +250,9 @@ test.describe("Dashboard:E2E:API (Deep Verification)", () => {
       expect(config.config.mcpServers).toBeDefined();
 
       await testInfo.attach("⚙️ MCP Config", {
-        body: `Config Type: ${config.configType}\nmcpServers: ${Object.keys(config.config.mcpServers).join(", ")}`,
+        body: `Config Type: ${config.configType}\nmcpServers: ${Object.keys(
+          config.config.mcpServers,
+        ).join(", ")}`,
         contentType: "text/plain",
       });
     });
@@ -211,7 +274,11 @@ test.describe("Dashboard:E2E:API (Deep Verification)", () => {
       expect(settings).toHaveProperty("endpoint");
 
       await testInfo.attach("⚙️ Settings", {
-        body: `Instance Type: ${settings.instanceType}\nEndpoint: ${settings.endpoint}\nAPI Key: ${settings.apiKey ? "***" + settings.apiKey.slice(-4) : "N/A"}`,
+        body: `Instance Type: ${settings.instanceType}\nEndpoint: ${
+          settings.endpoint
+        }\nAPI Key: ${
+          settings.apiKey ? "***" + settings.apiKey.slice(-4) : "N/A"
+        }`,
         contentType: "text/plain",
       });
     });
