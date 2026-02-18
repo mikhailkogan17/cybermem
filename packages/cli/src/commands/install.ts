@@ -301,7 +301,7 @@ export async function install(options: any) {
         const entryPort = isStaging ? "8625" : "8626";
         console.log(chalk.bold("Next Steps:"));
         console.log(
-          `  1. Open ${chalk.underline(`http://localhost:${entryPort}/client-setup`)} to connect your MCP clients`,
+          `  1. Open ${chalk.underline(`http://localhost:${entryPort}/`)} to connect your MCP clients`,
         );
         console.log(
           `  2. Local access is auto-authenticated (no token needed on localhost)`,

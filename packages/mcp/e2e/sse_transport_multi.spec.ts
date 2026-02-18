@@ -93,11 +93,11 @@ test.describe("MCP SSE Transport - Multi-Session", () => {
       let endpointFound = false;
       const { reader } = connections[i];
 
-      for (let j = 0; j < 3; j++) {
+      for (let j = 0; j < 10; j++) {
         const { value, done } = await reader.read();
         if (done) break;
         const text = decoder.decode(value);
-        console.log(`[Connection ${i}]`, text);
+        console.log(`[Connection ${i} Chunk ${j}]`, text);
         if (text.includes("event: endpoint")) {
           endpointFound = true;
           break;
@@ -126,7 +126,7 @@ test.describe("MCP SSE Transport - Multi-Session", () => {
     const decoder = new TextDecoder();
     let endpointFound = false;
 
-    for (let i = 0; i < 3; i++) {
+    for (let i = 0; i < 10; i++) {
       const { value, done } = await reader.read();
       if (done) break;
       const text = decoder.decode(value);

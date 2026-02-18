@@ -45,6 +45,7 @@
 > - Force a commit without fixing a cause (linting, gitleaks, etc)
 > - **Commit without running local tests first (`npm run test:e2e`)**
 > - **Change Node.js version from 24 in ANY workflow** (e2e.yml, publish.yml, etc.)
+> - **Change binary names in package.json** (e.g., `cybermem-cli`, `cybermem-mcp`) without explicit user approval
 
 ## 1.2 AGILE ROLES & RESPONSIBILITIES
 

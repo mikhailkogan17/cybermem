@@ -87,20 +87,14 @@ export default function LogViewer({
   };
 
   const exportToCSV = () => {
-    const headers = [
-      "Timestamp",
-      "Client",
-      "Operation",
-      "Description",
-      "Status",
-    ];
+    const headers = ["Timestamp", "Client", "Tool", "Description", "Status"];
     const csvContent = [
       headers.join(","),
       ...logs.map((log) =>
         [
           `"${log.date}"`,
           `"${getClientDisplayName(log.client)}"`,
-          `"${log.operation}"`,
+          `"${log.tool}"`,
           `"${log.description}"`,
           `"${log.status}"`,
         ].join(","),
@@ -122,7 +116,7 @@ export default function LogViewer({
       logs.map((log) => ({
         timestamp: log.date,
         client: getClientDisplayName(log.client),
-        operation: log.operation,
+        tool: log.tool,
         description: log.description,
         status: log.status,
       })),
@@ -134,7 +128,9 @@ export default function LogViewer({
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `cybermem-audit-${new Date().toISOString().split("T")[0]}.json`;
+    a.download = `cybermem-audit-${
+      new Date().toISOString().split("T")[0]
+    }.json`;
     a.click();
     URL.revokeObjectURL(url);
     setShowExportMenu(false);
@@ -198,7 +194,7 @@ export default function LogViewer({
                 {[
                   { label: "Timestamp", key: "date", width: "w-[180px]" },
                   { label: "Client", key: "client", width: "w-[200px]" },
-                  { label: "Operation", key: "operation", width: "w-[100px]" },
+                  { label: "Tool", key: "tool", width: "w-[100px]" },
                   { label: "Description", key: "description", width: "flex-1" },
                   { label: "Status", key: "status", width: "w-[100px]" },
                 ].map((header) => (
@@ -281,7 +277,7 @@ export default function LogViewer({
                           </div>
                         </td>
                         <td className="py-4 px-3 text-neutral-300">
-                          {log.operation}
+                          {log.tool}
                         </td>
                         <td className="py-4 px-3 text-neutral-400">
                           {log.description}

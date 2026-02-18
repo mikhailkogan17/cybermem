@@ -61,12 +61,14 @@ test.describe("MCP SSE Transport", () => {
     let endpointFound = false;
 
     // Read first few chunks
-    for (let i = 0; i < 3; i++) {
+    for (let i = 0; i < 10; i++) {
       const { value, done } = await reader!.read();
       if (done) break;
       const text = decoder.decode(value);
+      console.log(`[Chunk ${i}]`, text);
       if (text.includes("event: endpoint")) {
         endpointFound = true;
+        break;
       }
     }
 

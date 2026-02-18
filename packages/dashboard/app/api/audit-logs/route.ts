@@ -91,17 +91,18 @@ export async function GET(request: Request) {
         status = "Error";
       else if (statusCode >= 300) status = "Warning";
 
-      let operation = log.operation.toLowerCase();
-      if (operation === "create") operation = "Write";
-      else if (operation === "read") operation = "Read";
-      else if (operation === "update") operation = "Update";
-      else if (operation === "delete") operation = "Delete";
-      else operation = operation.charAt(0).toUpperCase() + operation.slice(1);
+      let tool = log.tool.toLowerCase();
+      // Friendly labels for core tools if needed
+      if (tool === "add_memory") tool = "Write";
+      else if (tool === "query_memory") tool = "Read";
+      else if (tool === "update_memory") tool = "Update";
+      else if (tool === "delete_memory") tool = "Delete";
+      else tool = tool.charAt(0).toUpperCase() + tool.slice(1);
 
       return {
         timestamp: log.timestamp,
         client: normalizeClientName(log.client_name),
-        operation: operation,
+        tool: tool,
         status: status,
         method: log.method,
         description: log.endpoint,

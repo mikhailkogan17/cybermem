@@ -101,10 +101,10 @@ export async function GET(request: Request) {
           "SELECT COUNT(*) as count FROM cybermem_access_log WHERE is_error = 1",
         );
         const lastWrite = await db.get(
-          "SELECT client_name, timestamp FROM cybermem_access_log WHERE operation = 'create' ORDER BY timestamp DESC LIMIT 1",
+          "SELECT client_name, timestamp FROM cybermem_access_log WHERE tool = 'add_memory' ORDER BY timestamp DESC LIMIT 1",
         );
         const lastRead = await db.get(
-          "SELECT client_name, timestamp FROM cybermem_access_log WHERE operation = 'read' ORDER BY timestamp DESC LIMIT 1",
+          "SELECT client_name, timestamp FROM cybermem_access_log WHERE tool = 'query_memory' ORDER BY timestamp DESC LIMIT 1",
         );
         const uniqueClients = await db.get(
           "SELECT COUNT(DISTINCT client_name) as count FROM cybermem_access_log",
@@ -135,10 +135,10 @@ export async function GET(request: Request) {
 
         // Top activity
         const topWriter = await db.get(
-          "SELECT client_name, COUNT(*) as count FROM cybermem_access_log WHERE operation = 'create' GROUP BY client_name ORDER BY count DESC LIMIT 1",
+          "SELECT client_name, COUNT(*) as count FROM cybermem_access_log WHERE tool = 'add_memory' GROUP BY client_name ORDER BY count DESC LIMIT 1",
         );
         const topReader = await db.get(
-          "SELECT client_name, COUNT(*) as count FROM cybermem_access_log WHERE operation = 'read' GROUP BY client_name ORDER BY count DESC LIMIT 1",
+          "SELECT client_name, COUNT(*) as count FROM cybermem_access_log WHERE tool = 'query_memory' GROUP BY client_name ORDER BY count DESC LIMIT 1",
         );
 
         if (topWriter)
@@ -164,27 +164,27 @@ export async function GET(request: Request) {
 
         // Strip any potential native proxy bits from sqlite3 results
         const rawAllLogs = await db.all(
-          `SELECT timestamp, operation, client_name FROM cybermem_access_log WHERE timestamp > ? ORDER BY timestamp ASC`,
+          `SELECT timestamp, tool, client_name FROM cybermem_access_log WHERE timestamp > ? ORDER BY timestamp ASC`,
           [startTime],
         );
         const allLogs = JSON.parse(JSON.stringify(rawAllLogs || []));
 
         const rawBaseCounts = await db.all(
-          `SELECT operation, client_name, COUNT(*) as count FROM cybermem_access_log WHERE timestamp <= ? GROUP BY 1, 2`,
+          `SELECT tool, client_name, COUNT(*) as count FROM cybermem_access_log WHERE timestamp <= ? GROUP BY 1, 2`,
           [startTime],
         );
         const baseCounts = JSON.parse(JSON.stringify(rawBaseCounts || []));
 
-        const buildBeautifulSeries = (targetOp: string) => {
+        const buildBeautifulSeries = (targetTool: string) => {
           const clientTotals: Record<string, number> = {};
           baseCounts
-            .filter((b: any) => b.operation === targetOp)
+            .filter((b: any) => b.tool === targetTool)
             .forEach((b: any) => {
               clientTotals[b.client_name] = b.count;
             });
 
           const series: any[] = [];
-          const opLogs = allLogs.filter((l: any) => l.operation === targetOp);
+          const toolLogs = allLogs.filter((l: any) => l.tool === targetTool);
           const SAMPLES = 60;
           const interval = (now - startTime) / SAMPLES;
           let currentLogIdx = 0;
@@ -192,10 +192,10 @@ export async function GET(request: Request) {
           for (let i = 0; i <= SAMPLES; i++) {
             const timePoint = startTime + i * interval;
             while (
-              currentLogIdx < opLogs.length &&
-              opLogs[currentLogIdx].timestamp <= timePoint
+              currentLogIdx < toolLogs.length &&
+              toolLogs[currentLogIdx].timestamp <= timePoint
             ) {
-              const log = opLogs[currentLogIdx];
+              const log = toolLogs[currentLogIdx];
               clientTotals[log.client_name] =
                 (clientTotals[log.client_name] || 0) + 1;
               currentLogIdx++;
@@ -208,10 +208,10 @@ export async function GET(request: Request) {
           return series;
         };
 
-        timeseries.creates = buildBeautifulSeries("create");
-        timeseries.reads = buildBeautifulSeries("read");
-        timeseries.updates = buildBeautifulSeries("update");
-        timeseries.deletes = buildBeautifulSeries("delete");
+        timeseries.creates = buildBeautifulSeries("add_memory");
+        timeseries.reads = buildBeautifulSeries("query_memory");
+        timeseries.updates = buildBeautifulSeries("update_memory");
+        timeseries.deletes = buildBeautifulSeries("delete_memory");
 
         console.error(`[STATS-API] SQLite + Charts processed successfully.`);
       } catch (dbErr) {
