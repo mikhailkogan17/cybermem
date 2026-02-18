@@ -20,6 +20,8 @@
     "mcp:dev": "npm run dev -w packages/mcp",
     "changeset": "changeset",
     "version": "changeset version",
+    "version:minor": "node -e \"const fs=require('fs');const id=Date.now().toString(36);fs.writeFileSync('.changeset/'+id+'.md','---\\n\\\"@cybermem/cli\\\": minor\\n\\\"@cybermem/mcp\\\": minor\\n\\\"@cybermem/dashboard\\\": minor\\n---\\n\\nMinor version bump.\\n');console.log('✅ Created minor changeset: .changeset/'+id+'.md')\"",
+    "version:major": "node -e \"const fs=require('fs');const id=Date.now().toString(36);fs.writeFileSync('.changeset/'+id+'.md','---\\n\\\"@cybermem/cli\\\": major\\n\\\"@cybermem/mcp\\\": major\\n\\\"@cybermem/dashboard\\\": major\\n---\\n\\nMajor version bump.\\n');console.log('✅ Created major changeset: .changeset/'+id+'.md')\"",
     "release": "npm run build && changeset publish"
   },
   "devDependencies": {

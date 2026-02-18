@@ -2,16 +2,6 @@ name: Publish
 
 on:
   workflow_dispatch:
-    inputs:
-      version_type:
-        description: "Bump type (patch, minor, major, none)"
-        type: choice
-        options:
-          - patch
-          - minor
-          - major
-          - none
-        default: patch
 
 # Prevent concurrent publish workflows
 concurrency:
@@ -36,20 +26,14 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Verify Changesets Exist
+      - name: Verify Prerequisites
         run: |
-          # If version_type is NOT 'none', we will auto-generate a changeset if needed.
-          # If version_type IS 'none', we require existing changesets if we want to publish.
-          if [ "${{ github.event.inputs.version_type }}" != "none" ] && [ "${{ github.event.inputs.version_type }}" != "" ]; then
-            echo "✅ version_type is '${{ github.event.inputs.version_type }}'; proceeding with auto-changeset capability."
-            exit 0
+          # Patch-by-default: if no changesets exist, we'll auto-create a patch changeset later
+          if [ -n "$(ls -A .changeset/*.md 2>/dev/null | grep -v README.md)" ]; then
+            echo "✅ Changesets found — will apply as-is (minor/major/patch per changeset)"
+          else
+            echo "✅ No changesets found — will auto-create patch bump"
           fi
-
-          if [ -z "$(ls -A .changeset/*.md 2>/dev/null | grep -v README.md)" ]; then
-            echo "❌ ERROR: No changesets found! Please create one with 'npm run changeset' or use workflow_dispatch with a version_type."
-            exit 1
-          fi
-          echo "✅ Changesets found and ready to publish."
 
   # ==================================================================
   # 2. E2E CHECKS
@@ -103,50 +87,32 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          # Auto-generate changeset if version_type is provided and no changesets exist
-          if [ "${{ github.event.inputs.version_type }}" != "none" ] && [ "${{ github.event.inputs.version_type }}" != "" ]; then
-            if [ -z "$(ls -A .changeset/*.md 2>/dev/null | grep -v README.md)" ]; then
-              echo "📝 Creating automated changeset for ${{ github.event.inputs.version_type }} bump"
-              cat > .changeset/automated-bump.md << 'CHANGESET'
-          ---
-          "@cybermem/cli": ${{ github.event.inputs.version_type }}
-          "@cybermem/mcp": ${{ github.event.inputs.version_type }}
-          "@cybermem/dashboard": ${{ github.event.inputs.version_type }}
-          ---
-
-          Automated ${{ github.event.inputs.version_type }} version bump.
-          CHANGESET
-            fi
-          fi
-
-          # Check for changesets
+          # Patch-by-default: auto-create patch changeset if none exist
           if [ -z "$(ls -A .changeset/*.md 2>/dev/null | grep -v README.md)" ]; then
-            echo "⚠️ No changesets to apply"
-            echo "has_changesets=false" >> $GITHUB_OUTPUT
-            # Use current version as-is
-            VERSION=$(node -p "require('./packages/cli/package.json').version")
-          else
-            echo "has_changesets=true" >> $GITHUB_OUTPUT
+            echo "📝 No changesets found — creating automated patch bump"
+            cat > .changeset/automated-patch.md << 'CHANGESET'
+          ---
+          "@cybermem/cli": patch
+          "@cybermem/mcp": patch
+          "@cybermem/dashboard": patch
+          ---
 
-            # Apply changesets to bump versions and update per-package CHANGELOGs
-            npm run version
-
-            # Regenerate package-lock.json to reflect updated package.json files
-            npm install --package-lock-only
-
-            VERSION=$(node -p "require('./packages/cli/package.json').version")
-            echo "📦 Version after changesets: $VERSION"
+          Automated patch version bump.
+          CHANGESET
           fi
 
-          # Check if this version is already published on npm
+          # Apply changesets to bump versions
+          npm run version
+          npm install --package-lock-only
+          VERSION=$(node -p "require('./packages/cli/package.json').version")
+          echo "📦 Version after changesets: $VERSION"
+
+          # Safety: check if this version is already published on npm
           NPM_CHECK_OUTPUT=$(npm view "@cybermem/cli@$VERSION" version 2>&1) || true
           if [ -n "$NPM_CHECK_OUTPUT" ] && echo "$NPM_CHECK_OUTPUT" | grep -qE "^[0-9]+\.[0-9]+\.[0-9]+"; then
             echo "⚠️ Version $VERSION already published on npm — auto-bumping patch"
-
-            # Bump patch across all workspaces (no git tag)
             npm version patch --workspaces --no-git-tag-version
             npm install --package-lock-only
-
             VERSION=$(node -p "require('./packages/cli/package.json').version")
             echo "📦 Auto-bumped to: $VERSION"
           else
@@ -422,33 +388,26 @@ jobs:
           CURRENT_VERSION="${{ steps.branch.outputs.current_version }}"
           echo "current_version=$CURRENT_VERSION" >> $GITHUB_OUTPUT
 
-          # Auto-generate changeset if version_type is provided and no changesets exist
-          if [ "${{ github.event.inputs.version_type }}" != "none" ] && [ "${{ github.event.inputs.version_type }}" != "" ]; then
-            if [ -z "$(ls -A .changeset/*.md 2>/dev/null | grep -v README.md)" ]; then
-              echo "📝 Creating automated changeset for ${{ github.event.inputs.version_type }} bump"
-              cat > .changeset/automated-bump.md << 'CHANGESET'
+          # Patch-by-default: auto-create patch changeset if none exist
+          if [ -z "$(ls -A .changeset/*.md 2>/dev/null | grep -v README.md)" ]; then
+            echo "📝 No changesets found — creating automated patch bump"
+            cat > .changeset/automated-patch.md << 'CHANGESET'
           ---
-          "@cybermem/cli": ${{ github.event.inputs.version_type }}
-          "@cybermem/mcp": ${{ github.event.inputs.version_type }}
-          "@cybermem/dashboard": ${{ github.event.inputs.version_type }}
+          "@cybermem/cli": patch
+          "@cybermem/mcp": patch
+          "@cybermem/dashboard": patch
           ---
 
-          Automated ${{ github.event.inputs.version_type }} version bump.
+          Automated patch version bump.
           CHANGESET
-            fi
           fi
 
-          # Apply changesets — this bumps versions in package.json files and generates per-package CHANGELOGs
-          if [ -n "$(ls -A .changeset/*.md 2>/dev/null | grep -v README.md)" ]; then
-            npm run version
-            npm install --package-lock-only
-            echo "✅ Changesets applied"
-          else
-            echo "⚠️ No changesets to apply"
-          fi
+          # Apply changesets — bumps versions in package.json
+          npm run version
+          npm install --package-lock-only
+          echo "✅ Changesets applied"
 
-          # Align package.json versions to match what was actually published.
-          # This handles the auto-bump case where publish-npm bumped beyond what changesets produced.
+          # Align package.json versions to match what was actually published
           CHANGESET_VERSION=$(node -p "require('./packages/cli/package.json').version")
           if [ "$CHANGESET_VERSION" != "$CURRENT_VERSION" ]; then
             echo "📦 Aligning package versions: changesets=$CHANGESET_VERSION -> published=$CURRENT_VERSION"
@@ -456,13 +415,18 @@ jobs:
             npm install --package-lock-only
           fi
 
-          # Extract release notes from CLI package CHANGELOG.md (changesets creates package-level CHANGELOGs)
-          # 1. awk: extract content between "## VERSION" and the next "## " header
-          # 2. awk: strip leading blank lines (skip until first non-empty)
-          # 3. awk: strip trailing blank lines (buffer all, print up to last non-empty)
-          CHANGELOG_FILE="packages/cli/CHANGELOG.md"
-          if [ -f "$CHANGELOG_FILE" ] && grep -q "## $CURRENT_VERSION" "$CHANGELOG_FILE"; then
-            awk "/## $CURRENT_VERSION/,/^## / {if (/^## $CURRENT_VERSION/) next; if (/^## /) exit; print}" "$CHANGELOG_FILE" > release_notes_raw.md
+          # Move CHANGELOG [Unreleased] → [VERSION]
+          CHANGELOG_FILE="CHANGELOG.md"
+          DATE=$(date +%Y-%m-%d)
+          if [ -f "$CHANGELOG_FILE" ] && grep -q '\[Unreleased\]' "$CHANGELOG_FILE"; then
+            echo "📝 Moving [Unreleased] to [$CURRENT_VERSION] in CHANGELOG.md"
+            # Replace [Unreleased] header with [VERSION] - DATE, and add fresh [Unreleased]
+            sed -i "s/## \[Unreleased\]/## [Unreleased]\n\n### Changed\n\n### Fixed\n\n## [$CURRENT_VERSION] - $DATE/" "$CHANGELOG_FILE"
+          fi
+
+          # Extract release notes from root CHANGELOG.md (SSoT)
+          if grep -q "## \[$CURRENT_VERSION\]" "$CHANGELOG_FILE"; then
+            awk "/## \[$CURRENT_VERSION\]/,/^## \[/ {if (/## \[$CURRENT_VERSION\]/) next; if (/^## \[/) exit; print}" "$CHANGELOG_FILE" > release_notes_raw.md
             awk 'NF {p=1} p' release_notes_raw.md | awk '{a[NR]=$0} END {while(NR && !a[NR]) NR--; for(i=1;i<=NR;i++) print a[i]}' > release_notes.md
             rm -f release_notes_raw.md
           else

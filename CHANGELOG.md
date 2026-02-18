@@ -1,94 +1,29 @@
 # Changelog
 
 All notable changes to this project will be documented in this file.
+
 ## [Unreleased]
 
-### Added
-
-- **MCP**: Migrated to `FastMCP` for better DX and session management.
-- **MCP**: Added `httpStream` session tracking with 2-step handshake (POST /mcp -> GET /mcp).
-- **MCP**: Added `X-Client-Name` authentication to FastMCP core.
-- **MCP**: New `postbuild.js` script for portable shebang enforcement.
-
 ### Changed
 
-- **MCP**: Default transport endpoint moved from `/sse` to `/mcp`.
-- **Infrastructure**: Renamed `operation` column to `tool` in all audit tables.
-- **E2E**: Realignment of global setup and test suites with the new handshake protocol.
+- **MCP**: Migrated from custom Express server to **FastMCP** framework
+- **MCP**: Switched transport from legacy SSE to Streamable HTTP (`httpStream`)
+- **MCP**: Added native FastMCP authentication support
+- **MCP**: Disabled `stateless` mode to enable proper `mcp-session-id` generation
+- **MCP**: Made database migration errors fatal (`process.exit(1)`)
+- **E2E**: Extracted shared `FastMCPHandshakeTransport` test utility
+- **E2E**: Replaced hardcoded delays with event-driven stream readiness
+- **E2E**: Added MCP JSON-RPC protocol verification to `global-setup.ts`
+- **Release**: Switched to patch-by-default publish (no manual version_type input)
+- **Release**: Added `npm run version:minor` / `version:major` scripts for explicit bumps
 
 ### Fixed
 
-- **MCP**: Robust database migrations using `PRAGMA table_info`.
-- **Dashboard**: Added fallback support for legacy database schemas missing the `tool` column.
-- **CLI**: Restored `ollama` profile gating in docker-compose templates.
-
-
-## [0.13.16] - 2026-02-11
-
-### Added
-
-### Changed
-
-### Fixed
-
-### Removed
-
-
-## [0.13.14] - 2026-02-10
-
-### Added
-
-### Changed
-
-### Fixed
-
-### Removed
-
-
-## [0.13.13] - 2026-02-09
-
-### Added
-
-### Changed
-
-### Fixed
-
-### Removed
-
-
-## [0.13.12] - 2026-02-09
-
-### Added
-
-### Changed
-
-### Fixed
-
-### Removed
-
-
-## [0.13.11] - 2026-02-09
-
-### Added
-
-### Changed
-
-### Fixed
-
-### Removed
-
-
-## [0.13.10] - 2026-02-09
-
-### Added
-
-### Changed
-
-### Fixed
-
-### Removed
-
-
+- **MCP**: Fixed `stateless: true` suppressing session IDs in httpStream mode
+- **MCP**: Fixed CI E2E failures caused by missing `mcp-session-id` header
+- **MCP**: Fixed `update_memory` tool missing validation for required fields
+- **MCP**: Fixed migration logic for `cybermem_stats` table missing `tool` column fallback
+- **Dashboard**: Added fallback for legacy databases missing `tool` column in audit logs
 
 ## [0.13.9] - 2026-02-09
 
