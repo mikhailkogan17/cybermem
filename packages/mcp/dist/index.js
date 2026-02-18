@@ -41,6 +41,7 @@ const logActivity = async (tool, status = 200) => {
     try {
         const ctx = requestContext.getStore();
         const client = ctx?.clientName || "unknown";
+        console.log(`[MCP-LOG] client=${client} tool=${tool} status=${status}`);
         const ts = Date.now();
         const isError = status >= 400 ? 1 : 0;
         await (0, db_js_1.run_async)("INSERT INTO cybermem_access_log (timestamp, client_name, client_version, method, endpoint, tool, status, is_error) VALUES (?, ?, ?, 'POST', '/mcp', ?, ?, ?)", [ts, client, PACKAGE_VERSION, tool, status.toString(), isError]);
@@ -244,7 +245,7 @@ async function main() {
                 port,
                 host: "0.0.0.0",
                 endpoint: "/mcp",
-                stateless: false,
+                stateless: true,
                 enableJsonResponse: true,
             }
             : undefined,

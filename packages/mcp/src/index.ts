@@ -12,8 +12,8 @@ import { z } from "zod";
 import { all_async, run_async } from "openmemory-js/dist/core/db.js";
 import { Memory } from "openmemory-js/dist/core/memory.js";
 import {
-  reinforce_memory,
-  update_memory,
+    reinforce_memory,
+    update_memory,
 } from "openmemory-js/dist/memory/hsg.js";
 
 // --- TYPES ---
@@ -60,6 +60,7 @@ const logActivity = async (tool: string, status: number = 200) => {
   try {
     const ctx = requestContext.getStore();
     const client = ctx?.clientName || "unknown";
+    console.log(`[MCP-LOG] client=${client} tool=${tool} status=${status}`);
     const ts = Date.now();
     const isError = status >= 400 ? 1 : 0;
 
@@ -324,7 +325,7 @@ async function main() {
           port,
           host: "0.0.0.0",
           endpoint: "/mcp",
-          stateless: false,
+          stateless: true,
           enableJsonResponse: true,
         }
       : undefined,

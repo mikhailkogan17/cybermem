@@ -48,7 +48,9 @@ async function setupNetworkLogging(
         .map((l) =>
           l.type === "REQUEST"
             ? `📤 ${l.method} ${l.url}`
-            : `📥 ${l.status} ${l.url}${l.body ? `\n   ${l.body.substring(0, 200)}...` : ""}`,
+            : `📥 ${l.status} ${l.url}${
+                l.body ? `\n   ${l.body.substring(0, 200)}...` : ""
+              }`,
         )
         .join("\n"),
       contentType: "text/plain",
@@ -176,11 +178,11 @@ test.describe("Dashboard:E2E:UI (High-Fidelity Mocks)", () => {
                 id: "log-1",
                 timestamp: Date.now(), // Use numeric timestamp for proper formatting
                 client: MOCK_IDENTITY_WRITER,
-                operation: "Write",
+                tool: "Write",
                 method: "POST",
-                endpoint: "/add",
+                endpoint: "/mcp",
                 status: "Success",
-                description: "/add",
+                description: "/mcp",
               },
             ],
             pagination: { currentPage: 1, totalPages: 1, totalItems: 1 },
@@ -239,7 +241,9 @@ test.describe("Dashboard:E2E:UI (High-Fidelity Mocks)", () => {
 
     // Attach applied mocks summary to trace
     await testInfo.attach("📋 Applied Mocks", {
-      body: `Mocks configured for this test:\n\n${appliedMocks.map((m) => `✅ ${m.endpoint}\n   ${m.description}`).join("\n\n")}`,
+      body: `Mocks configured for this test:\n\n${appliedMocks
+        .map((m) => `✅ ${m.endpoint}\n   ${m.description}`)
+        .join("\n\n")}`,
       contentType: "text/plain",
     });
   });

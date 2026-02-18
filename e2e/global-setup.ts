@@ -137,6 +137,24 @@ async function globalSetup(_config: FullConfig) {
     );
   }
 
+  // Step 2.5: Force-restart MCP container to ensure fresh SQLite connections
+  // This prevents SQLITE_CORRUPT errors caused by stale WAL/journal files
+  // lingering from the reset step
+  console.log("🔄 [2.5/3] Restarting MCP container for clean DB state...");
+  const restartResult = runCLI(
+    "docker-compose -p cybermem -f packages/cli/templates/docker-compose.yml restart mcp-server",
+  );
+  if (restartResult.success) {
+    console.log("   ✅ MCP container restarted");
+  } else {
+    console.log(
+      "   ⚠️  Restart failed:",
+      restartResult.stdout.substring(0, 200),
+    );
+  }
+  // Small delay for container to initialize
+  await new Promise((resolve) => setTimeout(resolve, 3000));
+
   // Step 3: Wait for MCP API to be fully ready (prevents "Bad Gateway")
   console.log("🔄 [3/3] Health check — waiting for MCP API...");
   const isReady = await waitForMCPReady(MCP_URL, 30000);
