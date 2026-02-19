@@ -6,6 +6,12 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 
+### Fixed
+
+## [0.15.0] - 2026-02-19
+
+### Changed
+
 - **MCP**: Migrated from custom Express server to **FastMCP** framework
 - **MCP**: Switched transport from legacy SSE to Streamable HTTP (`httpStream`)
 - **MCP**: Added native FastMCP authentication support
