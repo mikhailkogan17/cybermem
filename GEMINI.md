@@ -110,10 +110,11 @@ To Ensure "Always Availability" and shorter token usage, follow this strict cycl
 3. **NO ENV LEAKAGE**: Public MCP config MUST NOT use internal Docker envs.
 4. **ARGS > ENVS**: High-level config passed via CLI args.
 5. **IDENTITY LAW**: `X-Client-Name` MUST be strictly `antigravity` or `antigravity-client`.
-6. **CLI-ONLY DEPLOYMENT**: Deploy via `@cybermem/cli`.
-7. **MANDATORY ENV TAGGING**: `CYBERMEM_ENV`, `CYBERMEM_INSTANCE` must be set.
-8. **ZERO DIRECT PORT EXPOSURE**: All access via Traefik (8625/8626).
-9. **NO TOKENS IN ENVS**: Use Docker Secrets.
+6. **STRICT BRANCH NAMING**: All branches MUST follow the format `<type>/CM-<number>-<description>`. Types: `feat`, `fix`, `chore`, `docs`, `test`. Example: `fix/CM-0-mcp-stdio-attribution`.
+7. **CLI-ONLY DEPLOYMENT**: Deploy via `@cybermem/cli`.
+8. **MANDATORY ENV TAGGING**: `CYBERMEM_ENV`, `CYBERMEM_INSTANCE` must be set.
+9. **ZERO DIRECT PORT EXPOSURE**: All access via Traefik (8625/8626).
+10. **NO TOKENS IN ENVS**: Use Docker Secrets.
 
 ## 1.5 MANDATORY AGENT PROTOCOL (CI & DangerJS)
 
@@ -137,8 +138,10 @@ To Ensure "Always Availability" and shorter token usage, follow this strict cycl
 | `feat`          | `.github/PULL_REQUEST_TEMPLATE/feature.md` | Must include Decomposition & Verification headers. |
 | `fix`           | `.github/PULL_REQUEST_TEMPLATE/bugfix.md`  | Must include Analysis & Root Cause headers.        |
 
-1.  **Work**: Agent commits to `feat/*` or `chore/*` branches with `Antigravity Agent` git config.
+1.  **Work**: Agent commits to `<type>/CM-<number>-<description>` branches (e.g. `feat/CM-42-new-logic` or `fix/CM-0-local-fix`) with `Antigravity Agent` git config.
 2.  **Template Verification**: BEFORE calling GitHub MCP, Agent MUST verify that the PR body contains all headers from the required template.
+    - **Fix PRs MUST include**: `## Analysis`, `### Symptom`, `### Root Cause`, `### Fix Strategy`, `### Prevention`, `## Verification`.
+    - **Feature PRs MUST include**: `Decomposition`, `Verification`.
 3.  **PR Creation**: Agent uses `mcp_github_create_pull_request` to open the PR.
     > [!CAUTION]
     > **STRICT PROHIBITION: NO `gh pr create`**

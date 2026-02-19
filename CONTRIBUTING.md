@@ -74,6 +74,15 @@ npm link
 1. **Architecture**: CyberMem integrates the `openmemory-js` Core Memory Engine (via npm) with Traefik as the API gateway.
 2. **Commit Messages**: Follow [Conventional Commits](https://www.conventionalcommits.org/) (e.g., `feat:`, `fix:`, `docs:`).
 3. **Linting**: Ensure `npm run lint` passes before pushing.
+4. **Branch Naming**: 
+   All branches MUST follow the format: `<type>/CM-<number>-<description>`
+   - Types: `feat`, `fix`, `chore`, `docs`, `test`
+   - Example: `fix/CM-0-mcp-stdio-attribution`
+5. **Pull Requests**:
+   Agent PRs MUST use the provided templates and include mandatory headers:
+   - **Bugfixes**: `Analysis`, `Symptom`, `Root Cause`, `Fix Strategy`, `Prevention`, `Verification`.
+   - **Features**: `Decomposition`, `Verification`.
+   - PRs failing these requirements will be blocked by CI.
 
 ## 📦 Release Process
 

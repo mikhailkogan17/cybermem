@@ -148,6 +148,31 @@ interface AuthContext {
   [key: string]: unknown;
 }
 
+/**
+ * Extended context for MCP tools to handle STDIO client attribution.
+ */
+interface ToolContext {
+  session?: AuthContext;
+  client?: {
+    version: {
+      name: string;
+    };
+  };
+}
+
+/**
+ * Derives the client name from the tool execution context.
+ * Falls back to handshake client name if session is 'stdio'.
+ */
+function getClientName(context: any): string {
+  const ctx = context as ToolContext;
+  const sessionName = ctx.session?.clientName;
+  if (sessionName === "stdio" && ctx.client?.version?.name) {
+    return ctx.client.version.name;
+  }
+  return sessionName || "unknown";
+}
+
 const server = new FastMCP<AuthContext>({
   name: "cybermem",
   version: VALID_VERSION,
@@ -188,11 +213,7 @@ server.addTool({
     tags: z.array(z.string()).optional().describe("Category tags"),
   }),
   execute: async (args, context) => {
-    const clientName =
-      context.session?.clientName === "stdio" &&
-      (context as any).client?.version?.name
-        ? (context as any).client.version.name
-        : context.session?.clientName;
+    const clientName = getClientName(context);
 
     return requestContext.run({ clientName }, async () => {
       try {
@@ -215,11 +236,7 @@ server.addTool({
     k: z.number().default(5).describe("Number of results"),
   }),
   execute: async (args, context) => {
-    const clientName =
-      context.session?.clientName === "stdio" &&
-      (context as any).client?.version?.name
-        ? (context as any).client.version.name
-        : context.session?.clientName;
+    const clientName = getClientName(context);
 
     return requestContext.run({ clientName }, async () => {
       try {
@@ -249,11 +266,7 @@ server.addTool({
       path: ["content"],
     }),
   execute: async (args, context) => {
-    const clientName =
-      context.session?.clientName === "stdio" &&
-      (context as any).client?.version?.name
-        ? (context as any).client.version.name
-        : context.session?.clientName;
+    const clientName = getClientName(context);
 
     return requestContext.run({ clientName }, async () => {
       try {
@@ -279,11 +292,7 @@ server.addTool({
       .describe("Relevance boost amount (0.0 to 1.0)"),
   }),
   execute: async (args, context) => {
-    const clientName =
-      context.session?.clientName === "stdio" &&
-      (context as any).client?.version?.name
-        ? (context as any).client.version.name
-        : context.session?.clientName;
+    const clientName = getClientName(context);
 
     return requestContext.run({ clientName }, async () => {
       try {
@@ -305,11 +314,7 @@ server.addTool({
     id: z.string().describe("Memory ID"),
   }),
   execute: async (args, context) => {
-    const clientName =
-      context.session?.clientName === "stdio" &&
-      (context as any).client?.version?.name
-        ? (context as any).client.version.name
-        : context.session?.clientName;
+    const clientName = getClientName(context);
 
     return requestContext.run({ clientName }, async () => {
       try {
