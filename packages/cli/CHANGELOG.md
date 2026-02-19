@@ -1,5 +1,11 @@
 # @cybermem/cli
 
+## 0.16.0
+
+### Minor Changes
+
+- [#140](https://github.com/mikhailkogan17/cybermem/pull/140) [`bcf40e2`](https://github.com/mikhailkogan17/cybermem/commit/bcf40e2173ad66214cfc6089d45481966255581d) Thanks [@mikhailkogan17-antigravity](https://github.com/mikhailkogan17-antigravity)! - Moved server tools usage to FastMCP
+
 ## 0.15.0
 
 ### Minor Changes
