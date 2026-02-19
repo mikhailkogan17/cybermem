@@ -431,6 +431,7 @@ jobs:
           if [ -f "$CHANGELOG_FILE" ] && grep -q '\[Unreleased\]' "$CHANGELOG_FILE"; then
             echo "📝 Moving [Unreleased] to [$CURRENT_VERSION] in CHANGELOG.md"
             # Replace [Unreleased] header with [VERSION] - DATE, and add fresh [Unreleased]
+            # Note: sed -i with \n works on GNU sed (Linux/GitHub Actions runners)
             sed -i "s/## \[Unreleased\]/## [Unreleased]\n\n### Changed\n\n### Fixed\n\n## [$CURRENT_VERSION] - $DATE/" "$CHANGELOG_FILE"
           fi
 

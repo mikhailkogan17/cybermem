@@ -20,8 +20,8 @@
     "mcp:dev": "npm run dev -w packages/mcp",
     "changeset": "changeset",
     "version": "changeset version",
-    "version:minor": "node -e \"const fs=require('fs');const{randomUUID}=require('crypto');const id=randomUUID();const file='.changeset/'+id+'.md';if(fs.existsSync(file)){throw new Error('Changeset already exists: '+file);}fs.writeFileSync(file,'---\\n\\\"@cybermem/cli\\\": minor\\n\\\"@cybermem/mcp\\\": minor\\n\\\"@cybermem/dashboard\\\": minor\\n---\\n\\nMinor version bump.\\n');console.log('✅ Created minor changeset: '+file)\"",
-    "version:major": "node -e \"const fs=require('fs');const{randomUUID}=require('crypto');const id=randomUUID();const file='.changeset/'+id+'.md';if(fs.existsSync(file)){throw new Error('Changeset already exists: '+file);}fs.writeFileSync(file,'---\\n\\\"@cybermem/cli\\\": major\\n\\\"@cybermem/mcp\\\": major\\n\\\"@cybermem/dashboard\\\": major\\n---\\n\\nMajor version bump.\\n');console.log('✅ Created major changeset: '+file)\"",
+    "version:minor": "node -e \"const fs=require('fs');const{randomUUID}=require('crypto');const id=randomUUID();const file='.changeset/'+id+'.md';fs.writeFileSync(file,'---\\n\\\"@cybermem/cli\\\": minor\\n\\\"@cybermem/mcp\\\": minor\\n\\\"@cybermem/dashboard\\\": minor\\n---\\n\\nMinor version bump.\\n');console.log('✅ Created minor changeset: '+file)\"",
+    "version:major": "node -e \"const fs=require('fs');const{randomUUID}=require('crypto');const id=randomUUID();const file='.changeset/'+id+'.md';fs.writeFileSync(file,'---\\n\\\"@cybermem/cli\\\": major\\n\\\"@cybermem/mcp\\\": major\\n\\\"@cybermem/dashboard\\\": major\\n---\\n\\nMajor version bump.\\n');console.log('✅ Created major changeset: '+file)\"",
     "release": "npm run build && changeset publish"
   },
   "devDependencies": {
