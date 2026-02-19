@@ -12,7 +12,14 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 
+- **MCP**: Extracted `getClientName` helper for centralized client attribution logic
+- **MCP**: Refactored tools to use `ToolContext` for better type-safety
+- **E2E**: Added automated STDIO attribution verification (`packages/mcp/e2e/stdio_attribution.spec.ts`)
+- **E2E**: Added manual verification script (`tools/verify_attribution.js`)
+
 ### Fixed
+
+- **MCP**: Fixed attribution for local STDIO clients (e.g. Antigravity) using `clientInfo` from handshake
 
 ## [0.15.0] - 2026-02-19
 
