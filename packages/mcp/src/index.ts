@@ -12,8 +12,8 @@ import { z } from "zod";
 import { all_async, run_async } from "openmemory-js/dist/core/db.js";
 import { Memory } from "openmemory-js/dist/core/memory.js";
 import {
-    reinforce_memory,
-    update_memory,
+  reinforce_memory,
+  update_memory,
 } from "openmemory-js/dist/memory/hsg.js";
 
 // --- TYPES ---
@@ -154,6 +154,10 @@ const server = new FastMCP<AuthContext>({
   instructions: CYBERMEM_INSTRUCTIONS,
   health: { enabled: true, path: "/health" },
   authenticate: async (req) => {
+    // STDIO transport doesn't provide an HTTP request object
+    if (!req?.headers) {
+      return { clientName: "stdio" };
+    }
     const clientName = (req.headers["x-client-name"] ||
       req.headers["X-Client-Name"] ||
       "unknown") as string;
