@@ -148,6 +148,31 @@ interface AuthContext {
   [key: string]: unknown;
 }
 
+/**
+ * Extended context for MCP tools to handle STDIO client attribution.
+ */
+interface ToolContext {
+  session?: AuthContext;
+  client?: {
+    version: {
+      name: string;
+    };
+  };
+}
+
+/**
+ * Derives the client name from the tool execution context.
+ * Falls back to handshake client name if session is 'stdio'.
+ */
+function getClientName(context: any): string {
+  const ctx = context as ToolContext;
+  const sessionName = ctx.session?.clientName;
+  if (sessionName === "stdio" && ctx.client?.version?.name) {
+    return ctx.client.version.name;
+  }
+  return sessionName || "unknown";
+}
+
 const server = new FastMCP<AuthContext>({
   name: "cybermem",
   version: VALID_VERSION,
@@ -188,19 +213,18 @@ server.addTool({
     tags: z.array(z.string()).optional().describe("Category tags"),
   }),
   execute: async (args, context) => {
-    return requestContext.run(
-      { clientName: context.session?.clientName },
-      async () => {
-        try {
-          const res = await memory.add(args.content, { tags: args.tags });
-          await logActivity("add_memory");
-          return JSON.stringify(res);
-        } catch (err: any) {
-          await logActivity("add_memory", 500);
-          throw err;
-        }
-      },
-    );
+    const clientName = getClientName(context);
+
+    return requestContext.run({ clientName }, async () => {
+      try {
+        const res = await memory.add(args.content, { tags: args.tags });
+        await logActivity("add_memory");
+        return JSON.stringify(res);
+      } catch (err: any) {
+        await logActivity("add_memory", 500);
+        throw err;
+      }
+    });
   },
 });
 
@@ -212,19 +236,18 @@ server.addTool({
     k: z.number().default(5).describe("Number of results"),
   }),
   execute: async (args, context) => {
-    return requestContext.run(
-      { clientName: context.session?.clientName },
-      async () => {
-        try {
-          const res = await memory.search(args.query, { limit: args.k });
-          await logActivity("query_memory");
-          return JSON.stringify(res);
-        } catch (err: any) {
-          await logActivity("query_memory", 500);
-          throw err;
-        }
-      },
-    );
+    const clientName = getClientName(context);
+
+    return requestContext.run({ clientName }, async () => {
+      try {
+        const res = await memory.search(args.query, { limit: args.k });
+        await logActivity("query_memory");
+        return JSON.stringify(res);
+      } catch (err: any) {
+        await logActivity("query_memory", 500);
+        throw err;
+      }
+    });
   },
 });
 
@@ -243,19 +266,18 @@ server.addTool({
       path: ["content"],
     }),
   execute: async (args, context) => {
-    return requestContext.run(
-      { clientName: context.session?.clientName },
-      async () => {
-        try {
-          const res = await update_memory(args.id, args.content, args.tags);
-          await logActivity("update_memory");
-          return JSON.stringify(res);
-        } catch (err: any) {
-          await logActivity("update_memory", 500);
-          throw err;
-        }
-      },
-    );
+    const clientName = getClientName(context);
+
+    return requestContext.run({ clientName }, async () => {
+      try {
+        const res = await update_memory(args.id, args.content, args.tags);
+        await logActivity("update_memory");
+        return JSON.stringify(res);
+      } catch (err: any) {
+        await logActivity("update_memory", 500);
+        throw err;
+      }
+    });
   },
 });
 
@@ -270,19 +292,18 @@ server.addTool({
       .describe("Relevance boost amount (0.0 to 1.0)"),
   }),
   execute: async (args, context) => {
-    return requestContext.run(
-      { clientName: context.session?.clientName },
-      async () => {
-        try {
-          await reinforce_memory(args.id, args.boost);
-          await logActivity("reinforce_memory");
-          return `Memory reinforced: ${args.id}`;
-        } catch (err: any) {
-          await logActivity("reinforce_memory", 500);
-          throw err;
-        }
-      },
-    );
+    const clientName = getClientName(context);
+
+    return requestContext.run({ clientName }, async () => {
+      try {
+        await reinforce_memory(args.id, args.boost);
+        await logActivity("reinforce_memory");
+        return `Memory reinforced: ${args.id}`;
+      } catch (err: any) {
+        await logActivity("reinforce_memory", 500);
+        throw err;
+      }
+    });
   },
 });
 
@@ -293,20 +314,19 @@ server.addTool({
     id: z.string().describe("Memory ID"),
   }),
   execute: async (args, context) => {
-    return requestContext.run(
-      { clientName: context.session?.clientName },
-      async () => {
-        try {
-          await run_async("DELETE FROM memories WHERE id=?", [args.id]);
-          await run_async("DELETE FROM vectors WHERE id=?", [args.id]);
-          await logActivity("delete_memory");
-          return "Deleted";
-        } catch (err: any) {
-          await logActivity("delete_memory", 500);
-          throw err;
-        }
-      },
-    );
+    const clientName = getClientName(context);
+
+    return requestContext.run({ clientName }, async () => {
+      try {
+        await run_async("DELETE FROM memories WHERE id=?", [args.id]);
+        await run_async("DELETE FROM vectors WHERE id=?", [args.id]);
+        await logActivity("delete_memory");
+        return "Deleted";
+      } catch (err: any) {
+        await logActivity("delete_memory", 500);
+        throw err;
+      }
+    });
   },
 });
 
