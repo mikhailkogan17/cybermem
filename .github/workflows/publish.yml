@@ -110,8 +110,18 @@ jobs:
           # Safety: check if this version is already published on npm
           NPM_CHECK_OUTPUT=$(npm view "@cybermem/cli@$VERSION" version 2>&1) || true
           if [ -n "$NPM_CHECK_OUTPUT" ] && echo "$NPM_CHECK_OUTPUT" | grep -qE "^[0-9]+\.[0-9]+\.[0-9]+"; then
-            echo "⚠️ Version $VERSION already published on npm — auto-bumping patch"
-            npm version patch --workspaces --no-git-tag-version
+            echo "⚠️ Version $VERSION already published on npm — auto-bumping via changeset"
+            BUMP_ID=$(node -p "require('crypto').randomUUID()")
+            cat > ".changeset/${BUMP_ID}.md" << 'CHANGESET'
+          ---
+          "@cybermem/cli": patch
+          "@cybermem/mcp": patch
+          "@cybermem/dashboard": patch
+          ---
+
+          Auto-bump: previous version already published.
+          CHANGESET
+            npm run version
             npm install --package-lock-only
             VERSION=$(node -p "require('./packages/cli/package.json').version")
             echo "📦 Auto-bumped to: $VERSION"
@@ -426,7 +436,12 @@ jobs:
 
           # Extract release notes from root CHANGELOG.md (SSoT)
           if grep -q "## \[$CURRENT_VERSION\]" "$CHANGELOG_FILE"; then
-            awk "/## \[$CURRENT_VERSION\]/,/^## \[/ {if (/## \[$CURRENT_VERSION\]/) next; if (/^## \[/) exit; print}" "$CHANGELOG_FILE" > release_notes_raw.md
+            awk "
+              BEGIN { in_section=0 }
+              /^## \[$CURRENT_VERSION\]/ { in_section=1; next }
+              /^## \[/ && in_section { exit }
+              in_section { print }
+            " "$CHANGELOG_FILE" > release_notes_raw.md
             awk 'NF {p=1} p' release_notes_raw.md | awk '{a[NR]=$0} END {while(NR && !a[NR]) NR--; for(i=1;i<=NR;i++) print a[i]}' > release_notes.md
             rm -f release_notes_raw.md
           else
