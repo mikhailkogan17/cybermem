@@ -60,9 +60,10 @@ export default function SettingsModal({ onClose }: { onClose: () => void }) {
         if (localKey && !data.isManaged) {
           setApiKey(localKey);
           // Mask the local key for display
-          const maskedLocal = localKey.length > 10 
-            ? `${localKey.slice(0, 7)}...${localKey.slice(-4)}`
-            : "****";
+          const maskedLocal =
+            localKey.length > 10
+              ? `${localKey.slice(0, 7)}...${localKey.slice(-4)}`
+              : "****";
           setApiKeyMasked(maskedLocal);
         } else {
           setApiKey(data.apiKey !== "not-set" ? data.apiKey : "");
@@ -120,7 +121,9 @@ export default function SettingsModal({ onClose }: { onClose: () => void }) {
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `cybermem-backup-${new Date().toISOString().split("T")[0]}.tar.gz`;
+      a.download = `cybermem-backup-${
+        new Date().toISOString().split("T")[0]
+      }.tar.gz`;
       document.body.appendChild(a);
       a.click();
       window.URL.revokeObjectURL(url);
@@ -262,6 +265,40 @@ export default function SettingsModal({ onClose }: { onClose: () => void }) {
             handleRestart={handleRestart}
             isRestarting={isRestarting}
           />
+
+          {/* Demo Mode — staging only */}
+          {settings?.env === "staging" && (
+            <section className="pb-4">
+              <h3 className="text-sm font-medium text-neutral-400 uppercase tracking-widest mb-4 flex items-center gap-2">
+                <span>🎬</span>
+                Developer
+              </h3>
+              <div className="bg-white/[0.032] border-[0.5px] border-white/10 rounded-2xl p-5 flex items-center justify-between">
+                <div>
+                  <div className="text-sm font-medium text-white">
+                    Demo Mode
+                  </div>
+                  <div className="text-xs text-neutral-500 mt-0.5">
+                    Show fake data — vscode, gemini, perplexity
+                  </div>
+                </div>
+                <button
+                  role="switch"
+                  aria-checked={isDemo}
+                  onClick={toggleDemo}
+                  className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                    isDemo ? "bg-emerald-500" : "bg-white/15"
+                  }`}
+                >
+                  <span
+                    className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                      isDemo ? "translate-x-5" : "translate-x-0"
+                    }`}
+                  />
+                </button>
+              </div>
+            </section>
+          )}
         </div>
 
         {/* Footer */}

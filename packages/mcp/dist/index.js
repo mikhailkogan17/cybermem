@@ -89,12 +89,41 @@ async function initialize() {
         process.exit(1);
     }
 }
+/**
+ * Derives the client name from the tool execution context.
+ *
+ * Priority:
+ * 1. STDIO: handshake clientInfo.name (via context.client.version.name)
+ * 2. HTTP with X-Client-Name header: the explicit header value
+ * 3. HTTP without header: handshake clientInfo.name as fallback
+ * 4. Last resort: "unknown"
+ */
+function getClientName(context) {
+    const ctx = context;
+    const sessionName = ctx.session?.clientName;
+    // FastMCP exposes MCP handshake clientInfo at context.client.version
+    const handshakeName = ctx.client?.version?.name;
+    // STDIO: always use handshake name (the real client identity)
+    if (sessionName === "stdio") {
+        return handshakeName || "unknown";
+    }
+    // HTTP: prefer explicit X-Client-Name header if it's meaningful
+    if (sessionName && sessionName !== "unknown") {
+        return sessionName;
+    }
+    // HTTP without header: fall back to handshake name
+    return handshakeName || sessionName || "unknown";
+}
 const server = new fastmcp_1.FastMCP({
     name: "cybermem",
     version: VALID_VERSION,
     instructions: CYBERMEM_INSTRUCTIONS,
     health: { enabled: true, path: "/health" },
     authenticate: async (req) => {
+        // STDIO transport doesn't provide an HTTP request object
+        if (!req?.headers) {
+            return { clientName: "stdio" };
+        }
         const clientName = (req.headers["x-client-name"] ||
             req.headers["X-Client-Name"] ||
             "unknown");
@@ -120,7 +149,8 @@ server.addTool({
         tags: zod_1.z.array(zod_1.z.string()).optional().describe("Category tags"),
     }),
     execute: async (args, context) => {
-        return requestContext.run({ clientName: context.session?.clientName }, async () => {
+        const clientName = getClientName(context);
+        return requestContext.run({ clientName }, async () => {
             try {
                 const res = await memory.add(args.content, { tags: args.tags });
                 await logActivity("add_memory");
@@ -141,7 +171,8 @@ server.addTool({
         k: zod_1.z.number().default(5).describe("Number of results"),
     }),
     execute: async (args, context) => {
-        return requestContext.run({ clientName: context.session?.clientName }, async () => {
+        const clientName = getClientName(context);
+        return requestContext.run({ clientName }, async () => {
             try {
                 const res = await memory.search(args.query, { limit: args.k });
                 await logActivity("query_memory");
@@ -168,7 +199,8 @@ server.addTool({
         path: ["content"],
     }),
     execute: async (args, context) => {
-        return requestContext.run({ clientName: context.session?.clientName }, async () => {
+        const clientName = getClientName(context);
+        return requestContext.run({ clientName }, async () => {
             try {
                 const res = await (0, hsg_js_1.update_memory)(args.id, args.content, args.tags);
                 await logActivity("update_memory");
@@ -192,7 +224,8 @@ server.addTool({
             .describe("Relevance boost amount (0.0 to 1.0)"),
     }),
     execute: async (args, context) => {
-        return requestContext.run({ clientName: context.session?.clientName }, async () => {
+        const clientName = getClientName(context);
+        return requestContext.run({ clientName }, async () => {
             try {
                 await (0, hsg_js_1.reinforce_memory)(args.id, args.boost);
                 await logActivity("reinforce_memory");
@@ -212,7 +245,8 @@ server.addTool({
         id: zod_1.z.string().describe("Memory ID"),
     }),
     execute: async (args, context) => {
-        return requestContext.run({ clientName: context.session?.clientName }, async () => {
+        const clientName = getClientName(context);
+        return requestContext.run({ clientName }, async () => {
             try {
                 await (0, db_js_1.run_async)("DELETE FROM memories WHERE id=?", [args.id]);
                 await (0, db_js_1.run_async)("DELETE FROM vectors WHERE id=?", [args.id]);

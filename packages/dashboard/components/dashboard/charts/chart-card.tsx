@@ -6,6 +6,80 @@ import { ChevronDown } from "lucide-react";
 import dynamic from "next/dynamic";
 import { useEffect, useRef, useState } from "react";
 
+// Pre-built demo timeseries (24h, 3 clients, cumulative counts)
+const DEMO_CLIENT_NAMES = ["VS Code", "Gemini", "Perplexity"];
+const DEMO_TIME_SERIES = (() => {
+  const now = Date.now();
+  const POINTS = 24;
+  const makeHour = (i: number) => {
+    const t = new Date(now - (POINTS - 1 - i) * 3600000);
+    return t.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  };
+  type Row = Record<string, number | string>;
+  const makeSeries = (c: number[], g: number[], p: number[]): Row[] =>
+    Array.from({ length: POINTS }, (_, i) => ({
+      time: makeHour(i),
+      "VS Code": c[i],
+      Gemini: g[i],
+      Perplexity: p[i],
+    }));
+  // Creates
+  const cC = [
+    20, 21, 22, 22, 22, 23, 25, 28, 32, 38, 44, 51, 58, 63, 67, 70, 74, 79, 84,
+    88, 89, 89, 89, 89,
+  ];
+  const gC = [
+    8, 8, 8, 8, 8, 9, 10, 12, 14, 17, 20, 23, 27, 29, 31, 33, 35, 36, 36, 36,
+    36, 36, 36, 36,
+  ];
+  const pC = [
+    15, 15, 15, 15, 16, 16, 18, 21, 24, 28, 32, 37, 43, 47, 50, 54, 58, 62, 64,
+    65, 65, 65, 65, 65,
+  ];
+  // Reads
+  const cR = [
+    45, 47, 48, 49, 50, 52, 56, 62, 70, 79, 89, 100, 112, 121, 128, 134, 140,
+    147, 153, 157, 160, 162, 163, 163,
+  ];
+  const gR = [
+    20, 20, 21, 21, 22, 23, 25, 28, 31, 35, 40, 46, 52, 57, 60, 63, 66, 68, 70,
+    72, 73, 73, 73, 73,
+  ];
+  const pR = [
+    30, 31, 31, 32, 32, 34, 37, 42, 48, 55, 63, 72, 81, 88, 93, 98, 103, 108,
+    112, 115, 116, 117, 117, 117,
+  ];
+  // Updates
+  const cU = [
+    5, 5, 5, 5, 5, 5, 6, 7, 8, 9, 11, 13, 15, 16, 17, 18, 19, 20, 21, 22, 22,
+    22, 22, 22,
+  ];
+  const gU = [
+    2, 2, 2, 2, 2, 2, 3, 3, 4, 4, 5, 6, 7, 7, 8, 8, 9, 9, 10, 10, 10, 10, 10,
+    10,
+  ];
+  const pU = [
+    3, 3, 3, 3, 3, 3, 4, 5, 5, 6, 7, 8, 9, 10, 11, 11, 12, 12, 13, 13, 14, 14,
+    14, 14,
+  ];
+  // Deletes
+  const cD = [
+    1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 3, 3, 3, 3, 4, 4, 4, 4, 4, 4, 4, 4, 4,
+  ];
+  const gD = [
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2,
+  ];
+  const pD = [
+    1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 2, 3, 3, 3, 3, 3, 3, 3,
+  ];
+  return {
+    creates: makeSeries(cC, gC, pC),
+    reads: makeSeries(cR, gR, pR),
+    updates: makeSeries(cU, gU, pU),
+    deletes: makeSeries(cD, gD, pD),
+  };
+})();
+
 // Dynamic import with SSR disabled
 const MemoryChart = dynamic(() => import("./memory-chart"), { ssr: false });
 
@@ -36,7 +110,7 @@ const periods = [
 ];
 
 export default function ChartCard({ service }: ChartCardProps) {
-  const { refreshSignal, clientConfigs } = useDashboard();
+  const { refreshSignal, clientConfigs, isDemo } = useDashboard();
   const [period, setPeriod] = useState("24h");
   const [hovered, setHovered] = useState<string | null>(null);
   const [data, setData] = useState<any[]>([]);
@@ -48,6 +122,22 @@ export default function ChartCard({ service }: ChartCardProps) {
   useEffect(() => {
     async function fetchData() {
       if (isInitialLoad.current) setLoading(true);
+
+      // Demo mode: use static fake data, skip network fetch
+      if (isDemo) {
+        const key = service.includes("Creates")
+          ? "creates"
+          : service.includes("Reads")
+          ? "reads"
+          : service.includes("Updates")
+          ? "updates"
+          : "deletes";
+        setData(DEMO_TIME_SERIES[key] as any[]);
+        setClientNames(DEMO_CLIENT_NAMES);
+        setLoading(false);
+        isInitialLoad.current = false;
+        return;
+      }
 
       try {
         const res = await fetch(`/api/metrics?period=${period}`);
@@ -134,7 +224,7 @@ export default function ChartCard({ service }: ChartCardProps) {
       }
     }
     fetchData();
-  }, [period, service, refreshSignal]);
+  }, [period, service, refreshSignal, isDemo]);
 
   const isMultiSeries = clientNames.length > 0;
 

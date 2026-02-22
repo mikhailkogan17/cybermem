@@ -36,7 +36,7 @@
   {
     "id": "vscode",
     "name": "VS Code",
-    "match": "vscode|copilot",
+    "match": "vscode|vs code|copilot",
     "color": "#23a9f2",
     "icon": "/icons/vscode.png",
     "description": "VS Code requires the MCP Servers extension for MCP support.",
@@ -146,9 +146,9 @@
   },
   {
     "id": "gemini-cli",
-    "name": "Gemini CLI",
+    "name": "Gemini",
     "match": "gemini",
-    "color": "#9ca3af",
+    "color": "#8b5cf6",
     "icon": "/icons/gemini.png",
     "description": "Gemini CLI supports MCP servers via stdio transport.",
     "steps": [
