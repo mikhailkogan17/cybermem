@@ -320,7 +320,7 @@ test.describe("Dashboard:E2E:API (Deep Verification)", () => {
       }
 
       expect(latestLog).toBeDefined();
-      expect(latestLog.tool).toBe("Write");
+      expect(latestLog.tool).toBe("add_memory");
 
       await testInfo.attach("📋 Audit Log Entry", {
         body: `Found: ${latestLog ? "YES" : "NO"}\nClient: ${

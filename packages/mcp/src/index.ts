@@ -156,7 +156,6 @@ interface ToolContext {
   client?: {
     version: {
       name: string;
-      version: string;
     };
   };
 }
@@ -178,16 +177,21 @@ function getClientName(context: any): string {
 
   // STDIO: always use handshake name (the real client identity)
   if (sessionName === "stdio") {
-    return handshakeName || "unknown";
+    return sanitizeClientName(handshakeName || "unknown");
   }
 
   // HTTP: prefer explicit X-Client-Name header if it's meaningful
   if (sessionName && sessionName !== "unknown") {
-    return sessionName;
+    return sanitizeClientName(sessionName);
   }
 
   // HTTP without header: fall back to handshake name
-  return handshakeName || sessionName || "unknown";
+  return sanitizeClientName(handshakeName || sessionName || "unknown");
+}
+
+/** Strip control characters and truncate to prevent log injection. */
+function sanitizeClientName(name: string): string {
+  return name.replace(/[\x00-\x1f\x7f]/g, "").slice(0, 64);
 }
 
 const server = new FastMCP<AuthContext>({
