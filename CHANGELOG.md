@@ -8,6 +8,12 @@ All notable changes to this project will be documented in this file.
 
 ### Fixed
 
+## [0.16.1] - 2026-02-22
+
+### Changed
+
+### Fixed
+
 ## [0.16.0] - 2026-02-19
 
 ### Changed
