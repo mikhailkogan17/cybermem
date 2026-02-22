@@ -19,7 +19,7 @@ All notable changes to this project will be documented in this file.
 
 ### Fixed
 
-- **MCP**: Fixed attribution for local STDIO clients (e.g. Antigravity) using `clientInfo` from handshake
+- **MCP**: Fixed local STDIO clients being reported as generic `example-client` instead of their real names (e.g. `claude-desktop`, `cursor`, `github-copilot`) by using handshake `clientInfo` for attribution
 
 ## [0.15.0] - 2026-02-19
 

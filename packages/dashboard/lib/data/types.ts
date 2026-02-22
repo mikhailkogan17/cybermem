@@ -25,6 +25,7 @@ export interface AuditLogEntry {
   date: string;
   client: string;
   operation: string;
+  tool?: string;
   status: string;
   description: string;
   timestamp: number;

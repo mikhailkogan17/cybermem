@@ -12,8 +12,8 @@ import { z } from "zod";
 import { all_async, run_async } from "openmemory-js/dist/core/db.js";
 import { Memory } from "openmemory-js/dist/core/memory.js";
 import {
-  reinforce_memory,
-  update_memory,
+    reinforce_memory,
+    update_memory,
 } from "openmemory-js/dist/memory/hsg.js";
 
 // --- TYPES ---
@@ -162,15 +162,36 @@ interface ToolContext {
 
 /**
  * Derives the client name from the tool execution context.
- * Falls back to handshake client name if session is 'stdio'.
+ *
+ * Priority:
+ * 1. STDIO: handshake clientInfo.name (via context.client.version.name)
+ * 2. HTTP with X-Client-Name header: the explicit header value
+ * 3. HTTP without header: handshake clientInfo.name as fallback
+ * 4. Last resort: "unknown"
  */
 function getClientName(context: any): string {
   const ctx = context as ToolContext;
   const sessionName = ctx.session?.clientName;
-  if (sessionName === "stdio" && ctx.client?.version?.name) {
-    return ctx.client.version.name;
+  // FastMCP exposes MCP handshake clientInfo at context.client.version
+  const handshakeName = ctx.client?.version?.name;
+
+  // STDIO: always use handshake name (the real client identity)
+  if (sessionName === "stdio") {
+    return sanitizeClientName(handshakeName || "unknown");
   }
-  return sessionName || "unknown";
+
+  // HTTP: prefer explicit X-Client-Name header if it's meaningful
+  if (sessionName && sessionName !== "unknown") {
+    return sanitizeClientName(sessionName);
+  }
+
+  // HTTP without header: fall back to handshake name
+  return sanitizeClientName(handshakeName || sessionName || "unknown");
+}
+
+/** Strip control characters and truncate to prevent log injection. */
+function sanitizeClientName(name: string): string {
+  return name.replace(/[\x00-\x1f\x7f]/g, "").slice(0, 64);
 }
 
 const server = new FastMCP<AuthContext>({
